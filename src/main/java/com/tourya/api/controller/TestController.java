@@ -15,7 +15,7 @@ public class TestController {
     @GetMapping("/connectionTest")
     public Map<String, String> connectionTourya(){
         HashMap<String, String> stringHashMap = new HashMap<>();
-        stringHashMap.put("connection", "Successful connection Api Tourya");
+        stringHashMap.put("connection", "Successful connection Api Tourya con Actions");
         return stringHashMap;
     }
 }
