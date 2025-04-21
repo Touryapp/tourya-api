@@ -1,0 +1,22 @@
+name: Build and Test Development
+on:
+  pull_request:
+    types: [ opened, synchronize, reopened ]
+    branches:
+      - develop
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - run: echo "User name is ${{github.actor}}"
+
+      - name: Display runner os
+        run: echo "Runner os is ${{runner.os}}"
+
+      - run: echo "Repository is ${{github.repository}} and branch is ${{github.ref}}"
+
+      - run: echo "Event ${{github.event_name}} triggered the workflow"
+
+      - run: echo "Pasos para un pull request en develop"
