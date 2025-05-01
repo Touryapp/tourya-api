@@ -9,6 +9,7 @@ import com.tourya.api.config.auth.request.RegistrationRequest;
 import com.tourya.api.config.auth.response.AuthenticationResponse;
 import com.tourya.api.config.security.JwtService;
 import com.tourya.api.constans.enums.EmailTemplateNameEnum;
+import com.tourya.api.exceptions.EmailAlreadyExistsException;
 import com.tourya.api.models.Token;
 import com.tourya.api.models.User;
 import com.tourya.api.repository.RoleRepository;
@@ -47,13 +48,16 @@ public class AuthenticationService {
     private String googleClientId;
 
     public void register(RegistrationRequest request) throws MessagingException {
+        if (userRepository.findByEmail(request.getEmail().toLowerCase()).isPresent()) {
+            throw new EmailAlreadyExistsException("Email address already exists: " + request.getEmail());
+        }
         var userRole = roleRepository.findByName("USER")
                 // todo - better exception handling
                 .orElseThrow(() -> new IllegalStateException("ROLE USER was not initiated"));
         var user = User.builder()
                 .firstname(request.getFirstname())
                 .lastname(request.getLastname())
-                .email(request.getEmail())
+                .email(request.getEmail().toLowerCase())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .accountLocked(false)
                 .enabled(false)
@@ -153,7 +157,7 @@ public class AuthenticationService {
                 String firstname = (String) payload.get("given_name");
                 String lastname = (String) payload.get("family_name");
 
-                User user = userRepository.findByEmail(email).orElse(null);
+                User user = userRepository.findByEmail(email.toLowerCase()).orElse(null);
 
                 if (user == null) {
                     // Registrar al usuario
@@ -164,7 +168,7 @@ public class AuthenticationService {
                     User newUser = User.builder()
                             .firstname(firstname)
                             .lastname(lastname)
-                            .email(email)
+                            .email(email.toLowerCase())
                             .password(passwordEncoder.encode(tempPassword))
                             .accountLocked(false)
                             .enabled(true) // Google ya verificó el correo electrónico
