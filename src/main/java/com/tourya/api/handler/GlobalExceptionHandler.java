@@ -2,6 +2,7 @@ package com.tourya.api.handler;
 
 
 import com.tourya.api.exceptions.EmailAlreadyExistsException;
+import com.tourya.api.exceptions.EmailInvalidFormatException;
 import jakarta.mail.MessagingException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -18,6 +19,7 @@ import static com.tourya.api.handler.BusinessErrorCodes.ACCOUNT_DISABLED;
 import static com.tourya.api.handler.BusinessErrorCodes.ACCOUNT_LOCKED;
 import static com.tourya.api.handler.BusinessErrorCodes.BAD_CREDENTIALS;
 import static com.tourya.api.handler.BusinessErrorCodes.EMAIL_ALREADY_EXISTS;
+import static com.tourya.api.handler.BusinessErrorCodes.EMAIL_INVALID_FORMAT;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
@@ -139,6 +141,18 @@ public class GlobalExceptionHandler {
                         ExceptionResponse.builder()
                                 .businessErrorCode(EMAIL_ALREADY_EXISTS.getCode())
                                 .businessErrorDescription(EMAIL_ALREADY_EXISTS.getDescription())
+                                .error(exp.getMessage())
+                                .build()
+                );
+    }
+    @ExceptionHandler(EmailInvalidFormatException.class)
+    public ResponseEntity<ExceptionResponse> handleException(EmailInvalidFormatException exp) {
+        return ResponseEntity
+                .status(BAD_REQUEST)
+                .body(
+                        ExceptionResponse.builder()
+                                .businessErrorCode(EMAIL_INVALID_FORMAT.getCode())
+                                .businessErrorDescription(EMAIL_INVALID_FORMAT.getDescription())
                                 .error(exp.getMessage())
                                 .build()
                 );
