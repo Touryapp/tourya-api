@@ -1,0 +1,161 @@
+sudo yum install -y codedeploy-agent
+sudo systemctl start codedeploy-agent
+sudo systemctl enable codedeploy-agent
+
+1. Crear un Rol IAM para la Instancia EC2
+Ve a la consola de IAM en AWS.
+Haz clic en Roles > Create role.
+Selecciona AWS Service como tipo de entidad confiable.
+Elige EC2 como servicio que usará el rol.
+Haz clic en Next para agregar permisos.
+2. Políticas Necesarias
+Agrega las siguientes políticas al rol:
+
+a. AmazonEC2ContainerRegistryReadOnly
+Esta política permite que la instancia EC2 acceda a Amazon ECR para descargar imágenes Docker.
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ecr:GetAuthorizationToken",
+                "ecr:BatchCheckLayerAvailability",
+                "ecr:GetDownloadUrlForLayer",
+                "ecr:BatchGetImage"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+
+b. AmazonSSMManagedInstanceCore
+Esta política permite que la instancia EC2 se registre en AWS Systems Manager (necesario para CodeDeploy).
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ssm:DescribeInstanceInformation",
+                "ssm:GetCommandInvocation",
+                "ssm:SendCommand",
+                "ssm:ListCommandInvocations",
+                "ssmmessages:*",
+                "ec2messages:*"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+
+c. AmazonS3ReadOnlyAccess (Opcional)
+Si necesitas que la instancia EC2 acceda a artefactos almacenados en S3 (por ejemplo, para CodeDeploy), agrega esta política.
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:ListBucket"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+
+3. Asociar el Rol a la Instancia EC2
+Ve a la consola de EC2.
+Selecciona tu instancia EC2.
+Haz clic en Actions > Security > Modify IAM Role.
+Selecciona el rol IAM que acabas de crear y haz clic en Save.
+4. Verificar la Configuración
+Conéctate a tu instancia EC2.
+
+Verifica que el rol esté funcionando correctamente ejecutando el siguiente comando:
+
+curl http://169.254.169.254/latest/meta-data/iam/security-credentials/
+
+Esto debería devolver el nombre del rol asociado.
+
+Asegúrate de que la instancia pueda acceder a Amazon ECR:
+
+aws ecr get-login-password --region <REGION> | docker login --username AWS --password-stdin <AWS_ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com
+
+---------------------------
+#!/bin/bash
+
+echo "Iniciando despliegue en EC2..."
+
+# ARN del secreto en AWS Secrets Manager
+SECRET_ARN="arn:aws:secretsmanager:us-east-1:<AWS_ACCOUNT_ID>:secret:your-secret-name"
+
+# Obtener los secretos desde AWS Secrets Manager
+SECRETS=$(aws secretsmanager get-secret-value --secret-id $SECRET_ARN --query SecretString --output text)
+
+# Extraer las variables desde el JSON
+DB_USER=$(echo $SECRETS | jq -r '.DB_USER')
+DB_PASSWORD=$(echo $SECRETS | jq -r '.DB_PASSWORD')
+DB_HOST=$(echo $SECRETS | jq -r '.DB_HOST')
+DB_PORT=$(echo $SECRETS | jq -r '.DB_PORT')
+
+# Iniciar sesión en Amazon ECR
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com
+
+# Descargar la última imagen desde Amazon ECR
+docker pull <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/tourya-api:latest
+
+# Detener y eliminar el contenedor existente
+docker stop tourya-api || true
+docker rm tourya-api || true
+
+# Ejecutar el nuevo contenedor
+docker run -d --name tourya-api -p 8088:8088 \
+  --env DB_USER=$DB_USER \
+  --env DB_PASSWORD=$DB_PASSWORD \
+  --env DB_HOST=$DB_HOST \
+  --env DB_PORT=$DB_PORT \
+  <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/tourya-api:latest
+
+echo "Despliegue completado."
+
+3. Notas importantes
+Instalar jq:
+
+El comando jq se usa para procesar el JSON devuelto por AWS Secrets Manager. Asegúrate de que esté instalado en tu instancia EC2:
+sudo yum install -y jq
+
+Permisos IAM:
+
+El rol IAM asociado a tu instancia EC2 debe tener permisos para acceder a AWS Secrets Manager. Agrega la siguiente política al rol:
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "secretsmanager:GetSecretValue"
+            ],
+            "Resource": "arn:aws:secretsmanager:us-east-1:<AWS_ACCOUNT_ID>:secret:your-secret-name"
+        }
+    ]
+}
+
+Región:
+
+Asegúrate de que la región (us-east-1 en este caso) coincida con la región donde está almacenado el secreto.
+Seguridad:
+
+Los valores sensibles nunca se almacenan en texto plano en el script. Se obtienen dinámicamente desde AWS Secrets Manager.
+4. Verificar el script
+Ejecuta el script manualmente para verificar que los secretos se recuperan correctamente:
+Asegúrate de que el contenedor se inicie con las variables de entorno correctas.
+Ventajas de usar AWS Secrets Manager
+Centraliza la gestión de secretos.
+Los secretos están encriptados y se pueden rotar automáticamente.
+Reduce el riesgo de exposición de credenciales sensibles.
+Con este enfoque, tu despliegue será más seguro y profesional.
