@@ -1,0 +1,21 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo "Iniciando sesión en Amazon ECR..."
+      - aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com
+  build:
+    commands:
+      - echo "Construyendo la imagen Docker..."
+      - docker build -t tourya-api .
+      - docker tag tourya-api:latest <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/tourya-api:latest
+  post_build:
+    commands:
+      - echo "Subiendo la imagen a Amazon ECR..."
+      - docker push <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/tourya-api:latest
+      - echo "Construcción completada."
+artifacts:
+  files:
+    - appspec.yml
+    - scripts/deploy.sh
