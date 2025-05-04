@@ -42,14 +42,14 @@ jobs:
         port: 22
         script: |
           # Descargar la última imagen desde Docker Hub
-          docker pull ${{ secrets.DOCKER_USERNAME }}/tourya-api:latest
+          sudo docker pull ${{ secrets.DOCKER_USERNAME }}/tourya-api:latest
           
           # Detener y eliminar el contenedor existente (si lo hay)
-          docker stop tourya-api || true
-          docker rm tourya-api || true
+          sudo docker stop tourya-api || true
+          sudo docker rm tourya-api || true
           
           # Ejecutar el nuevo contenedor
-          docker run -d --name tourya-api -p 8088:8088 \
+          sudo docker run -d --name tourya-api -p 8088:8088 \
             --env DB_USER=${{ secrets.DB_USER }} \
             --env DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
             --env DB_HOST=${{ secrets.DB_HOST }} \
