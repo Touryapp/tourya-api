@@ -26,7 +26,7 @@ jobs:
       run: |
         docker build -t tourya-api:latest .
 
-    # 4. Subir la imagen al registro de contenedores
+    # 4. Subir la imagen al registro de contenedores de docker hub
     - name: Push Docker image to Docker Hub
       run: |
         docker tag tourya-api:latest ${{ secrets.DOCKER_USERNAME }}/tourya-api:latest
