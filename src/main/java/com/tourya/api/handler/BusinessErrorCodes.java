@@ -15,6 +15,7 @@ public enum BusinessErrorCodes {
     ACCOUNT_DISABLED(303, FORBIDDEN, "User account is disabled"),
     BAD_CREDENTIALS(304, FORBIDDEN, "Login and / or Password is incorrect"),
     EMAIL_ALREADY_EXISTS(305, BAD_REQUEST, "Email address already exists"), // Nuevo código
+    EMAIL_INVALID_FORMAT(306, BAD_REQUEST, "Invalid email format"), // Nuevo código
     ;
 
     @Getter
