@@ -48,7 +48,7 @@ public class AuthenticationService {
     private String activationUrl;
     @Value("${spring.security.oauth2.client.registration.google.client-id}")
     private String googleClientId;
-
+//Probando
     public void register(RegistrationRequest request) throws MessagingException {
         if (!Utils.isValidEmail(request.getEmail())) {
             throw new EmailInvalidFormatException("Invalid email format: " + request.getEmail());
