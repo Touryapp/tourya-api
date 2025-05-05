@@ -24,13 +24,13 @@ jobs:
     # 3. Construir la imagen Docker
     - name: Build Docker image
       run: |
-        sudo docker build -t tourya-api:latest .
+        docker build -t tourya-api:latest .
 
     # 4. Subir la imagen al registro de contenedores de docker hub
     - name: Push Docker image to Docker Hub
       run: |
-        sudo docker tag tourya-api:latest ${{ secrets.DOCKER_USERNAME }}/tourya-api:latest
-        sudo docker push ${{ secrets.DOCKER_USERNAME }}/tourya-api:latest
+        docker tag tourya-api:latest ${{ secrets.DOCKER_USERNAME }}/tourya-api:latest
+        docker push ${{ secrets.DOCKER_USERNAME }}/tourya-api:latest
 
     # 5. Desplegar en la máquina EC2
     - name: Deploy to EC2
