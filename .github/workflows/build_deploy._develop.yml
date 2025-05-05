@@ -51,7 +51,7 @@ jobs:
           # Ejecutar el nuevo contenedor
           sudo docker run -d --name tourya-api -p 8088:8088 \
             --env DB_USER=${{ secrets.DB_USER }} \
-            --env DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
+            --env DB_PASSWORD='${{ secrets.DB_PASSWORD }}' \
             --env DB_HOST=${{ secrets.DB_HOST }} \
             --env DB_PORT=${{ secrets.DB_PORT }} \
             ${{ secrets.DOCKER_USERNAME }}/tourya-api:latest
