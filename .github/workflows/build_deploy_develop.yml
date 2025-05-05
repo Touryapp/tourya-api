@@ -54,4 +54,8 @@ jobs:
             --env DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
             --env DB_HOST=${{ secrets.DB_HOST }} \
             --env DB_PORT=${{ secrets.DB_PORT }} \
+            --log-driver=awslogs \
+            --log-opt awslogs-group=tourya-api-logs \
+            --log-opt awslogs-region=us-east-1 \
+            --log-opt awslogs-stream=tourya-api-container \
             ${{ secrets.DOCKER_USERNAME }}/tourya-api:latest
