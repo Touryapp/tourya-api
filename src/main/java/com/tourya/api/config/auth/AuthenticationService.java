@@ -14,6 +14,7 @@ import com.tourya.api.exceptions.EmailAlreadyExistsException;
 import com.tourya.api.exceptions.EmailInvalidFormatException;
 import com.tourya.api.models.Token;
 import com.tourya.api.models.User;
+import com.tourya.api.models.responses.MetaResponse;
 import com.tourya.api.repository.RoleRepository;
 import com.tourya.api.repository.TokenRepository;
 import com.tourya.api.repository.UserRepository;
@@ -125,7 +126,9 @@ public class AuthenticationService {
         claims.put("fullName", user.fullName());
 
         var jwtToken = jwtService.generateToken(claims, (User) auth.getPrincipal());
+        MetaResponse metaResponse = new MetaResponse();
         return AuthenticationResponse.builder()
+                .meta(metaResponse)
                 .token(jwtToken)
                 .build();
     }
@@ -207,7 +210,9 @@ public class AuthenticationService {
                 claims.put("fullName", user.fullName());
 
                 var jwtToken = jwtService.generateToken(claims, user);
+                MetaResponse metaResponse = new MetaResponse();
                 return AuthenticationResponse.builder()
+                        .meta(metaResponse)
                         .token(jwtToken)
                         .build();
 
