@@ -17,6 +17,16 @@ import java.util.Set;
 @NoArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public class ExceptionResponse {
+    @Builder
+    @Getter
+    @Setter
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class Meta {
+        private String messageUid;
+        private String requestDt;
+    }
+
     private Integer businessErrorCode;
     private String businessErrorDescription;
     private String error;

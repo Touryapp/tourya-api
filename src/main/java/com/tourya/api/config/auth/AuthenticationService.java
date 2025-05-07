@@ -4,14 +4,17 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
+import com.tourya.api._utils.Utils;
 import com.tourya.api.config.auth.request.AuthenticationRequest;
 import com.tourya.api.config.auth.request.RegistrationRequest;
 import com.tourya.api.config.auth.response.AuthenticationResponse;
 import com.tourya.api.config.security.JwtService;
 import com.tourya.api.constans.enums.EmailTemplateNameEnum;
 import com.tourya.api.exceptions.EmailAlreadyExistsException;
+import com.tourya.api.exceptions.EmailInvalidFormatException;
 import com.tourya.api.models.Token;
 import com.tourya.api.models.User;
+import com.tourya.api.models.responses.MetaResponse;
 import com.tourya.api.repository.RoleRepository;
 import com.tourya.api.repository.TokenRepository;
 import com.tourya.api.repository.UserRepository;
@@ -46,8 +49,11 @@ public class AuthenticationService {
     private String activationUrl;
     @Value("${spring.security.oauth2.client.registration.google.client-id}")
     private String googleClientId;
-
+//Probando
     public void register(RegistrationRequest request) throws MessagingException {
+        if (!Utils.isValidEmail(request.getEmail())) {
+            throw new EmailInvalidFormatException("Invalid email format: " + request.getEmail());
+        }
         if (userRepository.findByEmail(request.getEmail().toLowerCase()).isPresent()) {
             throw new EmailAlreadyExistsException("Email address already exists: " + request.getEmail());
         }
@@ -120,7 +126,9 @@ public class AuthenticationService {
         claims.put("fullName", user.fullName());
 
         var jwtToken = jwtService.generateToken(claims, (User) auth.getPrincipal());
+        MetaResponse metaResponse = new MetaResponse();
         return AuthenticationResponse.builder()
+                .meta(metaResponse)
                 .token(jwtToken)
                 .build();
     }
@@ -202,7 +210,9 @@ public class AuthenticationService {
                 claims.put("fullName", user.fullName());
 
                 var jwtToken = jwtService.generateToken(claims, user);
+                MetaResponse metaResponse = new MetaResponse();
                 return AuthenticationResponse.builder()
+                        .meta(metaResponse)
                         .token(jwtToken)
                         .build();
 
