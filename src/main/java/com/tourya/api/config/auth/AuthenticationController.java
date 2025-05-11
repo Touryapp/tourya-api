@@ -50,8 +50,8 @@ public class AuthenticationController {
 
     @PostMapping("/google-auth")
     public ResponseEntity<AuthenticationResponse> authenticateWithGoogle(
-            @RequestBody GoogleAuthRequest request
-    ) throws MessagingException {
-        return ResponseEntity.ok(service.authenticateWithGoogle(request.getIdToken()));
+            @RequestBody @Valid GoogleAuthRequest request
+    ){
+        return ResponseEntity.ok(service.authenticateWithGoogle(request));
     }
 }

@@ -6,6 +6,7 @@ import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.tourya.api._utils.Utils;
 import com.tourya.api.config.auth.request.AuthenticationRequest;
+import com.tourya.api.config.auth.request.GoogleAuthRequest;
 import com.tourya.api.config.auth.request.RegistrationRequest;
 import com.tourya.api.config.auth.response.AuthenticationResponse;
 import com.tourya.api.config.security.JwtService;
@@ -27,6 +28,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
@@ -129,6 +131,8 @@ public class AuthenticationService {
         MetaResponse metaResponse = new MetaResponse();
         return AuthenticationResponse.builder()
                 .meta(metaResponse)
+                .fullName(user.fullName())
+                .email(user.getEmail())
                 .token(jwtToken)
                 .build();
     }
@@ -151,79 +155,70 @@ public class AuthenticationService {
         tokenRepository.save(savedToken);
     }
 
-    public AuthenticationResponse authenticateWithGoogle(String idTokenString){
-        try {
-            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), new GsonFactory())
-                    .setAudience(Collections.singletonList(googleClientId))
-                    .build();
-
-            //GoogleIdToken idToken = GoogleIdToken.parse(verifier.getJsonFactory(), idTokenString);
-            GoogleIdToken idToken = verifier.verify(idTokenString);
-            if (idToken != null) {
-                GoogleIdToken.Payload payload = idToken.getPayload();
-                String email = payload.getEmail();
-                String firstname = (String) payload.get("given_name");
-                String lastname = (String) payload.get("family_name");
-
-                User user = userRepository.findByEmail(email.toLowerCase()).orElse(null);
-
-                if (user == null) {
-                    // Registrar al usuario
-                    var userRole = roleRepository.findByName("USER")
-                            .orElseThrow(() -> new IllegalStateException("ROLE USER was not initiated"));
-                    String tempPassword = generateTemporaryPassword();
-                    System.out.println("tempPassword : " +tempPassword);
-                    User newUser = User.builder()
-                            .firstname(firstname)
-                            .lastname(lastname)
-                            .email(email.toLowerCase())
-                            .password(passwordEncoder.encode(tempPassword))
-                            .accountLocked(false)
-                            .enabled(true) // Google ya verificó el correo electrónico
-                            .roles(List.of(userRole))
-                            .build();
-                    userRepository.save(newUser);
-                    sendEmailTemporaryPassword(newUser, tempPassword);
-
-                    var claims = new HashMap<String, Object>();
-                    claims.put("fullName", newUser.fullName());
-
-                    var jwtToken = jwtService.generateToken(claims, newUser);
-                    return AuthenticationResponse.builder()
-                            .token(jwtToken)
-                            .build();
-                } else if (!user.isEnabled()) {
-                    user.setEnabled(true);
-                    userRepository.save(user);
-
-                    var claims = new HashMap<String, Object>();
-                    claims.put("fullName", user.fullName());
-
-                    var jwtToken = jwtService.generateToken(claims, user);
-                    return AuthenticationResponse.builder()
-                            .token(jwtToken)
-                            .build();
-                }
-
-                // El usuario ya existe y está habilitado
-                var claims = new HashMap<String, Object>();
-                claims.put("fullName", user.fullName());
-
-                var jwtToken = jwtService.generateToken(claims, user);
-                MetaResponse metaResponse = new MetaResponse();
-                return AuthenticationResponse.builder()
-                        .meta(metaResponse)
-                        .token(jwtToken)
-                        .build();
-
-            } else {
-                throw new IllegalArgumentException("Token de Google ID no válido.");
-            }
-        } catch (Exception e) {
-            // Manejar la excepción
-            System.err.println("Error al verificar el token de Google: " + e.getMessage());
-            throw new RuntimeException("Falló la autenticación con Google", e); // Propaga la excepción
+    @Transactional
+    public AuthenticationResponse authenticateWithGoogle(GoogleAuthRequest request){
+        if (!Utils.isValidEmail(request.getEmail())) {
+            throw new EmailInvalidFormatException("Invalid email format: " + request.getEmail());
         }
+        User user = userRepository.findByEmail(request.getEmail().toLowerCase()).orElse(null);
+        if (user == null) {
+            // Registrar al usuario
+            var userRole = roleRepository.findByName("USER")
+                    .orElseThrow(() -> new IllegalStateException("ROLE USER was not initiated"));
+            String tempPassword = generateTemporaryPassword();
+            System.out.println("tempPassword : " +tempPassword);
+            User newUser = User.builder()
+                    .firstname(request.getFirstname())
+                    .lastname(request.getLastname())
+                    .email(request.getEmail().toLowerCase())
+                    .password(passwordEncoder.encode(tempPassword))
+                    .accountLocked(false)
+                    .enabled(true) // Google ya verificó el correo electrónico
+                    .roles(List.of(userRole))
+                    .build();
+            userRepository.save(newUser);
+            //sendEmailTemporaryPassword(newUser, tempPassword);
+
+            var claims = new HashMap<String, Object>();
+            claims.put("fullName", newUser.fullName());
+
+            var jwtToken = jwtService.generateToken(claims, newUser);
+            MetaResponse metaResponse = new MetaResponse();
+            return AuthenticationResponse.builder()
+                    .meta(metaResponse)
+                    .fullName(newUser.fullName())
+                    .email(newUser.getEmail())
+                    .token(jwtToken)
+                    .build();
+        } else if (!user.isEnabled()) {
+            user.setEnabled(true);
+            userRepository.save(user);
+
+            var claims = new HashMap<String, Object>();
+            claims.put("fullName", user.fullName());
+
+            var jwtToken = jwtService.generateToken(claims, user);
+            MetaResponse metaResponse = new MetaResponse();
+            return AuthenticationResponse.builder()
+                    .meta(metaResponse)
+                    .fullName(user.fullName())
+                    .email(user.getEmail())
+                    .token(jwtToken)
+                    .build();
+        }
+
+        // El usuario ya existe y está habilitado
+        var claims = new HashMap<String, Object>();
+        claims.put("fullName", user.fullName());
+
+        var jwtToken = jwtService.generateToken(claims, user);
+        MetaResponse metaResponse = new MetaResponse();
+        return AuthenticationResponse.builder()
+                .meta(metaResponse)
+                .fullName(user.fullName())
+                .email(user.getEmail())
+                .token(jwtToken)
+                .build();
     }
     private String generateTemporaryPassword() {
         // Generar una contraseña temporal segura

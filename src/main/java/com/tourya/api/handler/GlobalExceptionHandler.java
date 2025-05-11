@@ -3,6 +3,8 @@ package com.tourya.api.handler;
 
 import com.tourya.api.exceptions.EmailAlreadyExistsException;
 import com.tourya.api.exceptions.EmailInvalidFormatException;
+import com.tourya.api.exceptions.InsufficientPrivilegesException;
+import com.tourya.api.exceptions.ResourceNotFoundException;
 import jakarta.mail.MessagingException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -24,9 +26,12 @@ import static com.tourya.api.handler.BusinessErrorCodes.ACCOUNT_LOCKED;
 import static com.tourya.api.handler.BusinessErrorCodes.BAD_CREDENTIALS;
 import static com.tourya.api.handler.BusinessErrorCodes.EMAIL_ALREADY_EXISTS;
 import static com.tourya.api.handler.BusinessErrorCodes.EMAIL_INVALID_FORMAT;
+import static com.tourya.api.handler.BusinessErrorCodes.RESOURCE_NOT_FOUND;
 import static com.tourya.api.handler.BusinessErrorCodes.VALIDATION_FAILURE;
+import static com.tourya.api.handler.BusinessErrorCodes.NOT_PRIVILEGES_TO_ACTION;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
+import static org.springframework.http.HttpStatus.NOT_FOUND;
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 
@@ -42,8 +47,8 @@ public class GlobalExceptionHandler {
     private ResponseEntity<Object> buildErrorResponse(ExceptionResponse exceptionResponse, org.springframework.http.HttpStatus httpStatus) {
         Map<String, Object> response = new HashMap<>();
         response.put("meta", buildMeta());
-        response.put("businessErrorCode", exceptionResponse.getBusinessErrorCode());
-        response.put("businessErrorDescription", exceptionResponse.getBusinessErrorDescription());
+        response.put("errorCode", exceptionResponse.getErrorCode());
+        response.put("message", exceptionResponse.getMessage());
         response.put("error", exceptionResponse.getError());
         if (exceptionResponse.getValidationErrors() != null) {
             response.put("validationErrors", exceptionResponse.getValidationErrors());
@@ -56,8 +61,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(LockedException.class)
     public ResponseEntity<Object> handleException(LockedException exp) {
         ExceptionResponse exceptionResponse = ExceptionResponse.builder()
-                .businessErrorCode(ACCOUNT_LOCKED.getCode())
-                .businessErrorDescription(ACCOUNT_LOCKED.getDescription())
+                .errorCode(ACCOUNT_LOCKED.getCode())
+                .message(ACCOUNT_LOCKED.getDescription())
                 .error(exp.getMessage())
                 .build();
         return buildErrorResponse(exceptionResponse, UNAUTHORIZED);
@@ -66,8 +71,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DisabledException.class)
     public ResponseEntity<Object> handleException(DisabledException exp) {
         ExceptionResponse exceptionResponse = ExceptionResponse.builder()
-                .businessErrorCode(ACCOUNT_DISABLED.getCode())
-                .businessErrorDescription(ACCOUNT_DISABLED.getDescription())
+                .errorCode(ACCOUNT_DISABLED.getCode())
+                .message(ACCOUNT_DISABLED.getDescription())
                 .error(exp.getMessage())
                 .build();
         return buildErrorResponse(exceptionResponse, UNAUTHORIZED);
@@ -76,8 +81,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<Object> handleException() {
         ExceptionResponse exceptionResponse = ExceptionResponse.builder()
-                .businessErrorCode(BAD_CREDENTIALS.getCode())
-                .businessErrorDescription(BAD_CREDENTIALS.getDescription())
+                .errorCode(BAD_CREDENTIALS.getCode())
+                .message(BAD_CREDENTIALS.getDescription())
                 .error("Login and / or Password is incorrect")
                 .build();
         return buildErrorResponse(exceptionResponse, UNAUTHORIZED);
@@ -101,8 +106,8 @@ public class GlobalExceptionHandler {
                 });
 
         ExceptionResponse exceptionResponse = ExceptionResponse.builder()
-                .businessErrorCode(VALIDATION_FAILURE.getCode())
-                .businessErrorDescription(VALIDATION_FAILURE.getDescription())
+                .errorCode(VALIDATION_FAILURE.getCode())
+                .message(VALIDATION_FAILURE.getDescription())
                 .validationErrors(errors)
                 .error(VALIDATION_FAILURE.getDescription())
                 .build();
@@ -113,7 +118,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Object> handleException(Exception exp) {
         exp.printStackTrace();
         ExceptionResponse exceptionResponse = ExceptionResponse.builder()
-                .businessErrorDescription("Internal error, please contact the admin")
+                .message("Internal error, please contact the admin")
                 .error(exp.getMessage())
                 .build();
         return buildErrorResponse(exceptionResponse, INTERNAL_SERVER_ERROR);
@@ -122,8 +127,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(EmailAlreadyExistsException.class)
     public ResponseEntity<Object> handleException(EmailAlreadyExistsException exp) {
         ExceptionResponse exceptionResponse = ExceptionResponse.builder()
-                .businessErrorCode(EMAIL_ALREADY_EXISTS.getCode())
-                .businessErrorDescription(EMAIL_ALREADY_EXISTS.getDescription())
+                .errorCode(EMAIL_ALREADY_EXISTS.getCode())
+                .message(EMAIL_ALREADY_EXISTS.getDescription())
                 .error(exp.getMessage())
                 .build();
         return buildErrorResponse(exceptionResponse, BAD_REQUEST);
@@ -132,119 +137,28 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(EmailInvalidFormatException.class)
     public ResponseEntity<Object> handleException(EmailInvalidFormatException exp) {
         ExceptionResponse exceptionResponse = ExceptionResponse.builder()
-                .businessErrorCode(EMAIL_INVALID_FORMAT.getCode())
-                .businessErrorDescription(EMAIL_INVALID_FORMAT.getDescription())
+                .errorCode(EMAIL_INVALID_FORMAT.getCode())
+                .message(EMAIL_INVALID_FORMAT.getDescription())
                 .error(exp.getMessage())
                 .build();
         return buildErrorResponse(exceptionResponse, BAD_REQUEST);
     }
-    /*@ExceptionHandler(LockedException.class)
-    public ResponseEntity<ExceptionResponse> handleException(LockedException exp) {
-        return ResponseEntity
-                .status(UNAUTHORIZED)
-                .body(
-                        ExceptionResponse.builder()
-                                .businessErrorCode(ACCOUNT_LOCKED.getCode())
-                                .businessErrorDescription(ACCOUNT_LOCKED.getDescription())
-                                .error(exp.getMessage())
-                                .build()
-                );
+    @ExceptionHandler(InsufficientPrivilegesException.class)
+    public ResponseEntity<Object> handleException(InsufficientPrivilegesException exp) {
+        ExceptionResponse exceptionResponse = ExceptionResponse.builder()
+                .errorCode(NOT_PRIVILEGES_TO_ACTION.getCode())
+                .message(NOT_PRIVILEGES_TO_ACTION.getDescription())
+                .error(exp.getMessage())
+                .build();
+        return buildErrorResponse(exceptionResponse, UNAUTHORIZED);
     }
-
-    @ExceptionHandler(DisabledException.class)
-    public ResponseEntity<ExceptionResponse> handleException(DisabledException exp) {
-        return ResponseEntity
-                .status(UNAUTHORIZED)
-                .body(
-                        ExceptionResponse.builder()
-                                .businessErrorCode(ACCOUNT_DISABLED.getCode())
-                                .businessErrorDescription(ACCOUNT_DISABLED.getDescription())
-                                .error(exp.getMessage())
-                                .build()
-                );
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<Object> handleException(ResourceNotFoundException exp) {
+        ExceptionResponse exceptionResponse = ExceptionResponse.builder()
+                .errorCode(RESOURCE_NOT_FOUND.getCode())
+                .message(RESOURCE_NOT_FOUND.getDescription())
+                .error(exp.getMessage())
+                .build();
+        return buildErrorResponse(exceptionResponse, NOT_FOUND);
     }
-
-
-    @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<ExceptionResponse> handleException() {
-        return ResponseEntity
-                .status(UNAUTHORIZED)
-                .body(
-                        ExceptionResponse.builder()
-                                .businessErrorCode(BAD_CREDENTIALS.getCode())
-                                .businessErrorDescription(BAD_CREDENTIALS.getDescription())
-                                .error("Login and / or Password is incorrect")
-                                .build()
-                );
-    }
-
-    @ExceptionHandler(MessagingException.class)
-    public ResponseEntity<ExceptionResponse> handleException(MessagingException exp) {
-        return ResponseEntity
-                .status(INTERNAL_SERVER_ERROR)
-                .body(
-                        ExceptionResponse.builder()
-                                .error(exp.getMessage())
-                                .build()
-                );
-    }
-
-
-
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ExceptionResponse> handleMethodArgumentNotValidException(MethodArgumentNotValidException exp) {
-        Set<String> errors = new HashSet<>();
-        exp.getBindingResult().getAllErrors()
-                .forEach(error -> {
-                    //var fieldName = ((FieldError) error).getField();
-                    var errorMessage = error.getDefaultMessage();
-                    errors.add(errorMessage);
-                });
-
-        return ResponseEntity
-                .status(BAD_REQUEST)
-                .body(
-                        ExceptionResponse.builder()
-                                .validationErrors(errors)
-                                .build()
-                );
-    }
-
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ExceptionResponse> handleException(Exception exp) {
-        exp.printStackTrace();
-        return ResponseEntity
-                .status(INTERNAL_SERVER_ERROR)
-                .body(
-                        ExceptionResponse.builder()
-                                .businessErrorDescription("Internal error, please contact the admin")
-                                .error(exp.getMessage())
-                                .build()
-                );
-    }
-
-    @ExceptionHandler(EmailAlreadyExistsException.class)
-    public ResponseEntity<ExceptionResponse> handleException(EmailAlreadyExistsException exp) {
-        return ResponseEntity
-                .status(BAD_REQUEST)
-                .body(
-                        ExceptionResponse.builder()
-                                .businessErrorCode(EMAIL_ALREADY_EXISTS.getCode())
-                                .businessErrorDescription(EMAIL_ALREADY_EXISTS.getDescription())
-                                .error(exp.getMessage())
-                                .build()
-                );
-    }
-    @ExceptionHandler(EmailInvalidFormatException.class)
-    public ResponseEntity<ExceptionResponse> handleException(EmailInvalidFormatException exp) {
-        return ResponseEntity
-                .status(BAD_REQUEST)
-                .body(
-                        ExceptionResponse.builder()
-                                .businessErrorCode(EMAIL_INVALID_FORMAT.getCode())
-                                .businessErrorDescription(EMAIL_INVALID_FORMAT.getDescription())
-                                .error(exp.getMessage())
-                                .build()
-                );
-    }*/
 }
