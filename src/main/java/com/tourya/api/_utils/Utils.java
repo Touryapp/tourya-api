@@ -1,5 +1,8 @@
 package com.tourya.api._utils;
 
+import com.tourya.api.models.Role;
+
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -11,5 +14,10 @@ public class Utils {
         Matcher mather = pattern.matcher(email.toLowerCase());
 
         return mather.matches();
+    }
+
+    public static boolean isAdmin(List<Role> roleList) {
+        return roleList != null && roleList.stream()
+                .anyMatch(role -> role.getName() != null && role.getName().equals("ADMIN"));
     }
 }

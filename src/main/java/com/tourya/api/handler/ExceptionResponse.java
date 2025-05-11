@@ -27,8 +27,8 @@ public class ExceptionResponse {
         private String requestDt;
     }
 
-    private Integer businessErrorCode;
-    private String businessErrorDescription;
+    private Integer errorCode;
+    private String message;
     private String error;
     private Set<String> validationErrors;
     private Map<String, String> errors;
