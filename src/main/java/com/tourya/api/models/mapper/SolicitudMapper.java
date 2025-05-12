@@ -14,7 +14,9 @@ public class SolicitudMapper {
         SolicitudResponse solicitudResponse = new SolicitudResponse();
         solicitudResponse.setId(solicitud.getId());
         solicitudResponse.setStatus(solicitud.getStatus());
-        solicitudResponse.setProveedor(proveedorMapper.toProveedorResponse(solicitud.getProveedor()));
+        if(solicitud.getProveedor() != null) {
+            solicitudResponse.setProveedor(proveedorMapper.toProveedorResponse(solicitud.getProveedor()));
+        }
         return solicitudResponse;
     }
 }

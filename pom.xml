@@ -98,7 +98,7 @@
 			<version>3.2.1</version>
 		</dependency>-->
 		<!-- https://mvnrepository.com/artifact/com.google.api-client/google-api-client -->
-		<dependency>
+		<!--<dependency>
 			<groupId>com.google.api-client</groupId>
 			<artifactId>google-api-client</artifactId>
 			<version>2.7.2</version>
@@ -108,7 +108,7 @@
 					<artifactId>commons-logging</artifactId>
 				</exclusion>
 			</exclusions>
-		</dependency>
+		</dependency>-->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>

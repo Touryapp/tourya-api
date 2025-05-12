@@ -1,9 +1,5 @@
 package com.tourya.api.config.auth;
 
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
-import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.api.client.json.gson.GsonFactory;
 import com.tourya.api._utils.Utils;
 import com.tourya.api.config.auth.request.AuthenticationRequest;
 import com.tourya.api.config.auth.request.GoogleAuthRequest;
@@ -32,7 +28,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
@@ -49,9 +44,7 @@ public class AuthenticationService {
     private final TokenRepository tokenRepository;
     @Value("${application.mailing.frontend.activation-url}")
     private String activationUrl;
-    @Value("${spring.security.oauth2.client.registration.google.client-id}")
-    private String googleClientId;
-//Probando
+
     public void register(RegistrationRequest request) throws MessagingException {
         if (!Utils.isValidEmail(request.getEmail())) {
             throw new EmailInvalidFormatException("Invalid email format: " + request.getEmail());
@@ -77,12 +70,12 @@ public class AuthenticationService {
 
     private void sendValidationEmail(User user) throws MessagingException {
         var newToken = generateAndSaveActivationToken(user);
-
+        String activationUrlFinal = activationUrl+newToken;
         emailService.sendEmail(
                 user.getEmail(),
                 user.fullName(),
                 EmailTemplateNameEnum.ACTIVATE_ACCOUNT,
-                activationUrl,
+                activationUrlFinal,
                 newToken,
                 "Account activation"
         );
@@ -177,7 +170,6 @@ public class AuthenticationService {
                     .roles(List.of(userRole))
                     .build();
             userRepository.save(newUser);
-            //sendEmailTemporaryPassword(newUser, tempPassword);
 
             var claims = new HashMap<String, Object>();
             claims.put("fullName", newUser.fullName());
@@ -224,14 +216,7 @@ public class AuthenticationService {
         // Generar una contraseña temporal segura
         return UUID.randomUUID().toString().substring(0, 16); // Ejemplo
     }
-    private void sendEmailTemporaryPassword(User user, String temporaryPassword) throws MessagingException {
-        emailService.sendEmailTemporaryPassword(
-                user.getEmail(),
-                user.fullName(),
-                EmailTemplateNameEnum.TEMPORARY_PASSWORD,
-                activationUrl,
-                temporaryPassword,
-                "Temporary Password"
-        );
+    public void sendEmailTest(){
+        emailService.sendSimpleMessage("eowkin@gmail.com",  "test-email", "Prueba de email");
     }
 }

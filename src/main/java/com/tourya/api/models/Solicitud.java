@@ -2,7 +2,10 @@ package com.tourya.api.models;
 
 
 import com.tourya.api.common.BaseEntity;
+import com.tourya.api.constans.enums.SolicitudStatusEnum;
+import com.tourya.api.constans.enums.SolicitudStatusEnumConverter;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -29,8 +32,9 @@ public class Solicitud extends BaseEntity {
     @Column(name = "id")
     private Integer id;
 
-
-    private String status;
+    @Convert(converter = SolicitudStatusEnumConverter.class)
+    @Column(name = "status")
+    private SolicitudStatusEnum status;
     @ManyToOne
     @JoinColumn(name = "proveedorId", nullable = false)
     private Proveedor proveedor;

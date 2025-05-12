@@ -2,7 +2,10 @@ package com.tourya.api.models;
 
 
 import com.tourya.api.common.BaseEntity;
+import com.tourya.api.constans.enums.ProveedorStatusEnum;
+import com.tourya.api.constans.enums.ProveedorStatusEnumConverter;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -50,7 +53,9 @@ public class Proveedor extends BaseEntity{
 
     private String telefono;
 
-    private String status;
+    @Convert(converter = ProveedorStatusEnumConverter.class)
+    @Column(name = "status")
+    private ProveedorStatusEnum status;
 
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
