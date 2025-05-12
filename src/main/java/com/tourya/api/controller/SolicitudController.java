@@ -3,6 +3,7 @@ package com.tourya.api.controller;
 
 
 import com.tourya.api.common.PageResponse;
+import com.tourya.api.constans.enums.SolicitudStatusEnum;
 import com.tourya.api.models.responses.SolicitudResponse;
 import com.tourya.api.models.resquest.SolicitudRequest;
 import com.tourya.api.services.SolicitudService;
@@ -42,13 +43,14 @@ public class SolicitudController {
         return ResponseEntity.ok(solicitudService.getSolicitudByUser(connectedUser));
     }
 
-    @GetMapping("/all")
-    public ResponseEntity<PageResponse<SolicitudResponse>> getSolicitudAll(
+    @GetMapping("/allByStatus")
+    public ResponseEntity<PageResponse<SolicitudResponse>> getSolicitudAllByStatus(
             @RequestParam(name = "page", defaultValue = "0", required = false) int page,
             @RequestParam(name = "size", defaultValue = "10", required = false) int size,
+            @RequestParam(name = "status", required = false) SolicitudStatusEnum status,
             Authentication connectedUser
     ) {
-        return ResponseEntity.ok(solicitudService.getSolicitudesAll(page, size, connectedUser));
+        return ResponseEntity.ok(solicitudService.getSolicitudesAllByStatus(page, size, status, connectedUser));
     }
 
     @GetMapping("/{solicitudId}")

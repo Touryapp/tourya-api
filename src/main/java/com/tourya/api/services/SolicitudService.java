@@ -3,6 +3,8 @@ package com.tourya.api.services;
 
 import com.tourya.api._utils.Utils;
 import com.tourya.api.common.PageResponse;
+import com.tourya.api.constans.enums.ProveedorStatusEnum;
+import com.tourya.api.constans.enums.SolicitudStatusEnum;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.models.Proveedor;
@@ -56,12 +58,12 @@ public class SolicitudService {
 
         Proveedor proveedor = proveedorMapper.toProveedor(request);
         proveedor.setUser(userUpdate);
-        proveedor.setStatus("pendiente");
+        proveedor.setStatus(ProveedorStatusEnum.POTENCIAL);
         Proveedor proveedorNuevo = proveedorService.save(proveedor);
 
         Solicitud solicitud = new Solicitud();
         solicitud.setProveedor(proveedorNuevo);
-        solicitud.setStatus("solicitado");
+        solicitud.setStatus(SolicitudStatusEnum.PENDIENTE);
 
         Solicitud solicitudNueva = solicitudRepository.save(solicitud);
 
@@ -106,10 +108,10 @@ public class SolicitudService {
                 Solicitud solicitud = solicitudOpt.get();
 
                 Proveedor proveedor = solicitud.getProveedor();
-                proveedor.setStatus("activo");
+                proveedor.setStatus(ProveedorStatusEnum.ACTIVO);
                 proveedorService.save(proveedor);
 
-                solicitud.setStatus("chequeada");
+                solicitud.setStatus(SolicitudStatusEnum.APROBADA);
                 Solicitud solicitudUpdate = solicitudRepository.save(solicitud);
 
                 return solicitudMapper.toSolicitudResponse(solicitudUpdate);
@@ -131,10 +133,10 @@ public class SolicitudService {
                 Solicitud solicitud = solicitudOpt.get();
 
                 Proveedor proveedor = solicitud.getProveedor();
-                proveedor.setStatus("inactivo");
+                proveedor.setStatus(ProveedorStatusEnum.INACTIVO);
                 proveedorService.save(proveedor);
 
-                solicitud.setStatus("chequeada");
+                solicitud.setStatus(SolicitudStatusEnum.RECHAZADA);
                 Solicitud solicitudUpdate = solicitudRepository.save(solicitud);
 
                 return solicitudMapper.toSolicitudResponse(solicitudUpdate);
@@ -145,12 +147,12 @@ public class SolicitudService {
             throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
         }
     }
-    public PageResponse<SolicitudResponse> getSolicitudesAll(int page, int size, Authentication connectedUser){
+    public PageResponse<SolicitudResponse> getSolicitudesAllByStatus(int page, int size, SolicitudStatusEnum status, Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
         if(Utils.isAdmin(roleList)){
             Pageable pageable = PageRequest.of(page, size, Sort.by("createdDate").descending());
-            Page<Solicitud> allSolicitudesPendientes = solicitudRepository.findAllSolicitudesPendientes(pageable);
+            Page<Solicitud> allSolicitudesPendientes = solicitudRepository.findAllSolicitudesPendientes(status, pageable);
 
             List<SolicitudResponse> solicitudesResponse = allSolicitudesPendientes.stream()
                     .map(solicitudMapper::toSolicitudResponse)

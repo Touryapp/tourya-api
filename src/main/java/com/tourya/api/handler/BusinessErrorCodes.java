@@ -20,6 +20,7 @@ public enum BusinessErrorCodes {
     VALIDATION_FAILURE(307, BAD_REQUEST, "Failure of required validations"), // Nuevo código
     NOT_PRIVILEGES_TO_ACTION(308, FORBIDDEN, "You have no privileges to perform this action."), // Nuevo código
     RESOURCE_NOT_FOUND(309, NOT_FOUND, "Resource not found."), // Nuevo código
+    UNKNOWN_ENUM(310, BAD_REQUEST, "Unknown value for the enum."), // Nuevo código
     ;
 
     @Getter

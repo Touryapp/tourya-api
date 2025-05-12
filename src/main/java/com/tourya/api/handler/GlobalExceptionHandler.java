@@ -5,6 +5,7 @@ import com.tourya.api.exceptions.EmailAlreadyExistsException;
 import com.tourya.api.exceptions.EmailInvalidFormatException;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
+import com.tourya.api.exceptions.UnknownEnumValueException;
 import jakarta.mail.MessagingException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -27,6 +28,7 @@ import static com.tourya.api.handler.BusinessErrorCodes.BAD_CREDENTIALS;
 import static com.tourya.api.handler.BusinessErrorCodes.EMAIL_ALREADY_EXISTS;
 import static com.tourya.api.handler.BusinessErrorCodes.EMAIL_INVALID_FORMAT;
 import static com.tourya.api.handler.BusinessErrorCodes.RESOURCE_NOT_FOUND;
+import static com.tourya.api.handler.BusinessErrorCodes.UNKNOWN_ENUM;
 import static com.tourya.api.handler.BusinessErrorCodes.VALIDATION_FAILURE;
 import static com.tourya.api.handler.BusinessErrorCodes.NOT_PRIVILEGES_TO_ACTION;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
@@ -160,5 +162,14 @@ public class GlobalExceptionHandler {
                 .error(exp.getMessage())
                 .build();
         return buildErrorResponse(exceptionResponse, NOT_FOUND);
+    }
+    @ExceptionHandler(UnknownEnumValueException.class)
+    public ResponseEntity<Object> handleException(UnknownEnumValueException exp) {
+        ExceptionResponse exceptionResponse = ExceptionResponse.builder()
+                .errorCode(UNKNOWN_ENUM.getCode())
+                .message(UNKNOWN_ENUM.getDescription())
+                .error(exp.getMessage())
+                .build();
+        return buildErrorResponse(exceptionResponse, BAD_REQUEST);
     }
 }

@@ -1,6 +1,7 @@
 package com.tourya.api.models.responses;
 
 
+import com.tourya.api.constans.enums.ProveedorStatusEnum;
 import lombok.Data;
 
 @Data
@@ -25,5 +26,5 @@ public class ProveedorResponse {
 
     private String telefono;
 
-    private String status;
+    private ProveedorStatusEnum status;
 }

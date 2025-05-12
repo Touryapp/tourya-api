@@ -54,4 +54,11 @@ public class AuthenticationController {
     ){
         return ResponseEntity.ok(service.authenticateWithGoogle(request));
     }
+    @GetMapping("/sendEmailTest")
+    public void sendEmailTest(
+    ) throws MessagingException {
+        service.sendEmailTest();
+    }
+
+
 }
