@@ -2,7 +2,7 @@ package com.tourya.api.config.auth;
 
 import com.tourya.api._utils.Utils;
 import com.tourya.api.config.auth.request.AuthenticationRequest;
-import com.tourya.api.config.auth.request.GoogleAuthRequest;
+import com.tourya.api.config.auth.request.SocialAuthRequest;
 import com.tourya.api.config.auth.request.RegistrationRequest;
 import com.tourya.api.config.auth.response.AuthenticationResponse;
 import com.tourya.api.config.security.JwtService;
@@ -149,7 +149,7 @@ public class AuthenticationService {
     }
 
     @Transactional
-    public AuthenticationResponse authenticateWithGoogle(GoogleAuthRequest request){
+    public AuthenticationResponse authenticateWithSocial(SocialAuthRequest request){
         if (!Utils.isValidEmail(request.getEmail())) {
             throw new EmailInvalidFormatException("Invalid email format: " + request.getEmail());
         }
@@ -168,6 +168,7 @@ public class AuthenticationService {
                     .accountLocked(false)
                     .enabled(true) // Google ya verificó el correo electrónico
                     .roles(List.of(userRole))
+                    .uuidSocial(request.getUuidSocial())
                     .build();
             userRepository.save(newUser);
 

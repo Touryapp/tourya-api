@@ -1,7 +1,7 @@
 package com.tourya.api.config.auth;
 
 import com.tourya.api.config.auth.request.AuthenticationRequest;
-import com.tourya.api.config.auth.request.GoogleAuthRequest;
+import com.tourya.api.config.auth.request.SocialAuthRequest;
 import com.tourya.api.config.auth.request.RegistrationRequest;
 import com.tourya.api.config.auth.response.AuthenticationResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -48,11 +48,11 @@ public class AuthenticationController {
         service.activateAccount(token);
     }
 
-    @PostMapping("/google-auth")
-    public ResponseEntity<AuthenticationResponse> authenticateWithGoogle(
-            @RequestBody @Valid GoogleAuthRequest request
+    @PostMapping("/social-auth")
+    public ResponseEntity<AuthenticationResponse> authenticateWithSocial(
+            @RequestBody @Valid SocialAuthRequest request
     ){
-        return ResponseEntity.ok(service.authenticateWithGoogle(request));
+        return ResponseEntity.ok(service.authenticateWithSocial(request));
     }
     @GetMapping("/sendEmailTest")
     public void sendEmailTest(
