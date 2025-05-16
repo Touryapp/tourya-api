@@ -21,6 +21,7 @@ public enum BusinessErrorCodes {
     NOT_PRIVILEGES_TO_ACTION(308, FORBIDDEN, "You have no privileges to perform this action."), // Nuevo código
     RESOURCE_NOT_FOUND(309, NOT_FOUND, "Resource not found."), // Nuevo código
     UNKNOWN_ENUM(310, BAD_REQUEST, "Unknown value for the enum."), // Nuevo código
+    OPERATION_NOT_PERMITTED(311, BAD_REQUEST, "Operation not permitted."), // Nuevo código
     ;
 
     @Getter

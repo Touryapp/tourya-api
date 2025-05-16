@@ -4,6 +4,7 @@ package com.tourya.api.handler;
 import com.tourya.api.exceptions.EmailAlreadyExistsException;
 import com.tourya.api.exceptions.EmailInvalidFormatException;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
+import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.exceptions.UnknownEnumValueException;
 import jakarta.mail.MessagingException;
@@ -27,6 +28,7 @@ import static com.tourya.api.handler.BusinessErrorCodes.ACCOUNT_LOCKED;
 import static com.tourya.api.handler.BusinessErrorCodes.BAD_CREDENTIALS;
 import static com.tourya.api.handler.BusinessErrorCodes.EMAIL_ALREADY_EXISTS;
 import static com.tourya.api.handler.BusinessErrorCodes.EMAIL_INVALID_FORMAT;
+import static com.tourya.api.handler.BusinessErrorCodes.OPERATION_NOT_PERMITTED;
 import static com.tourya.api.handler.BusinessErrorCodes.RESOURCE_NOT_FOUND;
 import static com.tourya.api.handler.BusinessErrorCodes.UNKNOWN_ENUM;
 import static com.tourya.api.handler.BusinessErrorCodes.VALIDATION_FAILURE;
@@ -168,6 +170,15 @@ public class GlobalExceptionHandler {
         ExceptionResponse exceptionResponse = ExceptionResponse.builder()
                 .errorCode(UNKNOWN_ENUM.getCode())
                 .message(UNKNOWN_ENUM.getDescription())
+                .error(exp.getMessage())
+                .build();
+        return buildErrorResponse(exceptionResponse, BAD_REQUEST);
+    }
+    @ExceptionHandler(OperationNotPermittedException.class)
+    public ResponseEntity<Object> handleException(OperationNotPermittedException exp) {
+        ExceptionResponse exceptionResponse = ExceptionResponse.builder()
+                .errorCode(OPERATION_NOT_PERMITTED.getCode())
+                .message(OPERATION_NOT_PERMITTED.getDescription())
                 .error(exp.getMessage())
                 .build();
         return buildErrorResponse(exceptionResponse, BAD_REQUEST);

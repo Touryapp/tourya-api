@@ -28,7 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class SolicitudController {
     private final SolicitudService solicitudService;
 
-    @PostMapping
+    @PostMapping("/user/save")
     public ResponseEntity<SolicitudResponse> saveSolicitud(
             @Valid @RequestBody SolicitudRequest request,
             Authentication connectedUser
@@ -36,42 +36,42 @@ public class SolicitudController {
         return ResponseEntity.ok(solicitudService.save(request, connectedUser));
     }
 
-    @GetMapping
-    public ResponseEntity<SolicitudResponse> getSolicitudByUser(
+    @GetMapping("/user/consultData")
+    public ResponseEntity<SolicitudResponse> consultData(
             Authentication connectedUser
     ) {
-        return ResponseEntity.ok(solicitudService.getSolicitudByUser(connectedUser));
+        return ResponseEntity.ok(solicitudService.consultData(connectedUser));
     }
 
-    @GetMapping("/allByStatus")
-    public ResponseEntity<PageResponse<SolicitudResponse>> getSolicitudAllByStatus(
+    @GetMapping("/admin/findAll")
+    public ResponseEntity<PageResponse<SolicitudResponse>> findAll(
             @RequestParam(name = "page", defaultValue = "0", required = false) int page,
             @RequestParam(name = "size", defaultValue = "10", required = false) int size,
             @RequestParam(name = "status", required = false) SolicitudStatusEnum status,
             Authentication connectedUser
     ) {
-        return ResponseEntity.ok(solicitudService.getSolicitudesAllByStatus(page, size, status, connectedUser));
+        return ResponseEntity.ok(solicitudService.findAll(page, size, status, connectedUser));
     }
 
-    @GetMapping("/{solicitudId}")
-    public ResponseEntity<SolicitudResponse> getSolicitudById(
+    @GetMapping("/admin/consultDataById/{solicitudId}")
+    public ResponseEntity<SolicitudResponse> consultDataById(
             @PathVariable Integer solicitudId,
             Authentication connectedUser
     ) {
-        return ResponseEntity.ok(solicitudService.getSolicitudById(solicitudId, connectedUser));
+        return ResponseEntity.ok(solicitudService.consultDataById(solicitudId, connectedUser));
     }
-    @PutMapping("/aprobar/{solicitudId}")
-    public ResponseEntity<SolicitudResponse> aprobarSolicitudById(
+    @PutMapping("/admin/approve/{solicitudId}")
+    public ResponseEntity<SolicitudResponse> approveSolicitudById(
             @PathVariable Integer solicitudId,
             Authentication connectedUser
     ) {
-        return ResponseEntity.ok(solicitudService.aprobarSolicitudById(solicitudId, connectedUser));
+        return ResponseEntity.ok(solicitudService.approveSolicitudById(solicitudId, connectedUser));
     }
-    @PutMapping("/declinar/{solicitudId}")
-    public ResponseEntity<SolicitudResponse> declinarSolicitudById(
+    @PutMapping("/admin/decline/{solicitudId}")
+    public ResponseEntity<SolicitudResponse> declineSolicitudById(
             @PathVariable Integer solicitudId,
             Authentication connectedUser
     ) {
-        return ResponseEntity.ok(solicitudService.declinarSolicitudById(solicitudId, connectedUser));
+        return ResponseEntity.ok(solicitudService.declineSolicitudById(solicitudId, connectedUser));
     }
 }
