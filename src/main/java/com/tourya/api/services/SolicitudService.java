@@ -6,6 +6,7 @@ import com.tourya.api.common.PageResponse;
 import com.tourya.api.constans.enums.ProveedorStatusEnum;
 import com.tourya.api.constans.enums.SolicitudStatusEnum;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
+import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.models.Proveedor;
 import com.tourya.api.models.Role;
@@ -45,6 +46,10 @@ public class SolicitudService {
     public SolicitudResponse save(SolicitudRequest request,
                                   Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
+        Proveedor proveedorCurrent = proveedorService.findByUser(user);
+        if(proveedorCurrent != null && solicitudRepository.findByProveedor(proveedorCurrent) != null){
+            throw new OperationNotPermittedException("No se puede crear otra solicitud, este usuario ya tiene proveedor y solicitud asignada.");
+        }
 
         List<Role> roleList =  user.getRoles();
 
@@ -70,7 +75,7 @@ public class SolicitudService {
         return solicitudMapper.toSolicitudResponse(solicitudNueva);
     }
 
-    public SolicitudResponse getSolicitudByUser(Authentication connectedUser){
+    public SolicitudResponse consultData(Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
 
         Proveedor proveedor = proveedorService.findByUser(user);
@@ -81,7 +86,7 @@ public class SolicitudService {
             return null;
         }
     }
-    public SolicitudResponse getSolicitudById(Integer solicitudId,
+    public SolicitudResponse consultDataById(Integer solicitudId,
                                               Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
@@ -98,7 +103,7 @@ public class SolicitudService {
         }
     }
     @Transactional
-    public SolicitudResponse aprobarSolicitudById(Integer solicitudId,
+    public SolicitudResponse approveSolicitudById(Integer solicitudId,
                                               Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
@@ -123,7 +128,7 @@ public class SolicitudService {
         }
     }
     @Transactional
-    public SolicitudResponse declinarSolicitudById(Integer solicitudId,
+    public SolicitudResponse declineSolicitudById(Integer solicitudId,
                                                   Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
@@ -147,7 +152,7 @@ public class SolicitudService {
             throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
         }
     }
-    public PageResponse<SolicitudResponse> getSolicitudesAllByStatus(int page, int size, SolicitudStatusEnum status, Authentication connectedUser){
+    public PageResponse<SolicitudResponse> findAll(int page, int size, SolicitudStatusEnum status, Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
         if(Utils.isAdmin(roleList)){
@@ -169,6 +174,9 @@ public class SolicitudService {
         }else{
             throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
         }
+    }
+    public Solicitud getSolicitudByProveedor(Proveedor proveedor){
+        return solicitudRepository.findByProveedor(proveedor);
     }
 
 }
