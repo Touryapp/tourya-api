@@ -4,6 +4,10 @@ package com.tourya.api.models;
 import com.tourya.api.common.BaseEntity;
 import com.tourya.api.constans.enums.ProveedorStatusEnum;
 import com.tourya.api.constans.enums.ProveedorStatusEnumConverter;
+import com.tourya.api.constans.enums.ProveedorTipoDocumentoEnum;
+import com.tourya.api.constans.enums.ProveedorTipoDocumentoEnumConverter;
+import com.tourya.api.constans.enums.ProveedorTipoServicioEnum;
+import com.tourya.api.constans.enums.ProveedorTipoServicioEnumConverte;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
@@ -37,11 +41,13 @@ public class Proveedor extends BaseEntity{
     @Column(name = "numeroDocumento")
     private String numeroDocumento;
 
+    @Convert(converter = ProveedorTipoDocumentoEnumConverter.class)
     @Column(name = "tipo_documento")
-    private String tipoDocumento;
+    private ProveedorTipoDocumentoEnum tipoDocumento;
 
+    @Convert(converter = ProveedorTipoServicioEnumConverte.class)
     @Column(name = "tipo_servicio")
-    private String tipoServicio;
+    private ProveedorTipoServicioEnum tipoServicio;
 
     private String pais;
 

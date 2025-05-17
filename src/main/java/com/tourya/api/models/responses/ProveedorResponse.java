@@ -2,6 +2,11 @@ package com.tourya.api.models.responses;
 
 
 import com.tourya.api.constans.enums.ProveedorStatusEnum;
+import com.tourya.api.constans.enums.ProveedorTipoDocumentoEnum;
+import com.tourya.api.constans.enums.ProveedorTipoDocumentoEnumConverter;
+import com.tourya.api.constans.enums.ProveedorTipoServicioEnum;
+import com.tourya.api.constans.enums.ProveedorTipoServicioEnumConverte;
+import jakarta.persistence.Convert;
 import lombok.Data;
 
 @Data
@@ -12,9 +17,11 @@ public class ProveedorResponse {
 
     private String numeroDocumento;
 
-    private String tipoDocumento;
+    @Convert(converter = ProveedorTipoDocumentoEnumConverter.class)
+    private ProveedorTipoDocumentoEnum tipoDocumento;
 
-    private String tipoServicio;
+    @Convert(converter = ProveedorTipoServicioEnumConverte.class)
+    private ProveedorTipoServicioEnum tipoServicio;
 
     private String pais;
 

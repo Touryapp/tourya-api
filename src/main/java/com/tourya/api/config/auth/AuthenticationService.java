@@ -126,6 +126,7 @@ public class AuthenticationService {
                 .meta(metaResponse)
                 .fullName(user.fullName())
                 .email(user.getEmail())
+                .roleList(user.getRoles())
                 .token(jwtToken)
                 .build();
     }
@@ -181,6 +182,7 @@ public class AuthenticationService {
                     .meta(metaResponse)
                     .fullName(newUser.fullName())
                     .email(newUser.getEmail())
+                    .roleList(newUser.getRoles())
                     .token(jwtToken)
                     .build();
         } else if (!user.isEnabled()) {
@@ -196,6 +198,7 @@ public class AuthenticationService {
                     .meta(metaResponse)
                     .fullName(user.fullName())
                     .email(user.getEmail())
+                    .roleList(user.getRoles())
                     .token(jwtToken)
                     .build();
         }
@@ -210,6 +213,7 @@ public class AuthenticationService {
                 .meta(metaResponse)
                 .fullName(user.fullName())
                 .email(user.getEmail())
+                .roleList(user.getRoles())
                 .token(jwtToken)
                 .build();
     }
