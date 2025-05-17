@@ -1,17 +1,17 @@
 package com.tourya.api.config.auth;
 
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
-import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.api.client.json.gson.GsonFactory;
+import com.tourya.api._utils.Utils;
 import com.tourya.api.config.auth.request.AuthenticationRequest;
+import com.tourya.api.config.auth.request.SocialAuthRequest;
 import com.tourya.api.config.auth.request.RegistrationRequest;
 import com.tourya.api.config.auth.response.AuthenticationResponse;
 import com.tourya.api.config.security.JwtService;
 import com.tourya.api.constans.enums.EmailTemplateNameEnum;
 import com.tourya.api.exceptions.EmailAlreadyExistsException;
+import com.tourya.api.exceptions.EmailInvalidFormatException;
 import com.tourya.api.models.Token;
 import com.tourya.api.models.User;
+import com.tourya.api.models.responses.MetaResponse;
 import com.tourya.api.repository.RoleRepository;
 import com.tourya.api.repository.TokenRepository;
 import com.tourya.api.repository.UserRepository;
@@ -24,10 +24,10 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
@@ -44,10 +44,11 @@ public class AuthenticationService {
     private final TokenRepository tokenRepository;
     @Value("${application.mailing.frontend.activation-url}")
     private String activationUrl;
-    @Value("${spring.security.oauth2.client.registration.google.client-id}")
-    private String googleClientId;
 
     public void register(RegistrationRequest request) throws MessagingException {
+        if (!Utils.isValidEmail(request.getEmail())) {
+            throw new EmailInvalidFormatException("Invalid email format: " + request.getEmail());
+        }
         if (userRepository.findByEmail(request.getEmail().toLowerCase()).isPresent()) {
             throw new EmailAlreadyExistsException("Email address already exists: " + request.getEmail());
         }
@@ -69,12 +70,12 @@ public class AuthenticationService {
 
     private void sendValidationEmail(User user) throws MessagingException {
         var newToken = generateAndSaveActivationToken(user);
-
+        String activationUrlFinal = activationUrl+newToken;
         emailService.sendEmail(
                 user.getEmail(),
                 user.fullName(),
                 EmailTemplateNameEnum.ACTIVATE_ACCOUNT,
-                activationUrl,
+                activationUrlFinal,
                 newToken,
                 "Account activation"
         );
@@ -120,7 +121,12 @@ public class AuthenticationService {
         claims.put("fullName", user.fullName());
 
         var jwtToken = jwtService.generateToken(claims, (User) auth.getPrincipal());
+        MetaResponse metaResponse = new MetaResponse();
         return AuthenticationResponse.builder()
+                .meta(metaResponse)
+                .fullName(user.fullName())
+                .email(user.getEmail())
+                .roleList(user.getRoles())
                 .token(jwtToken)
                 .build();
     }
@@ -143,90 +149,79 @@ public class AuthenticationService {
         tokenRepository.save(savedToken);
     }
 
-    public AuthenticationResponse authenticateWithGoogle(String idTokenString){
-        try {
-            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), new GsonFactory())
-                    .setAudience(Collections.singletonList(googleClientId))
-                    .build();
-
-            //GoogleIdToken idToken = GoogleIdToken.parse(verifier.getJsonFactory(), idTokenString);
-            GoogleIdToken idToken = verifier.verify(idTokenString);
-            if (idToken != null) {
-                GoogleIdToken.Payload payload = idToken.getPayload();
-                String email = payload.getEmail();
-                String firstname = (String) payload.get("given_name");
-                String lastname = (String) payload.get("family_name");
-
-                User user = userRepository.findByEmail(email.toLowerCase()).orElse(null);
-
-                if (user == null) {
-                    // Registrar al usuario
-                    var userRole = roleRepository.findByName("USER")
-                            .orElseThrow(() -> new IllegalStateException("ROLE USER was not initiated"));
-                    String tempPassword = generateTemporaryPassword();
-                    System.out.println("tempPassword : " +tempPassword);
-                    User newUser = User.builder()
-                            .firstname(firstname)
-                            .lastname(lastname)
-                            .email(email.toLowerCase())
-                            .password(passwordEncoder.encode(tempPassword))
-                            .accountLocked(false)
-                            .enabled(true) // Google ya verificó el correo electrónico
-                            .roles(List.of(userRole))
-                            .build();
-                    userRepository.save(newUser);
-                    sendEmailTemporaryPassword(newUser, tempPassword);
-
-                    var claims = new HashMap<String, Object>();
-                    claims.put("fullName", newUser.fullName());
-
-                    var jwtToken = jwtService.generateToken(claims, newUser);
-                    return AuthenticationResponse.builder()
-                            .token(jwtToken)
-                            .build();
-                } else if (!user.isEnabled()) {
-                    user.setEnabled(true);
-                    userRepository.save(user);
-
-                    var claims = new HashMap<String, Object>();
-                    claims.put("fullName", user.fullName());
-
-                    var jwtToken = jwtService.generateToken(claims, user);
-                    return AuthenticationResponse.builder()
-                            .token(jwtToken)
-                            .build();
-                }
-
-                // El usuario ya existe y está habilitado
-                var claims = new HashMap<String, Object>();
-                claims.put("fullName", user.fullName());
-
-                var jwtToken = jwtService.generateToken(claims, user);
-                return AuthenticationResponse.builder()
-                        .token(jwtToken)
-                        .build();
-
-            } else {
-                throw new IllegalArgumentException("Token de Google ID no válido.");
-            }
-        } catch (Exception e) {
-            // Manejar la excepción
-            System.err.println("Error al verificar el token de Google: " + e.getMessage());
-            throw new RuntimeException("Falló la autenticación con Google", e); // Propaga la excepción
+    @Transactional
+    public AuthenticationResponse authenticateWithSocial(SocialAuthRequest request){
+        if (!Utils.isValidEmail(request.getEmail())) {
+            throw new EmailInvalidFormatException("Invalid email format: " + request.getEmail());
         }
+        User user = userRepository.findByEmail(request.getEmail().toLowerCase()).orElse(null);
+        if (user == null) {
+            // Registrar al usuario
+            var userRole = roleRepository.findByName("USER")
+                    .orElseThrow(() -> new IllegalStateException("ROLE USER was not initiated"));
+            String tempPassword = generateTemporaryPassword();
+            System.out.println("tempPassword : " +tempPassword);
+            User newUser = User.builder()
+                    .firstname(request.getFirstname())
+                    .lastname(request.getLastname())
+                    .email(request.getEmail().toLowerCase())
+                    .password(passwordEncoder.encode(tempPassword))
+                    .accountLocked(false)
+                    .enabled(true) // Google ya verificó el correo electrónico
+                    .roles(List.of(userRole))
+                    .uuidSocial(request.getUuidSocial())
+                    .build();
+            userRepository.save(newUser);
+
+            var claims = new HashMap<String, Object>();
+            claims.put("fullName", newUser.fullName());
+
+            var jwtToken = jwtService.generateToken(claims, newUser);
+            MetaResponse metaResponse = new MetaResponse();
+            return AuthenticationResponse.builder()
+                    .meta(metaResponse)
+                    .fullName(newUser.fullName())
+                    .email(newUser.getEmail())
+                    .roleList(newUser.getRoles())
+                    .token(jwtToken)
+                    .build();
+        } else if (!user.isEnabled()) {
+            user.setEnabled(true);
+            userRepository.save(user);
+
+            var claims = new HashMap<String, Object>();
+            claims.put("fullName", user.fullName());
+
+            var jwtToken = jwtService.generateToken(claims, user);
+            MetaResponse metaResponse = new MetaResponse();
+            return AuthenticationResponse.builder()
+                    .meta(metaResponse)
+                    .fullName(user.fullName())
+                    .email(user.getEmail())
+                    .roleList(user.getRoles())
+                    .token(jwtToken)
+                    .build();
+        }
+
+        // El usuario ya existe y está habilitado
+        var claims = new HashMap<String, Object>();
+        claims.put("fullName", user.fullName());
+
+        var jwtToken = jwtService.generateToken(claims, user);
+        MetaResponse metaResponse = new MetaResponse();
+        return AuthenticationResponse.builder()
+                .meta(metaResponse)
+                .fullName(user.fullName())
+                .email(user.getEmail())
+                .roleList(user.getRoles())
+                .token(jwtToken)
+                .build();
     }
     private String generateTemporaryPassword() {
         // Generar una contraseña temporal segura
         return UUID.randomUUID().toString().substring(0, 16); // Ejemplo
     }
-    private void sendEmailTemporaryPassword(User user, String temporaryPassword) throws MessagingException {
-        emailService.sendEmailTemporaryPassword(
-                user.getEmail(),
-                user.fullName(),
-                EmailTemplateNameEnum.TEMPORARY_PASSWORD,
-                activationUrl,
-                temporaryPassword,
-                "Temporary Password"
-        );
+    public void sendEmailTest(){
+        emailService.sendSimpleMessage("eowkin@gmail.com",  "test-email", "Prueba de email");
     }
 }

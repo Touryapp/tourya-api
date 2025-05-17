@@ -3,6 +3,7 @@ package com.tourya.api.models;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -27,6 +28,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Getter
@@ -50,8 +52,10 @@ public class User implements UserDetails, Principal {
     private String password;
     private boolean accountLocked;
     private boolean enabled;
+    @Column(name = "uuid_social")
+    private UUID uuidSocial;
 
-    @ManyToMany
+    @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "user_roles", // Nombre de la tabla de unión
             joinColumns = @JoinColumn(name = "user_id"), // Columna que referencia a User
@@ -110,6 +114,13 @@ public class User implements UserDetails, Principal {
         return enabled;
     }
     public String fullName(){
-        return firstname + " "+ lastname;
+        if (lastname != null && !lastname.trim().isEmpty()) {
+            return firstname + " " + lastname;
+        } else {
+            return firstname;
+        }
+    }
+    public UUID getUuidSocial() {
+        return uuidSocial;
     }
 }
