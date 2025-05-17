@@ -1,6 +1,11 @@
 package com.tourya.api.models.resquest;
 
 
+import com.tourya.api.constans.enums.ProveedorTipoDocumentoEnum;
+import com.tourya.api.constans.enums.ProveedorTipoDocumentoEnumConverter;
+import com.tourya.api.constans.enums.ProveedorTipoServicioEnum;
+import com.tourya.api.constans.enums.ProveedorTipoServicioEnumConverte;
+import jakarta.persistence.Convert;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -20,13 +25,11 @@ public class SolicitudRequest {
     @NotNull(message = "Numero Documento is mandatory")
     private String numeroDocumento;
 
-    @NotEmpty(message = "Tipo Documento is mandatory")
-    @NotNull(message = "Tipo Documento is mandatory")
-    private String tipoDocumento;
+    @Convert(converter = ProveedorTipoDocumentoEnumConverter.class)
+    private ProveedorTipoDocumentoEnum tipoDocumento;
 
-    @NotEmpty(message = "Tipo Servicio is mandatory")
-    @NotNull(message = "Tipo Servicio is mandatory")
-    private String tipoServicio;
+    @Convert(converter = ProveedorTipoServicioEnumConverte.class)
+    private ProveedorTipoServicioEnum tipoServicio;
 
     @NotEmpty(message = "Pais is mandatory")
     @NotNull(message = "Pais is mandatory")

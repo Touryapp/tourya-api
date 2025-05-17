@@ -51,6 +51,7 @@ public class ProveedorService {
             proveedor.setNombre(proveedorRequest.getNombre());
             proveedor.setNumeroDocumento(proveedorRequest.getNumeroDocumento());
             proveedor.setTipoDocumento(proveedorRequest.getTipoDocumento());
+            proveedor.setTipoServicio(proveedorRequest.getTipoServicio());
             proveedor.setPais(proveedorRequest.getPais());
             proveedor.setDepartamento(proveedorRequest.getDepartamento());
             proveedor.setCiudad(proveedorRequest.getCiudad());
