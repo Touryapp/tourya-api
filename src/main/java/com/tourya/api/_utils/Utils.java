@@ -20,4 +20,9 @@ public class Utils {
         return roleList != null && roleList.stream()
                 .anyMatch(role -> role.getName() != null && role.getName().equals("ADMIN"));
     }
+
+    public static boolean isProveedor(List<Role> roleList) {
+        return roleList != null && roleList.stream()
+                .anyMatch(role -> role.getName() != null && role.getName().equals("PROVEEDOR"));
+    }
 }
