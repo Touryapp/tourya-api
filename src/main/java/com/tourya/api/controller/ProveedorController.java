@@ -6,6 +6,7 @@ import com.tourya.api.constans.enums.ProveedorStatusEnum;
 import com.tourya.api.models.responses.ProveedorResponse;
 import com.tourya.api.models.resquest.ProveedorRequest;
 import com.tourya.api.services.ProveedorService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("proveedor")
 @RequiredArgsConstructor
+@Tag(name = "Proveedor")
 public class ProveedorController {
 
     private final ProveedorService proveedorService;
