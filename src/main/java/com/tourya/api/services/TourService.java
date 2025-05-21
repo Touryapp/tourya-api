@@ -43,7 +43,6 @@ public class TourService {
             Tour tour = tourMapper.toTour(tourRequest);
             tour.setProveedor(proveedor);
             tour.setTourCategory(tourCategory);
-
             return tourMapper.toTourResponse(tourRepository.save(tour));
         }else{
             throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
@@ -98,5 +97,9 @@ public class TourService {
         }else{
             throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
         }
+    }
+
+    public Tour getTourByIdAndProveedorId(Integer id, Integer proveedorId){
+        return tourRepository.findTourByIdAndProveedorId(id, proveedorId);
     }
 }
