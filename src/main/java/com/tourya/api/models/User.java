@@ -28,7 +28,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Getter
@@ -53,7 +52,7 @@ public class User implements UserDetails, Principal {
     private boolean accountLocked;
     private boolean enabled;
     @Column(name = "uuid_social")
-    private UUID uuidSocial;
+    private String uuidSocial;
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
@@ -120,7 +119,7 @@ public class User implements UserDetails, Principal {
             return firstname;
         }
     }
-    public UUID getUuidSocial() {
+    public String getUuidSocial() {
         return uuidSocial;
     }
 }

@@ -18,6 +18,7 @@ import com.tourya.api.models.mapper.TourAddressMapper;
 import com.tourya.api.models.responses.TourAddressResponse;
 import com.tourya.api.models.resquest.TourAddressRequest;
 import com.tourya.api.repository.TourAddressRepository;
+import com.tourya.api.repository.TourRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -30,7 +31,7 @@ public class TourAddressService {
     private final TourAddressRepository tourAddressRepository;
     private final TourAddressMapper tourAddressMapper;
     private final ProveedorService proveedorService;
-    private final TourService tourService;
+    private final TourRepository tourRepository;
     private final CountryService countryService;
     private final CityService cityService;
     private final StateService stateService;
@@ -85,7 +86,7 @@ public class TourAddressService {
         }
     }
     private Tour getTour(Integer tourId, Integer proveedorId){
-        Tour tour =  tourService.getTourByIdAndProveedorId(tourId, proveedorId);
+        Tour tour =  tourRepository.findTourByIdAndProveedorId(tourId, proveedorId);
         if(tour != null){
             return tour;
         }else{

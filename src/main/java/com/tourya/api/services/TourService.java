@@ -13,7 +13,10 @@ import com.tourya.api.models.Tour;
 import com.tourya.api.models.TourCategory;
 import com.tourya.api.models.User;
 import com.tourya.api.models.mapper.TourMapper;
+import com.tourya.api.models.responses.TourAddressResponse;
+import com.tourya.api.models.responses.TourDetailsResponse;
 import com.tourya.api.models.responses.TourResponse;
+import com.tourya.api.models.resquest.TourCreateRequest;
 import com.tourya.api.models.resquest.TourRequest;
 import com.tourya.api.repository.TourRepository;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +36,7 @@ public class TourService {
     private final TourCategoryService tourCategoryService;
     private final TourMapper tourMapper;
     private final ProveedorService proveedorService;
+    private final TourAddressService tourAddressService;
 
     public TourResponse save(TourRequest tourRequest, Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
@@ -101,5 +105,27 @@ public class TourService {
 
     public Tour getTourByIdAndProveedorId(Integer id, Integer proveedorId){
         return tourRepository.findTourByIdAndProveedorId(id, proveedorId);
+    }
+
+    public TourDetailsResponse saveCreate(TourCreateRequest tourCreateRequest, Authentication connectedUser){
+        User user = ((User) connectedUser.getPrincipal());
+        List<Role> roleList = user.getRoles();
+        if(Utils.isProveedor(roleList)){
+            Proveedor proveedor = getProveedor(user);
+            TourCategory tourCategory = getTourCategory(tourCreateRequest.getTourRequest().getTourCategoryId());
+            Tour tour = tourMapper.toTour(tourCreateRequest.getTourRequest());
+            tour.setProveedor(proveedor);
+            tour.setTourCategory(tourCategory);
+            Tour tourNew =  tourRepository.save(tour);
+
+            TourResponse tourResponse = tourMapper.toTourResponse(tourNew);
+            TourAddressResponse tourAddressResponse = tourAddressService.saveTourAddressByTourId(tourCreateRequest.getTourAddressRequest(), tourNew.getId(), connectedUser);
+            TourDetailsResponse tourDetailsResponse =  new TourDetailsResponse();
+            tourDetailsResponse.setTourResponse(tourResponse);
+            tourDetailsResponse.setTourAddressResponse(tourAddressResponse);
+            return  tourDetailsResponse;
+        }else{
+            throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
+        }
     }
 }
