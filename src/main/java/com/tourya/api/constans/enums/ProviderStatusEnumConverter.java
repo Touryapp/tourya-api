@@ -4,8 +4,8 @@ import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
 
 @Converter
-public class ProveedorStatusEnumConverter implements AttributeConverter<ProveedorStatusEnum, String> {
-    public String convertToDatabaseColumn(ProveedorStatusEnum value) {
+public class ProviderStatusEnumConverter implements AttributeConverter<ProviderStatusEnum, String> {
+    public String convertToDatabaseColumn(ProviderStatusEnum value) {
         if ( value == null ) {
             return null;
         }
@@ -13,11 +13,11 @@ public class ProveedorStatusEnumConverter implements AttributeConverter<Proveedo
         return value.getValue();
     }
 
-    public ProveedorStatusEnum convertToEntityAttribute(String value) {
+    public ProviderStatusEnum convertToEntityAttribute(String value) {
         if ( value == null ) {
             return null;
         }
 
-        return ProveedorStatusEnum.of(value);
+        return ProviderStatusEnum.of(value);
     }
 }

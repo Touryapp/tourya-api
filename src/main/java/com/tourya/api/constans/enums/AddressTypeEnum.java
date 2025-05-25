@@ -7,9 +7,9 @@ import lombok.AllArgsConstructor;
 
 @AllArgsConstructor
 public enum AddressTypeEnum {
-    PUNTO_DE_ENCUENTRO("punto de encuentro"),
-    PUNTO_DE_FINALIZACION("punto de finalizacion"),
-    PUNTO_DE_RECOGIDA("punto de recogida");
+    MEETING_POINT("Meeting Point"),
+    END_POINT("End Point"),
+    PICK_UP_POINT("Pick-up Point");
 
     private String value;
 

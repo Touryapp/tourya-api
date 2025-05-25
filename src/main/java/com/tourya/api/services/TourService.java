@@ -3,11 +3,11 @@ package com.tourya.api.services;
 
 import com.tourya.api._utils.Utils;
 import com.tourya.api.common.PageResponse;
-import com.tourya.api.constans.enums.ProveedorStatusEnum;
+import com.tourya.api.constans.enums.ProviderStatusEnum;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
 import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
-import com.tourya.api.models.Proveedor;
+import com.tourya.api.models.Provider;
 import com.tourya.api.models.Role;
 import com.tourya.api.models.Tour;
 import com.tourya.api.models.TourCategory;
@@ -35,17 +35,17 @@ public class TourService {
     private final TourRepository tourRepository;
     private final TourCategoryService tourCategoryService;
     private final TourMapper tourMapper;
-    private final ProveedorService proveedorService;
+    private final ProviderService providerService;
     private final TourAddressService tourAddressService;
 
     public TourResponse save(TourRequest tourRequest, Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
-        if(Utils.isProveedor(roleList)){
-            Proveedor proveedor = getProveedor(user);
+        if(Utils.isProvider(roleList)){
+            Provider provider = getProvider(user);
             TourCategory tourCategory = getTourCategory(tourRequest.getTourCategoryId());
             Tour tour = tourMapper.toTour(tourRequest);
-            tour.setProveedor(proveedor);
+            tour.setProvider(provider);
             tour.setTourCategory(tourCategory);
             return tourMapper.toTourResponse(tourRepository.save(tour));
         }else{
@@ -53,17 +53,17 @@ public class TourService {
         }
     }
 
-    private Proveedor getProveedor(User user){
-        Proveedor proveedor = proveedorService.findByUser(user);
-        if(proveedor != null){
-            validateRules(proveedor);
-            return proveedor;
+    private Provider getProvider(User user){
+        Provider provider = providerService.findByUser(user);
+        if(provider != null){
+            validateRules(provider);
+            return provider;
         }else{
             throw new ResourceNotFoundException("No provider was found assigning this user.");
         }
     }
-    private void validateRules(Proveedor proveedor){
-        if(!proveedor.getStatus().equals(ProveedorStatusEnum.ACTIVO)){
+    private void validateRules(Provider provider){
+        if(!provider.getStatus().equals(ProviderStatusEnum.ACTIVE)){
             throw new OperationNotPermittedException("The provider cannot create a tour as its status is not active.");
         }
     }
@@ -79,10 +79,10 @@ public class TourService {
     public PageResponse<TourResponse> findAllByUser(int page, int size, Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
-        if(Utils.isProveedor(roleList)){
+        if(Utils.isProvider(roleList)){
             Pageable pageable = PageRequest.of(page, size, Sort.by("createdDate").descending());
-            Proveedor proveedor = getProveedor(user);
-            Page<Tour> allTours = tourRepository.findAllByProveedorId(proveedor.getId(), pageable);
+            Provider provider = getProvider(user);
+            Page<Tour> allTours = tourRepository.findAllByProviderId(provider.getId(), pageable);
 
             List<TourResponse> toursResponse = allTours.stream()
                     .map(tourMapper::toTourResponse)
@@ -103,18 +103,18 @@ public class TourService {
         }
     }
 
-    public Tour getTourByIdAndProveedorId(Integer id, Integer proveedorId){
-        return tourRepository.findTourByIdAndProveedorId(id, proveedorId);
+    public Tour getTourByIdAndProviderId(Integer id, Integer providerId){
+        return tourRepository.findTourByIdAndProviderId(id, providerId);
     }
 
     public TourDetailsResponse saveCreate(TourCreateRequest tourCreateRequest, Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
-        if(Utils.isProveedor(roleList)){
-            Proveedor proveedor = getProveedor(user);
+        if(Utils.isProvider(roleList)){
+            Provider provider = getProvider(user);
             TourCategory tourCategory = getTourCategory(tourCreateRequest.getTourRequest().getTourCategoryId());
             Tour tour = tourMapper.toTour(tourCreateRequest.getTourRequest());
-            tour.setProveedor(proveedor);
+            tour.setProvider(provider);
             tour.setTourCategory(tourCategory);
             Tour tourNew =  tourRepository.save(tour);
 

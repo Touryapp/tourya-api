@@ -4,7 +4,7 @@ import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Convert;
 
 @Convert
-public class IncludeExcludeTypeEnumCoverter implements AttributeConverter<IncludeExcludeTypeEnum, String> {
+public class IncludeExcludeTypeEnumConverter implements AttributeConverter<IncludeExcludeTypeEnum, String> {
     public String convertToDatabaseColumn(IncludeExcludeTypeEnum value) {
         if ( value == null ) {
             return null;

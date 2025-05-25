@@ -2,13 +2,13 @@ package com.tourya.api.services;
 
 
 import com.tourya.api._utils.Utils;
-import com.tourya.api.constans.enums.ProveedorStatusEnum;
+import com.tourya.api.constans.enums.ProviderStatusEnum;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
 import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.models.City;
 import com.tourya.api.models.Country;
-import com.tourya.api.models.Proveedor;
+import com.tourya.api.models.Provider;
 import com.tourya.api.models.Role;
 import com.tourya.api.models.State;
 import com.tourya.api.models.Tour;
@@ -30,7 +30,7 @@ import java.util.List;
 public class TourAddressService {
     private final TourAddressRepository tourAddressRepository;
     private final TourAddressMapper tourAddressMapper;
-    private final ProveedorService proveedorService;
+    private final ProviderService providerService;
     private final TourRepository tourRepository;
     private final CountryService countryService;
     private final CityService cityService;
@@ -40,9 +40,9 @@ public class TourAddressService {
                                                        Integer tourId, Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
-        if(Utils.isProveedor(roleList)){
-            Proveedor proveedor = getProveedor(user);
-            Tour tour = getTour(tourId, proveedor.getId());
+        if(Utils.isProvider(roleList)){
+            Provider provider = getProvider(user);
+            Tour tour = getTour(tourId, provider.getId());
             TourAddress tourAddress = tourAddressMapper.toTourAddress(tourAddressRequest);
             Country country = getCountry(tourAddressRequest.getCountryId());
             State state = getState(tourAddressRequest.getStateId());
@@ -85,25 +85,25 @@ public class TourAddressService {
             throw new ResourceNotFoundException("No city found with the id = "+ cityId);
         }
     }
-    private Tour getTour(Integer tourId, Integer proveedorId){
-        Tour tour =  tourRepository.findTourByIdAndProveedorId(tourId, proveedorId);
+    private Tour getTour(Integer tourId, Integer providerId){
+        Tour tour =  tourRepository.findTourByIdAndProviderId(tourId, providerId);
         if(tour != null){
             return tour;
         }else{
             throw new ResourceNotFoundException("No tour with this id was found for this provider.");
         }
     }
-    private Proveedor getProveedor(User user){
-        Proveedor proveedor = proveedorService.findByUser(user);
-        if(proveedor != null){
-            validateRules(proveedor);
-            return proveedor;
+    private Provider getProvider(User user){
+        Provider provider = providerService.findByUser(user);
+        if(provider != null){
+            validateRules(provider);
+            return provider;
         }else{
             throw new ResourceNotFoundException("No provider was found assigning this user.");
         }
     }
-    private void validateRules(Proveedor proveedor){
-        if(!proveedor.getStatus().equals(ProveedorStatusEnum.ACTIVO)){
+    private void validateRules(Provider provider){
+        if(!provider.getStatus().equals(ProviderStatusEnum.ACTIVE)){
             throw new OperationNotPermittedException("The provider cannot create a tour as its status is not active.");
         }
     }

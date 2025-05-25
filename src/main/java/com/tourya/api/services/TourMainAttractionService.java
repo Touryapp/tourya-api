@@ -1,7 +1,7 @@
 package com.tourya.api.services;
 
 import com.tourya.api._utils.Utils;
-import com.tourya.api.constans.enums.ProveedorStatusEnum;
+import com.tourya.api.constans.enums.ProviderStatusEnum;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
 import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 public class TourMainAttractionService {
 
     private final TourMainAttractionRepository tourMainAttractionRepository;
-    private final ProveedorService proveedorService;
+    private final ProviderService providerService;
     private final TourService tourService;
     private final TourMainAttractionMapper tourMainAttractionMapper;
 
@@ -33,11 +33,11 @@ public class TourMainAttractionService {
 
         User user = ((User) connectedUser.getPrincipal());
 
-        if (!Utils.isProveedor(user.getRoles())) {
+        if (!Utils.isProvider(user.getRoles())) {
             throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
         }
-        Proveedor proveedor = getProveedor(user);
-        Tour tour = getTour(tourId, proveedor.getId());
+        Provider provider = getProvider(user);
+        Tour tour = getTour(tourId, provider.getId());
 
         List<TourMainAttraction> tourMainAttractionList = requests.stream()
                 .map(req -> {
@@ -66,12 +66,12 @@ public class TourMainAttractionService {
                                                               Authentication connectedUser) {
         User user = (User) connectedUser.getPrincipal();
 
-        if (!Utils.isProveedor(user.getRoles())) {
+        if (!Utils.isProvider(user.getRoles())) {
             throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
         }
 
-        Proveedor proveedor = getProveedor(user);
-        Tour tour = getTour(tourId, proveedor.getId());
+        Provider provider = getProvider(user);
+        Tour tour = getTour(tourId, provider.getId());
 
 
         tourMainAttractionRepository.deleteByTourId(tourId);
@@ -89,25 +89,25 @@ public class TourMainAttractionService {
                 .collect(Collectors.toList());
     }
 
-    private Tour getTour(Integer tourId, Integer proveedorId){
-        Tour tour =  tourService.getTourByIdAndProveedorId(tourId, proveedorId);
+    private Tour getTour(Integer tourId, Integer providerId){
+        Tour tour =  tourService.getTourByIdAndProviderId(tourId, providerId);
         if(tour != null){
             return tour;
         }else{
             throw new ResourceNotFoundException("No tour with this id was found for this provider.");
         }
     }
-    private Proveedor getProveedor(User user){
-        Proveedor proveedor = proveedorService.findByUser(user);
-        if(proveedor != null){
-            validateRules(proveedor);
-            return proveedor;
+    private Provider getProvider(User user){
+        Provider provider = providerService.findByUser(user);
+        if(provider != null){
+            validateRules(provider);
+            return provider;
         }else{
             throw new ResourceNotFoundException("No provider was found assigning this user.");
         }
     }
-    private void validateRules(Proveedor proveedor){
-        if(!proveedor.getStatus().equals(ProveedorStatusEnum.ACTIVO)){
+    private void validateRules(Provider provider){
+        if(!provider.getStatus().equals(ProviderStatusEnum.ACTIVE)){
             throw new OperationNotPermittedException("The provider cannot create a tour as its status is not active.");
         }
     }

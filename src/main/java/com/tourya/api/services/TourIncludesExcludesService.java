@@ -1,7 +1,7 @@
 package com.tourya.api.services;
 
 import com.tourya.api._utils.Utils;
-import com.tourya.api.constans.enums.ProveedorStatusEnum;
+import com.tourya.api.constans.enums.ProviderStatusEnum;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
 import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 public class TourIncludesExcludesService {
 
     private final TourIncludesExcludesRepository tourIncludesExcludesRepository;
-    private final ProveedorService proveedorService;
+    private final ProviderService providerService;
     private final TourService tourService;
     private final TourIncludesExcludesMapper tourIncludesExcludesMapper;
 
@@ -31,12 +31,12 @@ public class TourIncludesExcludesService {
                                                      Integer tourId,
                                                      Authentication connectedUser) {
         User user = (User) connectedUser.getPrincipal();
-        if (!Utils.isProveedor(user.getRoles())) {
+        if (!Utils.isProvider(user.getRoles())) {
             throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
         }
 
-        Proveedor proveedor = getProveedor(user);
-        Tour tour = getTour(tourId, proveedor.getId());
+        Provider provider = getProvider(user);
+        Tour tour = getTour(tourId, provider.getId());
 
         List<TourIncludesExcludes> includesExcludesList = requests.stream()
                 .map(req -> {
@@ -66,12 +66,12 @@ public class TourIncludesExcludesService {
 
         User user = (User) auth.getPrincipal();
 
-        if (!Utils.isProveedor(user.getRoles())) {
+        if (!Utils.isProvider(user.getRoles())) {
             throw new InsufficientPrivilegesException("No tienes privilegios para esta operación.");
         }
 
-        Proveedor proveedor = getProveedor(user);
-        Tour tour = getTour(tourId, proveedor.getId());
+        Provider provider = getProvider(user);
+        Tour tour = getTour(tourId, provider.getId());
 
 
         tourIncludesExcludesRepository.deleteByTourId(tourId);
@@ -90,8 +90,8 @@ public class TourIncludesExcludesService {
                 .collect(Collectors.toList());
     }
 
-    private Tour getTour(Integer tourId, Integer proveedorId) {
-        Tour tour = tourService.getTourByIdAndProveedorId(tourId, proveedorId);
+    private Tour getTour(Integer tourId, Integer providerId) {
+        Tour tour = tourService.getTourByIdAndProviderId(tourId, providerId);
         if (tour != null) {
             return tour;
         } else {
@@ -99,18 +99,18 @@ public class TourIncludesExcludesService {
         }
     }
 
-    private Proveedor getProveedor(User user) {
-        Proveedor proveedor = proveedorService.findByUser(user);
-        if (proveedor != null) {
-            validateRules(proveedor);
-            return proveedor;
+    private Provider getProvider(User user) {
+        Provider provider = providerService.findByUser(user);
+        if (provider != null) {
+            validateRules(provider);
+            return provider;
         } else {
             throw new ResourceNotFoundException("No provider was found assigning this user.");
         }
     }
 
-    private void validateRules(Proveedor proveedor) {
-        if (!proveedor.getStatus().equals(ProveedorStatusEnum.ACTIVO)) {
+    private void validateRules(Provider provider) {
+        if (!provider.getStatus().equals(ProviderStatusEnum.ACTIVE)) {
             throw new OperationNotPermittedException("The provider cannot modify tour data because it is not active.");
         }
     }

@@ -5,10 +5,15 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import com.tourya.api.exceptions.UnknownEnumValueException;
 import lombok.AllArgsConstructor;
 
+
 @AllArgsConstructor
-public enum ProveedorTipoDocumentoEnum {
-    NIT("NIT"),
-    RNT("RNT");
+public enum RequestProviderStatusEnum {
+    PENDING("Pending"),
+    PROCESSING("Processing"),
+    APPROVED("Approved"),
+    DECLINED("Declined"),
+    COMPLETED("Completed"),
+    CANCELLED("Cancelled");
 
     private String value;
 
@@ -18,14 +23,14 @@ public enum ProveedorTipoDocumentoEnum {
     }
 
     @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
-    public static ProveedorTipoDocumentoEnum of(String value) {
-        for (ProveedorTipoDocumentoEnum e : values()) {
+    public static RequestProviderStatusEnum of(String value) {
+        for (RequestProviderStatusEnum e : values()) {
             if (e.value.equalsIgnoreCase(value)) {
                 return e;
             }
         }
 
-        throw new UnknownEnumValueException("ProveedorTipoDocumentoEnum: unknown value: " + value);
+        throw new UnknownEnumValueException("RequestProviderStatusEnum: unknown value: " + value);
     }
 
 }

@@ -3,7 +3,6 @@ package com.tourya.api.models;
 import com.tourya.api.common.BaseEntity;
 import com.tourya.api.constans.enums.AddressTypeEnum;
 import com.tourya.api.constans.enums.AddressTypeEnumConverter;
-import com.tourya.api.constans.enums.ProveedorTipoDocumentoEnumConverter;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;

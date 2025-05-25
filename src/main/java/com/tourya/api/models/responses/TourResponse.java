@@ -11,6 +11,6 @@ public class TourResponse {
     private Integer maxPeople;
     private Integer highlight;
     private TourCategoryResponse tourCategory;
-    private ProveedorResponse proveedor;
+    private ProviderResponse provider;
 
 }
