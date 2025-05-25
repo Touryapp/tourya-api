@@ -45,10 +45,10 @@ public class Tour extends BaseEntity {
     @Column(name = "highlight")
     private Integer highlight;
 
-    // Many-to-One relationship with Proveedor
+    // Many-to-One relationship with Provider
     @ManyToOne
-    @JoinColumn(name = "proveedor_id")
-    private Proveedor proveedor;
+    @JoinColumn(name = "provider_id")
+    private Provider provider;
 
 
 }

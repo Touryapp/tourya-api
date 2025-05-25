@@ -5,15 +5,12 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import com.tourya.api.exceptions.UnknownEnumValueException;
 import lombok.AllArgsConstructor;
 
-
 @AllArgsConstructor
-public enum SolicitudStatusEnum {
-    PENDIENTE("pendiente"),
-    EN_PROCESO("en_proceso"),
-    APROBADA("aprobada"),
-    RECHAZADA("rechazada"),
-    COMPLETADA("completada"),
-    CANCELADA("cancelada");
+public enum ProviderServiceTypeEnum {
+    TOUR("Tour"),
+    TRANSPORT("Transport"),
+    MEALS_FOOD_BEVERAGE("Meals or Food & Beverage (F&B)"),
+    ACCOMMODATION_LODGING("Accommodation or Lodging");
 
     private String value;
 
@@ -23,14 +20,13 @@ public enum SolicitudStatusEnum {
     }
 
     @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
-    public static SolicitudStatusEnum of(String value) {
-        for (SolicitudStatusEnum e : values()) {
+    public static ProviderServiceTypeEnum of(String value) {
+        for (ProviderServiceTypeEnum e : values()) {
             if (e.value.equalsIgnoreCase(value)) {
                 return e;
             }
         }
 
-        throw new UnknownEnumValueException("ProveedorStatusEnum: unknown value: " + value);
+        throw new UnknownEnumValueException("ProviderServiceTypeEnum: unknown value: " + value);
     }
-
 }

@@ -2,8 +2,8 @@ package com.tourya.api.models;
 
 
 import com.tourya.api.common.BaseEntity;
-import com.tourya.api.constans.enums.SolicitudStatusEnum;
-import com.tourya.api.constans.enums.SolicitudStatusEnumConverter;
+import com.tourya.api.constans.enums.RequestProviderStatusEnum;
+import com.tourya.api.constans.enums.RequestProviderStatusEnumConverter;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
@@ -25,17 +25,17 @@ import lombok.experimental.SuperBuilder;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "solicitud")
-public class Solicitud extends BaseEntity {
+@Table(name = "request_provider")
+public class RequestProvider extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY) // Utiliza la generación de identidad de la base de datos (serial)
     @Column(name = "id")
     private Integer id;
 
-    @Convert(converter = SolicitudStatusEnumConverter.class)
+    @Convert(converter = RequestProviderStatusEnumConverter.class)
     @Column(name = "status")
-    private SolicitudStatusEnum status;
+    private RequestProviderStatusEnum status;
     @ManyToOne
-    @JoinColumn(name = "proveedorId", nullable = false)
-    private Proveedor proveedor;
+    @JoinColumn(name = "provider_id", nullable = false)
+    private Provider provider;
 }

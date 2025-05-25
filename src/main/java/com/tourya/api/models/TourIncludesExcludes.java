@@ -2,7 +2,7 @@ package com.tourya.api.models;
 
 import com.tourya.api.common.BaseEntity;
 import com.tourya.api.constans.enums.IncludeExcludeTypeEnum;
-import com.tourya.api.constans.enums.IncludeExcludeTypeEnumCoverter;
+import com.tourya.api.constans.enums.IncludeExcludeTypeEnumConverter;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
@@ -27,7 +27,7 @@ public class TourIncludesExcludes extends BaseEntity {
 
     private String description;
 
-    @Convert(converter = IncludeExcludeTypeEnumCoverter.class)
+    @Convert(converter = IncludeExcludeTypeEnumConverter.class)
     @Column(name = "type")
     private IncludeExcludeTypeEnum type;
 

@@ -13,15 +13,15 @@ public interface TourRepository extends JpaRepository<Tour, Integer> {
     @Query("""
             SELECT tour
             FROM Tour tour
-            Where tour.proveedor.id = :id
+            Where tour.provider.id = :id
             """)
-    Page<Tour> findAllByProveedorId(@Param("id") Integer id,  Pageable pageable);
+    Page<Tour> findAllByProviderId(@Param("id") Integer id,  Pageable pageable);
 
     @Query("""
             SELECT tour
             FROM Tour tour
-            Where tour.id = :id And tour.proveedor.id = :proveedorId
+            Where tour.id = :id And tour.provider.id = :providerId
             """)
-    Tour findTourByIdAndProveedorId(@Param("id") Integer id, @Param("proveedorId") Integer proveedorId);
+    Tour findTourByIdAndProviderId(@Param("id") Integer id, @Param("providerId") Integer providerId);
 
 }

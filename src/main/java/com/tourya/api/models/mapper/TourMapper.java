@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class TourMapper {
-    private final ProveedorMapper proveedorMapper;
+    private final ProviderMapper providerMapper;
     private final TourCategoryMapper tourCategoryMapper;
 
     public Tour toTour(TourRequest tourRequest){
@@ -31,7 +31,7 @@ public class TourMapper {
         tourResponse.setMaxPeople(tour.getMaxPeople());
         tourResponse.setHighlight(tour.getHighlight());
         tourResponse.setTourCategory(tourCategoryMapper.toTourCategoryResponse(tour.getTourCategory()));
-        tourResponse.setProveedor(proveedorMapper.toProveedorResponse(tour.getProveedor()));
+        tourResponse.setProvider(providerMapper.toProviderResponse(tour.getProvider()));
         return tourResponse;
     }
 }
