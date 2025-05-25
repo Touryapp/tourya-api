@@ -3,7 +3,9 @@ package com.tourya.api.controller;
 
 import com.tourya.api.common.PageResponse;
 import com.tourya.api.models.Tour;
+import com.tourya.api.models.responses.TourDetailsResponse;
 import com.tourya.api.models.responses.TourResponse;
+import com.tourya.api.models.resquest.TourCreateRequest;
 import com.tourya.api.models.resquest.TourRequest;
 import com.tourya.api.services.TourService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -39,5 +41,12 @@ public class TourController {
             @RequestParam(name = "size", defaultValue = "10", required = false) int size,
             Authentication connectedUser){
         return ResponseEntity.ok(tourService.findAllByUser(page, size, connectedUser));
+    }
+    @PostMapping("/user/saveCreate")
+    public ResponseEntity<TourDetailsResponse> saveCreate(
+            @Valid @RequestBody TourCreateRequest tourCreateRequest,
+            Authentication connectedUser
+    ){
+        return ResponseEntity.ok(tourService.saveCreate(tourCreateRequest, connectedUser));
     }
 }

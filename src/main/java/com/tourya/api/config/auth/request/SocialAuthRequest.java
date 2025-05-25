@@ -22,5 +22,7 @@ public class SocialAuthRequest {
     @NotNull(message = "Email is mandatory")
     private String email;
 
-    private UUID uuidSocial;
+    @NotEmpty(message = "uuidSocial is mandatory")
+    @NotNull(message = "uuidSocial is mandatory")
+    private String uuidSocial;
 }
