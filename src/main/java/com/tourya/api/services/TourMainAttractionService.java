@@ -13,6 +13,7 @@ import com.tourya.api.repository.TourMainAttractionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -59,7 +60,34 @@ public class TourMainAttractionService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional
+    public List<TourMainAttractionResponse> replaceAllForTour(List<TourMainAttractionRequest> requests,
+                                                              Integer tourId,
+                                                              Authentication connectedUser) {
+        User user = (User) connectedUser.getPrincipal();
 
+        if (!Utils.isProveedor(user.getRoles())) {
+            throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
+        }
+
+        Proveedor proveedor = getProveedor(user);
+        Tour tour = getTour(tourId, proveedor.getId());
+
+
+        tourMainAttractionRepository.deleteByTourId(tourId);
+
+        List<TourMainAttraction> newAttractions = requests.stream()
+                .map(req -> {
+                    TourMainAttraction entity = tourMainAttractionMapper.toTourMainAttraction(req);
+                    entity.setTour(tour);
+                    return entity;
+                })
+                .collect(Collectors.toList());
+
+        return tourMainAttractionRepository.saveAll(newAttractions).stream()
+                .map(tourMainAttractionMapper::toTourMainAttractionResponse)
+                .collect(Collectors.toList());
+    }
 
     private Tour getTour(Integer tourId, Integer proveedorId){
         Tour tour =  tourService.getTourByIdAndProveedorId(tourId, proveedorId);

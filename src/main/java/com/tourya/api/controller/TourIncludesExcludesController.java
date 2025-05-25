@@ -11,29 +11,29 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/tour-includes-excludes")
+@RequestMapping("/tours/{tourId}/includes-excludes")
 @RequiredArgsConstructor
 public class TourIncludesExcludesController {
 
     private final TourIncludesExcludesService tourIncludesExcludesService;
 
-    @PostMapping("/{tourId}")
-    public ResponseEntity<List<TourIncludesExcludesResponse>> create(
+    // Reemplazo total
+    @PostMapping("/replace")
+    public ResponseEntity<List<TourIncludesExcludesResponse>> replaceAll(
             @PathVariable Integer tourId,
             @RequestBody List<TourIncludesExcludesRequest> requestList,
-            Authentication connectedUser
-    ) {
-        return ResponseEntity.ok(tourIncludesExcludesService.create(requestList, tourId, connectedUser));
+            Authentication authentication) {
+
+        List<TourIncludesExcludesResponse> result = tourIncludesExcludesService.replaceAllForTour(requestList, tourId, authentication);
+        return ResponseEntity.ok(result);
     }
 
-    @GetMapping("/tour/{tourId}")
-    public ResponseEntity<List<TourIncludesExcludesResponse>> getByTour(@PathVariable Integer tourId) {
-        return ResponseEntity.ok(tourIncludesExcludesService.getAllByTour(tourId));
-    }
+    // Consulta todos los elementos por tour
+    @GetMapping
+    public ResponseEntity<List<TourIncludesExcludesResponse>> getAllByTour(
+            @PathVariable Integer tourId) {
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        //tourIncludesExcludesService.deleteById(id);
-        return ResponseEntity.noContent().build();
+        List<TourIncludesExcludesResponse> result = tourIncludesExcludesService.getAllByTour(tourId);
+        return ResponseEntity.ok(result);
     }
 }

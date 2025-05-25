@@ -11,29 +11,29 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/tour-main-attractions")
+@RequestMapping("/tours/{tourId}/main-attractions")
 @RequiredArgsConstructor
 public class TourMainAttractionController {
 
     private final TourMainAttractionService tourMainAttractionService;
 
-    @PostMapping("/{tourId}")
-    public ResponseEntity<List<TourMainAttractionResponse>> create(
+    // Reemplazo total
+    @PostMapping("/replace")
+    public ResponseEntity<List<TourMainAttractionResponse>> replaceAll(
             @PathVariable Integer tourId,
             @RequestBody List<TourMainAttractionRequest> requestList,
-            Authentication connectedUser) {
-        return ResponseEntity.ok(tourMainAttractionService.create(requestList, tourId, connectedUser));
+            Authentication authentication) {
+
+        List<TourMainAttractionResponse> result = tourMainAttractionService.replaceAllForTour(requestList, tourId, authentication);
+        return ResponseEntity.ok(result);
     }
 
-    @GetMapping("/tour/{tourId}")
-    public ResponseEntity<List<TourMainAttractionResponse>> getByTour(@PathVariable Integer tourId) {
-        return ResponseEntity.ok(tourMainAttractionService.getAllByTour(tourId));
-    }
+    // Consulta todos los elementos por tour
+    @GetMapping
+    public ResponseEntity<List<TourMainAttractionResponse>> getAllByTour(
+            @PathVariable Integer tourId) {
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        //TODO
-        //tourMainAttractionService.deleteById(id);
-        return ResponseEntity.noContent().build();
+        List<TourMainAttractionResponse> result = tourMainAttractionService.getAllByTour(tourId);
+        return ResponseEntity.ok(result);
     }
 }

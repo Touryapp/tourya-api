@@ -1,9 +1,10 @@
 package com.tourya.api.constans.enums;
 
+import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Convert;
 
 @Convert
-public class IncludeExcludeTypeEnumCoverter {
+public class IncludeExcludeTypeEnumCoverter implements AttributeConverter<IncludeExcludeTypeEnum, String> {
     public String convertToDatabaseColumn(IncludeExcludeTypeEnum value) {
         if ( value == null ) {
             return null;

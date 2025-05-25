@@ -13,6 +13,7 @@ import com.tourya.api.repository.TourIncludesExcludesRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -58,6 +59,36 @@ public class TourIncludesExcludesService {
 
 
 
+    @Transactional
+    public List<TourIncludesExcludesResponse> replaceAllForTour(List<TourIncludesExcludesRequest> requests,
+                                                                Integer tourId,
+                                                                Authentication auth) {
+
+        User user = (User) auth.getPrincipal();
+
+        if (!Utils.isProveedor(user.getRoles())) {
+            throw new InsufficientPrivilegesException("No tienes privilegios para esta operación.");
+        }
+
+        Proveedor proveedor = getProveedor(user);
+        Tour tour = getTour(tourId, proveedor.getId());
+
+
+        tourIncludesExcludesRepository.deleteByTourId(tourId);
+
+
+        List<TourIncludesExcludes> nuevos = requests.stream()
+                .map(req -> {
+                    TourIncludesExcludes entity = tourIncludesExcludesMapper.toTourIncludesExcludes(req);
+                    entity.setTour(tour);
+                    return entity;
+                })
+                .collect(Collectors.toList());
+
+        return tourIncludesExcludesRepository.saveAll(nuevos).stream()
+                .map(tourIncludesExcludesMapper::tourIncludesExcludesResponse)
+                .collect(Collectors.toList());
+    }
 
     private Tour getTour(Integer tourId, Integer proveedorId) {
         Tour tour = tourService.getTourByIdAndProveedorId(tourId, proveedorId);
