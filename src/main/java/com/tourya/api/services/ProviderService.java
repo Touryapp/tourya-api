@@ -8,9 +8,12 @@ import com.tourya.api.constans.enums.RequestProviderStatusEnum;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
 import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
+import com.tourya.api.models.City;
+import com.tourya.api.models.Country;
 import com.tourya.api.models.Provider;
 import com.tourya.api.models.Role;
 import com.tourya.api.models.RequestProvider;
+import com.tourya.api.models.State;
 import com.tourya.api.models.User;
 import com.tourya.api.models.mapper.ProviderMapper;
 import com.tourya.api.models.responses.ProviderResponse;
@@ -33,10 +36,12 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class ProviderService {
     private final ProviderRepository providerRepository;
-
     private final ProviderMapper providerMapper;
-
     private final RequestProviderRepository requestProviderRepository;
+    private final CountryService countryService;
+    private final CityService cityService;
+    private final StateService stateService;
+    private static final String NOT_PRIVILEGES = "You have no privileges to perform this action.";
 
     public Provider save(Provider provider) {
         return providerRepository.save(provider);
@@ -51,27 +56,49 @@ public class ProviderService {
             provider.setDocumentNumber(providerRequest.getDocumentNumber());
             provider.setDocumentType(providerRequest.getDocumentType());
             provider.setServiceType(providerRequest.getServiceType());
-            //TODO: ARREGLAR EUGENIO
-            //provider.setCountry(providerRequest.getCountryId());
-            //provider.setCity(providerRequest.getCityId());
-            //provider.setState(providerRequest.getStateId());
+            provider.setCountry(getCountry(providerRequest.getCountryId()));
+            provider.setCity(getCity(providerRequest.getCityId()));
+            provider.setState(getState(providerRequest.getStateId()));
             provider.setDepartment(providerRequest.getDepartment());
             provider.setAddress(providerRequest.getAddress());
             provider.setPhone(providerRequest.getPhone());
             return providerMapper.toProviderResponse(providerRepository.save(provider));
         }else{
-            throw new ResourceNotFoundException("Resource not found.");
+            throw new ResourceNotFoundException("Provider not found for user: "+ user.getEmail());
         }
 
     }
-
+    private Country getCountry(Integer countryId){
+        Country country = countryService.findById(countryId);
+        if(country != null){
+            return country;
+        }else{
+            throw new ResourceNotFoundException("No country found with the id = "+ countryId);
+        }
+    }
+    private City getCity(Integer cityId){
+        City city = cityService.findById(cityId);
+        if(city != null){
+            return city;
+        }else{
+            throw new ResourceNotFoundException("No city found with the id = "+ cityId);
+        }
+    }
+    private State getState(Integer stateId){
+        State state = stateService.findById(stateId);
+        if(state != null){
+            return state;
+        }else{
+            throw new ResourceNotFoundException("No state found with the id = "+ stateId);
+        }
+    }
     public ProviderResponse consultDataProvider(Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         Provider provider = providerRepository.findByUser(user);
         if(provider != null){
             return providerMapper.toProviderResponse(provider);
         }else{
-            throw new ResourceNotFoundException("Resource not found.");
+            throw new ResourceNotFoundException("Provider not found for user: "+ user.getEmail());
         }
     }
 
@@ -108,7 +135,7 @@ public class ProviderService {
                     allProviders.isLast()
             );
         }else{
-            throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
+            throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
         }
     }
     public ProviderResponse consultDataProviderById(Integer providerId, Authentication connectedUser ) {
@@ -122,7 +149,7 @@ public class ProviderService {
                 throw new ResourceNotFoundException("Provider not found. Id:"+providerId);
             }
         }else{
-            throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
+            throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
         }
     }
     public void deleteProviderById(Integer providerId, Authentication connectedUser ) {
@@ -135,13 +162,13 @@ public class ProviderService {
                 if (requestProvider == null) {
                     providerRepository.delete(provider);
                 } else {
-                    throw new OperationNotPermittedException("Unable to delete supplier, an associated request was found.");
+                    throw new OperationNotPermittedException("Unable to delete provider, an associated requestProvider was found.");
                 }
             } else {
                 throw new ResourceNotFoundException("Provider not found. id = " + providerId);
             }
         } else {
-            throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
+            throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
         }
     }
     @Transactional
@@ -161,13 +188,13 @@ public class ProviderService {
                     requestProviderRepository.save(requestProvider);
                     return providerMapper.toProviderResponse(providerUpdate);
                 } else {
-                    throw new OperationNotPermittedException("No request found associated with the provider.");
+                    throw new OperationNotPermittedException("No requestProvider found associated with the provider.");
                 }
             } else {
                 throw new ResourceNotFoundException("Provider not found. id = " + providerId);
             }
         } else {
-            throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
+            throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
         }
     }
     public RequestProvider getRequestProviderByProvider(Provider provider){

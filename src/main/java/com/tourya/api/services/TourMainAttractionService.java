@@ -25,11 +25,11 @@ public class TourMainAttractionService {
 
     private final TourMainAttractionRepository tourMainAttractionRepository;
     private final ProviderService providerService;
-    private final TourService tourService;
+    //private final TourService tourService;
     private final TourMainAttractionMapper tourMainAttractionMapper;
 
     public List<TourMainAttractionResponse> create(List<TourMainAttractionRequest> requests,
-                                                   Integer tourId, Authentication connectedUser) {
+                                                   Integer tourId, TourService tourService, Authentication connectedUser) {
 
         User user = ((User) connectedUser.getPrincipal());
 
@@ -37,7 +37,7 @@ public class TourMainAttractionService {
             throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
         }
         Provider provider = getProvider(user);
-        Tour tour = getTour(tourId, provider.getId());
+        Tour tour = getTour(tourId, provider.getId(), tourService);
 
         List<TourMainAttraction> tourMainAttractionList = requests.stream()
                 .map(req -> {
@@ -62,7 +62,7 @@ public class TourMainAttractionService {
 
     @Transactional
     public List<TourMainAttractionResponse> replaceAllForTour(List<TourMainAttractionRequest> requests,
-                                                              Integer tourId,
+                                                              Integer tourId, TourService tourService,
                                                               Authentication connectedUser) {
         User user = (User) connectedUser.getPrincipal();
 
@@ -71,7 +71,7 @@ public class TourMainAttractionService {
         }
 
         Provider provider = getProvider(user);
-        Tour tour = getTour(tourId, provider.getId());
+        Tour tour = getTour(tourId, provider.getId(), tourService);
 
 
         tourMainAttractionRepository.deleteByTourId(tourId);
@@ -89,7 +89,7 @@ public class TourMainAttractionService {
                 .collect(Collectors.toList());
     }
 
-    private Tour getTour(Integer tourId, Integer providerId){
+    private Tour getTour(Integer tourId, Integer providerId, TourService tourService){
         Tour tour =  tourService.getTourByIdAndProviderId(tourId, providerId);
         if(tour != null){
             return tour;

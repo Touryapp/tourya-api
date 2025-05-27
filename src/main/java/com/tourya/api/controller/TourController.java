@@ -4,8 +4,10 @@ package com.tourya.api.controller;
 import com.tourya.api.common.PageResponse;
 import com.tourya.api.models.Tour;
 import com.tourya.api.models.responses.TourDetailsResponse;
+import com.tourya.api.models.responses.TourFullDataResponse;
 import com.tourya.api.models.responses.TourResponse;
 import com.tourya.api.models.resquest.TourCreateRequest;
+import com.tourya.api.models.resquest.TourFullDataRequest;
 import com.tourya.api.models.resquest.TourRequest;
 import com.tourya.api.services.TourService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -42,11 +44,18 @@ public class TourController {
             Authentication connectedUser){
         return ResponseEntity.ok(tourService.findAllByUser(page, size, connectedUser));
     }
-    @PostMapping("/user/saveCreate")
-    public ResponseEntity<TourDetailsResponse> saveCreate(
+    @PostMapping("/user/saveCreateBasicData")
+    public ResponseEntity<TourDetailsResponse> saveCreateBasicData(
             @Valid @RequestBody TourCreateRequest tourCreateRequest,
             Authentication connectedUser
     ){
-        return ResponseEntity.ok(tourService.saveCreate(tourCreateRequest, connectedUser));
+        return ResponseEntity.ok(tourService.saveCreateBasicData(tourCreateRequest, connectedUser));
+    }
+    @PostMapping("/user/saveCreateFullData")
+    public ResponseEntity<TourFullDataResponse> saveCreateFullData(
+            @Valid @RequestBody TourFullDataRequest tourFullDataRequest,
+            Authentication connectedUser
+    ){
+        return ResponseEntity.ok(tourService.saveCreateFullData(tourFullDataRequest, connectedUser));
     }
 }

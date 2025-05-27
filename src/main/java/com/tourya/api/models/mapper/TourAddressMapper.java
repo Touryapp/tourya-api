@@ -17,7 +17,7 @@ public class TourAddressMapper {
         tourAddress.setAddressType(tourAddressRequest.getAddressType());
         tourAddress.setLongitude(tourAddressRequest.getLongitude());
         tourAddress.setLatitude(tourAddressRequest.getLatitude());
-
+        tourAddress.setAddressType(tourAddressRequest.getAddressType());
         return tourAddress;
     }
 
@@ -28,7 +28,10 @@ public class TourAddressMapper {
         tourAddressResponse.setAddressType(tourAddress.getAddressType());
         tourAddressResponse.setLatitude(tourAddress.getLatitude());
         tourAddressResponse.setLongitude(tourAddress.getLongitude());
-        tourAddressResponse.setTour(tourMapper.toTourResponse(tourAddress.getTour()));
+        tourAddressResponse.setCountryId(tourAddress.getCountry().getId());
+        tourAddressResponse.setStateId(tourAddress.getState().getId());
+        tourAddressResponse.setCityId(tourAddress.getCity().getId());
+        //tourAddressResponse.setTour(tourMapper.toTourResponse(tourAddress.getTour()));
         return tourAddressResponse;
     }
 }

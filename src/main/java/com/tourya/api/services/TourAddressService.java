@@ -23,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -54,6 +55,33 @@ public class TourAddressService {
             tourAddress.setState(state);
             tourAddress.setCity(city);
             return tourAddressMapper.toTourAddressResponse(tourAddressRepository.save(tourAddress));
+        }else{
+            throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
+        }
+    }
+    public List<TourAddressResponse> saveTourAddressListByTourId(List<TourAddressRequest> tourAddressRequestList,
+                                                       Integer tourId, Authentication connectedUser){
+        User user = ((User) connectedUser.getPrincipal());
+        List<Role> roleList = user.getRoles();
+        if(Utils.isProvider(roleList)){
+            Provider provider = getProvider(user);
+            Tour tour = getTour(tourId, provider.getId());
+            List<TourAddress> tourAddressList = new ArrayList<>();
+            for(TourAddressRequest tourAddressRequest : tourAddressRequestList){
+                TourAddress tourAddress = tourAddressMapper.toTourAddress(tourAddressRequest);
+                Country country = getCountry(tourAddressRequest.getCountryId());
+                State state = getState(tourAddressRequest.getStateId());
+                City city = getCity(tourAddressRequest.getCityId());
+                tourAddress.setTour(tour);
+                tourAddress.setCountry(country);
+                tourAddress.setState(state);
+                tourAddress.setCity(city);
+                tourAddressList.add(tourAddress);
+            }
+            return tourAddressRepository.saveAll(tourAddressList).stream()
+                    .map(tourAddressMapper::toTourAddressResponse)
+                    .toList();
+
         }else{
             throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
         }

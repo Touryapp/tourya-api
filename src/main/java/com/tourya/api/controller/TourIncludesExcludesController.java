@@ -18,7 +18,7 @@ public class TourIncludesExcludesController {
     private final TourIncludesExcludesService tourIncludesExcludesService;
 
     // Reemplazo total
-    @PostMapping("/replace")
+    /*@PostMapping("/replace")
     public ResponseEntity<List<TourIncludesExcludesResponse>> replaceAll(
             @PathVariable Integer tourId,
             @RequestBody List<TourIncludesExcludesRequest> requestList,
@@ -26,7 +26,7 @@ public class TourIncludesExcludesController {
 
         List<TourIncludesExcludesResponse> result = tourIncludesExcludesService.replaceAllForTour(requestList, tourId, authentication);
         return ResponseEntity.ok(result);
-    }
+    }*/
 
     // Consulta todos los elementos por tour
     @GetMapping

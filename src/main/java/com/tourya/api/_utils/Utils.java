@@ -23,6 +23,6 @@ public class Utils {
 
     public static boolean isProvider(List<Role> roleList) {
         return roleList != null && roleList.stream()
-                .anyMatch(role -> role.getName() != null && role.getName().equals("PROVEEDOR"));
+                .anyMatch(role -> role.getName() != null && role.getName().equals("PROVIDER"));
     }
 }
