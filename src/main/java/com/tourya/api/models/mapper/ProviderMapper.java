@@ -34,8 +34,8 @@ public class ProviderMapper {
         providerResponse.setDocumentType(provider.getDocumentType());
         providerResponse.setServiceType(provider.getServiceType());
         providerResponse.setCountry(countryMapper.toCountryResponse(provider.getCountry()));
-        providerResponse.setState(stateMapper.toStateLightResponse(provider.getState()));
-        providerResponse.setCity(cityMapper.toCityLightResponse(provider.getCity()));
+        providerResponse.setState(stateMapper.toStateResponse(provider.getState()));
+        providerResponse.setCity(cityMapper.toCityResponse(provider.getCity()));
         providerResponse.setDepartment(provider.getDepartment());
         providerResponse.setAddress(provider.getAddress());
         providerResponse.setPhone(provider.getPhone());

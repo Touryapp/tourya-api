@@ -106,6 +106,20 @@ public class ProviderService {
         return providerRepository.findByUser(user);
     }
 
+    public Provider findByUserAndStatusActive(User user) {
+        Provider provider = providerRepository.findByUser(user);
+        if(provider != null){
+            validateRules(provider);
+            return provider;
+        }else{
+            throw new ResourceNotFoundException("No provider was found assigning this user.");
+        }
+    }
+    private void validateRules(Provider provider){
+        if(!provider.getStatus().equals(ProviderStatusEnum.ACTIVE)){
+            throw new OperationNotPermittedException("The provider cannot create a tour as its status is not active.");
+        }
+    }
     public Provider findById(Integer providerId) {
         Optional<Provider>  optionalProvider = providerRepository.findById(providerId);
         if(optionalProvider.isPresent()){

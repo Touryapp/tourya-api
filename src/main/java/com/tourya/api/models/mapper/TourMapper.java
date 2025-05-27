@@ -50,6 +50,7 @@ public class TourMapper {
         tourResponse.setDuration(tour.getDuration());
         tourResponse.setMaxPeople(tour.getMaxPeople());
         tourResponse.setHighlight(tour.getHighlight());
+        tourResponse.setStatus(tour.getStatus());
         tourResponse.setTourCategory(tourCategoryMapper.toTourCategoryResponse(tour.getTourCategory()));
         tourResponse.setProvider(providerMapper.toProviderResponse(tour.getProvider()));
         return tourResponse;

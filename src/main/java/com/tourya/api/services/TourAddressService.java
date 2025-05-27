@@ -2,9 +2,7 @@ package com.tourya.api.services;
 
 
 import com.tourya.api._utils.Utils;
-import com.tourya.api.constans.enums.ProviderStatusEnum;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
-import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.models.City;
 import com.tourya.api.models.Country;
@@ -42,7 +40,7 @@ public class TourAddressService {
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
         if(Utils.isProvider(roleList)){
-            Provider provider = getProvider(user);
+            Provider provider = providerService.findByUserAndStatusActive(user);
             Tour tour = getTour(tourId, provider.getId());
             TourAddress tourAddress = tourAddressMapper.toTourAddress(tourAddressRequest);
             Country country = getCountry(tourAddressRequest.getCountryId());
@@ -64,7 +62,7 @@ public class TourAddressService {
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
         if(Utils.isProvider(roleList)){
-            Provider provider = getProvider(user);
+            Provider provider = providerService.findByUserAndStatusActive(user);
             Tour tour = getTour(tourId, provider.getId());
             List<TourAddress> tourAddressList = new ArrayList<>();
             for(TourAddressRequest tourAddressRequest : tourAddressRequestList){
@@ -119,20 +117,6 @@ public class TourAddressService {
             return tour;
         }else{
             throw new ResourceNotFoundException("No tour with this id was found for this provider.");
-        }
-    }
-    private Provider getProvider(User user){
-        Provider provider = providerService.findByUser(user);
-        if(provider != null){
-            validateRules(provider);
-            return provider;
-        }else{
-            throw new ResourceNotFoundException("No provider was found assigning this user.");
-        }
-    }
-    private void validateRules(Provider provider){
-        if(!provider.getStatus().equals(ProviderStatusEnum.ACTIVE)){
-            throw new OperationNotPermittedException("The provider cannot create a tour as its status is not active.");
         }
     }
 }

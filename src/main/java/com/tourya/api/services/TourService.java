@@ -75,7 +75,7 @@ public class TourService {
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
         if(Utils.isProvider(roleList)){
-            Provider provider = getProvider(user);
+            Provider provider = providerService.findByUserAndStatusActive(user);
             TourCategory tourCategory = getTourCategory(tourRequest.getTourCategoryId());
             Tour tour = tourMapper.toTour(tourRequest);
             tour.setProvider(provider);
@@ -86,20 +86,6 @@ public class TourService {
         }
     }
 
-    private Provider getProvider(User user){
-        Provider provider = providerService.findByUser(user);
-        if(provider != null){
-            validateRules(provider);
-            return provider;
-        }else{
-            throw new ResourceNotFoundException("No provider was found assigning this user.");
-        }
-    }
-    private void validateRules(Provider provider){
-        if(!provider.getStatus().equals(ProviderStatusEnum.ACTIVE)){
-            throw new OperationNotPermittedException("The provider cannot create a tour as its status is not active.");
-        }
-    }
     private TourCategory getTourCategory(Integer id){
         TourCategory tourCategory = tourCategoryService.findById(id);
         if(tourCategory != null){
@@ -114,7 +100,7 @@ public class TourService {
         List<Role> roleList = user.getRoles();
         if(Utils.isProvider(roleList)){
             Pageable pageable = PageRequest.of(page, size, Sort.by("createdDate").descending());
-            Provider provider = getProvider(user);
+            Provider provider = providerService.findByUserAndStatusActive(user);
             Page<Tour> allTours = tourRepository.findAllByProviderId(provider.getId(), pageable);
 
             List<TourResponse> toursResponse = allTours.stream()
@@ -144,7 +130,7 @@ public class TourService {
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
         if(Utils.isProvider(roleList)){
-            Provider provider = getProvider(user);
+            Provider provider = providerService.findByUserAndStatusActive(user);
             TourCategory tourCategory = getTourCategory(tourCreateRequest.getTourCategoryId());
             Tour tour = tourMapper.toTour(tourCreateRequest);
             tour.setProvider(provider);
@@ -217,7 +203,7 @@ public class TourService {
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
         if(Utils.isProvider(roleList)){
-            Provider provider = getProvider(user);
+            Provider provider = providerService.findByUserAndStatusActive(user);
             TourCategory tourCategory = getTourCategory(tourFullDataRequest.getTourCategoryId());
             //Save tour
             Tour tour = tourMapper.toTour(tourFullDataRequest);
