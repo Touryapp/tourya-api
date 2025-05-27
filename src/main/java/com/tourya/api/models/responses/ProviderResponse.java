@@ -25,9 +25,9 @@ public class ProviderResponse {
 
     private CountryResponse country;
 
-    private CityResponse city;
+    private CityLightResponse city;
 
-    private StateResponse state;
+    private StateLightResponse state;
 
     private String department;
 

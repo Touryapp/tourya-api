@@ -2,7 +2,10 @@ package com.tourya.api.models;
 
 
 import com.tourya.api.common.BaseEntity;
+import com.tourya.api.constans.enums.TourStatusEnum;
+import com.tourya.api.constans.enums.TourStatusEnumConverter;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -44,6 +47,10 @@ public class Tour extends BaseEntity {
 
     @Column(name = "highlight")
     private Integer highlight;
+
+    @Convert(converter = TourStatusEnumConverter.class)
+    @Column(name = "status")
+    private TourStatusEnum status;
 
     // Many-to-One relationship with Provider
     @ManyToOne

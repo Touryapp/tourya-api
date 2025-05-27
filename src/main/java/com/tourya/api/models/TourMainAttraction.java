@@ -1,5 +1,6 @@
 package com.tourya.api.models;
 
+import com.tourya.api.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
@@ -15,7 +16,7 @@ import java.time.LocalDateTime;
 @SuperBuilder
 @Entity
 @Table(name = "tour_main_attractions")
-public class TourMainAttraction {
+public class TourMainAttraction extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")

@@ -2,6 +2,8 @@ package com.tourya.api.models.mapper;
 
 import com.tourya.api.models.Tour;
 import com.tourya.api.models.responses.TourResponse;
+import com.tourya.api.models.resquest.TourCreateRequest;
+import com.tourya.api.models.resquest.TourFullDataRequest;
 import com.tourya.api.models.resquest.TourRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -19,6 +21,24 @@ public class TourMapper {
         tour.setDuration(tourRequest.getDuration());
         tour.setMaxPeople(tourRequest.getMaxPeople());
         tour.setHighlight(tourRequest.getHighlight());
+        return tour;
+    }
+    public Tour toTour(TourCreateRequest tourCreateRequest){
+        Tour tour = new Tour();
+        tour.setName(tourCreateRequest.getName());
+        tour.setDescription(tourCreateRequest.getDescription());
+        tour.setDuration(tourCreateRequest.getDuration());
+        tour.setMaxPeople(tourCreateRequest.getMaxPeople());
+        tour.setHighlight(tourCreateRequest.getHighlight());
+        return tour;
+    }
+    public Tour toTour(TourFullDataRequest tourFullDataRequest){
+        Tour tour = new Tour();
+        tour.setName(tourFullDataRequest.getName());
+        tour.setDescription(tourFullDataRequest.getDescription());
+        tour.setDuration(tourFullDataRequest.getDuration());
+        tour.setMaxPeople(tourFullDataRequest.getMaxPeople());
+        tour.setHighlight(tourFullDataRequest.getHighlight());
         return tour;
     }
 

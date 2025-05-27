@@ -25,9 +25,11 @@ public class RequestProviderRequest {
     @NotNull(message = "documentNumber is mandatory")
     private String documentNumber;
 
+    @NotNull(message = "documentType is mandatory")
     @Convert(converter = ProviderDocumentTypeEnumConverter.class)
     private ProviderDocumentTypeEnum documentType;
 
+    @NotNull(message = "serviceType is mandatory")
     @Convert(converter = ProviderServiceTypeEnumConverter.class)
     private ProviderServiceTypeEnum serviceType;
 

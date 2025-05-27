@@ -8,7 +8,10 @@ public class TourAddressResponse {
     private Integer id;
     private String address;
     private AddressTypeEnum addressType;
+    private Integer countryId;
+    private Integer stateId;
+    private Integer cityId;
     private Double latitude;
     private Double longitude;
-    private TourResponse tour;
+    //private TourResponse tour;
 }

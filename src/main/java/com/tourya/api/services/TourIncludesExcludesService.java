@@ -1,6 +1,7 @@
 package com.tourya.api.services;
 
 import com.tourya.api._utils.Utils;
+import com.tourya.api.constans.enums.IncludeExcludeTypeEnum;
 import com.tourya.api.constans.enums.ProviderStatusEnum;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
 import com.tourya.api.exceptions.OperationNotPermittedException;
@@ -24,11 +25,11 @@ public class TourIncludesExcludesService {
 
     private final TourIncludesExcludesRepository tourIncludesExcludesRepository;
     private final ProviderService providerService;
-    private final TourService tourService;
+    //private final TourService tourService;
     private final TourIncludesExcludesMapper tourIncludesExcludesMapper;
 
     public List<TourIncludesExcludesResponse> create(List<TourIncludesExcludesRequest> requests,
-                                                     Integer tourId,
+                                                     Integer tourId, TourService tourService,
                                                      Authentication connectedUser) {
         User user = (User) connectedUser.getPrincipal();
         if (!Utils.isProvider(user.getRoles())) {
@@ -36,7 +37,7 @@ public class TourIncludesExcludesService {
         }
 
         Provider provider = getProvider(user);
-        Tour tour = getTour(tourId, provider.getId());
+        Tour tour = getTour(tourId, provider.getId(), tourService);
 
         List<TourIncludesExcludes> includesExcludesList = requests.stream()
                 .map(req -> {
@@ -61,7 +62,8 @@ public class TourIncludesExcludesService {
 
     @Transactional
     public List<TourIncludesExcludesResponse> replaceAllForTour(List<TourIncludesExcludesRequest> requests,
-                                                                Integer tourId,
+                                                                Integer tourId, TourService tourService,
+                                                                IncludeExcludeTypeEnum type,
                                                                 Authentication auth) {
 
         User user = (User) auth.getPrincipal();
@@ -71,13 +73,13 @@ public class TourIncludesExcludesService {
         }
 
         Provider provider = getProvider(user);
-        Tour tour = getTour(tourId, provider.getId());
+        Tour tour = getTour(tourId, provider.getId(), tourService);
 
+        List<TourIncludesExcludes>  list = tourIncludesExcludesRepository.findByTourIdAndType(tourId, type);
+        //tourIncludesExcludesRepository.deleteByTourIdAndType(tourId, type);
+        tourIncludesExcludesRepository.deleteAll(list);
 
-        tourIncludesExcludesRepository.deleteByTourId(tourId);
-
-
-        List<TourIncludesExcludes> nuevos = requests.stream()
+        List<TourIncludesExcludes> newList = requests.stream()
                 .map(req -> {
                     TourIncludesExcludes entity = tourIncludesExcludesMapper.toTourIncludesExcludes(req);
                     entity.setTour(tour);
@@ -85,12 +87,13 @@ public class TourIncludesExcludesService {
                 })
                 .collect(Collectors.toList());
 
-        return tourIncludesExcludesRepository.saveAll(nuevos).stream()
+        tourIncludesExcludesRepository.saveAll(newList);
+        return tourIncludesExcludesRepository.findByTourIdAndType(tourId, type).stream()
                 .map(tourIncludesExcludesMapper::tourIncludesExcludesResponse)
                 .collect(Collectors.toList());
     }
 
-    private Tour getTour(Integer tourId, Integer providerId) {
+    private Tour getTour(Integer tourId, Integer providerId, TourService tourService) {
         Tour tour = tourService.getTourByIdAndProviderId(tourId, providerId);
         if (tour != null) {
             return tour;

@@ -2,6 +2,7 @@ package com.tourya.api.models.mapper;
 
 
 import com.tourya.api.models.City;
+import com.tourya.api.models.responses.CityLightResponse;
 import com.tourya.api.models.responses.CityResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,5 +19,11 @@ public class CityMapper {
         cityResponse.setName(city.getName());
         cityResponse.setState(stateMapper.toStateResponse(city.getState()));
         return cityResponse;
+    }
+    public CityLightResponse toCityLightResponse(City city){
+        CityLightResponse cityLightResponse = new CityLightResponse();
+        cityLightResponse.setId(city.getId());
+        cityLightResponse.setName(city.getName());
+        return cityLightResponse;
     }
 }

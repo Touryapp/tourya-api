@@ -8,9 +8,12 @@ import com.tourya.api.constans.enums.RequestProviderStatusEnum;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
 import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
+import com.tourya.api.models.City;
+import com.tourya.api.models.Country;
 import com.tourya.api.models.Provider;
 import com.tourya.api.models.Role;
 import com.tourya.api.models.RequestProvider;
+import com.tourya.api.models.State;
 import com.tourya.api.models.User;
 import com.tourya.api.models.mapper.ProviderMapper;
 import com.tourya.api.models.mapper.RequestProviderMapper;
@@ -40,6 +43,11 @@ public class RequestProviderService {
     private final RequestProviderMapper requestProviderMapper;
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
+    private final CountryService countryService;
+    private final CityService cityService;
+    private final StateService stateService;
+    private static final String NOT_PRIVILEGES = "You have no privileges to perform this action.";
+    private static final String REQUEST_PROVIDER_NOT_FOUND = "RequestProvider not found Id: ";
     @Transactional
     public RequestProviderResponse save(RequestProviderRequest request,
                                         Authentication connectedUser){
@@ -51,15 +59,18 @@ public class RequestProviderService {
 
         List<Role> roleList =  user.getRoles();
 
-        var userRole = roleRepository.findByName("PROVEEDOR")
+        var userRole = roleRepository.findByName("PROVIDER")
                 // todo - better exception handling
-                .orElseThrow(() -> new IllegalStateException("ROLE PROVEEDOR was not initiated"));
+                .orElseThrow(() -> new IllegalStateException("ROLE PROVIDER was not initiated"));
         roleList.add(userRole);
         user.setRoles(roleList);
         User userUpdate = userRepository.save(user);
 
 
         Provider provider = providerMapper.toProvider(request);
+        provider.setCountry(getCountry(request.getCountryId()));
+        provider.setCity(getCity(request.getCityId()));
+        provider.setState(getState(request.getStateId()));
         provider.setUser(userUpdate);
         provider.setStatus(ProviderStatusEnum.POTENTIAL);
         Provider providerNew = providerService.save(provider);
@@ -71,6 +82,30 @@ public class RequestProviderService {
         RequestProvider requestProviderNew = requestProviderRepository.save(requestProvider);
 
         return requestProviderMapper.toRequestProviderResponse(requestProviderNew);
+    }
+    private Country getCountry(Integer countryId){
+        Country country = countryService.findById(countryId);
+        if(country != null){
+            return country;
+        }else{
+            throw new ResourceNotFoundException("No country found with the id = "+ countryId);
+        }
+    }
+    private City getCity(Integer cityId){
+        City city = cityService.findById(cityId);
+        if(city != null){
+            return city;
+        }else{
+            throw new ResourceNotFoundException("No city found with the id = "+ cityId);
+        }
+    }
+    private State getState(Integer stateId){
+        State state = stateService.findById(stateId);
+        if(state != null){
+            return state;
+        }else{
+            throw new ResourceNotFoundException("No state found with the id = "+ stateId);
+        }
     }
 
     public RequestProviderResponse consultData(Authentication connectedUser){
@@ -94,10 +129,10 @@ public class RequestProviderService {
                 RequestProvider requestProvider = requestProviderOpt.get();
                 return requestProviderMapper.toRequestProviderResponse(requestProvider);
             }else{
-                throw new ResourceNotFoundException("Resource not found.");
+                throw new ResourceNotFoundException(REQUEST_PROVIDER_NOT_FOUND+requestProviderId);
             }
         }else{
-            throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
+            throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
         }
     }
     @Transactional
@@ -119,10 +154,10 @@ public class RequestProviderService {
 
                 return requestProviderMapper.toRequestProviderResponse(requestProviderUpdate);
             }else{
-                throw new ResourceNotFoundException("Resource not found.");
+                throw new ResourceNotFoundException(REQUEST_PROVIDER_NOT_FOUND+requestProviderId);
             }
         }else{
-            throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
+            throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
         }
     }
     @Transactional
@@ -144,10 +179,10 @@ public class RequestProviderService {
 
                 return requestProviderMapper.toRequestProviderResponse(requestProviderUpdate);
             }else{
-                throw new ResourceNotFoundException("Resource not found.");
+                throw new ResourceNotFoundException(REQUEST_PROVIDER_NOT_FOUND+requestProviderId);
             }
         }else{
-            throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
+            throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
         }
     }
     public PageResponse<RequestProviderResponse> findAll(int page, int size, RequestProviderStatusEnum status, Authentication connectedUser){
@@ -170,7 +205,7 @@ public class RequestProviderService {
                     allRequestProviderPending.isLast()
             );
         }else{
-            throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
+            throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
         }
     }
     public RequestProvider getRequestProviderByProvider(Provider provider){
