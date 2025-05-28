@@ -11,6 +11,7 @@ import java.util.List;
 
 @Data
 public class TourFullDataRequest {
+    private Integer id;
     @NotEmpty(message = "name is mandatory")
     @NotNull(message = "name is mandatory")
     private String name;
