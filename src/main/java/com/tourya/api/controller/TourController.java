@@ -69,19 +69,20 @@ public class TourController {
             Authentication connectedUser){
         return ResponseEntity.ok(tourService.findAllByUser(page, size, connectedUser));
     }
+    /*
     @PostMapping("/user/saveCreateBasicData")
     public ResponseEntity<TourDetailsResponse> saveCreateBasicData(
             @Valid @RequestBody TourCreateRequest tourCreateRequest,
             Authentication connectedUser
     ){
         return ResponseEntity.ok(tourService.saveCreateBasicData(tourCreateRequest, connectedUser));
-    }
-    @PostMapping("/user/saveCreateFullData")
+    }*/
+    @PostMapping("/user/saveAll")
     public ResponseEntity<TourFullDataResponse> saveCreateFullData(
             @Valid @RequestBody TourFullDataRequest tourFullDataRequest,
             Authentication connectedUser
     ){
-        return ResponseEntity.ok(tourService.saveCreateFullData(tourFullDataRequest, connectedUser));
+        return ResponseEntity.ok(tourService.saveCreateOrUpdateFullData(tourFullDataRequest, connectedUser));
     }
     @GetMapping("/user/consultDataTourById/{tourId}")
     public ResponseEntity<TourFullDataResponse> consultDataTourById (

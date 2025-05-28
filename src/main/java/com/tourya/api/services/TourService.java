@@ -223,35 +223,95 @@ public class TourService {
     }
 
     @Transactional
-    public TourFullDataResponse saveCreateFullData(TourFullDataRequest tourFullDataRequest, Authentication connectedUser){
+    public TourFullDataResponse saveCreateOrUpdateFullData(TourFullDataRequest tourFullDataRequest, Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
         if(Utils.isProvider(roleList)){
-            Provider provider = providerService.findByUserAndStatusActive(user);
-            TourCategory tourCategory = getTourCategory(tourFullDataRequest.getTourCategoryId());
-            //Save tour
-            Tour tour = tourMapper.toTour(tourFullDataRequest);
-            tour.setProvider(provider);
-            tour.setTourCategory(tourCategory);
-            tour.setStatus(TourStatusEnum.CREATED);
-            Tour tourNew =  tourRepository.save(tour);
-
-            List<TourAddressResponse> tourAddressResponseList = saveTourAddressListByTourId(tourFullDataRequest.getLocations(), tourNew);
-
-            List<TourMainAttractionRequest> tourMainAttractionRequestList = tourFullDataRequest.getMainAttractions();
-            List<TourMainAttractionResponse>  tourMainAttractionResponseList  =  mainAttractionReplaceAllForTour(tourMainAttractionRequestList, tourNew);
-
-            List<TourIncludesExcludesRequest> tourIncludesRequest = tourFullDataRequest.getIncludes();
-            List<TourIncludesExcludesResponse>  tourIncludesResponseList  =  includesExcludesReplaceAllForTour(tourIncludesRequest, tourNew, IncludeExcludeTypeEnum.INCLUDE);
-
-            List<TourIncludesExcludesRequest> tourExcludesRequest = tourFullDataRequest.getExcludes();
-            List<TourIncludesExcludesResponse>  tourExcludesResponseList  =  includesExcludesReplaceAllForTour(tourExcludesRequest, tourNew, IncludeExcludeTypeEnum.EXCLUDE);
-
-            return tourMapper.toTourFullDataResponse(tourNew, tourAddressResponseList,
-                    tourMainAttractionResponseList, tourIncludesResponseList, tourExcludesResponseList);
+            if(tourFullDataRequest.getId() == null){
+                return processCreateTourFullData(user, tourFullDataRequest);
+            }else{
+                return processUpdateTourFullData(tourFullDataRequest.getId(), user, tourFullDataRequest);
+            }
         }else{
             throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
         }
+    }
+    private TourFullDataResponse processCreateTourFullData(User user, TourFullDataRequest tourFullDataRequest){
+        Provider provider = providerService.findByUserAndStatusActive(user);
+        TourCategory tourCategory = getTourCategory(tourFullDataRequest.getTourCategoryId());
+        //Save tour
+        Tour tour = tourMapper.toTour(tourFullDataRequest);
+        tour.setProvider(provider);
+        tour.setTourCategory(tourCategory);
+        tour.setStatus(TourStatusEnum.CREATED);
+        Tour tourNew =  tourRepository.save(tour);
+
+        List<TourAddressResponse> tourAddressResponseList = saveTourAddressListByTourId(tourFullDataRequest.getLocations(), tourNew);
+
+        List<TourMainAttractionRequest> tourMainAttractionRequestList = tourFullDataRequest.getMainAttractions();
+        List<TourMainAttractionResponse>  tourMainAttractionResponseList  =  mainAttractionReplaceAllForTour(tourMainAttractionRequestList, tourNew);
+
+        List<TourIncludesExcludesRequest> tourIncludesRequest = tourFullDataRequest.getIncludes();
+        List<TourIncludesExcludesResponse>  tourIncludesResponseList  =  includesExcludesReplaceAllForTour(tourIncludesRequest, tourNew, IncludeExcludeTypeEnum.INCLUDE);
+
+        List<TourIncludesExcludesRequest> tourExcludesRequest = tourFullDataRequest.getExcludes();
+        List<TourIncludesExcludesResponse>  tourExcludesResponseList  =  includesExcludesReplaceAllForTour(tourExcludesRequest, tourNew, IncludeExcludeTypeEnum.EXCLUDE);
+
+        return tourMapper.toTourFullDataResponse(tourNew, tourAddressResponseList,
+                tourMainAttractionResponseList, tourIncludesResponseList, tourExcludesResponseList);
+    }
+    private TourFullDataResponse processUpdateTourFullData(Integer tourId, User user, TourFullDataRequest tourFullDataRequest){
+        Provider provider = providerService.findByUserAndStatusActive(user);
+        Tour tour = tourRepository.findTourByIdAndProviderId(tourId, provider.getId());
+        if(tour != null){
+            tour.setName(tourFullDataRequest.getName());
+            tour.setDescription(tourFullDataRequest.getDescription());
+            tour.setDuration(tourFullDataRequest.getDuration());
+            tour.setMaxPeople(tourFullDataRequest.getMaxPeople());
+            tour.setHighlight(tourFullDataRequest.getHighlight());
+            //update Tour
+            Tour tourUpdate = tourRepository.save(tour);
+
+            //replace tourAddressList
+            List<TourAddressResponse> tourAddressResponseList = tourAddressReplaceAllForTour(tourFullDataRequest.getLocations(), tourUpdate);
+            List<TourMainAttractionRequest> tourMainAttractionRequestList = tourFullDataRequest.getMainAttractions();
+            List<TourMainAttractionResponse>  tourMainAttractionResponseList  =  mainAttractionReplaceAllForTour(tourMainAttractionRequestList, tourUpdate);
+
+            List<TourIncludesExcludesRequest> tourIncludesRequest = tourFullDataRequest.getIncludes();
+            List<TourIncludesExcludesResponse>  tourIncludesResponseList  =  includesExcludesReplaceAllForTour(tourIncludesRequest, tourUpdate, IncludeExcludeTypeEnum.INCLUDE);
+
+            List<TourIncludesExcludesRequest> tourExcludesRequest = tourFullDataRequest.getExcludes();
+            List<TourIncludesExcludesResponse>  tourExcludesResponseList  =  includesExcludesReplaceAllForTour(tourExcludesRequest, tourUpdate, IncludeExcludeTypeEnum.EXCLUDE);
+
+            return tourMapper.toTourFullDataResponse(tourUpdate, tourAddressResponseList,
+                    tourMainAttractionResponseList, tourIncludesResponseList, tourExcludesResponseList);
+
+        }else{
+            throw new ResourceNotFoundException("Tour not found with id = "+tourId+" to providerId = "+provider.getId());
+        }
+    }
+    private List<TourAddressResponse> tourAddressReplaceAllForTour(List<TourAddressRequest> tourAddressRequestList,
+                                                                  Tour tour){
+
+        List<TourAddress> tourAddressDeleteList = tourAddressRepository.findByTourId(tour.getId());
+        tourAddressRepository.deleteAll(tourAddressDeleteList);
+
+        List<TourAddress> tourAddressList = new ArrayList<>();
+        for(TourAddressRequest tourAddressRequest : tourAddressRequestList){
+            TourAddress tourAddress = tourAddressMapper.toTourAddress(tourAddressRequest);
+            Country country = getCountry(tourAddressRequest.getCountryId());
+            State state = getState(tourAddressRequest.getStateId());
+            City city = getCity(tourAddressRequest.getCityId());
+            tourAddress.setTour(tour);
+            tourAddress.setCountry(country);
+            tourAddress.setState(state);
+            tourAddress.setCity(city);
+            tourAddressList.add(tourAddress);
+        }
+        return tourAddressRepository.saveAll(tourAddressList).stream()
+                .map(tourAddressMapper::toTourAddressResponse)
+                .toList();
+
     }
     private List<TourMainAttractionResponse> mainAttractionReplaceAllForTour(List<TourMainAttractionRequest> requests,
                                                               Tour tour) {
