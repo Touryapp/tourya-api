@@ -2,7 +2,6 @@ package com.tourya.api.services;
 
 
 import com.tourya.api._utils.Utils;
-import com.tourya.api.constans.enums.ProviderStatusEnum;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
 import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
@@ -25,6 +24,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -36,13 +36,14 @@ public class TourAddressService {
     private final CountryService countryService;
     private final CityService cityService;
     private final StateService stateService;
+    private static final String NOT_PRIVILEGES = "You have no privileges to perform this action.";
 
     public TourAddressResponse saveTourAddressByTourId(TourAddressRequest tourAddressRequest,
                                                        Integer tourId, Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
         if(Utils.isProvider(roleList)){
-            Provider provider = getProvider(user);
+            Provider provider = providerService.findByUserAndStatusActive(user);
             Tour tour = getTour(tourId, provider.getId());
             TourAddress tourAddress = tourAddressMapper.toTourAddress(tourAddressRequest);
             Country country = getCountry(tourAddressRequest.getCountryId());
@@ -56,7 +57,7 @@ public class TourAddressService {
             tourAddress.setCity(city);
             return tourAddressMapper.toTourAddressResponse(tourAddressRepository.save(tourAddress));
         }else{
-            throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
+            throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
         }
     }
     public List<TourAddressResponse> saveTourAddressListByTourId(List<TourAddressRequest> tourAddressRequestList,
@@ -64,7 +65,7 @@ public class TourAddressService {
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
         if(Utils.isProvider(roleList)){
-            Provider provider = getProvider(user);
+            Provider provider = providerService.findByUserAndStatusActive(user);
             Tour tour = getTour(tourId, provider.getId());
             List<TourAddress> tourAddressList = new ArrayList<>();
             for(TourAddressRequest tourAddressRequest : tourAddressRequestList){
@@ -78,15 +79,53 @@ public class TourAddressService {
                 tourAddress.setCity(city);
                 tourAddressList.add(tourAddress);
             }
-            return tourAddressRepository.saveAll(tourAddressList).stream()
+            tourAddressRepository.saveAll(tourAddressList);
+            return tourAddressRepository.findByTourId(tourId).stream()
                     .map(tourAddressMapper::toTourAddressResponse)
                     .toList();
 
         }else{
-            throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
+            throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
         }
     }
 
+    public TourAddressResponse consultDataTourAddressById(Integer tourAddressId, Authentication connectedUser){
+        User user = ((User) connectedUser.getPrincipal());
+        List<Role> roleList = user.getRoles();
+        if(Utils.isProvider(roleList)) {
+            Provider provider = providerService.findByUserAndStatusActive(user);
+            Optional<TourAddress> optionalTourAddress = tourAddressRepository.findById(tourAddressId);
+            if(optionalTourAddress.isPresent()){
+                TourAddress tourAddress = optionalTourAddress.get();
+                if(provider.getId().equals(tourAddress.getTour().getProvider().getId())){
+                    return tourAddressMapper.toTourAddressResponse(tourAddress);
+                }else{
+                    throw new OperationNotPermittedException("tour Address not associated with a provider tour.");
+                }
+            }else{
+                throw new ResourceNotFoundException("tourAddress found with the id = "+ tourAddressId);
+            }
+        }else{
+            throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
+        }
+    }
+    public List<TourAddressResponse> consultDataTourAddressListByTourId(Integer tourId, Authentication connectedUser){
+        User user = ((User) connectedUser.getPrincipal());
+        List<Role> roleList = user.getRoles();
+        if(Utils.isProvider(roleList)) {
+            Provider provider = providerService.findByUserAndStatusActive(user);
+            Tour tour = tourRepository.findTourByIdAndProviderId(tourId, provider.getId());
+            if(tour != null){
+                return tourAddressRepository.findByTourId(tourId).stream()
+                        .map(tourAddressMapper::toTourAddressResponse)
+                        .toList();
+            }else{
+                throw new ResourceNotFoundException("Tour not found with id = "+tourId+" to providerId = "+provider.getId());
+            }
+        }else{
+            throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
+        }
+    }
     private State getState(Integer stateId){
         State state = stateService.findById(stateId);
         if(state != null){
@@ -119,20 +158,6 @@ public class TourAddressService {
             return tour;
         }else{
             throw new ResourceNotFoundException("No tour with this id was found for this provider.");
-        }
-    }
-    private Provider getProvider(User user){
-        Provider provider = providerService.findByUser(user);
-        if(provider != null){
-            validateRules(provider);
-            return provider;
-        }else{
-            throw new ResourceNotFoundException("No provider was found assigning this user.");
-        }
-    }
-    private void validateRules(Provider provider){
-        if(!provider.getStatus().equals(ProviderStatusEnum.ACTIVE)){
-            throw new OperationNotPermittedException("The provider cannot create a tour as its status is not active.");
         }
     }
 }

@@ -1,12 +1,18 @@
 package com.tourya.api.models.mapper;
 
 import com.tourya.api.models.Tour;
+import com.tourya.api.models.responses.TourAddressResponse;
+import com.tourya.api.models.responses.TourFullDataResponse;
+import com.tourya.api.models.responses.TourIncludesExcludesResponse;
+import com.tourya.api.models.responses.TourMainAttractionResponse;
 import com.tourya.api.models.responses.TourResponse;
 import com.tourya.api.models.resquest.TourCreateRequest;
 import com.tourya.api.models.resquest.TourFullDataRequest;
 import com.tourya.api.models.resquest.TourRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -50,8 +56,29 @@ public class TourMapper {
         tourResponse.setDuration(tour.getDuration());
         tourResponse.setMaxPeople(tour.getMaxPeople());
         tourResponse.setHighlight(tour.getHighlight());
+        tourResponse.setStatus(tour.getStatus());
         tourResponse.setTourCategory(tourCategoryMapper.toTourCategoryResponse(tour.getTourCategory()));
         tourResponse.setProvider(providerMapper.toProviderResponse(tour.getProvider()));
         return tourResponse;
+    }
+    public TourFullDataResponse toTourFullDataResponse(Tour tour, List<TourAddressResponse> tourAddressResponseList,
+                                               List<TourMainAttractionResponse>  tourMainAttractionResponseList,
+                                               List<TourIncludesExcludesResponse>  tourIncludesResponseList,
+                                               List<TourIncludesExcludesResponse>  tourExcludesResponseList){
+        TourFullDataResponse tourFullDataResponse = new TourFullDataResponse();
+        tourFullDataResponse.setId(tour.getId());
+        tourFullDataResponse.setName(tour.getName());
+        tourFullDataResponse.setDescription(tour.getDescription());
+        tourFullDataResponse.setDescription(tour.getDescription());
+        tourFullDataResponse.setTourCategoryId(tour.getTourCategory().getId());
+        tourFullDataResponse.setDuration(tour.getDuration());
+        tourFullDataResponse.setMaxPeople(tour.getMaxPeople());
+        tourFullDataResponse.setHighlight(tour.getHighlight());
+        tourFullDataResponse.setStatus(tour.getStatus());
+        tourFullDataResponse.setLocations(tourAddressResponseList);
+        tourFullDataResponse.setMainAttractions(tourMainAttractionResponseList);
+        tourFullDataResponse.setIncludes(tourIncludesResponseList);
+        tourFullDataResponse.setExcludes(tourExcludesResponseList);
+        return tourFullDataResponse;
     }
 }
