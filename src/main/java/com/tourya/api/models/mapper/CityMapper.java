@@ -16,7 +16,6 @@ public class CityMapper {
         CityResponse cityResponse = new CityResponse();
         cityResponse.setId(city.getId());
         cityResponse.setName(city.getName());
-        cityResponse.setState(stateMapper.toStateResponse(city.getState()));
         return cityResponse;
     }
 }

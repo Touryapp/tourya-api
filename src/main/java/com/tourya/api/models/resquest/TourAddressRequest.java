@@ -23,6 +23,7 @@ public class TourAddressRequest {
 
     private String address;
 
+    @NotNull(message = "addressType is mandatory")
     private AddressTypeEnum addressType;
 
 }

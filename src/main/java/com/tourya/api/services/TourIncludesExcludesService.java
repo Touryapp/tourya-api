@@ -1,9 +1,8 @@
 package com.tourya.api.services;
 
 import com.tourya.api._utils.Utils;
-import com.tourya.api.constans.enums.ProviderStatusEnum;
+import com.tourya.api.constans.enums.IncludeExcludeTypeEnum;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
-import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.models.*;
 import com.tourya.api.models.mapper.TourIncludesExcludesMapper;
@@ -28,14 +27,13 @@ public class TourIncludesExcludesService {
     private final TourIncludesExcludesMapper tourIncludesExcludesMapper;
 
     public List<TourIncludesExcludesResponse> create(List<TourIncludesExcludesRequest> requests,
-                                                     Integer tourId,
-                                                     Authentication connectedUser) {
+                                                     Integer tourId, Authentication connectedUser) {
         User user = (User) connectedUser.getPrincipal();
         if (!Utils.isProvider(user.getRoles())) {
             throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
         }
 
-        Provider provider = getProvider(user);
+        Provider provider = providerService.findByUserAndStatusActive(user);
         Tour tour = getTour(tourId, provider.getId());
 
         List<TourIncludesExcludes> includesExcludesList = requests.stream()
@@ -44,50 +42,56 @@ public class TourIncludesExcludesService {
                     item.setTour(tour);
                     return item;
                 })
-                .collect(Collectors.toList());
+                .toList();
 
         return tourIncludesExcludesRepository.saveAll(includesExcludesList).stream()
                 .map(tourIncludesExcludesMapper::tourIncludesExcludesResponse)
-                .collect(Collectors.toList());
+                .toList();
     }
 
-    public List<TourIncludesExcludesResponse> getAllByTour(Integer tourId) {
-        return tourIncludesExcludesRepository.findByTourId(tourId).stream()
-                .map(tourIncludesExcludesMapper::tourIncludesExcludesResponse)
-                .collect(Collectors.toList());
+    public List<TourIncludesExcludesResponse> getAllByTour(Integer tourId, IncludeExcludeTypeEnum type) {
+        if(type != null){
+            return tourIncludesExcludesRepository.findByTourIdAndType(tourId, type).stream()
+                    .map(tourIncludesExcludesMapper::tourIncludesExcludesResponse)
+                    .toList();
+        }else{
+            return tourIncludesExcludesRepository.findByTourId(tourId).stream()
+                    .map(tourIncludesExcludesMapper::tourIncludesExcludesResponse)
+                    .toList();
+        }
     }
 
 
 
     @Transactional
     public List<TourIncludesExcludesResponse> replaceAllForTour(List<TourIncludesExcludesRequest> requests,
-                                                                Integer tourId,
+                                                                Integer tourId, IncludeExcludeTypeEnum type,
                                                                 Authentication auth) {
 
         User user = (User) auth.getPrincipal();
 
         if (!Utils.isProvider(user.getRoles())) {
-            throw new InsufficientPrivilegesException("No tienes privilegios para esta operación.");
+            throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
         }
 
-        Provider provider = getProvider(user);
+        Provider provider = providerService.findByUserAndStatusActive(user);
         Tour tour = getTour(tourId, provider.getId());
 
+        List<TourIncludesExcludes>  list = tourIncludesExcludesRepository.findByTourIdAndType(tourId, type);
+        tourIncludesExcludesRepository.deleteAll(list);
 
-        tourIncludesExcludesRepository.deleteByTourId(tourId);
-
-
-        List<TourIncludesExcludes> nuevos = requests.stream()
+        List<TourIncludesExcludes> newList = requests.stream()
                 .map(req -> {
                     TourIncludesExcludes entity = tourIncludesExcludesMapper.toTourIncludesExcludes(req);
                     entity.setTour(tour);
                     return entity;
                 })
-                .collect(Collectors.toList());
+                .toList();
 
-        return tourIncludesExcludesRepository.saveAll(nuevos).stream()
+        tourIncludesExcludesRepository.saveAll(newList);
+        return tourIncludesExcludesRepository.findByTourIdAndType(tourId, type).stream()
                 .map(tourIncludesExcludesMapper::tourIncludesExcludesResponse)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     private Tour getTour(Integer tourId, Integer providerId) {
@@ -96,22 +100,6 @@ public class TourIncludesExcludesService {
             return tour;
         } else {
             throw new ResourceNotFoundException("No tour with this id was found for this provider.");
-        }
-    }
-
-    private Provider getProvider(User user) {
-        Provider provider = providerService.findByUser(user);
-        if (provider != null) {
-            validateRules(provider);
-            return provider;
-        } else {
-            throw new ResourceNotFoundException("No provider was found assigning this user.");
-        }
-    }
-
-    private void validateRules(Provider provider) {
-        if (!provider.getStatus().equals(ProviderStatusEnum.ACTIVE)) {
-            throw new OperationNotPermittedException("The provider cannot modify tour data because it is not active.");
         }
     }
 }

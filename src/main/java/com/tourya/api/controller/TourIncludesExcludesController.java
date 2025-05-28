@@ -1,5 +1,7 @@
 package com.tourya.api.controller;
 
+import com.tourya.api.constans.enums.IncludeExcludeTypeEnum;
+import com.tourya.api.constans.enums.RequestProviderStatusEnum;
 import com.tourya.api.models.resquest.TourIncludesExcludesRequest;
 import com.tourya.api.models.responses.TourIncludesExcludesResponse;
 import com.tourya.api.services.TourIncludesExcludesService;
@@ -22,18 +24,19 @@ public class TourIncludesExcludesController {
     public ResponseEntity<List<TourIncludesExcludesResponse>> replaceAll(
             @PathVariable Integer tourId,
             @RequestBody List<TourIncludesExcludesRequest> requestList,
+            @RequestParam(name = "type") IncludeExcludeTypeEnum type,
             Authentication authentication) {
 
-        List<TourIncludesExcludesResponse> result = tourIncludesExcludesService.replaceAllForTour(requestList, tourId, authentication);
+        List<TourIncludesExcludesResponse> result = tourIncludesExcludesService.replaceAllForTour(requestList, tourId, type, authentication);
         return ResponseEntity.ok(result);
     }
 
     // Consulta todos los elementos por tour
     @GetMapping
     public ResponseEntity<List<TourIncludesExcludesResponse>> getAllByTour(
-            @PathVariable Integer tourId) {
+            @PathVariable Integer tourId,@RequestParam(name = "type", required = false) IncludeExcludeTypeEnum type) {
 
-        List<TourIncludesExcludesResponse> result = tourIncludesExcludesService.getAllByTour(tourId);
+        List<TourIncludesExcludesResponse> result = tourIncludesExcludesService.getAllByTour(tourId, type);
         return ResponseEntity.ok(result);
     }
 }

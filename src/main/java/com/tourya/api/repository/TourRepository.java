@@ -1,5 +1,6 @@
 package com.tourya.api.repository;
 
+import com.tourya.api.constans.enums.TourStatusEnum;
 import com.tourya.api.models.Tour;
 import com.tourya.api.models.TourCategory;
 import org.springframework.data.domain.Page;
@@ -24,4 +25,10 @@ public interface TourRepository extends JpaRepository<Tour, Integer> {
             """)
     Tour findTourByIdAndProviderId(@Param("id") Integer id, @Param("providerId") Integer providerId);
 
+    @Query("""
+            SELECT tour
+            FROM Tour tour
+            WHERE ((:status IS NULL ) OR (tour.status = :status))
+            """)
+    Page<Tour> findAllTour(@Param("status") TourStatusEnum status, Pageable pageable);
 }

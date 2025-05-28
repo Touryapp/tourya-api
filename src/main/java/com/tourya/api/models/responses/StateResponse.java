@@ -6,5 +6,4 @@ import lombok.Data;
 public class StateResponse {
     private Integer id;
     private String name;
-    private CountryResponse country;
 }

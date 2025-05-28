@@ -15,7 +15,6 @@ public class StateMapper {
         StateResponse stateResponse = new StateResponse();
         stateResponse.setId(state.getId());
         stateResponse.setName(state.getName());
-        stateResponse.setCountry(countryMapper.toCountryResponse(state.getCountry()));
         return stateResponse;
     }
 }

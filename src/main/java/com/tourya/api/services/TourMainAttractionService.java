@@ -1,9 +1,7 @@
 package com.tourya.api.services;
 
 import com.tourya.api._utils.Utils;
-import com.tourya.api.constans.enums.ProviderStatusEnum;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
-import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.models.*;
 import com.tourya.api.models.mapper.TourMainAttractionMapper;
@@ -36,7 +34,7 @@ public class TourMainAttractionService {
         if (!Utils.isProvider(user.getRoles())) {
             throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
         }
-        Provider provider = getProvider(user);
+        Provider provider = providerService.findByUserAndStatusActive(user);
         Tour tour = getTour(tourId, provider.getId());
 
         List<TourMainAttraction> tourMainAttractionList = requests.stream()
@@ -45,19 +43,19 @@ public class TourMainAttractionService {
                     item.setTour(tour);
                     return item;
                 })
-                .collect(Collectors.toList());
+                .toList();
 
         return tourMainAttractionRepository.saveAll(tourMainAttractionList)
                 .stream()
                 .map(tourMainAttractionMapper::toTourMainAttractionResponse)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public List<TourMainAttractionResponse> getAllByTour(Integer tourId) {
         return tourMainAttractionRepository.findByTourId(tourId)
                 .stream()
                 .map(tourMainAttractionMapper::toTourMainAttractionResponse)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Transactional
@@ -70,7 +68,7 @@ public class TourMainAttractionService {
             throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
         }
 
-        Provider provider = getProvider(user);
+        Provider provider = providerService.findByUserAndStatusActive(user);
         Tour tour = getTour(tourId, provider.getId());
 
 
@@ -82,11 +80,11 @@ public class TourMainAttractionService {
                     entity.setTour(tour);
                     return entity;
                 })
-                .collect(Collectors.toList());
+                .toList();
 
         return tourMainAttractionRepository.saveAll(newAttractions).stream()
                 .map(tourMainAttractionMapper::toTourMainAttractionResponse)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     private Tour getTour(Integer tourId, Integer providerId){
@@ -95,20 +93,6 @@ public class TourMainAttractionService {
             return tour;
         }else{
             throw new ResourceNotFoundException("No tour with this id was found for this provider.");
-        }
-    }
-    private Provider getProvider(User user){
-        Provider provider = providerService.findByUser(user);
-        if(provider != null){
-            validateRules(provider);
-            return provider;
-        }else{
-            throw new ResourceNotFoundException("No provider was found assigning this user.");
-        }
-    }
-    private void validateRules(Provider provider){
-        if(!provider.getStatus().equals(ProviderStatusEnum.ACTIVE)){
-            throw new OperationNotPermittedException("The provider cannot create a tour as its status is not active.");
         }
     }
 }

@@ -5,11 +5,13 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import com.tourya.api.exceptions.UnknownEnumValueException;
 import lombok.AllArgsConstructor;
 
-
 @AllArgsConstructor
-public enum IncludeExcludeTypeEnum {
-    INCLUDE("Include"),
-    EXCLUDE("Exclude");
+public enum TourStatusEnum {
+    CREATED("created"),
+    SUBMITTED("submitted"),
+    RETURNED("returned"),
+    ACCEPTED("accepted"),
+    CANCELLED("cancelled");
 
     private String value;
 
@@ -19,13 +21,13 @@ public enum IncludeExcludeTypeEnum {
     }
 
     @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
-    public static IncludeExcludeTypeEnum of(String value) {
-        for (IncludeExcludeTypeEnum e : values()) {
+    public static TourStatusEnum of(String value) {
+        for (TourStatusEnum e : values()) {
             if (e.value.equalsIgnoreCase(value)) {
                 return e;
             }
         }
 
-        throw new UnknownEnumValueException("IncludeExcludeTypeEnum: unknown value: " + value);
+        throw new UnknownEnumValueException("TourStatusEnum: unknown value: " + value);
     }
 }

@@ -1,7 +1,6 @@
 package com.tourya.api.services;
 
 import com.tourya.api.models.City;
-import com.tourya.api.models.Country;
 import com.tourya.api.models.mapper.CityMapper;
 import com.tourya.api.models.responses.CityResponse;
 import com.tourya.api.repository.CityRepository;
