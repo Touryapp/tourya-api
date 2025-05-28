@@ -2,9 +2,7 @@ package com.tourya.api.services;
 
 import com.tourya.api._utils.Utils;
 import com.tourya.api.constans.enums.IncludeExcludeTypeEnum;
-import com.tourya.api.constans.enums.ProviderStatusEnum;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
-import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.models.*;
 import com.tourya.api.models.mapper.TourIncludesExcludesMapper;
@@ -44,22 +42,22 @@ public class TourIncludesExcludesService {
                     item.setTour(tour);
                     return item;
                 })
-                .collect(Collectors.toList());
+                .toList();
 
         return tourIncludesExcludesRepository.saveAll(includesExcludesList).stream()
                 .map(tourIncludesExcludesMapper::tourIncludesExcludesResponse)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public List<TourIncludesExcludesResponse> getAllByTour(Integer tourId, IncludeExcludeTypeEnum type) {
         if(type != null){
             return tourIncludesExcludesRepository.findByTourIdAndType(tourId, type).stream()
                     .map(tourIncludesExcludesMapper::tourIncludesExcludesResponse)
-                    .collect(Collectors.toList());
+                    .toList();
         }else{
             return tourIncludesExcludesRepository.findByTourId(tourId).stream()
                     .map(tourIncludesExcludesMapper::tourIncludesExcludesResponse)
-                    .collect(Collectors.toList());
+                    .toList();
         }
     }
 
@@ -88,12 +86,12 @@ public class TourIncludesExcludesService {
                     entity.setTour(tour);
                     return entity;
                 })
-                .collect(Collectors.toList());
+                .toList();
 
         tourIncludesExcludesRepository.saveAll(newList);
         return tourIncludesExcludesRepository.findByTourIdAndType(tourId, type).stream()
                 .map(tourIncludesExcludesMapper::tourIncludesExcludesResponse)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     private Tour getTour(Integer tourId, Integer providerId) {

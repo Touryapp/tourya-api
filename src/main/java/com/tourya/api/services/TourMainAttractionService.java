@@ -1,9 +1,7 @@
 package com.tourya.api.services;
 
 import com.tourya.api._utils.Utils;
-import com.tourya.api.constans.enums.ProviderStatusEnum;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
-import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.models.*;
 import com.tourya.api.models.mapper.TourMainAttractionMapper;
@@ -45,19 +43,19 @@ public class TourMainAttractionService {
                     item.setTour(tour);
                     return item;
                 })
-                .collect(Collectors.toList());
+                .toList();
 
         return tourMainAttractionRepository.saveAll(tourMainAttractionList)
                 .stream()
                 .map(tourMainAttractionMapper::toTourMainAttractionResponse)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public List<TourMainAttractionResponse> getAllByTour(Integer tourId) {
         return tourMainAttractionRepository.findByTourId(tourId)
                 .stream()
                 .map(tourMainAttractionMapper::toTourMainAttractionResponse)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Transactional
@@ -82,11 +80,11 @@ public class TourMainAttractionService {
                     entity.setTour(tour);
                     return entity;
                 })
-                .collect(Collectors.toList());
+                .toList();
 
         return tourMainAttractionRepository.saveAll(newAttractions).stream()
                 .map(tourMainAttractionMapper::toTourMainAttractionResponse)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     private Tour getTour(Integer tourId, Integer providerId){
