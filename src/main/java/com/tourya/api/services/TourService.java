@@ -15,26 +15,31 @@ import com.tourya.api.models.State;
 import com.tourya.api.models.Tour;
 import com.tourya.api.models.TourAddress;
 import com.tourya.api.models.TourCategory;
+import com.tourya.api.models.TourFaq;
 import com.tourya.api.models.TourIncludesExcludes;
 import com.tourya.api.models.TourMainAttraction;
 import com.tourya.api.models.User;
 import com.tourya.api.models.mapper.TourAddressMapper;
+import com.tourya.api.models.mapper.TourFaqMapper;
 import com.tourya.api.models.mapper.TourIncludesExcludesMapper;
 import com.tourya.api.models.mapper.TourMainAttractionMapper;
 import com.tourya.api.models.mapper.TourMapper;
 import com.tourya.api.models.responses.TourAddressResponse;
 import com.tourya.api.models.responses.TourDetailsResponse;
+import com.tourya.api.models.responses.TourFaqResponse;
 import com.tourya.api.models.responses.TourFullDataResponse;
 import com.tourya.api.models.responses.TourIncludesExcludesResponse;
 import com.tourya.api.models.responses.TourMainAttractionResponse;
 import com.tourya.api.models.responses.TourResponse;
 import com.tourya.api.models.resquest.TourAddressRequest;
 import com.tourya.api.models.resquest.TourCreateRequest;
+import com.tourya.api.models.resquest.TourFaqRequest;
 import com.tourya.api.models.resquest.TourFullDataRequest;
 import com.tourya.api.models.resquest.TourIncludesExcludesRequest;
 import com.tourya.api.models.resquest.TourMainAttractionRequest;
 import com.tourya.api.models.resquest.TourRequest;
 import com.tourya.api.repository.TourAddressRepository;
+import com.tourya.api.repository.TourFaqRepository;
 import com.tourya.api.repository.TourIncludesExcludesRepository;
 import com.tourya.api.repository.TourMainAttractionRepository;
 import com.tourya.api.repository.TourRepository;
@@ -59,6 +64,7 @@ public class TourService {
     private final TourAddressRepository tourAddressRepository;
     private final TourIncludesExcludesRepository tourIncludesExcludesRepository;
     private final TourMainAttractionRepository tourMainAttractionRepository;
+    private final TourFaqRepository tourFaqRepository;
     private final TourCategoryService tourCategoryService;
     private final ProviderService providerService;
     private final CountryService countryService;
@@ -68,6 +74,7 @@ public class TourService {
     private final TourMainAttractionMapper tourMainAttractionMapper;
     private final TourIncludesExcludesMapper tourIncludesExcludesMapper;
     private final TourAddressMapper tourAddressMapper;
+    private final TourFaqMapper tourFaqMapper;
     private static final String NOT_PRIVILEGES = "You have no privileges to perform this action.";
 
     public TourResponse save(TourRequest tourRequest, Authentication connectedUser){
@@ -257,8 +264,11 @@ public class TourService {
         List<TourIncludesExcludesRequest> tourExcludesRequest = tourFullDataRequest.getExcludes();
         List<TourIncludesExcludesResponse>  tourExcludesResponseList  =  includesExcludesReplaceAllForTour(tourExcludesRequest, tourNew, IncludeExcludeTypeEnum.EXCLUDE);
 
+        List<TourFaqRequest> tourFaqRequestList = tourFullDataRequest.getFaq();
+        List<TourFaqResponse> tourFaqResponseList = faqReplaceAllForTour(tourFaqRequestList, tourNew);
+
         return tourMapper.toTourFullDataResponse(tourNew, tourAddressResponseList,
-                tourMainAttractionResponseList, tourIncludesResponseList, tourExcludesResponseList);
+                tourMainAttractionResponseList, tourIncludesResponseList, tourExcludesResponseList, tourFaqResponseList);
     }
     private TourFullDataResponse processUpdateTourFullData(Integer tourId, User user, TourFullDataRequest tourFullDataRequest){
         Provider provider = providerService.findByUserAndStatusActive(user);
@@ -283,8 +293,11 @@ public class TourService {
             List<TourIncludesExcludesRequest> tourExcludesRequest = tourFullDataRequest.getExcludes();
             List<TourIncludesExcludesResponse>  tourExcludesResponseList  =  includesExcludesReplaceAllForTour(tourExcludesRequest, tourUpdate, IncludeExcludeTypeEnum.EXCLUDE);
 
+            List<TourFaqRequest> tourFaqRequestList = tourFullDataRequest.getFaq();
+            List<TourFaqResponse> tourFaqResponseList = faqReplaceAllForTour(tourFaqRequestList, tourUpdate);
+
             return tourMapper.toTourFullDataResponse(tourUpdate, tourAddressResponseList,
-                    tourMainAttractionResponseList, tourIncludesResponseList, tourExcludesResponseList);
+                    tourMainAttractionResponseList, tourIncludesResponseList, tourExcludesResponseList, tourFaqResponseList);
 
         }else{
             throw new ResourceNotFoundException("Tour not found with id = "+tourId+" to providerId = "+provider.getId());
@@ -351,6 +364,23 @@ public class TourService {
                 .map(tourIncludesExcludesMapper::tourIncludesExcludesResponse)
                 .toList();
     }
+    private List<TourFaqResponse> faqReplaceAllForTour(List<TourFaqRequest> requests,
+                                                       Tour tour) {
+
+        tourFaqRepository.deleteByTourId(tour.getId());
+
+        List<TourFaq> newList = requests.stream()
+                .map(req -> {
+                    TourFaq entity = tourFaqMapper.toTourFaq(req);
+                    entity.setTour(tour);
+                    return entity;
+                })
+                .toList();
+
+        return tourFaqRepository.saveAll(newList).stream()
+                .map(tourFaqMapper::toTourFaqResponse)
+                .toList();
+    }
     public TourFullDataResponse consultDataTourById(Integer tourId, Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
@@ -360,7 +390,7 @@ public class TourService {
             if(tour != null){
                 return tourMapper.toTourFullDataResponse(tour, consultDataTourAddressListByTourId(tourId),
                         getAllByTourMainAttractions(tourId), getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
-                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE));
+                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId));
             }else{
                 throw new ResourceNotFoundException("Tour not found with id = "+tourId+" to providerId = "+provider.getId());
             }
@@ -377,7 +407,7 @@ public class TourService {
                 Tour tour = optionalTour.get();
                 return tourMapper.toTourFullDataResponse(tour, consultDataTourAddressListByTourId(tourId),
                         getAllByTourMainAttractions(tourId), getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
-                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE));
+                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId));
             }else{
                 throw new ResourceNotFoundException("Tour not found with id = "+tourId);
             }
@@ -396,7 +426,7 @@ public class TourService {
                 Tour tourUpdate = tourRepository.save(tour);
                 return tourMapper.toTourFullDataResponse(tourUpdate, consultDataTourAddressListByTourId(tourId),
                         getAllByTourMainAttractions(tourId), getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
-                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE));
+                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId));
             }else{
                 throw new ResourceNotFoundException("Tour not found with id = "+tourId);
             }
@@ -415,7 +445,7 @@ public class TourService {
                 Tour tourUpdate = tourRepository.save(tour);
                 return tourMapper.toTourFullDataResponse(tourUpdate, consultDataTourAddressListByTourId(tourId),
                         getAllByTourMainAttractions(tourId), getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
-                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE));
+                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId));
             }else{
                 throw new ResourceNotFoundException("Tour not found with id = "+tourId);
             }
@@ -444,5 +474,11 @@ public class TourService {
                     .map(tourIncludesExcludesMapper::tourIncludesExcludesResponse)
                     .toList();
         }
+    }
+    private List<TourFaqResponse> getAllByTourFaqs(Integer tourId) {
+        return tourFaqRepository.findByTourId(tourId)
+                .stream()
+                .map(tourFaqMapper::toTourFaqResponse)
+                .toList();
     }
 }

@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("tourFaq")
 @RequiredArgsConstructor
@@ -21,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class TourFaqController {
     private final TourFaqService tourFaqService;
 
-    /*@PostMapping("/user/save/{tourId}")
+    @PostMapping("/user/save/{tourId}")
     public ResponseEntity<TourFaqResponse> save(
             @Valid @RequestBody TourFaqRequest tourFaqRequest,
             @PathVariable Integer tourId,
@@ -31,12 +33,20 @@ public class TourFaqController {
     }
 
     @PostMapping("/user/saveList/{tourId}")
-    public ResponseEntity<TourFaqResponse> saveList(
-            @Valid @RequestBody TourFaqRequest tourFaqRequest,
+    public ResponseEntity<List<TourFaqResponse>> saveList(
+            @Valid @RequestBody List<TourFaqRequest> tourFaqRequestList,
             @PathVariable Integer tourId,
             Authentication connectedUser
     ){
-        return ResponseEntity.ok(tourFaqService.saveTourFaqByTourId(tourFaqRequest, tourId, connectedUser));
-    }*/
+        return ResponseEntity.ok(tourFaqService.saveTourFaqListByTourId(tourFaqRequestList, tourId, connectedUser));
+    }
 
+    @PostMapping("/user/replaceAll/{tourId}")
+    public ResponseEntity<List<TourFaqResponse>> replaceAll(
+            @Valid @RequestBody List<TourFaqRequest> tourFaqRequestList,
+            @PathVariable Integer tourId,
+            Authentication connectedUser
+    ){
+        return ResponseEntity.ok(tourFaqService.replaceAll(tourFaqRequestList, tourId, connectedUser));
+    }
 }

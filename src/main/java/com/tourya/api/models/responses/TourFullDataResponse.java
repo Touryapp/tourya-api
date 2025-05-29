@@ -20,4 +20,5 @@ public class TourFullDataResponse {
     private List<TourMainAttractionResponse> mainAttractions = new ArrayList<>();
     private List<TourIncludesExcludesResponse>  includes = new ArrayList<>();
     private List<TourIncludesExcludesResponse>  excludes = new ArrayList<>();
+    private List<TourFaqResponse>  faq = new ArrayList<>();
 }

@@ -44,4 +44,8 @@ public class TourFullDataRequest {
     @Valid
     @NotNull(message = "excludes is mandatory")
     private List<TourIncludesExcludesRequest>  excludes = new ArrayList<>();
+
+    @Valid
+    @NotNull(message = "faq is mandatory")
+    private List<TourFaqRequest>  faq = new ArrayList<>();
 }
