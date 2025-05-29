@@ -1,7 +1,7 @@
 package com.tourya.api.controller;
 
 import com.tourya.api.models.responses.TourFaqResponse;
-import com.tourya.api.models.resquest.TourFaqRequest;
+import com.tourya.api.models.request.TourFaqRequest;
 import com.tourya.api.services.TourFaqService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

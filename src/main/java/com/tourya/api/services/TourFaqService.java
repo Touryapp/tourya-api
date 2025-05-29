@@ -10,7 +10,7 @@ import com.tourya.api.models.TourFaq;
 import com.tourya.api.models.User;
 import com.tourya.api.models.mapper.TourFaqMapper;
 import com.tourya.api.models.responses.TourFaqResponse;
-import com.tourya.api.models.resquest.TourFaqRequest;
+import com.tourya.api.models.request.TourFaqRequest;
 import com.tourya.api.repository.TourFaqRepository;
 import com.tourya.api.repository.TourRepository;
 import lombok.RequiredArgsConstructor;

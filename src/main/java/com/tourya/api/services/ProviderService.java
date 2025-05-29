@@ -17,7 +17,7 @@ import com.tourya.api.models.State;
 import com.tourya.api.models.User;
 import com.tourya.api.models.mapper.ProviderMapper;
 import com.tourya.api.models.responses.ProviderResponse;
-import com.tourya.api.models.resquest.ProviderRequest;
+import com.tourya.api.models.request.ProviderRequest;
 import com.tourya.api.repository.ProviderRepository;
 import com.tourya.api.repository.RequestProviderRepository;
 import lombok.RequiredArgsConstructor;

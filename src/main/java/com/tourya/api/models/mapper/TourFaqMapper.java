@@ -2,7 +2,7 @@ package com.tourya.api.models.mapper;
 
 import com.tourya.api.models.TourFaq;
 import com.tourya.api.models.responses.TourFaqResponse;
-import com.tourya.api.models.resquest.TourFaqRequest;
+import com.tourya.api.models.request.TourFaqRequest;
 import org.springframework.stereotype.Service;
 
 @Service

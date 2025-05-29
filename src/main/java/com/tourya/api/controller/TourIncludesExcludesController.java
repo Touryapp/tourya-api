@@ -1,8 +1,7 @@
 package com.tourya.api.controller;
 
 import com.tourya.api.constans.enums.IncludeExcludeTypeEnum;
-import com.tourya.api.constans.enums.RequestProviderStatusEnum;
-import com.tourya.api.models.resquest.TourIncludesExcludesRequest;
+import com.tourya.api.models.request.TourIncludesExcludesRequest;
 import com.tourya.api.models.responses.TourIncludesExcludesResponse;
 import com.tourya.api.services.TourIncludesExcludesService;
 import lombok.RequiredArgsConstructor;

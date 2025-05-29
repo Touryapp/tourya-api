@@ -31,13 +31,13 @@ import com.tourya.api.models.responses.TourFullDataResponse;
 import com.tourya.api.models.responses.TourIncludesExcludesResponse;
 import com.tourya.api.models.responses.TourMainAttractionResponse;
 import com.tourya.api.models.responses.TourResponse;
-import com.tourya.api.models.resquest.TourAddressRequest;
-import com.tourya.api.models.resquest.TourCreateRequest;
-import com.tourya.api.models.resquest.TourFaqRequest;
-import com.tourya.api.models.resquest.TourFullDataRequest;
-import com.tourya.api.models.resquest.TourIncludesExcludesRequest;
-import com.tourya.api.models.resquest.TourMainAttractionRequest;
-import com.tourya.api.models.resquest.TourRequest;
+import com.tourya.api.models.request.TourAddressRequest;
+import com.tourya.api.models.request.TourCreateRequest;
+import com.tourya.api.models.request.TourFaqRequest;
+import com.tourya.api.models.request.TourFullDataRequest;
+import com.tourya.api.models.request.TourIncludesExcludesRequest;
+import com.tourya.api.models.request.TourMainAttractionRequest;
+import com.tourya.api.models.request.TourRequest;
 import com.tourya.api.repository.TourAddressRepository;
 import com.tourya.api.repository.TourFaqRepository;
 import com.tourya.api.repository.TourIncludesExcludesRepository;
@@ -55,7 +55,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor

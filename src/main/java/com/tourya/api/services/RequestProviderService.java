@@ -18,7 +18,7 @@ import com.tourya.api.models.User;
 import com.tourya.api.models.mapper.ProviderMapper;
 import com.tourya.api.models.mapper.RequestProviderMapper;
 import com.tourya.api.models.responses.RequestProviderResponse;
-import com.tourya.api.models.resquest.RequestProviderRequest;
+import com.tourya.api.models.request.RequestProviderRequest;
 import com.tourya.api.repository.RoleRepository;
 import com.tourya.api.repository.RequestProviderRepository;
 import com.tourya.api.repository.UserRepository;

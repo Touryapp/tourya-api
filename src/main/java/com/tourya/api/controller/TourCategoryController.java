@@ -3,7 +3,7 @@ package com.tourya.api.controller;
 
 import com.tourya.api.common.PageResponse;
 import com.tourya.api.models.responses.TourCategoryResponse;
-import com.tourya.api.models.resquest.TourCategoryRequest;
+import com.tourya.api.models.request.TourCategoryRequest;
 import com.tourya.api.services.TourCategoryService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
