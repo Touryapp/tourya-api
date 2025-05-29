@@ -6,7 +6,7 @@ import com.tourya.api.exceptions.InsufficientPrivilegesException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.models.*;
 import com.tourya.api.models.mapper.TourIncludesExcludesMapper;
-import com.tourya.api.models.resquest.TourIncludesExcludesRequest;
+import com.tourya.api.models.request.TourIncludesExcludesRequest;
 import com.tourya.api.models.responses.TourIncludesExcludesResponse;
 import com.tourya.api.repository.TourIncludesExcludesRepository;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +15,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor

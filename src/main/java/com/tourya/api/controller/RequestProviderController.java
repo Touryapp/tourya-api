@@ -5,7 +5,7 @@ package com.tourya.api.controller;
 import com.tourya.api.common.PageResponse;
 import com.tourya.api.constans.enums.RequestProviderStatusEnum;
 import com.tourya.api.models.responses.RequestProviderResponse;
-import com.tourya.api.models.resquest.RequestProviderRequest;
+import com.tourya.api.models.request.RequestProviderRequest;
 import com.tourya.api.services.RequestProviderService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

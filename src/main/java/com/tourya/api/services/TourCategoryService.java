@@ -8,7 +8,7 @@ import com.tourya.api.models.TourCategory;
 import com.tourya.api.models.User;
 import com.tourya.api.models.mapper.TourCategoryMapper;
 import com.tourya.api.models.responses.TourCategoryResponse;
-import com.tourya.api.models.resquest.TourCategoryRequest;
+import com.tourya.api.models.request.TourCategoryRequest;
 import com.tourya.api.repository.TourCategoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;

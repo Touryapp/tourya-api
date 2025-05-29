@@ -2,9 +2,7 @@ package com.tourya.api.controller;
 
 
 import com.tourya.api.models.responses.TourAddressResponse;
-import com.tourya.api.models.responses.TourResponse;
-import com.tourya.api.models.resquest.TourAddressRequest;
-import com.tourya.api.models.resquest.TourRequest;
+import com.tourya.api.models.request.TourAddressRequest;
 import com.tourya.api.services.TourAddressService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

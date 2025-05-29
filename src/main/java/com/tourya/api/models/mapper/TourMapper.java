@@ -2,13 +2,14 @@ package com.tourya.api.models.mapper;
 
 import com.tourya.api.models.Tour;
 import com.tourya.api.models.responses.TourAddressResponse;
+import com.tourya.api.models.responses.TourFaqResponse;
 import com.tourya.api.models.responses.TourFullDataResponse;
 import com.tourya.api.models.responses.TourIncludesExcludesResponse;
 import com.tourya.api.models.responses.TourMainAttractionResponse;
 import com.tourya.api.models.responses.TourResponse;
-import com.tourya.api.models.resquest.TourCreateRequest;
-import com.tourya.api.models.resquest.TourFullDataRequest;
-import com.tourya.api.models.resquest.TourRequest;
+import com.tourya.api.models.request.TourCreateRequest;
+import com.tourya.api.models.request.TourFullDataRequest;
+import com.tourya.api.models.request.TourRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -64,7 +65,7 @@ public class TourMapper {
     public TourFullDataResponse toTourFullDataResponse(Tour tour, List<TourAddressResponse> tourAddressResponseList,
                                                List<TourMainAttractionResponse>  tourMainAttractionResponseList,
                                                List<TourIncludesExcludesResponse>  tourIncludesResponseList,
-                                               List<TourIncludesExcludesResponse>  tourExcludesResponseList){
+                                               List<TourIncludesExcludesResponse>  tourExcludesResponseList, List<TourFaqResponse> tourFaqResponseList){
         TourFullDataResponse tourFullDataResponse = new TourFullDataResponse();
         tourFullDataResponse.setId(tour.getId());
         tourFullDataResponse.setName(tour.getName());
@@ -79,6 +80,7 @@ public class TourMapper {
         tourFullDataResponse.setMainAttractions(tourMainAttractionResponseList);
         tourFullDataResponse.setIncludes(tourIncludesResponseList);
         tourFullDataResponse.setExcludes(tourExcludesResponseList);
+        tourFullDataResponse.setFaq(tourFaqResponseList);
         return tourFullDataResponse;
     }
 }

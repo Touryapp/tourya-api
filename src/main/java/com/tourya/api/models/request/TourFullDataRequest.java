@@ -1,4 +1,4 @@
-package com.tourya.api.models.resquest;
+package com.tourya.api.models.request;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
@@ -44,4 +44,8 @@ public class TourFullDataRequest {
     @Valid
     @NotNull(message = "excludes is mandatory")
     private List<TourIncludesExcludesRequest>  excludes = new ArrayList<>();
+
+    @Valid
+    @NotNull(message = "faq is mandatory")
+    private List<TourFaqRequest>  faq = new ArrayList<>();
 }

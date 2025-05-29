@@ -15,7 +15,7 @@ import com.tourya.api.models.TourAddress;
 import com.tourya.api.models.User;
 import com.tourya.api.models.mapper.TourAddressMapper;
 import com.tourya.api.models.responses.TourAddressResponse;
-import com.tourya.api.models.resquest.TourAddressRequest;
+import com.tourya.api.models.request.TourAddressRequest;
 import com.tourya.api.repository.TourAddressRepository;
 import com.tourya.api.repository.TourRepository;
 import lombok.RequiredArgsConstructor;
