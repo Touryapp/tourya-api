@@ -1,4 +1,4 @@
-package com.tourya.api.models.resquest;
+package com.tourya.api.models.request;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;

@@ -1,7 +1,7 @@
 package com.tourya.api.models.mapper;
 
 import com.tourya.api.models.TourIncludesExcludes;
-import com.tourya.api.models.resquest.TourIncludesExcludesRequest;
+import com.tourya.api.models.request.TourIncludesExcludesRequest;
 import com.tourya.api.models.responses.TourIncludesExcludesResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

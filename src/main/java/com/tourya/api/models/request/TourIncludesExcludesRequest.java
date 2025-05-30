@@ -1,4 +1,4 @@
-package com.tourya.api.models.resquest;
+package com.tourya.api.models.request;
 
 import com.tourya.api.constans.enums.IncludeExcludeTypeEnum;
 import jakarta.validation.constraints.NotEmpty;

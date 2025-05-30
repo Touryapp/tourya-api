@@ -1,6 +1,6 @@
 package com.tourya.api.controller;
 
-import com.tourya.api.models.resquest.TourMainAttractionRequest;
+import com.tourya.api.models.request.TourMainAttractionRequest;
 import com.tourya.api.models.responses.TourMainAttractionResponse;
 import com.tourya.api.services.TourMainAttractionService;
 import lombok.RequiredArgsConstructor;
