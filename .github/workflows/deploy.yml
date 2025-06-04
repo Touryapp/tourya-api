@@ -26,7 +26,7 @@ jobs:
       run: |
         docker build -t tourya-api:latest .
 
-    # 4. Subir la imagen al registro de contenedores de docker hub
+    # 4. Subir la imagen al registro de contenedores
     - name: Push Docker image to Docker Hub
       run: |
         docker tag tourya-api:latest ${{ secrets.DOCKER_USERNAME }}/tourya-api:latest
@@ -42,25 +42,16 @@ jobs:
         port: 22
         script: |
           # Descargar la última imagen desde Docker Hub
-          sudo docker pull ${{ secrets.DOCKER_USERNAME }}/tourya-api:latest
+          docker pull ${{ secrets.DOCKER_USERNAME }}/tourya-api:latest
           
           # Detener y eliminar el contenedor existente (si lo hay)
-          sudo docker stop tourya-api || true
-          sudo docker rm tourya-api || true
+          docker stop tourya-api || true
+          docker rm tourya-api || true
           
           # Ejecutar el nuevo contenedor
-          sudo docker run -d --name tourya-api -p 8088:8088 \
+          docker run -d --name tourya-api -p 8088:8088 \
             --env DB_USER=${{ secrets.DB_USER }} \
-            --env DB_PASSWORD='${{ secrets.DB_PASSWORD }}'\
+            --env DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
             --env DB_HOST=${{ secrets.DB_HOST }} \
             --env DB_PORT=${{ secrets.DB_PORT }} \
-            --env AWS_BUCKET=${{ secrets.AWS_BUCKET }} \
-            --env AWS_REGION=${{ secrets.AWS_REGION }} \
-            --env AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
-            --env AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
-          
-            --log-driver=awslogs \
-            --log-opt awslogs-group=tourya-api-logs \
-            --log-opt awslogs-region=us-east-1 \
-            --log-opt awslogs-stream=tourya-api-container \
             ${{ secrets.DOCKER_USERNAME }}/tourya-api:latest

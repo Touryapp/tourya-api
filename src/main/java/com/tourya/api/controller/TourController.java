@@ -1,6 +1,8 @@
 package com.tourya.api.controller;
 
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tourya.api.common.PageResponse;
 import com.tourya.api.constans.enums.TourStatusEnum;
 import com.tourya.api.models.responses.TourFullDataResponse;
@@ -11,16 +13,14 @@ import com.tourya.api.services.TourService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.util.List;
 
 @RestController
 @RequestMapping("tour")
@@ -28,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Tour")
 public class TourController {
     private final TourService tourService;
+    private final ObjectMapper objectMapper;
 
     @PostMapping("/user/save")
     public ResponseEntity<TourResponse> save(
@@ -74,16 +75,27 @@ public class TourController {
     ){
         return ResponseEntity.ok(tourService.saveCreateBasicData(tourCreateRequest, connectedUser));
     }*/
-    @PostMapping("/user/saveAll")
+ /*   @PostMapping("/user/saveAll")
     public ResponseEntity<TourFullDataResponse> saveCreateFullData(
             @Valid @RequestBody TourFullDataRequest tourFullDataRequest,
             Authentication connectedUser
     ){
         return ResponseEntity.ok(tourService.saveCreateOrUpdateFullData(tourFullDataRequest, connectedUser));
-    }
+    }*/
     @GetMapping("/user/consultDataTourById/{tourId}")
     public ResponseEntity<TourFullDataResponse> consultDataTourById (
             @PathVariable Integer tourId, Authentication connectedUser){
         return ResponseEntity.ok(tourService.consultDataTourById(tourId, connectedUser));
+    }
+
+    @PostMapping(value = "/user/saveAll", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<TourFullDataResponse> saveCreateFullData(
+            @RequestPart("files") List<MultipartFile> files,
+            @RequestPart("metadata") String metadataJson,
+            Authentication connectedUser
+    ) throws IOException {
+        TourFullDataRequest tourFullDataRequest = objectMapper.readValue(metadataJson, new TypeReference<>() {});
+        return ResponseEntity.ok(tourService.saveCreateOrUpdateFullData(files,
+                tourFullDataRequest, connectedUser));
     }
 }

@@ -7,42 +7,11 @@ import com.tourya.api.constans.enums.IncludeExcludeTypeEnum;
 import com.tourya.api.constans.enums.TourStatusEnum;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
-import com.tourya.api.models.City;
-import com.tourya.api.models.Country;
-import com.tourya.api.models.Provider;
-import com.tourya.api.models.Role;
-import com.tourya.api.models.State;
-import com.tourya.api.models.Tour;
-import com.tourya.api.models.TourAddress;
-import com.tourya.api.models.TourCategory;
-import com.tourya.api.models.TourFaq;
-import com.tourya.api.models.TourIncludesExcludes;
-import com.tourya.api.models.TourMainAttraction;
-import com.tourya.api.models.User;
-import com.tourya.api.models.mapper.TourAddressMapper;
-import com.tourya.api.models.mapper.TourFaqMapper;
-import com.tourya.api.models.mapper.TourIncludesExcludesMapper;
-import com.tourya.api.models.mapper.TourMainAttractionMapper;
-import com.tourya.api.models.mapper.TourMapper;
-import com.tourya.api.models.responses.TourAddressResponse;
-import com.tourya.api.models.responses.TourDetailsResponse;
-import com.tourya.api.models.responses.TourFaqResponse;
-import com.tourya.api.models.responses.TourFullDataResponse;
-import com.tourya.api.models.responses.TourIncludesExcludesResponse;
-import com.tourya.api.models.responses.TourMainAttractionResponse;
-import com.tourya.api.models.responses.TourResponse;
-import com.tourya.api.models.request.TourAddressRequest;
-import com.tourya.api.models.request.TourCreateRequest;
-import com.tourya.api.models.request.TourFaqRequest;
-import com.tourya.api.models.request.TourFullDataRequest;
-import com.tourya.api.models.request.TourIncludesExcludesRequest;
-import com.tourya.api.models.request.TourMainAttractionRequest;
-import com.tourya.api.models.request.TourRequest;
-import com.tourya.api.repository.TourAddressRepository;
-import com.tourya.api.repository.TourFaqRepository;
-import com.tourya.api.repository.TourIncludesExcludesRepository;
-import com.tourya.api.repository.TourMainAttractionRepository;
-import com.tourya.api.repository.TourRepository;
+import com.tourya.api.models.*;
+import com.tourya.api.models.mapper.*;
+import com.tourya.api.models.request.*;
+import com.tourya.api.models.responses.*;
+import com.tourya.api.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -51,10 +20,14 @@ import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
 @Service
 @RequiredArgsConstructor
@@ -64,16 +37,23 @@ public class TourService {
     private final TourIncludesExcludesRepository tourIncludesExcludesRepository;
     private final TourMainAttractionRepository tourMainAttractionRepository;
     private final TourFaqRepository tourFaqRepository;
+    private final TourItineraryRepository tourItineraryRepository;
+    private final TourGalleryRepository tourGalleryRepository;
     private final TourCategoryService tourCategoryService;
     private final ProviderService providerService;
     private final CountryService countryService;
     private final CityService cityService;
     private final StateService stateService;
+    private final S3Service s3Service;
     private final TourMapper tourMapper;
     private final TourMainAttractionMapper tourMainAttractionMapper;
     private final TourIncludesExcludesMapper tourIncludesExcludesMapper;
     private final TourAddressMapper tourAddressMapper;
     private final TourFaqMapper tourFaqMapper;
+    private final TourItineraryMapper tourItineraryMapper;
+    private final TourGalleryMapper tourGalleryMapper;
+
+
     private static final String NOT_PRIVILEGES = "You have no privileges to perform this action.";
 
     public TourResponse save(TourRequest tourRequest, Authentication connectedUser){
@@ -229,20 +209,20 @@ public class TourService {
     }
 
     @Transactional
-    public TourFullDataResponse saveCreateOrUpdateFullData(TourFullDataRequest tourFullDataRequest, Authentication connectedUser){
+    public TourFullDataResponse saveCreateOrUpdateFullData(List<MultipartFile> files, TourFullDataRequest tourFullDataRequest, Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
         if(Utils.isProvider(roleList)){
             if(tourFullDataRequest.getId() == null){
-                return processCreateTourFullData(user, tourFullDataRequest);
+                return processCreateTourFullData(files, user, tourFullDataRequest);
             }else{
-                return processUpdateTourFullData(tourFullDataRequest.getId(), user, tourFullDataRequest);
+                return processUpdateTourFullData(files, tourFullDataRequest.getId(), user, tourFullDataRequest);
             }
         }else{
             throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
         }
     }
-    private TourFullDataResponse processCreateTourFullData(User user, TourFullDataRequest tourFullDataRequest){
+    private TourFullDataResponse processCreateTourFullData(List<MultipartFile> files,User user, TourFullDataRequest tourFullDataRequest){
         Provider provider = providerService.findByUserAndStatusActive(user);
         TourCategory tourCategory = getTourCategory(tourFullDataRequest.getTourCategoryId());
         //Save tour
@@ -266,10 +246,17 @@ public class TourService {
         List<TourFaqRequest> tourFaqRequestList = tourFullDataRequest.getFaq();
         List<TourFaqResponse> tourFaqResponseList = faqReplaceAllForTour(tourFaqRequestList, tourNew);
 
+        List<TourItineraryRequest> tourItineraryRequestList = tourFullDataRequest.getItineraries();
+        List<TourItineraryResponse>  tourItineraryResponseList  =  itineraryReplaceAllForTour(tourItineraryRequestList, tourNew);
+
+        List<TourGalleryRequest> tourGalleryRequestList = tourFullDataRequest.getGalleries();
+        List<TourGalleryResponse>  tourGalleryResponseList  =  galleryReplaceAllForTour(files, tourGalleryRequestList, tourNew);
+
+
         return tourMapper.toTourFullDataResponse(tourNew, tourAddressResponseList,
-                tourMainAttractionResponseList, tourIncludesResponseList, tourExcludesResponseList, tourFaqResponseList);
+                tourMainAttractionResponseList, tourIncludesResponseList, tourExcludesResponseList, tourFaqResponseList,  tourItineraryResponseList, tourGalleryResponseList);
     }
-    private TourFullDataResponse processUpdateTourFullData(Integer tourId, User user, TourFullDataRequest tourFullDataRequest){
+    private TourFullDataResponse processUpdateTourFullData(List<MultipartFile> files, Integer tourId, User user, TourFullDataRequest tourFullDataRequest){
         Provider provider = providerService.findByUserAndStatusActive(user);
         Tour tour = tourRepository.findTourByIdAndProviderId(tourId, provider.getId());
         if(tour != null){
@@ -295,8 +282,14 @@ public class TourService {
             List<TourFaqRequest> tourFaqRequestList = tourFullDataRequest.getFaq();
             List<TourFaqResponse> tourFaqResponseList = faqReplaceAllForTour(tourFaqRequestList, tourUpdate);
 
+            List<TourItineraryRequest> tourItineraryRequestList = tourFullDataRequest.getItineraries();
+            List<TourItineraryResponse>  tourItineraryResponseList  =  itineraryReplaceAllForTour(tourItineraryRequestList, tourUpdate);
+
+            List<TourGalleryRequest> tourGalleryRequestList = tourFullDataRequest.getGalleries();
+            List<TourGalleryResponse>  tourGalleryResponseList  =  galleryReplaceAllForTour(files, tourGalleryRequestList, tourUpdate);
+
             return tourMapper.toTourFullDataResponse(tourUpdate, tourAddressResponseList,
-                    tourMainAttractionResponseList, tourIncludesResponseList, tourExcludesResponseList, tourFaqResponseList);
+                    tourMainAttractionResponseList, tourIncludesResponseList, tourExcludesResponseList, tourFaqResponseList,  tourItineraryResponseList, tourGalleryResponseList);
 
         }else{
             throw new ResourceNotFoundException("Tour not found with id = "+tourId+" to providerId = "+provider.getId());
@@ -380,6 +373,44 @@ public class TourService {
                 .map(tourFaqMapper::toTourFaqResponse)
                 .toList();
     }
+
+    private List<TourItineraryResponse> itineraryReplaceAllForTour(List<TourItineraryRequest> requests,
+                                                                             Tour tour) {
+
+        tourItineraryRepository.deleteByTourId(tour.getId());
+
+        List<TourItinerary> newList = requests.stream()
+                .map(req -> {
+                    TourItinerary entity = tourItineraryMapper.toTourItinerary(req);
+                    entity.setTour(tour);
+                    return entity;
+                })
+                .toList();
+
+        return tourItineraryRepository.saveAll(newList).stream()
+                .map(tourItineraryMapper::toTourItineraryResponse)
+                .toList();
+    }
+
+    private List<TourGalleryResponse> galleryReplaceAllForTour(List<MultipartFile> files, List<TourGalleryRequest> requests,
+                                                               Tour tour) {
+
+        tourGalleryRepository.findByTourIdOrderByOrderIndexAsc(tour.getId()).forEach(gallery -> {
+            s3Service.deleteFile(gallery.getImageUrl());
+            tourGalleryRepository.delete(gallery);
+        });
+        validateFilesAndMetadata(files, requests);
+
+        List<TourGallery> savedGalleries = IntStream.range(0, files.size())
+                .mapToObj(i -> buildGalleryEntity(files.get(i), requests.get(i), tour))
+                .map(tourGalleryRepository::save)
+                .toList();
+
+        return savedGalleries.stream()
+                .map(tourGalleryMapper::toTourGalleryResponse)
+                .toList();
+    }
+
     public TourFullDataResponse consultDataTourById(Integer tourId, Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
@@ -389,7 +420,8 @@ public class TourService {
             if(tour != null){
                 return tourMapper.toTourFullDataResponse(tour, consultDataTourAddressListByTourId(tourId),
                         getAllByTourMainAttractions(tourId), getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
-                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId));
+                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId),
+                        getAllByTourItineraries(tourId),getAllByTourGalleries(tourId));
             }else{
                 throw new ResourceNotFoundException("Tour not found with id = "+tourId+" to providerId = "+provider.getId());
             }
@@ -406,7 +438,8 @@ public class TourService {
                 Tour tour = optionalTour.get();
                 return tourMapper.toTourFullDataResponse(tour, consultDataTourAddressListByTourId(tourId),
                         getAllByTourMainAttractions(tourId), getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
-                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId));
+                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId),
+                        getAllByTourItineraries(tourId),getAllByTourGalleries(tourId));
             }else{
                 throw new ResourceNotFoundException("Tour not found with id = "+tourId);
             }
@@ -425,7 +458,8 @@ public class TourService {
                 Tour tourUpdate = tourRepository.save(tour);
                 return tourMapper.toTourFullDataResponse(tourUpdate, consultDataTourAddressListByTourId(tourId),
                         getAllByTourMainAttractions(tourId), getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
-                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId));
+                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId),
+                        getAllByTourItineraries(tourId),getAllByTourGalleries(tourId));
             }else{
                 throw new ResourceNotFoundException("Tour not found with id = "+tourId);
             }
@@ -444,7 +478,8 @@ public class TourService {
                 Tour tourUpdate = tourRepository.save(tour);
                 return tourMapper.toTourFullDataResponse(tourUpdate, consultDataTourAddressListByTourId(tourId),
                         getAllByTourMainAttractions(tourId), getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
-                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId));
+                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId),
+                        getAllByTourItineraries(tourId),getAllByTourGalleries(tourId));
             }else{
                 throw new ResourceNotFoundException("Tour not found with id = "+tourId);
             }
@@ -479,5 +514,40 @@ public class TourService {
                 .stream()
                 .map(tourFaqMapper::toTourFaqResponse)
                 .toList();
+    }
+    private List<TourItineraryResponse> getAllByTourItineraries(Integer tourId) {
+        return tourItineraryRepository.findByTourId(tourId)
+                .stream()
+                .map(tourItineraryMapper::toTourItineraryResponse)
+                .toList();
+    }
+    private List<TourGalleryResponse> getAllByTourGalleries(Integer tourId) {
+        return tourGalleryRepository.findByTourId(tourId)
+                .stream()
+                .map(tourGalleryMapper::toTourGalleryResponse)
+                .toList();
+    }
+    private void validateFilesAndMetadata(List<MultipartFile> files, List<TourGalleryRequest> requests) {
+        if (files.size() != requests.size()) {
+            throw new IllegalArgumentException("Each uploaded file must match a metadata entry.");
+        }
+    }
+    private Tour getTourOrThrow(Integer tourId, Integer providerId) {
+        Tour tour = getTourByIdAndProviderId(tourId, providerId);
+        if (tour == null) {
+            throw new ResourceNotFoundException("No tour with this ID was found for this provider.");
+        }
+        return tour;
+    }
+    private TourGallery buildGalleryEntity(MultipartFile file, TourGalleryRequest request, Tour tour) {
+        try {
+            TourGallery entity = tourGalleryMapper.toTourGallery(request);
+            entity.setTour(tour);
+            entity.setCreatedDate(LocalDateTime.now());
+            entity.setImageUrl(s3Service.uploadFile("tours/" + tour.getId(), file));
+            return entity;
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to upload file to S3", e);
+        }
     }
 }
