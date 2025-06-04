@@ -8,7 +8,7 @@ import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.models.*;
 import com.tourya.api.models.mapper.TourItineraryMapper;
 import com.tourya.api.models.responses.TourItineraryResponse;
-import com.tourya.api.models.resquest.TourItineraryRequest;
+import com.tourya.api.models.request.TourItineraryRequest;
 import com.tourya.api.repository.TourItineraryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;

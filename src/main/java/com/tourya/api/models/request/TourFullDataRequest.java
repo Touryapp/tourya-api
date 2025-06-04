@@ -48,4 +48,13 @@ public class TourFullDataRequest {
     @Valid
     @NotNull(message = "faq is mandatory")
     private List<TourFaqRequest>  faq = new ArrayList<>();
+
+    @Valid
+    @NotNull(message = "itinerary is mandatory")
+    private List<TourItineraryRequest>  itineraries = new ArrayList<>();
+
+    @Valid
+    @NotNull(message = "gallery is mandatory")
+    private List<TourGalleryRequest>  galleries = new ArrayList<>();
+
 }

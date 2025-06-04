@@ -1,7 +1,7 @@
 package com.tourya.api.models.mapper;
 
 import com.tourya.api.models.TourItinerary;
-import com.tourya.api.models.resquest.TourItineraryRequest;
+import com.tourya.api.models.request.TourItineraryRequest;
 import com.tourya.api.models.responses.TourItineraryResponse;
 import org.springframework.stereotype.Component;
 

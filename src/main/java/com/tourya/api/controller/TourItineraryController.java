@@ -2,11 +2,8 @@ package com.tourya.api.controller;
 
 
 import com.tourya.api.models.responses.TourItineraryResponse;
-import com.tourya.api.models.responses.TourMainAttractionResponse;
-import com.tourya.api.models.resquest.TourItineraryRequest;
-import com.tourya.api.models.resquest.TourMainAttractionRequest;
+import com.tourya.api.models.request.TourItineraryRequest;
 import com.tourya.api.services.TourItineraryService;
-import com.tourya.api.services.TourMainAttractionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
