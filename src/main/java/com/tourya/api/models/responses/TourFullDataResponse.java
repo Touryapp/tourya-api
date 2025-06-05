@@ -3,6 +3,7 @@ package com.tourya.api.models.responses;
 import com.tourya.api.constans.enums.TourStatusEnum;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -15,6 +16,9 @@ public class TourFullDataResponse {
     private String duration;
     private Integer maxPeople;
     private Integer highlight;
+    private BigDecimal price;
+    private Integer minAge;
+    private BigDecimal rating;
     private TourStatusEnum status;
     private List<TourAddressResponse> locations = new ArrayList<>();
     private List<TourMainAttractionResponse> mainAttractions = new ArrayList<>();

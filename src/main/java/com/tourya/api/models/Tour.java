@@ -19,6 +19,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
+import java.math.BigDecimal;
+
 @Getter
 @Setter
 @SuperBuilder
@@ -47,6 +49,16 @@ public class Tour extends BaseEntity {
 
     @Column(name = "highlight")
     private Integer highlight;
+
+    // Nuevas columnas
+    @Column(name = "price", precision = 10, scale = 2) // Ajusta la precisión y escala para el precio
+    private BigDecimal price;
+
+    @Column(name = "min_age")
+    private Integer minAge;
+
+    @Column(name = "rating", precision = 3, scale = 2) // Por ejemplo, para 4.50 (precision total de 3 digitos, 2 despues del punto)
+    private BigDecimal rating;
 
     @Convert(converter = TourStatusEnumConverter.class)
     @Column(name = "status")

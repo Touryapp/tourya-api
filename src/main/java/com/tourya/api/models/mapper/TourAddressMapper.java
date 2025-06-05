@@ -14,6 +14,7 @@ public class TourAddressMapper {
     public TourAddress toTourAddress(TourAddressRequest tourAddressRequest){
         TourAddress tourAddress = new TourAddress();
         tourAddress.setAddress(tourAddressRequest.getAddress());
+        tourAddress.setLocation(tourAddressRequest.getLocation());
         tourAddress.setAddressType(tourAddressRequest.getAddressType());
         tourAddress.setLongitude(tourAddressRequest.getLongitude());
         tourAddress.setLatitude(tourAddressRequest.getLatitude());
@@ -25,6 +26,7 @@ public class TourAddressMapper {
         TourAddressResponse tourAddressResponse = new TourAddressResponse();
         tourAddressResponse.setId(tourAddress.getId());
         tourAddressResponse.setAddress(tourAddress.getAddress());
+        tourAddressResponse.setLocation(tourAddress.getLocation());
         tourAddressResponse.setAddressType(tourAddress.getAddressType());
         tourAddressResponse.setLatitude(tourAddress.getLatitude());
         tourAddressResponse.setLongitude(tourAddress.getLongitude());
