@@ -7,6 +7,7 @@ import lombok.Data;
 public class TourAddressResponse {
     private Integer id;
     private String address;
+    private String location;
     private AddressTypeEnum addressType;
     private Integer countryId;
     private Integer stateId;

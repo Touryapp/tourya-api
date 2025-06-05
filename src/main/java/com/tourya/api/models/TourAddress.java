@@ -59,6 +59,8 @@ public class TourAddress extends BaseEntity {
 
     private String address;
 
+    private String location;
+
     @Convert(converter = AddressTypeEnumConverter.class)
     @Column(name = "address_type")
     private AddressTypeEnum addressType;

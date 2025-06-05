@@ -32,6 +32,9 @@ public class TourMapper {
         tour.setDuration(tourCreateRequest.getDuration());
         tour.setMaxPeople(tourCreateRequest.getMaxPeople());
         tour.setHighlight(tourCreateRequest.getHighlight());
+        tour.setPrice(tourCreateRequest.getPrice());
+        tour.setMinAge(tourCreateRequest.getMinAge());
+        tour.setRating(tourCreateRequest.getRating());
         return tour;
     }
     public Tour toTour(TourFullDataRequest tourFullDataRequest){
@@ -41,6 +44,9 @@ public class TourMapper {
         tour.setDuration(tourFullDataRequest.getDuration());
         tour.setMaxPeople(tourFullDataRequest.getMaxPeople());
         tour.setHighlight(tourFullDataRequest.getHighlight());
+        tour.setPrice(tourFullDataRequest.getPrice());
+        tour.setMinAge(tourFullDataRequest.getMinAge());
+        tour.setRating(tourFullDataRequest.getRating());
         return tour;
     }
 
@@ -52,6 +58,9 @@ public class TourMapper {
         tourResponse.setDuration(tour.getDuration());
         tourResponse.setMaxPeople(tour.getMaxPeople());
         tourResponse.setHighlight(tour.getHighlight());
+        tourResponse.setPrice(tour.getPrice());
+        tourResponse.setMinAge(tour.getMinAge());
+        tourResponse.setRating(tour.getRating());
         tourResponse.setStatus(tour.getStatus());
         tourResponse.setTourCategory(tourCategoryMapper.toTourCategoryResponse(tour.getTourCategory()));
         tourResponse.setProvider(providerMapper.toProviderResponse(tour.getProvider()));
@@ -73,6 +82,9 @@ public class TourMapper {
         tourFullDataResponse.setDuration(tour.getDuration());
         tourFullDataResponse.setMaxPeople(tour.getMaxPeople());
         tourFullDataResponse.setHighlight(tour.getHighlight());
+        tourFullDataResponse.setPrice(tour.getPrice());
+        tourFullDataResponse.setMinAge(tour.getMinAge());
+        tourFullDataResponse.setRating(tour.getRating());
         tourFullDataResponse.setStatus(tour.getStatus());
         tourFullDataResponse.setLocations(tourAddressResponseList);
         tourFullDataResponse.setMainAttractions(tourMainAttractionResponseList);
