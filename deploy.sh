@@ -18,6 +18,10 @@ docker run -d --name tourya-api -p 8088:8088 \
   --env DB_PASSWORD=${DB_PASSWORD} \
   --env DB_HOST=${DB_HOST} \
   --env DB_PORT=${DB_PORT} \
+  --env AWS_BUCKET=${{ secrets.AWS_BUCKET }} \
+  --env AWS_REGION=${{ secrets.AWS_REGION }} \
+  --env AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+  --env AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
   <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/tourya-api:latest
 
 echo "Despliegue completado."
