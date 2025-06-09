@@ -37,6 +37,7 @@ public class TourService {
     private final TourIncludesExcludesRepository tourIncludesExcludesRepository;
     private final TourMainAttractionRepository tourMainAttractionRepository;
     private final TourFaqRepository tourFaqRepository;
+    private final TourCancellationPolicyRepository tourCancellationPolicyRepository;
     private final TourItineraryRepository tourItineraryRepository;
     private final TourGalleryRepository tourGalleryRepository;
     private final TourCategoryService tourCategoryService;
@@ -52,6 +53,7 @@ public class TourService {
     private final TourFaqMapper tourFaqMapper;
     private final TourItineraryMapper tourItineraryMapper;
     private final TourGalleryMapper tourGalleryMapper;
+    private final TourCancellationPolicyMapper tourCancellationPolicyMapper;
 
 
     private static final String NOT_PRIVILEGES = "You have no privileges to perform this action.";
@@ -249,12 +251,15 @@ public class TourService {
         List<TourItineraryRequest> tourItineraryRequestList = tourFullDataRequest.getItineraries();
         List<TourItineraryResponse>  tourItineraryResponseList  =  itineraryReplaceAllForTour(tourItineraryRequestList, tourNew);
 
+        List<TourCancellationPolicyRequest> tourCancellationPolicyRequestList = tourFullDataRequest.getCancellationPolicies();
+        List<TourCancellationPolicyResponse>  tourCancellationPolicyResponseList =  cancellationPoliciesReplaceAllForTour(tourCancellationPolicyRequestList, tourNew);
+
         List<TourGalleryRequest> tourGalleryRequestList = tourFullDataRequest.getGalleries();
         List<TourGalleryResponse>  tourGalleryResponseList  =  galleryReplaceAllForTour(files, tourGalleryRequestList, tourNew);
 
 
         return tourMapper.toTourFullDataResponse(tourNew, tourAddressResponseList,
-                tourMainAttractionResponseList, tourIncludesResponseList, tourExcludesResponseList, tourFaqResponseList,  tourItineraryResponseList, tourGalleryResponseList);
+                tourMainAttractionResponseList, tourIncludesResponseList, tourExcludesResponseList, tourFaqResponseList,  tourItineraryResponseList, tourGalleryResponseList, tourCancellationPolicyResponseList);
     }
     private TourFullDataResponse processUpdateTourFullData(List<MultipartFile> files, Integer tourId, User user, TourFullDataRequest tourFullDataRequest){
         Provider provider = providerService.findByUserAndStatusActive(user);
@@ -288,8 +293,11 @@ public class TourService {
             List<TourGalleryRequest> tourGalleryRequestList = tourFullDataRequest.getGalleries();
             List<TourGalleryResponse>  tourGalleryResponseList  =  galleryReplaceAllForTour(files, tourGalleryRequestList, tourUpdate);
 
+            List<TourCancellationPolicyRequest> tourCancellationPolicyRequestList = tourFullDataRequest.getCancellationPolicies();
+            List<TourCancellationPolicyResponse>  tourCancellationPolicyResponseList =  cancellationPoliciesReplaceAllForTour(tourCancellationPolicyRequestList, tourUpdate);
+
             return tourMapper.toTourFullDataResponse(tourUpdate, tourAddressResponseList,
-                    tourMainAttractionResponseList, tourIncludesResponseList, tourExcludesResponseList, tourFaqResponseList,  tourItineraryResponseList, tourGalleryResponseList);
+                    tourMainAttractionResponseList, tourIncludesResponseList, tourExcludesResponseList, tourFaqResponseList,  tourItineraryResponseList, tourGalleryResponseList, tourCancellationPolicyResponseList);
 
         }else{
             throw new ResourceNotFoundException("Tour not found with id = "+tourId+" to providerId = "+provider.getId());
@@ -391,6 +399,23 @@ public class TourService {
                 .map(tourItineraryMapper::toTourItineraryResponse)
                 .toList();
     }
+    private List<TourCancellationPolicyResponse> cancellationPoliciesReplaceAllForTour(List<TourCancellationPolicyRequest> requests,
+                                                       Tour tour) {
+
+        tourCancellationPolicyRepository.deleteByTourId(tour.getId());
+
+        List<TourCancellationPolicy> newList = requests.stream()
+                .map(req -> {
+                    TourCancellationPolicy entity = tourCancellationPolicyMapper.toTourCancellationPolicy(req);
+                    entity.setTour(tour);
+                    return entity;
+                })
+                .toList();
+
+        return tourCancellationPolicyRepository.saveAll(newList).stream()
+                .map(tourCancellationPolicyMapper::toTourCancellationPolicyResponse)
+                .toList();
+    }
 
     private List<TourGalleryResponse> galleryReplaceAllForTour(List<MultipartFile> files, List<TourGalleryRequest> requests,
                                                                Tour tour) {
@@ -421,7 +446,7 @@ public class TourService {
                 return tourMapper.toTourFullDataResponse(tour, consultDataTourAddressListByTourId(tourId),
                         getAllByTourMainAttractions(tourId), getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
                         getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId),
-                        getAllByTourItineraries(tourId),getAllByTourGalleries(tourId));
+                        getAllByTourItineraries(tourId),getAllByTourGalleries(tourId), getAllByTourCancellationPolicy(tourId));
             }else{
                 throw new ResourceNotFoundException("Tour not found with id = "+tourId+" to providerId = "+provider.getId());
             }
@@ -439,7 +464,7 @@ public class TourService {
                 return tourMapper.toTourFullDataResponse(tour, consultDataTourAddressListByTourId(tourId),
                         getAllByTourMainAttractions(tourId), getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
                         getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId),
-                        getAllByTourItineraries(tourId),getAllByTourGalleries(tourId));
+                        getAllByTourItineraries(tourId),getAllByTourGalleries(tourId), getAllByTourCancellationPolicy(tourId));
             }else{
                 throw new ResourceNotFoundException("Tour not found with id = "+tourId);
             }
@@ -459,7 +484,7 @@ public class TourService {
                 return tourMapper.toTourFullDataResponse(tourUpdate, consultDataTourAddressListByTourId(tourId),
                         getAllByTourMainAttractions(tourId), getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
                         getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId),
-                        getAllByTourItineraries(tourId),getAllByTourGalleries(tourId));
+                        getAllByTourItineraries(tourId),getAllByTourGalleries(tourId), getAllByTourCancellationPolicy(tourId));
             }else{
                 throw new ResourceNotFoundException("Tour not found with id = "+tourId);
             }
@@ -479,7 +504,7 @@ public class TourService {
                 return tourMapper.toTourFullDataResponse(tourUpdate, consultDataTourAddressListByTourId(tourId),
                         getAllByTourMainAttractions(tourId), getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
                         getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId),
-                        getAllByTourItineraries(tourId),getAllByTourGalleries(tourId));
+                        getAllByTourItineraries(tourId),getAllByTourGalleries(tourId), getAllByTourCancellationPolicy(tourId));
             }else{
                 throw new ResourceNotFoundException("Tour not found with id = "+tourId);
             }
@@ -519,6 +544,12 @@ public class TourService {
         return tourItineraryRepository.findByTourId(tourId)
                 .stream()
                 .map(tourItineraryMapper::toTourItineraryResponse)
+                .toList();
+    }
+    private List<TourCancellationPolicyResponse> getAllByTourCancellationPolicy(Integer tourId) {
+        return tourCancellationPolicyRepository.findByTourId(tourId)
+                .stream()
+                .map(tourCancellationPolicyMapper::toTourCancellationPolicyResponse)
                 .toList();
     }
     private List<TourGalleryResponse> getAllByTourGalleries(Integer tourId) {

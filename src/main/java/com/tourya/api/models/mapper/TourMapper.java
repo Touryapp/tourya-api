@@ -72,7 +72,8 @@ public class TourMapper {
                                                        List<TourIncludesExcludesResponse>  tourExcludesResponseList,
                                                        List<TourFaqResponse> tourFaqResponseList,
                                                        List<TourItineraryResponse> tourItineraryResponseList,
-                                                       List<TourGalleryResponse> tourGalleryResponseList){
+                                                       List<TourGalleryResponse> tourGalleryResponseList,
+                                                       List<TourCancellationPolicyResponse>  tourCancellationPolicyResponseList){
         TourFullDataResponse tourFullDataResponse = new TourFullDataResponse();
         tourFullDataResponse.setId(tour.getId());
         tourFullDataResponse.setName(tour.getName());
@@ -93,6 +94,7 @@ public class TourMapper {
         tourFullDataResponse.setFaq(tourFaqResponseList);
         tourFullDataResponse.setItineraries(tourItineraryResponseList);
         tourFullDataResponse.setGalleries(tourGalleryResponseList);
+        tourFullDataResponse.setCancellationPolicies(tourCancellationPolicyResponseList);
         return tourFullDataResponse;
     }
 }

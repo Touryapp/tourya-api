@@ -74,6 +74,10 @@ public class TourFullDataRequest {
     private List<TourItineraryRequest>  itineraries = new ArrayList<>();
 
     @Valid
+    @NotNull(message = "cancellationPolicies is mandatory")
+    private List<TourCancellationPolicyRequest>  cancellationPolicies = new ArrayList<>();
+
+    @Valid
     @NotNull(message = "gallery is mandatory")
     private List<TourGalleryRequest>  galleries = new ArrayList<>();
 
