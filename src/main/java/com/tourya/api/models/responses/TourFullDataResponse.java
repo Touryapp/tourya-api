@@ -1,6 +1,7 @@
 package com.tourya.api.models.responses;
 
 import com.tourya.api.constans.enums.TourStatusEnum;
+import com.tourya.api.models.TourCancellationPolicy;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -26,6 +27,7 @@ public class TourFullDataResponse {
     private List<TourIncludesExcludesResponse>  excludes = new ArrayList<>();
     private List<TourFaqResponse>  faq = new ArrayList<>();
     private List<TourItineraryResponse>  itineraries = new ArrayList<>();
+    private List<TourCancellationPolicyResponse>  cancellationPolicies = new ArrayList<>();
     private List<TourGalleryResponse>  galleries = new ArrayList<>();
 
 }
