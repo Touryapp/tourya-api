@@ -6,6 +6,7 @@ import com.tourya.api.common.PageResponse;
 import com.tourya.api.constans.enums.IncludeExcludeTypeEnum;
 import com.tourya.api.constans.enums.TourStatusEnum;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
+import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.models.*;
 import com.tourya.api.models.mapper.*;
@@ -420,20 +421,30 @@ public class TourService {
     private List<TourGalleryResponse> galleryReplaceAllForTour(List<MultipartFile> files, List<TourGalleryRequest> requests,
                                                                Tour tour) {
 
-        tourGalleryRepository.findByTourIdOrderByOrderIndexAsc(tour.getId()).forEach(gallery -> {
-            s3Service.deleteFile(gallery.getImageUrl());
-            tourGalleryRepository.delete(gallery);
-        });
-        validateFilesAndMetadata(files, requests);
+        if(files.size() == 1 && files.get(0).isEmpty() && requests.isEmpty()){
+            tourGalleryRepository.findByTourIdOrderByOrderIndexAsc(tour.getId()).forEach(gallery -> {
+                s3Service.deleteFile(gallery.getImageUrl());
+                tourGalleryRepository.delete(gallery);
+            });
 
-        List<TourGallery> savedGalleries = IntStream.range(0, files.size())
-                .mapToObj(i -> buildGalleryEntity(files.get(i), requests.get(i), tour))
-                .map(tourGalleryRepository::save)
-                .toList();
+            return new ArrayList<>();
+        }else{
+            validateFilesAndMetadata(files, requests);
+            tourGalleryRepository.findByTourIdOrderByOrderIndexAsc(tour.getId()).forEach(gallery -> {
+                s3Service.deleteFile(gallery.getImageUrl());
+                tourGalleryRepository.delete(gallery);
+            });
 
-        return savedGalleries.stream()
-                .map(tourGalleryMapper::toTourGalleryResponse)
-                .toList();
+            List<TourGallery> savedGalleries = IntStream.range(0, files.size())
+                    .mapToObj(i -> buildGalleryEntity(files.get(i), requests.get(i), tour))
+                    .map(tourGalleryRepository::save)
+                    .toList();
+
+            return savedGalleries.stream()
+                    .map(tourGalleryMapper::toTourGalleryResponse)
+                    .toList();
+        }
+
     }
 
     public TourFullDataResponse consultDataTourById(Integer tourId, Authentication connectedUser){
@@ -560,7 +571,7 @@ public class TourService {
     }
     private void validateFilesAndMetadata(List<MultipartFile> files, List<TourGalleryRequest> requests) {
         if (files.size() != requests.size()) {
-            throw new IllegalArgumentException("Each uploaded file must match a metadata entry.");
+            throw new OperationNotPermittedException("Each uploaded file must match a metadata entry.");
         }
     }
     private Tour getTourOrThrow(Integer tourId, Integer providerId) {
