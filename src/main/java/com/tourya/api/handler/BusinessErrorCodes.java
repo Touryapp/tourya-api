@@ -22,6 +22,8 @@ public enum BusinessErrorCodes {
     RESOURCE_NOT_FOUND(309, NOT_FOUND, "Resource not found."), // Nuevo código
     UNKNOWN_ENUM(310, BAD_REQUEST, "Unknown value for the enum."), // Nuevo código
     OPERATION_NOT_PERMITTED(311, BAD_REQUEST, "Operation not permitted."), // Nuevo código
+    JSON_SCHEMA_VALIDATION_FAILURE(4001, BAD_REQUEST,"JSON Schema validation failed"), // Nuevo o más específico
+    JSON_PARSE_ERROR(4002, BAD_REQUEST,"Invalid JSON format"), // Nuevo código
     ;
 
     @Getter

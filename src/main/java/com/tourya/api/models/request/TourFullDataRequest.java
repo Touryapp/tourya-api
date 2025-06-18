@@ -81,4 +81,5 @@ public class TourFullDataRequest {
     @NotNull(message = "gallery is mandatory")
     private List<TourGalleryRequest>  galleries = new ArrayList<>();
 
+    private ModifiedArrayListRequest  modifiedArrayList;
 }

@@ -1,20 +1,30 @@
 package com.tourya.api.handler;
 
 
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.networknt.schema.ValidationMessage;
 import com.tourya.api.exceptions.EmailAlreadyExistsException;
 import com.tourya.api.exceptions.EmailInvalidFormatException;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
+import com.tourya.api.exceptions.JsonSchemaValidationException;
 import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.exceptions.UnknownEnumValueException;
 import jakarta.mail.MessagingException;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
 
 import java.time.OffsetDateTime;
 import java.util.HashMap;
@@ -22,17 +32,20 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static com.tourya.api.handler.BusinessErrorCodes.ACCOUNT_DISABLED;
 import static com.tourya.api.handler.BusinessErrorCodes.ACCOUNT_LOCKED;
 import static com.tourya.api.handler.BusinessErrorCodes.BAD_CREDENTIALS;
 import static com.tourya.api.handler.BusinessErrorCodes.EMAIL_ALREADY_EXISTS;
 import static com.tourya.api.handler.BusinessErrorCodes.EMAIL_INVALID_FORMAT;
+import static com.tourya.api.handler.BusinessErrorCodes.JSON_PARSE_ERROR;
 import static com.tourya.api.handler.BusinessErrorCodes.OPERATION_NOT_PERMITTED;
 import static com.tourya.api.handler.BusinessErrorCodes.RESOURCE_NOT_FOUND;
 import static com.tourya.api.handler.BusinessErrorCodes.UNKNOWN_ENUM;
 import static com.tourya.api.handler.BusinessErrorCodes.VALIDATION_FAILURE;
 import static com.tourya.api.handler.BusinessErrorCodes.NOT_PRIVILEGES_TO_ACTION;
+import static com.tourya.api.handler.BusinessErrorCodes.JSON_SCHEMA_VALIDATION_FAILURE; // <-- Si lo añades
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
@@ -183,4 +196,22 @@ public class GlobalExceptionHandler {
                 .build();
         return buildErrorResponse(exceptionResponse, BAD_REQUEST);
     }
+    // --- Manejador para JsonSchemaValidationException ---
+    @ExceptionHandler(JsonSchemaValidationException.class)
+    public ResponseEntity<Object> handleJsonSchemaValidationException(JsonSchemaValidationException exp) {
+        // Convertir el Set<ValidationMessage> a un Set<String> para 'validationErrors'
+        Set<String> validationErrors = exp.getValidationMessages().stream()
+                .map(ValidationMessage::getMessage)
+                .collect(Collectors.toSet());
+
+        ExceptionResponse exceptionResponse = ExceptionResponse.builder()
+                // Usar tu nuevo BusinessErrorCodes si lo creaste, o el existente VALIDATION_FAILURE
+                .errorCode(JSON_SCHEMA_VALIDATION_FAILURE.getCode()) // O VALIDATION_FAILURE.getCode()
+                .message(JSON_SCHEMA_VALIDATION_FAILURE.getDescription()) // O VALIDATION_FAILURE.getDescription()
+                .error(exp.getMessage()) // Mensaje general de la excepción
+                .validationErrors(validationErrors) // Añade los errores de validación específicos
+                .build();
+        return buildErrorResponse(exceptionResponse, BAD_REQUEST);
+    }
+    // --- NUEVO MANEJADOR PARA JSON MAL FORMADO ---
 }
