@@ -8,13 +8,7 @@ import com.tourya.api.constans.enums.RequestProviderStatusEnum;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
 import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
-import com.tourya.api.models.City;
-import com.tourya.api.models.Country;
-import com.tourya.api.models.Provider;
-import com.tourya.api.models.Role;
-import com.tourya.api.models.RequestProvider;
-import com.tourya.api.models.State;
-import com.tourya.api.models.User;
+import com.tourya.api.models.*;
 import com.tourya.api.models.mapper.ProviderMapper;
 import com.tourya.api.models.mapper.RequestProviderMapper;
 import com.tourya.api.models.responses.RequestProviderResponse;
@@ -211,5 +205,7 @@ public class RequestProviderService {
     public RequestProvider getRequestProviderByProvider(Provider provider){
         return requestProviderRepository.findByProvider(provider);
     }
-
+    public RequestProvider getRequestByIdAndProviderId(Integer id, Integer providerId){
+        return requestProviderRepository.findByIdAndProviderId(id, providerId);
+    }
 }
