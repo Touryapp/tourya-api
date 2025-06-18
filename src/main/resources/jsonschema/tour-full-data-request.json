@@ -8,9 +8,7 @@
     "name",
     "description",
     "tourCategoryId",
-    "price",
     "minAge",
-    "rating",
     "locations",
     "mainAttractions",
     "includes",
@@ -127,6 +125,11 @@
       "items": { "$ref": "#/$defs/TourGalleryRequest" },
       "minItems": 0,
       "uniqueItems": false
+    },
+    "modifiedArrayList": {
+      "type": "object",
+      "description": "Flags indicating which nested lists have been updated.",
+      "$ref": "#/$defs/ModifiedArrayListRequest"
     }
   },
   "additionalProperties": false,
@@ -318,6 +321,53 @@
         { "required": ["imageUrl"] },
         { "required": ["description"] }
       ]
+    },
+    "ModifiedArrayListRequest": {
+      "type": "object",
+      "description": "Flags indicating which nested lists have been updated.",
+      "properties": {
+        "updatedLocations": {
+          "type": "boolean",
+          "description": "Indicates if the locations list has been updated.",
+          "default": false
+        },
+        "updatedMainAttractions": {
+          "type": "boolean",
+          "description": "Indicates if the main attractions list has been updated.",
+          "default": false
+        },
+        "updatedIncludes": {
+          "type": "boolean",
+          "description": "Indicates if the includes list has been updated.",
+          "default": false
+        },
+        "updatedExcludes": {
+          "type": "boolean",
+          "description": "Indicates if the excludes list has been updated.",
+          "default": false
+        },
+        "updatedItineraries": {
+          "type": "boolean",
+          "description": "Indicates if the itineraries list has been updated.",
+          "default": false
+        },
+        "updatedFaq": {
+          "type": "boolean",
+          "description": "Indicates if the FAQ list has been updated.",
+          "default": false
+        },
+        "updatedCancellationPolicies": {
+          "type": "boolean",
+          "description": "Indicates if the cancellation policies list has been updated.",
+          "default": false
+        },
+        "updatedGalleries": {
+          "type": "boolean",
+          "description": "Indicates if the galleries list has been updated.",
+          "default": false
+        }
+      },
+      "additionalProperties": false
     }
   }
 }
