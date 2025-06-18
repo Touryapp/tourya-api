@@ -6,6 +6,7 @@ import com.tourya.api.common.PageResponse;
 import com.tourya.api.constans.enums.IncludeExcludeTypeEnum;
 import com.tourya.api.constans.enums.TourStatusEnum;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
+import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.models.*;
 import com.tourya.api.models.mapper.*;
@@ -264,6 +265,7 @@ public class TourService {
     private TourFullDataResponse processUpdateTourFullData(List<MultipartFile> files, Integer tourId, User user, TourFullDataRequest tourFullDataRequest){
         Provider provider = providerService.findByUserAndStatusActive(user);
         Tour tour = tourRepository.findTourByIdAndProviderId(tourId, provider.getId());
+        validateProcessUpdateTourFullData(tourFullDataRequest);
         if(tour != null){
             tour.setName(tourFullDataRequest.getName());
             tour.setDescription(tourFullDataRequest.getDescription());
@@ -273,35 +275,88 @@ public class TourService {
             //update Tour
             Tour tourUpdate = tourRepository.save(tour);
 
-            //replace tourAddressList
-            List<TourAddressResponse> tourAddressResponseList = tourAddressReplaceAllForTour(tourFullDataRequest.getLocations(), tourUpdate);
-            List<TourMainAttractionRequest> tourMainAttractionRequestList = tourFullDataRequest.getMainAttractions();
-            List<TourMainAttractionResponse>  tourMainAttractionResponseList  =  mainAttractionReplaceAllForTour(tourMainAttractionRequestList, tourUpdate);
-
-            List<TourIncludesExcludesRequest> tourIncludesRequest = tourFullDataRequest.getIncludes();
-            List<TourIncludesExcludesResponse>  tourIncludesResponseList  =  includesExcludesReplaceAllForTour(tourIncludesRequest, tourUpdate, IncludeExcludeTypeEnum.INCLUDE);
-
-            List<TourIncludesExcludesRequest> tourExcludesRequest = tourFullDataRequest.getExcludes();
-            List<TourIncludesExcludesResponse>  tourExcludesResponseList  =  includesExcludesReplaceAllForTour(tourExcludesRequest, tourUpdate, IncludeExcludeTypeEnum.EXCLUDE);
-
-            List<TourFaqRequest> tourFaqRequestList = tourFullDataRequest.getFaq();
-            List<TourFaqResponse> tourFaqResponseList = faqReplaceAllForTour(tourFaqRequestList, tourUpdate);
-
-            List<TourItineraryRequest> tourItineraryRequestList = tourFullDataRequest.getItineraries();
-            List<TourItineraryResponse>  tourItineraryResponseList  =  itineraryReplaceAllForTour(tourItineraryRequestList, tourUpdate);
-
-            List<TourGalleryRequest> tourGalleryRequestList = tourFullDataRequest.getGalleries();
-            List<TourGalleryResponse>  tourGalleryResponseList  =  galleryReplaceAllForTour(files, tourGalleryRequestList, tourUpdate);
-
-            List<TourCancellationPolicyRequest> tourCancellationPolicyRequestList = tourFullDataRequest.getCancellationPolicies();
-            List<TourCancellationPolicyResponse>  tourCancellationPolicyResponseList =  cancellationPoliciesReplaceAllForTour(tourCancellationPolicyRequestList, tourUpdate);
-
+            List<TourAddressResponse> tourAddressResponseList = processUpdateTourFullDataLocations(tourFullDataRequest, tourUpdate);
+            List<TourMainAttractionResponse>  tourMainAttractionResponseList  = processUpdateTourFullDataMainAttractions(tourFullDataRequest, tourUpdate);
+            List<TourIncludesExcludesResponse>  tourIncludesResponseList  =  processUpdateTourFullDataIncludes(tourFullDataRequest, tourUpdate);
+            List<TourIncludesExcludesResponse>  tourExcludesResponseList  =  processUpdateTourFullDataExcludes(tourFullDataRequest, tourUpdate);
+            List<TourFaqResponse> tourFaqResponseList = processUpdateTourFullDataFaq(tourFullDataRequest, tourUpdate);
+            List<TourItineraryResponse>  tourItineraryResponseList  =  processUpdateTourFullDataItinerary(tourFullDataRequest, tourUpdate);
+            List<TourGalleryResponse>  tourGalleryResponseList  =  processUpdateTourFullDataGallery(files, tourFullDataRequest, tourUpdate);
+            List<TourCancellationPolicyResponse>  tourCancellationPolicyResponseList =  processUpdateTourFullDataCancellationPolicy(tourFullDataRequest, tourUpdate);
             return tourMapper.toTourFullDataResponse(tourUpdate, tourAddressResponseList,
                     tourMainAttractionResponseList, tourIncludesResponseList, tourExcludesResponseList, tourFaqResponseList,  tourItineraryResponseList, tourGalleryResponseList, tourCancellationPolicyResponseList);
 
         }else{
             throw new ResourceNotFoundException("Tour not found with id = "+tourId+" to providerId = "+provider.getId());
         }
+    }
+    private void validateProcessUpdateTourFullData(TourFullDataRequest tourFullDataRequest){
+        if(tourFullDataRequest.getModifiedArrayList() == null){
+            throw new OperationNotPermittedException("Cannot modify the Tour, ModifiedArrayList cannot be empty.");
+        }
+    }
+    private List<TourAddressResponse> processUpdateTourFullDataLocations(TourFullDataRequest tourFullDataRequest, Tour tourUpdate){
+        List<TourAddressResponse> tourAddressResponseList = consultDataTourAddressListByTourId(tourUpdate.getId());
+        if(tourFullDataRequest.getModifiedArrayList().isUpdatedLocations()){
+            tourAddressResponseList = tourAddressReplaceAllForTour(tourFullDataRequest.getLocations(), tourUpdate);
+        }
+        return tourAddressResponseList;
+    }
+    private List<TourMainAttractionResponse> processUpdateTourFullDataMainAttractions(TourFullDataRequest tourFullDataRequest, Tour tourUpdate){
+        List<TourMainAttractionResponse>  tourMainAttractionResponseList = getAllByTourMainAttractions(tourUpdate.getId());
+        if(tourFullDataRequest.getModifiedArrayList().isUpdatedMainAttractions()){
+            List<TourMainAttractionRequest> tourMainAttractionRequestList = tourFullDataRequest.getMainAttractions();
+            tourMainAttractionResponseList  =  mainAttractionReplaceAllForTour(tourMainAttractionRequestList, tourUpdate);
+        }
+        return tourMainAttractionResponseList;
+    }
+    private List<TourIncludesExcludesResponse> processUpdateTourFullDataIncludes(TourFullDataRequest tourFullDataRequest, Tour tourUpdate){
+        List<TourIncludesExcludesResponse>  tourIncludesResponseList = getAllByTourIncludesExcludes(tourUpdate.getId(), IncludeExcludeTypeEnum.INCLUDE);
+        if(tourFullDataRequest.getModifiedArrayList().isUpdatedIncludes()){
+            List<TourIncludesExcludesRequest> tourIncludesRequest = tourFullDataRequest.getIncludes();
+            tourIncludesResponseList  =  includesExcludesReplaceAllForTour(tourIncludesRequest, tourUpdate, IncludeExcludeTypeEnum.INCLUDE);
+        }
+        return tourIncludesResponseList;
+    }
+    private List<TourIncludesExcludesResponse> processUpdateTourFullDataExcludes(TourFullDataRequest tourFullDataRequest, Tour tourUpdate){
+        List<TourIncludesExcludesResponse>  tourExcludesResponseList = getAllByTourIncludesExcludes(tourUpdate.getId(), IncludeExcludeTypeEnum.EXCLUDE);
+        if(tourFullDataRequest.getModifiedArrayList().isUpdatedExcludes()){
+            List<TourIncludesExcludesRequest> tourExcludesRequest = tourFullDataRequest.getExcludes();
+            tourExcludesResponseList  =  includesExcludesReplaceAllForTour(tourExcludesRequest, tourUpdate, IncludeExcludeTypeEnum.EXCLUDE);
+        }
+        return tourExcludesResponseList;
+    }
+    private List<TourFaqResponse> processUpdateTourFullDataFaq(TourFullDataRequest tourFullDataRequest, Tour tourUpdate){
+        List<TourFaqResponse> tourFaqResponseList = getAllByTourFaqs(tourUpdate.getId());
+        if(tourFullDataRequest.getModifiedArrayList().isUpdatedFaq()){
+            List<TourFaqRequest> tourFaqRequestList = tourFullDataRequest.getFaq();
+            tourFaqResponseList = faqReplaceAllForTour(tourFaqRequestList, tourUpdate);
+        }
+        return tourFaqResponseList;
+    }
+    private List<TourItineraryResponse> processUpdateTourFullDataItinerary(TourFullDataRequest tourFullDataRequest, Tour tourUpdate){
+        List<TourItineraryResponse>  tourItineraryResponseList = getAllByTourItineraries(tourUpdate.getId());
+        if(tourFullDataRequest.getModifiedArrayList().isUpdatedItineraries()){
+            List<TourItineraryRequest> tourItineraryRequestList = tourFullDataRequest.getItineraries();
+            tourItineraryResponseList  =  itineraryReplaceAllForTour(tourItineraryRequestList, tourUpdate);
+        }
+        return tourItineraryResponseList;
+    }
+    private List<TourGalleryResponse> processUpdateTourFullDataGallery(List<MultipartFile> files, TourFullDataRequest tourFullDataRequest, Tour tourUpdate){
+        List<TourGalleryResponse>  tourGalleryResponseList = getAllByTourGalleries(tourUpdate.getId());
+        if(tourFullDataRequest.getModifiedArrayList().isUpdatedGalleries()){
+            List<TourGalleryRequest> tourGalleryRequestList = tourFullDataRequest.getGalleries();
+            tourGalleryResponseList  =  galleryReplaceAllForTour(files, tourGalleryRequestList, tourUpdate);
+        }
+        return tourGalleryResponseList;
+    }
+    private List<TourCancellationPolicyResponse> processUpdateTourFullDataCancellationPolicy(TourFullDataRequest tourFullDataRequest, Tour tourUpdate){
+        List<TourCancellationPolicyResponse>  tourCancellationPolicyResponseList = getAllByTourCancellationPolicy(tourUpdate.getId());
+        if(tourFullDataRequest.getModifiedArrayList().isUpdatedCancellationPolicies()){
+            List<TourCancellationPolicyRequest> tourCancellationPolicyRequestList = tourFullDataRequest.getCancellationPolicies();
+            tourCancellationPolicyResponseList =  cancellationPoliciesReplaceAllForTour(tourCancellationPolicyRequestList, tourUpdate);
+        }
+        return tourCancellationPolicyResponseList;
     }
     private List<TourAddressResponse> tourAddressReplaceAllForTour(List<TourAddressRequest> tourAddressRequestList,
                                                                   Tour tour){
@@ -420,20 +475,30 @@ public class TourService {
     private List<TourGalleryResponse> galleryReplaceAllForTour(List<MultipartFile> files, List<TourGalleryRequest> requests,
                                                                Tour tour) {
 
-        tourGalleryRepository.findByTourIdOrderByOrderIndexAsc(tour.getId()).forEach(gallery -> {
-            s3Service.deleteFile(gallery.getImageUrl());
-            tourGalleryRepository.delete(gallery);
-        });
-        validateFilesAndMetadata(files, requests);
+        if(files.size() == 1 && files.get(0).isEmpty() && requests.isEmpty()){
+            tourGalleryRepository.findByTourIdOrderByOrderIndexAsc(tour.getId()).forEach(gallery -> {
+                s3Service.deleteFile(gallery.getImageUrl());
+                tourGalleryRepository.delete(gallery);
+            });
 
-        List<TourGallery> savedGalleries = IntStream.range(0, files.size())
-                .mapToObj(i -> buildGalleryEntity(files.get(i), requests.get(i), tour))
-                .map(tourGalleryRepository::save)
-                .toList();
+            return new ArrayList<>();
+        }else{
+            validateFilesAndMetadata(files, requests);
+            tourGalleryRepository.findByTourIdOrderByOrderIndexAsc(tour.getId()).forEach(gallery -> {
+                s3Service.deleteFile(gallery.getImageUrl());
+                tourGalleryRepository.delete(gallery);
+            });
 
-        return savedGalleries.stream()
-                .map(tourGalleryMapper::toTourGalleryResponse)
-                .toList();
+            List<TourGallery> savedGalleries = IntStream.range(0, files.size())
+                    .mapToObj(i -> buildGalleryEntity(files.get(i), requests.get(i), tour))
+                    .map(tourGalleryRepository::save)
+                    .toList();
+
+            return savedGalleries.stream()
+                    .map(tourGalleryMapper::toTourGalleryResponse)
+                    .toList();
+        }
+
     }
 
     public TourFullDataResponse consultDataTourById(Integer tourId, Authentication connectedUser){
@@ -560,7 +625,7 @@ public class TourService {
     }
     private void validateFilesAndMetadata(List<MultipartFile> files, List<TourGalleryRequest> requests) {
         if (files.size() != requests.size()) {
-            throw new IllegalArgumentException("Each uploaded file must match a metadata entry.");
+            throw new OperationNotPermittedException("Each uploaded file must match a metadata entry.");
         }
     }
     private Tour getTourOrThrow(Integer tourId, Integer providerId) {
