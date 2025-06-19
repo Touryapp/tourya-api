@@ -143,6 +143,10 @@
         "addressType"
       ],
       "properties": {
+        "id": {
+          "type": ["integer", "null"],
+          "description": "Optional ID for existing items. Nullable for new items."
+        },
         "countryId": {
           "type": "integer",
           "description": "ID of the country.",
@@ -190,6 +194,10 @@
         "description"
       ],
       "properties": {
+        "id": {
+          "type": ["integer", "null"],
+          "description": "Optional ID for existing items. Nullable for new items."
+        },
         "description": {
           "type": "string",
           "description": "Description of the main attraction.",
@@ -205,6 +213,10 @@
         "type"
       ],
       "properties": {
+        "id": {
+          "type": ["integer", "null"],
+          "description": "Optional ID for existing items. Nullable for new items."
+        },
         "description": {
           "type": "string",
           "description": "Description of the inclusion/exclusion.",
@@ -225,6 +237,10 @@
         "answer"
       ],
       "properties": {
+        "id": {
+          "type": ["integer", "null"],
+          "description": "Optional ID for existing items. Nullable for new items."
+        },
         "question": {
           "type": "string",
           "description": "FAQ question.",
@@ -247,6 +263,10 @@
         "description"
       ],
       "properties": {
+        "id": {
+          "type": ["integer", "null"],
+          "description": "Optional ID for existing items. Nullable for new items."
+        },
         "title": {
           "type": "string",
           "description": "Title of the itinerary entry.",
@@ -276,6 +296,10 @@
         "cancellationPolicyType"
       ],
       "properties": {
+        "id": {
+          "type": ["integer", "null"],
+          "description": "Optional ID for existing items. Nullable for new items."
+        },
         "observations": {
           "type": ["string", "null"],
           "description": "Observations about the policy. Can be empty or null."
@@ -301,6 +325,10 @@
     "TourGalleryRequest": {
       "type": "object",
       "properties": {
+        "id": {
+          "type": ["integer", "null"],
+          "description": "Optional ID for existing items. Nullable for new items."
+        },
         "imageUrl": {
           "type": ["string", "null"],
           "description": "URL of the image. Can be null/empty if not present.",
