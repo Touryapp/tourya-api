@@ -1,17 +1,20 @@
 package com.tourya.api.models;
 
+import com.tourya.api.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
 
-import java.time.LocalDateTime;
 
+
+@Getter
+@Setter
+@SuperBuilder
+@AllArgsConstructor
+@NoArgsConstructor
 @Entity
 @Table(name = "request_provider_gallery")
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class RequestProviderGallery {
+public class RequestProviderGallery extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -29,19 +32,7 @@ public class RequestProviderGallery {
     @Column(name = "order_index")
     private Integer orderIndex;
 
-    @Column(name = "created_date")
-    private LocalDateTime createdDate = LocalDateTime.now();
-
-    @Column(name = "last_modified_date")
-    private LocalDateTime lastModifiedDate;
-
-    @Column(name = "created_by", nullable = false)
-    private Integer createdBy;
-
-    @Column(name = "last_modified_by")
-    private Integer lastModifiedBy;
-
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne
     @JoinColumn(name = "document_type_id", nullable = false)
     private RequestProviderDocumentType documentType;
 }

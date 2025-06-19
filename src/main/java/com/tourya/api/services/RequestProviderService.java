@@ -10,9 +10,12 @@ import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.models.*;
 import com.tourya.api.models.mapper.ProviderMapper;
+import com.tourya.api.models.mapper.RequestProviderGalleryMapper;
 import com.tourya.api.models.mapper.RequestProviderMapper;
+import com.tourya.api.models.responses.RequestProviderGalleryResponse;
 import com.tourya.api.models.responses.RequestProviderResponse;
 import com.tourya.api.models.request.RequestProviderRequest;
+import com.tourya.api.repository.RequestProviderGalleryRepository;
 import com.tourya.api.repository.RoleRepository;
 import com.tourya.api.repository.RequestProviderRepository;
 import com.tourya.api.repository.UserRepository;
@@ -32,9 +35,11 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class RequestProviderService {
     private final RequestProviderRepository requestProviderRepository;
+    private final RequestProviderGalleryRepository requestProviderGalleryRepository;
     private final ProviderService providerService;
     private final ProviderMapper providerMapper;
     private final RequestProviderMapper requestProviderMapper;
+    private final RequestProviderGalleryMapper requestProviderGalleryMapper;
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
     private final CountryService countryService;
@@ -108,10 +113,19 @@ public class RequestProviderService {
         Provider provider = providerService.findByUser(user);
         if(provider != null){
             RequestProvider requestProvider = requestProviderRepository.findByProvider(provider);
-            return requestProviderMapper.toRequestProviderResponse(requestProvider);
+            List<RequestProviderGalleryResponse>   requestProviderGalleryList = getRequestProviderGalleryList(requestProvider);
+            RequestProviderResponse requestProviderResponse = requestProviderMapper.toRequestProviderResponse(requestProvider);
+            requestProviderResponse.setRequestProviderGalleryList(requestProviderGalleryList);
+            return requestProviderResponse;
         }else{
             return null;
         }
+    }
+    private List<RequestProviderGalleryResponse> getRequestProviderGalleryList(RequestProvider requestProvider){
+        return requestProviderGalleryRepository.findByRequestProviderIdOrderByOrderIndexAsc(requestProvider.getId())
+                .stream()
+                .map(requestProviderGalleryMapper::toRequestProviderGalleryResponse)
+                .toList();
     }
     public RequestProviderResponse consultDataById(Integer requestProviderId,
                                                    Authentication connectedUser){

@@ -10,6 +10,8 @@ public class RequestProviderDocumentTypeRequest {
     @NotBlank(message = "Name is mandatory")
     private String name;
 
+    private String description;
+
     @NotNull(message = "Mandatory flag is required")
     private Boolean mandatory;
 }

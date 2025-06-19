@@ -10,5 +10,6 @@ import lombok.NoArgsConstructor;
 public class RequestProviderDocumentTypeResponse {
     private Integer id;
     private String name;
+    private String description;
     private Boolean mandatory;
 }

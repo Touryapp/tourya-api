@@ -1,5 +1,6 @@
 package com.tourya.api.models;
 
+import com.tourya.api.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
@@ -13,7 +14,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @Entity
 @Table(name = "request_provider_document_type")
-public class RequestProviderDocumentType {
+public class RequestProviderDocumentType extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -22,18 +23,9 @@ public class RequestProviderDocumentType {
     @Column(length = 30, nullable = false)
     private String name;
 
+    private String description;
+
     @Column(nullable = false)
-    private Boolean mandatory;
+    private Boolean mandatory = Boolean.FALSE;
 
-    @Column(name = "created_date")
-    private LocalDateTime createdDate;
-
-    @Column(name = "last_modified_date")
-    private LocalDateTime lastModifiedDate;
-
-    @Column(name = "created_by", nullable = false)
-    private Integer createdBy;
-
-    @Column(name = "last_modified_by")
-    private Integer lastModifiedBy;
 }
