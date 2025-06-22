@@ -33,7 +33,28 @@ public class TourAddressMapper {
         tourAddressResponse.setCountryId(tourAddress.getCountry().getId());
         tourAddressResponse.setStateId(tourAddress.getState().getId());
         tourAddressResponse.setCityId(tourAddress.getCity().getId());
-        //tourAddressResponse.setTour(tourMapper.toTourResponse(tourAddress.getTour()));
         return tourAddressResponse;
     }
+    public void updateTourAddressFromRequest(TourAddressRequest request, TourAddress entity) {
+        if (request == null || entity == null) {
+            return;
+        }
+
+        if (request.getAddress() != null) {
+            entity.setAddress(request.getAddress());
+        }
+        if (request.getLocation() != null) {
+            entity.setLocation(request.getLocation());
+        }
+        if (request.getAddressType() != null) {
+            entity.setAddressType(request.getAddressType());
+        }
+        if (request.getLongitude() != null) {
+            entity.setLongitude(request.getLongitude());
+        }
+        if (request.getLatitude() != null) {
+            entity.setLatitude(request.getLatitude());
+        }
+    }
+
 }

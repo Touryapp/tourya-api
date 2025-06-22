@@ -7,7 +7,7 @@ import lombok.Data;
 
 @Data
 public class TourCancellationPolicyRequest {
-
+    private Integer id;
     private String observations;
     private boolean allowsRainRefund = Boolean.TRUE;
     private boolean allowsRescheduling = Boolean.TRUE;

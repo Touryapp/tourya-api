@@ -9,7 +9,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TourIncludesExcludesRequest {
-
+    private Integer id;
     @NotEmpty(message = "description is mandatory")
     @NotNull(message = "description is mandatory")
     private String description;

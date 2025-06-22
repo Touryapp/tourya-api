@@ -24,4 +24,13 @@ public class TourIncludesExcludesMapper {
                 tourIncludesExcludes.getType()
         );
     }
+
+    public void updateTourIncludesExcludesFromRequest(TourIncludesExcludesRequest request, TourIncludesExcludes entity) {
+        if (request == null || entity == null) {
+            return;
+        }
+        if (request.getDescription() != null) {
+            entity.setDescription(request.getDescription());
+        }
+    }
 }

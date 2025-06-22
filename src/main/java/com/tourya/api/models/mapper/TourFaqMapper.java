@@ -22,4 +22,16 @@ public class TourFaqMapper {
         tourFaqResponse.setAnswer(tourFaq.getAnswer());
         return tourFaqResponse;
     }
+
+    public void updateTourFaqFromRequest(TourFaqRequest request, TourFaq entity) {
+        if (request == null || entity == null) {
+            return;
+        }
+        if (request.getQuestion() != null) {
+            entity.setQuestion(request.getQuestion());
+        }
+        if (request.getAnswer() != null) {
+            entity.setAnswer(request.getAnswer());
+        }
+    }
 }

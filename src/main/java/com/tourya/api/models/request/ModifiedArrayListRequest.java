@@ -12,5 +12,4 @@ public class ModifiedArrayListRequest {
     boolean updatedItineraries = Boolean.FALSE;
     boolean updatedFaq = Boolean.FALSE;
     boolean updatedCancellationPolicies = Boolean.FALSE;
-    boolean updatedGalleries = Boolean.FALSE;
 }

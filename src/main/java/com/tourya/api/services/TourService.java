@@ -21,14 +21,14 @@ import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.stream.IntStream;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -40,39 +40,21 @@ public class TourService {
     private final TourFaqRepository tourFaqRepository;
     private final TourCancellationPolicyRepository tourCancellationPolicyRepository;
     private final TourItineraryRepository tourItineraryRepository;
-    private final TourGalleryRepository tourGalleryRepository;
     private final TourCategoryService tourCategoryService;
     private final ProviderService providerService;
     private final CountryService countryService;
     private final CityService cityService;
     private final StateService stateService;
-    private final S3Service s3Service;
     private final TourMapper tourMapper;
     private final TourMainAttractionMapper tourMainAttractionMapper;
     private final TourIncludesExcludesMapper tourIncludesExcludesMapper;
     private final TourAddressMapper tourAddressMapper;
     private final TourFaqMapper tourFaqMapper;
     private final TourItineraryMapper tourItineraryMapper;
-    private final TourGalleryMapper tourGalleryMapper;
     private final TourCancellationPolicyMapper tourCancellationPolicyMapper;
 
 
     private static final String NOT_PRIVILEGES = "You have no privileges to perform this action.";
-
-    public TourResponse save(TourRequest tourRequest, Authentication connectedUser){
-        User user = ((User) connectedUser.getPrincipal());
-        List<Role> roleList = user.getRoles();
-        if(Utils.isProvider(roleList)){
-            Provider provider = providerService.findByUserAndStatusActive(user);
-            TourCategory tourCategory = getTourCategory(tourRequest.getTourCategoryId());
-            Tour tour = tourMapper.toTour(tourRequest);
-            tour.setProvider(provider);
-            tour.setTourCategory(tourCategory);
-            return tourMapper.toTourResponse(tourRepository.save(tour));
-        }else{
-            throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
-        }
-    }
 
     private TourCategory getTourCategory(Integer id){
         TourCategory tourCategory = tourCategoryService.findById(id);
@@ -138,52 +120,6 @@ public class TourService {
     public Tour getTourByIdAndProviderId(Integer id, Integer providerId){
         return tourRepository.findTourByIdAndProviderId(id, providerId);
     }
-    @Transactional
-    public TourDetailsResponse saveCreateBasicData(TourCreateRequest tourCreateRequest, Authentication connectedUser){
-        User user = ((User) connectedUser.getPrincipal());
-        List<Role> roleList = user.getRoles();
-        if(Utils.isProvider(roleList)){
-            Provider provider = providerService.findByUserAndStatusActive(user);
-            TourCategory tourCategory = getTourCategory(tourCreateRequest.getTourCategoryId());
-            Tour tour = tourMapper.toTour(tourCreateRequest);
-            tour.setProvider(provider);
-            tour.setTourCategory(tourCategory);
-            tour.setStatus(TourStatusEnum.CREATED);
-            Tour tourNew =  tourRepository.save(tour);
-
-            List<TourAddressResponse> tourAddressResponseList = saveTourAddressListByTourId(tourCreateRequest.getLocations(), tourNew);
-            TourDetailsResponse tourDetailsResponse =  new TourDetailsResponse();
-            tourDetailsResponse.setId(tourNew.getId());
-            tourDetailsResponse.setName(tourNew.getName());
-            tourDetailsResponse.setDescription(tourNew.getDescription());
-            tourDetailsResponse.setDuration(tourNew.getDuration());
-            tourDetailsResponse.setMaxPeople(tourNew.getMaxPeople());
-            tourDetailsResponse.setHighlight(tourNew.getHighlight());
-            tourDetailsResponse.setLocations(tourAddressResponseList);
-            return  tourDetailsResponse;
-        }else{
-            throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
-        }
-    }
-    private List<TourAddressResponse> saveTourAddressListByTourId(List<TourAddressRequest> tourAddressRequestList,
-                                                                  Tour tour){
-        List<TourAddress> tourAddressList = new ArrayList<>();
-        for(TourAddressRequest tourAddressRequest : tourAddressRequestList){
-            TourAddress tourAddress = tourAddressMapper.toTourAddress(tourAddressRequest);
-            Country country = getCountry(tourAddressRequest.getCountryId());
-            State state = getState(tourAddressRequest.getStateId());
-            City city = getCity(tourAddressRequest.getCityId());
-            tourAddress.setTour(tour);
-            tourAddress.setCountry(country);
-            tourAddress.setState(state);
-            tourAddress.setCity(city);
-            tourAddressList.add(tourAddress);
-        }
-        return tourAddressRepository.saveAll(tourAddressList).stream()
-                    .map(tourAddressMapper::toTourAddressResponse)
-                    .toList();
-
-    }
     private State getState(Integer stateId){
         State state = stateService.findById(stateId);
         if(state != null){
@@ -212,20 +148,20 @@ public class TourService {
     }
 
     @Transactional
-    public TourFullDataResponse saveCreateOrUpdateFullData(List<MultipartFile> files, TourFullDataRequest tourFullDataRequest, Authentication connectedUser){
+    public TourFullDataResponse saveCreateOrUpdateFullData(TourFullDataRequest tourFullDataRequest, Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
         if(Utils.isProvider(roleList)){
             if(tourFullDataRequest.getId() == null){
-                return processCreateTourFullData(files, user, tourFullDataRequest);
+                return processCreateTourFullData(user, tourFullDataRequest);
             }else{
-                return processUpdateTourFullData(files, tourFullDataRequest.getId(), user, tourFullDataRequest);
+                return processUpdateTourFullData(tourFullDataRequest.getId(), user, tourFullDataRequest);
             }
         }else{
             throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
         }
     }
-    private TourFullDataResponse processCreateTourFullData(List<MultipartFile> files,User user, TourFullDataRequest tourFullDataRequest){
+    private TourFullDataResponse processCreateTourFullData(User user, TourFullDataRequest tourFullDataRequest){
         Provider provider = providerService.findByUserAndStatusActive(user);
         TourCategory tourCategory = getTourCategory(tourFullDataRequest.getTourCategoryId());
         //Save tour
@@ -235,34 +171,30 @@ public class TourService {
         tour.setStatus(TourStatusEnum.CREATED);
         Tour tourNew =  tourRepository.save(tour);
 
-        List<TourAddressResponse> tourAddressResponseList = saveTourAddressListByTourId(tourFullDataRequest.getLocations(), tourNew);
+        List<TourAddressResponse> tourAddressResponseList = createOrUpdateTourAddressesForTour(tourFullDataRequest.getLocations(), tourNew);
 
         List<TourMainAttractionRequest> tourMainAttractionRequestList = tourFullDataRequest.getMainAttractions();
-        List<TourMainAttractionResponse>  tourMainAttractionResponseList  =  mainAttractionReplaceAllForTour(tourMainAttractionRequestList, tourNew);
+        List<TourMainAttractionResponse>  tourMainAttractionResponseList  =  createOrUpdateTourMainAttractionsForTour(tourMainAttractionRequestList, tourNew);
 
         List<TourIncludesExcludesRequest> tourIncludesRequest = tourFullDataRequest.getIncludes();
-        List<TourIncludesExcludesResponse>  tourIncludesResponseList  =  includesExcludesReplaceAllForTour(tourIncludesRequest, tourNew, IncludeExcludeTypeEnum.INCLUDE);
+        List<TourIncludesExcludesResponse>  tourIncludesResponseList  =  createOrUpdateTourIncludesExcludesForTour(tourIncludesRequest, tourNew, IncludeExcludeTypeEnum.INCLUDE);
 
         List<TourIncludesExcludesRequest> tourExcludesRequest = tourFullDataRequest.getExcludes();
-        List<TourIncludesExcludesResponse>  tourExcludesResponseList  =  includesExcludesReplaceAllForTour(tourExcludesRequest, tourNew, IncludeExcludeTypeEnum.EXCLUDE);
+        List<TourIncludesExcludesResponse>  tourExcludesResponseList  =  createOrUpdateTourIncludesExcludesForTour(tourExcludesRequest, tourNew, IncludeExcludeTypeEnum.EXCLUDE);
 
         List<TourFaqRequest> tourFaqRequestList = tourFullDataRequest.getFaq();
-        List<TourFaqResponse> tourFaqResponseList = faqReplaceAllForTour(tourFaqRequestList, tourNew);
+        List<TourFaqResponse> tourFaqResponseList = createOrUpdateTourFaqsForTour(tourFaqRequestList, tourNew);
 
         List<TourItineraryRequest> tourItineraryRequestList = tourFullDataRequest.getItineraries();
-        List<TourItineraryResponse>  tourItineraryResponseList  =  itineraryReplaceAllForTour(tourItineraryRequestList, tourNew);
+        List<TourItineraryResponse>  tourItineraryResponseList  =  createOrUpdateTourItinerariesForTour(tourItineraryRequestList, tourNew);
 
         List<TourCancellationPolicyRequest> tourCancellationPolicyRequestList = tourFullDataRequest.getCancellationPolicies();
-        List<TourCancellationPolicyResponse>  tourCancellationPolicyResponseList =  cancellationPoliciesReplaceAllForTour(tourCancellationPolicyRequestList, tourNew);
-
-        List<TourGalleryRequest> tourGalleryRequestList = tourFullDataRequest.getGalleries();
-        List<TourGalleryResponse>  tourGalleryResponseList  =  galleryReplaceAllForTour(files, tourGalleryRequestList, tourNew);
-
+        List<TourCancellationPolicyResponse>  tourCancellationPolicyResponseList =  createOrUpdateTourCancellationPoliciesForTour(tourCancellationPolicyRequestList, tourNew);
 
         return tourMapper.toTourFullDataResponse(tourNew, tourAddressResponseList,
-                tourMainAttractionResponseList, tourIncludesResponseList, tourExcludesResponseList, tourFaqResponseList,  tourItineraryResponseList, tourGalleryResponseList, tourCancellationPolicyResponseList);
+                tourMainAttractionResponseList, tourIncludesResponseList, tourExcludesResponseList, tourFaqResponseList,  tourItineraryResponseList, tourCancellationPolicyResponseList);
     }
-    private TourFullDataResponse processUpdateTourFullData(List<MultipartFile> files, Integer tourId, User user, TourFullDataRequest tourFullDataRequest){
+    private TourFullDataResponse processUpdateTourFullData(Integer tourId, User user, TourFullDataRequest tourFullDataRequest){
         Provider provider = providerService.findByUserAndStatusActive(user);
         Tour tour = tourRepository.findTourByIdAndProviderId(tourId, provider.getId());
         validateProcessUpdateTourFullData(tourFullDataRequest);
@@ -281,10 +213,10 @@ public class TourService {
             List<TourIncludesExcludesResponse>  tourExcludesResponseList  =  processUpdateTourFullDataExcludes(tourFullDataRequest, tourUpdate);
             List<TourFaqResponse> tourFaqResponseList = processUpdateTourFullDataFaq(tourFullDataRequest, tourUpdate);
             List<TourItineraryResponse>  tourItineraryResponseList  =  processUpdateTourFullDataItinerary(tourFullDataRequest, tourUpdate);
-            List<TourGalleryResponse>  tourGalleryResponseList  =  processUpdateTourFullDataGallery(files, tourFullDataRequest, tourUpdate);
             List<TourCancellationPolicyResponse>  tourCancellationPolicyResponseList =  processUpdateTourFullDataCancellationPolicy(tourFullDataRequest, tourUpdate);
+
             return tourMapper.toTourFullDataResponse(tourUpdate, tourAddressResponseList,
-                    tourMainAttractionResponseList, tourIncludesResponseList, tourExcludesResponseList, tourFaqResponseList,  tourItineraryResponseList, tourGalleryResponseList, tourCancellationPolicyResponseList);
+                    tourMainAttractionResponseList, tourIncludesResponseList, tourExcludesResponseList, tourFaqResponseList,  tourItineraryResponseList, tourCancellationPolicyResponseList);
 
         }else{
             throw new ResourceNotFoundException("Tour not found with id = "+tourId+" to providerId = "+provider.getId());
@@ -296,209 +228,346 @@ public class TourService {
         }
     }
     private List<TourAddressResponse> processUpdateTourFullDataLocations(TourFullDataRequest tourFullDataRequest, Tour tourUpdate){
-        List<TourAddressResponse> tourAddressResponseList = consultDataTourAddressListByTourId(tourUpdate.getId());
-        if(tourFullDataRequest.getModifiedArrayList().isUpdatedLocations()){
-            tourAddressResponseList = tourAddressReplaceAllForTour(tourFullDataRequest.getLocations(), tourUpdate);
+        if(tourFullDataRequest.getModifiedArrayList() != null && tourFullDataRequest.getModifiedArrayList().isUpdatedLocations()){
+            return createOrUpdateTourAddressesForTour(tourFullDataRequest.getLocations(), tourUpdate);
         }
-        return tourAddressResponseList;
+        return consultDataTourAddressListByTourId(tourUpdate.getId());
     }
-    private List<TourMainAttractionResponse> processUpdateTourFullDataMainAttractions(TourFullDataRequest tourFullDataRequest, Tour tourUpdate){
-        List<TourMainAttractionResponse>  tourMainAttractionResponseList = getAllByTourMainAttractions(tourUpdate.getId());
-        if(tourFullDataRequest.getModifiedArrayList().isUpdatedMainAttractions()){
-            List<TourMainAttractionRequest> tourMainAttractionRequestList = tourFullDataRequest.getMainAttractions();
-            tourMainAttractionResponseList  =  mainAttractionReplaceAllForTour(tourMainAttractionRequestList, tourUpdate);
-        }
-        return tourMainAttractionResponseList;
-    }
-    private List<TourIncludesExcludesResponse> processUpdateTourFullDataIncludes(TourFullDataRequest tourFullDataRequest, Tour tourUpdate){
-        List<TourIncludesExcludesResponse>  tourIncludesResponseList = getAllByTourIncludesExcludes(tourUpdate.getId(), IncludeExcludeTypeEnum.INCLUDE);
-        if(tourFullDataRequest.getModifiedArrayList().isUpdatedIncludes()){
-            List<TourIncludesExcludesRequest> tourIncludesRequest = tourFullDataRequest.getIncludes();
-            tourIncludesResponseList  =  includesExcludesReplaceAllForTour(tourIncludesRequest, tourUpdate, IncludeExcludeTypeEnum.INCLUDE);
-        }
-        return tourIncludesResponseList;
-    }
-    private List<TourIncludesExcludesResponse> processUpdateTourFullDataExcludes(TourFullDataRequest tourFullDataRequest, Tour tourUpdate){
-        List<TourIncludesExcludesResponse>  tourExcludesResponseList = getAllByTourIncludesExcludes(tourUpdate.getId(), IncludeExcludeTypeEnum.EXCLUDE);
-        if(tourFullDataRequest.getModifiedArrayList().isUpdatedExcludes()){
-            List<TourIncludesExcludesRequest> tourExcludesRequest = tourFullDataRequest.getExcludes();
-            tourExcludesResponseList  =  includesExcludesReplaceAllForTour(tourExcludesRequest, tourUpdate, IncludeExcludeTypeEnum.EXCLUDE);
-        }
-        return tourExcludesResponseList;
-    }
-    private List<TourFaqResponse> processUpdateTourFullDataFaq(TourFullDataRequest tourFullDataRequest, Tour tourUpdate){
-        List<TourFaqResponse> tourFaqResponseList = getAllByTourFaqs(tourUpdate.getId());
-        if(tourFullDataRequest.getModifiedArrayList().isUpdatedFaq()){
-            List<TourFaqRequest> tourFaqRequestList = tourFullDataRequest.getFaq();
-            tourFaqResponseList = faqReplaceAllForTour(tourFaqRequestList, tourUpdate);
-        }
-        return tourFaqResponseList;
-    }
-    private List<TourItineraryResponse> processUpdateTourFullDataItinerary(TourFullDataRequest tourFullDataRequest, Tour tourUpdate){
-        List<TourItineraryResponse>  tourItineraryResponseList = getAllByTourItineraries(tourUpdate.getId());
-        if(tourFullDataRequest.getModifiedArrayList().isUpdatedItineraries()){
-            List<TourItineraryRequest> tourItineraryRequestList = tourFullDataRequest.getItineraries();
-            tourItineraryResponseList  =  itineraryReplaceAllForTour(tourItineraryRequestList, tourUpdate);
-        }
-        return tourItineraryResponseList;
-    }
-    private List<TourGalleryResponse> processUpdateTourFullDataGallery(List<MultipartFile> files, TourFullDataRequest tourFullDataRequest, Tour tourUpdate){
-        List<TourGalleryResponse>  tourGalleryResponseList = getAllByTourGalleries(tourUpdate.getId());
-        if(tourFullDataRequest.getModifiedArrayList().isUpdatedGalleries()){
-            List<TourGalleryRequest> tourGalleryRequestList = tourFullDataRequest.getGalleries();
-            tourGalleryResponseList  =  galleryReplaceAllForTour(files, tourGalleryRequestList, tourUpdate);
-        }
-        return tourGalleryResponseList;
-    }
-    private List<TourCancellationPolicyResponse> processUpdateTourFullDataCancellationPolicy(TourFullDataRequest tourFullDataRequest, Tour tourUpdate){
-        List<TourCancellationPolicyResponse>  tourCancellationPolicyResponseList = getAllByTourCancellationPolicy(tourUpdate.getId());
-        if(tourFullDataRequest.getModifiedArrayList().isUpdatedCancellationPolicies()){
-            List<TourCancellationPolicyRequest> tourCancellationPolicyRequestList = tourFullDataRequest.getCancellationPolicies();
-            tourCancellationPolicyResponseList =  cancellationPoliciesReplaceAllForTour(tourCancellationPolicyRequestList, tourUpdate);
-        }
-        return tourCancellationPolicyResponseList;
-    }
-    private List<TourAddressResponse> tourAddressReplaceAllForTour(List<TourAddressRequest> tourAddressRequestList,
-                                                                  Tour tour){
+    @Transactional
+    public List<TourAddressResponse> createOrUpdateTourAddressesForTour(List<TourAddressRequest> incomingAddressRequests, Tour tour){
 
-        List<TourAddress> tourAddressDeleteList = tourAddressRepository.findByTourId(tour.getId());
-        tourAddressRepository.deleteAll(tourAddressDeleteList);
+        List<TourAddress> existingAddresses = tourAddressRepository.findByTourId(tour.getId());
 
-        List<TourAddress> tourAddressList = new ArrayList<>();
-        for(TourAddressRequest tourAddressRequest : tourAddressRequestList){
-            TourAddress tourAddress = tourAddressMapper.toTourAddress(tourAddressRequest);
-            Country country = getCountry(tourAddressRequest.getCountryId());
-            State state = getState(tourAddressRequest.getStateId());
-            City city = getCity(tourAddressRequest.getCityId());
-            tourAddress.setTour(tour);
-            tourAddress.setCountry(country);
-            tourAddress.setState(state);
-            tourAddress.setCity(city);
-            tourAddressList.add(tourAddress);
+        Map<Integer, TourAddress> existingAddressesMap = existingAddresses.stream()
+                .filter(addr -> addr.getId() != null)
+                .collect(Collectors.toMap(TourAddress::getId, Function.identity()));
+
+        Set<Integer> existingAddressIds = existingAddressesMap.keySet();
+
+        Set<Integer> incomingAddressIds = incomingAddressRequests.stream()
+                .filter(req -> req.getId() != null)
+                .map(TourAddressRequest::getId)
+                .collect(Collectors.toSet());
+
+        List<TourAddress> addressesToSave = new ArrayList<>();
+        List<Integer> addressesToDeleteIds = new ArrayList<>();
+
+        for(TourAddressRequest request : incomingAddressRequests){
+            TourAddress tourAddress;
+            Country country = getCountry(request.getCountryId());
+            State state = getState(request.getStateId());
+            City city = getCity(request.getCityId());
+
+
+            if(request.getId() != null && existingAddressesMap.containsKey(request.getId())){
+                tourAddress = existingAddressesMap.get(request.getId());
+                tourAddressMapper.updateTourAddressFromRequest(request, tourAddress);
+                tourAddress.setCountry(country);
+                tourAddress.setState(state);
+                tourAddress.setCity(city);
+            } else {
+                tourAddress = tourAddressMapper.toTourAddress(request);
+                tourAddress.setTour(tour);
+                tourAddress.setCountry(country);
+                tourAddress.setState(state);
+                tourAddress.setCity(city);
+            }
+            addressesToSave.add(tourAddress);
         }
-        return tourAddressRepository.saveAll(tourAddressList).stream()
+
+        for(Integer existingId : existingAddressIds){
+            if(!incomingAddressIds.contains(existingId)){
+                addressesToDeleteIds.add(existingId);
+            }
+        }
+
+        if (!addressesToDeleteIds.isEmpty()) {
+            tourAddressRepository.deleteAllById(addressesToDeleteIds);
+        }
+
+        List<TourAddress> savedAddresses = tourAddressRepository.saveAll(addressesToSave);
+
+        return savedAddresses.stream()
                 .map(tourAddressMapper::toTourAddressResponse)
                 .toList();
-
     }
-    private List<TourMainAttractionResponse> mainAttractionReplaceAllForTour(List<TourMainAttractionRequest> requests,
-                                                              Tour tour) {
+    private List<TourMainAttractionResponse> processUpdateTourFullDataMainAttractions(TourFullDataRequest tourFullDataRequest, Tour tourUpdate){
+        if(tourFullDataRequest.getModifiedArrayList() != null && tourFullDataRequest.getModifiedArrayList().isUpdatedMainAttractions()){
+            return createOrUpdateTourMainAttractionsForTour(tourFullDataRequest.getMainAttractions(), tourUpdate);
+        }
+        return getAllByTourMainAttractions(tourUpdate.getId());
+    }
+    @Transactional
+    public List<TourMainAttractionResponse> createOrUpdateTourMainAttractionsForTour(List<TourMainAttractionRequest> incomingAttractionRequests, Tour tour){
+        List<TourMainAttraction> existingAttractions = tourMainAttractionRepository.findByTourId(tour.getId());
 
-        tourMainAttractionRepository.deleteByTourId(tour.getId());
+        Map<Integer, TourMainAttraction> existingAttractionsMap = existingAttractions.stream()
+                .filter(attr -> attr.getId() != null)
+                .collect(Collectors.toMap(TourMainAttraction::getId, Function.identity()));
 
-        List<TourMainAttraction> newAttractions = requests.stream()
-                .map(req -> {
-                    TourMainAttraction entity = tourMainAttractionMapper.toTourMainAttraction(req);
-                    entity.setTour(tour);
-                    return entity;
-                })
-                .toList();
+        Set<Integer> existingAttractionIds = existingAttractionsMap.keySet();
 
-        return tourMainAttractionRepository.saveAll(newAttractions).stream()
+        Set<Integer> incomingAttractionIds = incomingAttractionRequests.stream()
+                .filter(req -> req.getId() != null)
+                .map(TourMainAttractionRequest::getId)
+                .collect(Collectors.toSet());
+
+        List<TourMainAttraction> attractionsToSave = new ArrayList<>();
+        List<Integer> attractionsToDeleteIds = new ArrayList<>();
+
+        for(TourMainAttractionRequest request : incomingAttractionRequests){
+            TourMainAttraction tourMainAttraction;
+
+            if(request.getId() != null && existingAttractionsMap.containsKey(request.getId())){
+                tourMainAttraction = existingAttractionsMap.get(request.getId());
+                tourMainAttractionMapper.updateTourMainAttractionFromRequest(request, tourMainAttraction);
+            } else {
+                tourMainAttraction = tourMainAttractionMapper.toTourMainAttraction(request);
+                tourMainAttraction.setTour(tour);
+            }
+            attractionsToSave.add(tourMainAttraction);
+        }
+
+        for(Integer existingId : existingAttractionIds){
+            if(!incomingAttractionIds.contains(existingId)){
+                attractionsToDeleteIds.add(existingId);
+            }
+        }
+
+        if (!attractionsToDeleteIds.isEmpty()) {
+            tourMainAttractionRepository.deleteAllById(attractionsToDeleteIds);
+        }
+
+        List<TourMainAttraction> savedAttractions = tourMainAttractionRepository.saveAll(attractionsToSave);
+
+        return savedAttractions.stream()
                 .map(tourMainAttractionMapper::toTourMainAttractionResponse)
                 .toList();
     }
-    private List<TourIncludesExcludesResponse> includesExcludesReplaceAllForTour(List<TourIncludesExcludesRequest> requests,
-                                                                Tour tour,
-                                                                IncludeExcludeTypeEnum type) {
+    private List<TourIncludesExcludesResponse> processUpdateTourFullDataIncludes(TourFullDataRequest tourFullDataRequest, Tour tourUpdate){
+        if(tourFullDataRequest.getModifiedArrayList() != null && tourFullDataRequest.getModifiedArrayList().isUpdatedIncludes()){
+            return createOrUpdateTourIncludesExcludesForTour(tourFullDataRequest.getIncludes(), tourUpdate, IncludeExcludeTypeEnum.INCLUDE);
+        }
+        return getAllByTourIncludesExcludes(tourUpdate.getId(), IncludeExcludeTypeEnum.INCLUDE);
+    }
+    private List<TourIncludesExcludesResponse> processUpdateTourFullDataExcludes(TourFullDataRequest tourFullDataRequest, Tour tourUpdate){
+        if(tourFullDataRequest.getModifiedArrayList() != null && tourFullDataRequest.getModifiedArrayList().isUpdatedExcludes()){
+            return createOrUpdateTourIncludesExcludesForTour(tourFullDataRequest.getExcludes(), tourUpdate, IncludeExcludeTypeEnum.EXCLUDE);
+        }
+        return getAllByTourIncludesExcludes(tourUpdate.getId(), IncludeExcludeTypeEnum.EXCLUDE);
+    }
+    @Transactional
+    public List<TourIncludesExcludesResponse> createOrUpdateTourIncludesExcludesForTour(
+            List<TourIncludesExcludesRequest> incomingRequests, Tour tour, IncludeExcludeTypeEnum type) {
 
+        List<TourIncludesExcludes> existingItems = tourIncludesExcludesRepository.findByTourIdAndType(tour.getId(), type);
 
-        List<TourIncludesExcludes>  list = tourIncludesExcludesRepository.findByTourIdAndType(tour.getId(), type);
-        tourIncludesExcludesRepository.deleteAll(list);
+        Map<Integer, TourIncludesExcludes> existingItemsMap = existingItems.stream()
+                .filter(item -> item.getId() != null)
+                .collect(Collectors.toMap(TourIncludesExcludes::getId, Function.identity()));
 
-        List<TourIncludesExcludes> newList = requests.stream()
-                .map(req -> {
-                    TourIncludesExcludes entity = tourIncludesExcludesMapper.toTourIncludesExcludes(req);
-                    entity.setTour(tour);
-                    return entity;
-                })
-                .toList();
+        Set<Integer> existingItemIds = existingItemsMap.keySet();
 
-        tourIncludesExcludesRepository.saveAll(newList);
-        return tourIncludesExcludesRepository.findByTourIdAndType(tour.getId(), type).stream()
+        Set<Integer> incomingItemIds = incomingRequests.stream()
+                .filter(req -> req.getId() != null)
+                .map(TourIncludesExcludesRequest::getId)
+                .collect(Collectors.toSet());
+
+        List<TourIncludesExcludes> itemsToSave = new ArrayList<>();
+        List<Integer> itemsToDeleteIds = new ArrayList<>();
+
+        for(TourIncludesExcludesRequest request : incomingRequests){
+            TourIncludesExcludes tourIncludesExcludes;
+
+            if(request.getId() != null && existingItemsMap.containsKey(request.getId())){
+                tourIncludesExcludes = existingItemsMap.get(request.getId());
+                tourIncludesExcludesMapper.updateTourIncludesExcludesFromRequest(request, tourIncludesExcludes);
+            } else {
+                tourIncludesExcludes = tourIncludesExcludesMapper.toTourIncludesExcludes(request);
+                tourIncludesExcludes.setTour(tour);
+                tourIncludesExcludes.setType(type);
+            }
+            itemsToSave.add(tourIncludesExcludes);
+        }
+
+        for(Integer existingId : existingItemIds){
+            if(!incomingItemIds.contains(existingId)){
+                itemsToDeleteIds.add(existingId);
+            }
+        }
+
+        if (!itemsToDeleteIds.isEmpty()) {
+            tourIncludesExcludesRepository.deleteAllById(itemsToDeleteIds);
+        }
+
+        List<TourIncludesExcludes> savedItems = tourIncludesExcludesRepository.saveAll(itemsToSave);
+
+        return savedItems.stream()
+                .filter(item -> item.getType() == type)
                 .map(tourIncludesExcludesMapper::tourIncludesExcludesResponse)
                 .toList();
     }
-    private List<TourFaqResponse> faqReplaceAllForTour(List<TourFaqRequest> requests,
-                                                       Tour tour) {
+    private List<TourFaqResponse> processUpdateTourFullDataFaq(TourFullDataRequest tourFullDataRequest, Tour tourUpdate){
+        if(tourFullDataRequest.getModifiedArrayList() != null && tourFullDataRequest.getModifiedArrayList().isUpdatedFaq()){
+            return createOrUpdateTourFaqsForTour(tourFullDataRequest.getFaq(), tourUpdate);
+        }
+        return getAllByTourFaqs(tourUpdate.getId());
+    }
+    @Transactional
+    public List<TourFaqResponse> createOrUpdateTourFaqsForTour(List<TourFaqRequest> incomingFaqRequests, Tour tour){
 
-        tourFaqRepository.deleteByTourId(tour.getId());
+        List<TourFaq> existingFaqs = tourFaqRepository.findByTourId(tour.getId());
 
-        List<TourFaq> newList = requests.stream()
-                .map(req -> {
-                    TourFaq entity = tourFaqMapper.toTourFaq(req);
-                    entity.setTour(tour);
-                    return entity;
-                })
-                .toList();
+        Map<Integer, TourFaq> existingFaqsMap = existingFaqs.stream()
+                .filter(faq -> faq.getId() != null)
+                .collect(Collectors.toMap(TourFaq::getId, Function.identity()));
 
-        return tourFaqRepository.saveAll(newList).stream()
+        Set<Integer> existingFaqIds = existingFaqsMap.keySet();
+
+        Set<Integer> incomingFaqIds = incomingFaqRequests.stream()
+                .filter(req -> req.getId() != null)
+                .map(TourFaqRequest::getId)
+                .collect(Collectors.toSet());
+
+        List<TourFaq> faqsToSave = new ArrayList<>();
+        List<Integer> faqsToDeleteIds = new ArrayList<>();
+
+        for(TourFaqRequest request : incomingFaqRequests){
+            TourFaq tourFaq;
+
+            if(request.getId() != null && existingFaqsMap.containsKey(request.getId())){
+                tourFaq = existingFaqsMap.get(request.getId());
+                tourFaqMapper.updateTourFaqFromRequest(request, tourFaq);
+            } else {
+                tourFaq = tourFaqMapper.toTourFaq(request);
+                tourFaq.setTour(tour);
+            }
+            faqsToSave.add(tourFaq);
+        }
+
+        for(Integer existingId : existingFaqIds){
+            if(!incomingFaqIds.contains(existingId)){
+                faqsToDeleteIds.add(existingId);
+            }
+        }
+
+        if (!faqsToDeleteIds.isEmpty()) {
+            tourFaqRepository.deleteAllById(faqsToDeleteIds);
+        }
+
+        List<TourFaq> savedFaqs = tourFaqRepository.saveAll(faqsToSave);
+
+        return savedFaqs.stream()
                 .map(tourFaqMapper::toTourFaqResponse)
                 .toList();
     }
+    private List<TourItineraryResponse> processUpdateTourFullDataItinerary(TourFullDataRequest tourFullDataRequest, Tour tourUpdate){
+        if(tourFullDataRequest.getModifiedArrayList() != null && tourFullDataRequest.getModifiedArrayList().isUpdatedItineraries()){
+            return createOrUpdateTourItinerariesForTour(tourFullDataRequest.getItineraries(), tourUpdate);
+        }
+        return getAllByTourItineraries(tourUpdate.getId());
+    }
+    @Transactional
+    public List<TourItineraryResponse> createOrUpdateTourItinerariesForTour(List<TourItineraryRequest> incomingItineraryRequests, Tour tour){
 
-    private List<TourItineraryResponse> itineraryReplaceAllForTour(List<TourItineraryRequest> requests,
-                                                                             Tour tour) {
+        List<TourItinerary> existingItineraries = tourItineraryRepository.findByTourId(tour.getId());
 
-        tourItineraryRepository.deleteByTourId(tour.getId());
+        Map<Integer, TourItinerary> existingItinerariesMap = existingItineraries.stream()
+                .filter(itinerary -> itinerary.getId() != null)
+                .collect(Collectors.toMap(TourItinerary::getId, Function.identity()));
 
-        List<TourItinerary> newList = requests.stream()
-                .map(req -> {
-                    TourItinerary entity = tourItineraryMapper.toTourItinerary(req);
-                    entity.setTour(tour);
-                    return entity;
-                })
-                .toList();
+        Set<Integer> existingItineraryIds = existingItinerariesMap.keySet();
 
-        return tourItineraryRepository.saveAll(newList).stream()
+        Set<Integer> incomingItineraryIds = incomingItineraryRequests.stream()
+                .filter(req -> req.getId() != null)
+                .map(TourItineraryRequest::getId)
+                .collect(Collectors.toSet());
+
+        List<TourItinerary> itinerariesToSave = new ArrayList<>();
+        List<Integer> itinerariesToDeleteIds = new ArrayList<>();
+
+        for(TourItineraryRequest request : incomingItineraryRequests){
+            TourItinerary tourItinerary;
+
+            if(request.getId() != null && existingItinerariesMap.containsKey(request.getId())){
+                tourItinerary = existingItinerariesMap.get(request.getId());
+                tourItineraryMapper.updateTourItineraryFromRequest(request, tourItinerary);
+            } else {
+                tourItinerary = tourItineraryMapper.toTourItinerary(request);
+                tourItinerary.setTour(tour);
+            }
+            itinerariesToSave.add(tourItinerary);
+        }
+
+        for(Integer existingId : existingItineraryIds){
+            if(!incomingItineraryIds.contains(existingId)){
+                itinerariesToDeleteIds.add(existingId);
+            }
+        }
+
+        if (!itinerariesToDeleteIds.isEmpty()) {
+            tourItineraryRepository.deleteAllById(itinerariesToDeleteIds);
+        }
+
+        List<TourItinerary> savedItineraries = tourItineraryRepository.saveAll(itinerariesToSave);
+
+        return savedItineraries.stream()
                 .map(tourItineraryMapper::toTourItineraryResponse)
                 .toList();
     }
-    private List<TourCancellationPolicyResponse> cancellationPoliciesReplaceAllForTour(List<TourCancellationPolicyRequest> requests,
-                                                       Tour tour) {
-
-        tourCancellationPolicyRepository.deleteByTourId(tour.getId());
-
-        List<TourCancellationPolicy> newList = requests.stream()
-                .map(req -> {
-                    TourCancellationPolicy entity = tourCancellationPolicyMapper.toTourCancellationPolicy(req);
-                    entity.setTour(tour);
-                    return entity;
-                })
-                .toList();
-
-        return tourCancellationPolicyRepository.saveAll(newList).stream()
-                .map(tourCancellationPolicyMapper::toTourCancellationPolicyResponse)
-                .toList();
+    private List<TourCancellationPolicyResponse> processUpdateTourFullDataCancellationPolicy(TourFullDataRequest tourFullDataRequest, Tour tourUpdate){
+        if(tourFullDataRequest.getModifiedArrayList() != null && tourFullDataRequest.getModifiedArrayList().isUpdatedCancellationPolicies()){
+            return createOrUpdateTourCancellationPoliciesForTour(tourFullDataRequest.getCancellationPolicies(), tourUpdate);
+        }
+        return getAllByTourCancellationPolicy(tourUpdate.getId());
     }
+    @Transactional
+    public List<TourCancellationPolicyResponse> createOrUpdateTourCancellationPoliciesForTour(List<TourCancellationPolicyRequest> incomingPolicyRequests, Tour tour){
 
-    private List<TourGalleryResponse> galleryReplaceAllForTour(List<MultipartFile> files, List<TourGalleryRequest> requests,
-                                                               Tour tour) {
+        List<TourCancellationPolicy> existingPolicies = tourCancellationPolicyRepository.findByTourId(tour.getId());
 
-        if(files.size() == 1 && files.get(0).isEmpty() && requests.isEmpty()){
-            tourGalleryRepository.findByTourIdOrderByOrderIndexAsc(tour.getId()).forEach(gallery -> {
-                s3Service.deleteFile(gallery.getImageUrl());
-                tourGalleryRepository.delete(gallery);
-            });
+        Map<Integer, TourCancellationPolicy> existingPoliciesMap = existingPolicies.stream()
+                .filter(policy -> policy.getId() != null)
+                .collect(Collectors.toMap(TourCancellationPolicy::getId, Function.identity()));
 
-            return new ArrayList<>();
-        }else{
-            validateFilesAndMetadata(files, requests);
-            tourGalleryRepository.findByTourIdOrderByOrderIndexAsc(tour.getId()).forEach(gallery -> {
-                s3Service.deleteFile(gallery.getImageUrl());
-                tourGalleryRepository.delete(gallery);
-            });
+        Set<Integer> existingPolicyIds = existingPoliciesMap.keySet();
 
-            List<TourGallery> savedGalleries = IntStream.range(0, files.size())
-                    .mapToObj(i -> buildGalleryEntity(files.get(i), requests.get(i), tour))
-                    .map(tourGalleryRepository::save)
-                    .toList();
+        Set<Integer> incomingPolicyIds = incomingPolicyRequests.stream()
+                .filter(req -> req.getId() != null)
+                .map(TourCancellationPolicyRequest::getId)
+                .collect(Collectors.toSet());
 
-            return savedGalleries.stream()
-                    .map(tourGalleryMapper::toTourGalleryResponse)
-                    .toList();
+        List<TourCancellationPolicy> policiesToSave = new ArrayList<>();
+        List<Integer> policiesToDeleteIds = new ArrayList<>();
+
+        for(TourCancellationPolicyRequest request : incomingPolicyRequests){
+            TourCancellationPolicy tourCancellationPolicy;
+
+            if(request.getId() != null && existingPoliciesMap.containsKey(request.getId())){
+                tourCancellationPolicy = existingPoliciesMap.get(request.getId());
+                tourCancellationPolicyMapper.updateTourCancellationPolicyFromRequest(request, tourCancellationPolicy);
+            } else {
+                tourCancellationPolicy = tourCancellationPolicyMapper.toTourCancellationPolicy(request);
+                tourCancellationPolicy.setTour(tour);
+            }
+            policiesToSave.add(tourCancellationPolicy);
         }
 
+        for(Integer existingId : existingPolicyIds){
+            if(!incomingPolicyIds.contains(existingId)){
+                policiesToDeleteIds.add(existingId);
+            }
+        }
+
+        if (!policiesToDeleteIds.isEmpty()) {
+            tourCancellationPolicyRepository.deleteAllById(policiesToDeleteIds);
+        }
+
+        List<TourCancellationPolicy> savedPolicies = tourCancellationPolicyRepository.saveAll(policiesToSave);
+
+        return savedPolicies.stream()
+                .map(tourCancellationPolicyMapper::toTourCancellationPolicyResponse)
+                .toList();
     }
 
     public TourFullDataResponse consultDataTourById(Integer tourId, Authentication connectedUser){
@@ -511,7 +580,7 @@ public class TourService {
                 return tourMapper.toTourFullDataResponse(tour, consultDataTourAddressListByTourId(tourId),
                         getAllByTourMainAttractions(tourId), getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
                         getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId),
-                        getAllByTourItineraries(tourId),getAllByTourGalleries(tourId), getAllByTourCancellationPolicy(tourId));
+                        getAllByTourItineraries(tourId), getAllByTourCancellationPolicy(tourId));
             }else{
                 throw new ResourceNotFoundException("Tour not found with id = "+tourId+" to providerId = "+provider.getId());
             }
@@ -529,7 +598,7 @@ public class TourService {
                 return tourMapper.toTourFullDataResponse(tour, consultDataTourAddressListByTourId(tourId),
                         getAllByTourMainAttractions(tourId), getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
                         getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId),
-                        getAllByTourItineraries(tourId),getAllByTourGalleries(tourId), getAllByTourCancellationPolicy(tourId));
+                        getAllByTourItineraries(tourId), getAllByTourCancellationPolicy(tourId));
             }else{
                 throw new ResourceNotFoundException("Tour not found with id = "+tourId);
             }
@@ -549,7 +618,7 @@ public class TourService {
                 return tourMapper.toTourFullDataResponse(tourUpdate, consultDataTourAddressListByTourId(tourId),
                         getAllByTourMainAttractions(tourId), getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
                         getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId),
-                        getAllByTourItineraries(tourId),getAllByTourGalleries(tourId), getAllByTourCancellationPolicy(tourId));
+                        getAllByTourItineraries(tourId), getAllByTourCancellationPolicy(tourId));
             }else{
                 throw new ResourceNotFoundException("Tour not found with id = "+tourId);
             }
@@ -569,7 +638,7 @@ public class TourService {
                 return tourMapper.toTourFullDataResponse(tourUpdate, consultDataTourAddressListByTourId(tourId),
                         getAllByTourMainAttractions(tourId), getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
                         getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId),
-                        getAllByTourItineraries(tourId),getAllByTourGalleries(tourId), getAllByTourCancellationPolicy(tourId));
+                        getAllByTourItineraries(tourId), getAllByTourCancellationPolicy(tourId));
             }else{
                 throw new ResourceNotFoundException("Tour not found with id = "+tourId);
             }
@@ -616,34 +685,5 @@ public class TourService {
                 .stream()
                 .map(tourCancellationPolicyMapper::toTourCancellationPolicyResponse)
                 .toList();
-    }
-    private List<TourGalleryResponse> getAllByTourGalleries(Integer tourId) {
-        return tourGalleryRepository.findByTourId(tourId)
-                .stream()
-                .map(tourGalleryMapper::toTourGalleryResponse)
-                .toList();
-    }
-    private void validateFilesAndMetadata(List<MultipartFile> files, List<TourGalleryRequest> requests) {
-        if (files.size() != requests.size()) {
-            throw new OperationNotPermittedException("Each uploaded file must match a metadata entry.");
-        }
-    }
-    private Tour getTourOrThrow(Integer tourId, Integer providerId) {
-        Tour tour = getTourByIdAndProviderId(tourId, providerId);
-        if (tour == null) {
-            throw new ResourceNotFoundException("No tour with this ID was found for this provider.");
-        }
-        return tour;
-    }
-    private TourGallery buildGalleryEntity(MultipartFile file, TourGalleryRequest request, Tour tour) {
-        try {
-            TourGallery entity = tourGalleryMapper.toTourGallery(request);
-            entity.setTour(tour);
-            entity.setCreatedDate(LocalDateTime.now());
-            entity.setImageUrl(s3Service.uploadFile("tours/" + tour.getId(), file));
-            return entity;
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to upload file to S3", e);
-        }
     }
 }
