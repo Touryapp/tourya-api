@@ -10,6 +10,8 @@ import java.util.List;
 public class RequestProviderResponse {
     private Integer id;
     private RequestProviderStatusEnum status;
+    private String declinedReason;
+    private String incompleteReason;
     private ProviderResponse provider;
     private List<RequestProviderGalleryResponse> requestProviderGalleryList = new ArrayList<>();
 }

@@ -12,6 +12,7 @@ import com.tourya.api.models.*;
 import com.tourya.api.models.mapper.ProviderMapper;
 import com.tourya.api.models.mapper.RequestProviderGalleryMapper;
 import com.tourya.api.models.mapper.RequestProviderMapper;
+import com.tourya.api.models.request.RequestProviderActionRequest;
 import com.tourya.api.models.responses.RequestProviderGalleryResponse;
 import com.tourya.api.models.responses.RequestProviderResponse;
 import com.tourya.api.models.request.RequestProviderRequest;
@@ -169,7 +170,7 @@ public class RequestProviderService {
         }
     }
     @Transactional
-    public RequestProviderResponse declineRequestProviderById(Integer requestProviderId,
+    public RequestProviderResponse declineRequestProviderById(RequestProviderActionRequest requestProviderActionRequest, Integer requestProviderId,
                                                         Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
@@ -183,8 +184,29 @@ public class RequestProviderService {
                 providerService.save(provider);
 
                 requestProvider.setStatus(RequestProviderStatusEnum.DECLINED);
+                requestProvider.setDeclinedReason(requestProviderActionRequest.getDeclinedReason());
                 RequestProvider requestProviderUpdate = requestProviderRepository.save(requestProvider);
 
+                return requestProviderMapper.toRequestProviderResponse(requestProviderUpdate);
+            }else{
+                throw new ResourceNotFoundException(REQUEST_PROVIDER_NOT_FOUND+requestProviderId);
+            }
+        }else{
+            throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
+        }
+    }
+    @Transactional
+    public RequestProviderResponse incompleteRequestProviderById(RequestProviderActionRequest requestProviderActionRequest, Integer requestProviderId,
+                                                                 Authentication connectedUser){
+        User user = ((User) connectedUser.getPrincipal());
+        List<Role> roleList = user.getRoles();
+        if(Utils.isAdmin(roleList)){
+            Optional<RequestProvider> requestProviderOpt = requestProviderRepository.findById(requestProviderId);
+            if(requestProviderOpt.isPresent()){
+                RequestProvider requestProvider = requestProviderOpt.get();
+                requestProvider.setStatus(RequestProviderStatusEnum.INCOMPLETE);
+                requestProvider.setIncompleteReason(requestProviderActionRequest.getIncompleteReason());
+                RequestProvider requestProviderUpdate = requestProviderRepository.save(requestProvider);
                 return requestProviderMapper.toRequestProviderResponse(requestProviderUpdate);
             }else{
                 throw new ResourceNotFoundException(REQUEST_PROVIDER_NOT_FOUND+requestProviderId);

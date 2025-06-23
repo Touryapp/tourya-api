@@ -14,6 +14,8 @@ public class RequestProviderMapper {
         RequestProviderResponse requestProviderResponse = new RequestProviderResponse();
         requestProviderResponse.setId(requestProvider.getId());
         requestProviderResponse.setStatus(requestProvider.getStatus());
+        requestProviderResponse.setDeclinedReason(requestProvider.getDeclinedReason());
+        requestProviderResponse.setIncompleteReason(requestProvider.getIncompleteReason());
         if(requestProvider.getProvider() != null) {
             requestProviderResponse.setProvider(providerMapper.toProviderResponse(requestProvider.getProvider()));
         }

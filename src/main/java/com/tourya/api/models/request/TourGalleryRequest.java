@@ -7,13 +7,9 @@ import lombok.Data;
 
 @Data
 public class TourGalleryRequest {
-
-   // @NotEmpty(message = "Image URL is mandatory")
-    private String imageUrl;
-
+    private Integer id;
     private String description;
-//
-//    @NotNull(message = "Order index is mandatory")
-//    @Min(value = 0, message = "Order index must be 0 or greater")
     private Integer orderIndex;
+    private String fileKey;
+    private boolean replaceFile = false;
 }

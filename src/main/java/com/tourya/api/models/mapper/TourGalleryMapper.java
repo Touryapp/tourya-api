@@ -11,7 +11,7 @@ public class TourGalleryMapper {
 
     public TourGallery toTourGallery(TourGalleryRequest request) {
         return TourGallery.builder()
-                .imageUrl(request.getImageUrl())
+                //.imageUrl(request.getImageUrl())
                 .description(request.getDescription())
                 .orderIndex(request.getOrderIndex())
                 .build();

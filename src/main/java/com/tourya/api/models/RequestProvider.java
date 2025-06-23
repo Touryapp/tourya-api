@@ -38,4 +38,7 @@ public class RequestProvider extends BaseEntity {
     @ManyToOne
     @JoinColumn(name = "provider_id", nullable = false)
     private Provider provider;
+
+    private String declinedReason;
+    private String incompleteReason;
 }
