@@ -9,6 +9,7 @@ import lombok.AllArgsConstructor;
 @AllArgsConstructor
 public enum RequestProviderStatusEnum {
     PENDING("Pending"),
+    INCOMPLETE("Incomplete"),
     PROCESSING("Processing"),
     APPROVED("Approved"),
     DECLINED("Declined"),

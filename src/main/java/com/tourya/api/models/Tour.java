@@ -50,10 +50,6 @@ public class Tour extends BaseEntity {
     @Column(name = "highlight")
     private Integer highlight;
 
-    // Nuevas columnas
-    @Column(name = "price", precision = 10, scale = 2) // Ajusta la precisión y escala para el precio
-    private BigDecimal price;
-
     @Column(name = "min_age")
     private Integer minAge;
 

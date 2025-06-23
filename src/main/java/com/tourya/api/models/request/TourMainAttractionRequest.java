@@ -6,6 +6,7 @@ import lombok.*;
 
 @Data
 public class TourMainAttractionRequest {
+    private Integer id;
     @NotEmpty(message = "description is mandatory")
     @NotNull(message = "description is mandatory")
     private String description;

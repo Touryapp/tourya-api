@@ -6,6 +6,7 @@ import lombok.Data;
 
 @Data
 public class TourFaqRequest {
+    private Integer id;
     @NotEmpty(message = "question is mandatory")
     @NotNull(message = "question is mandatory")
     private String question;

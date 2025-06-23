@@ -9,7 +9,7 @@ import java.time.LocalTime;
 
 @Data
 public class TourItineraryRequest {
-
+    private Integer id;
     @NotEmpty(message = "Title is mandatory")
     private String title;
 

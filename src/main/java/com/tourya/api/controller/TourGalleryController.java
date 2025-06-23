@@ -24,17 +24,6 @@ public class TourGalleryController {
     private final TourGalleryService tourGalleryService;
     private final ObjectMapper objectMapper;
 
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<List<TourGalleryResponse>> create(
-            @PathVariable Integer tourId,
-            @RequestPart("files") List<MultipartFile> files,
-            @RequestPart("metadata") String metadataJson,
-            Authentication connectedUser
-    ) throws IOException {
-        List<TourGalleryRequest> metadataList = objectMapper.readValue(metadataJson, new TypeReference<>() {});
-        return ResponseEntity.ok(tourGalleryService.create(files, metadataList, tourId, connectedUser));
-    }
-
     @GetMapping
     public ResponseEntity<List<TourGalleryResponse>> getGallery(
             @PathVariable Integer tourId,
@@ -43,14 +32,44 @@ public class TourGalleryController {
         return ResponseEntity.ok(tourGalleryService.getAllByTour(tourId, connectedUser));
     }
 
-    @PostMapping(value = "/replace", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<List<TourGalleryResponse>> replaceGallery(
+    /**
+     * Sincroniza la galería de un tour basada en el estado deseado.
+     * El frontend debe enviar:
+     * - 'newFiles': Las nuevas imágenes a subir.
+     * - 'galleryData': Un JSON que contiene la metadata para TODAS las imágenes deseadas:
+     * - Para imágenes existentes, incluir su 'id'.
+     * - Para nuevas imágenes (cuyos archivos están en 'newFiles'), NO incluir 'id' (o null).
+     * El orden de estas solicitudes sin 'id' debe coincidir con el orden de los 'newFiles'.
+     */
+    @PostMapping(value = "/sync", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<List<TourGalleryResponse>> syncGallery(
             @PathVariable Integer tourId,
-            @RequestPart("files") List<MultipartFile> files,
-            @RequestPart("metadata") String metadataJson,
+            @RequestPart(value = "newFiles", required = false) List<MultipartFile> newFiles,
+            @RequestPart("galleryData") String galleryDataJson,
             Authentication connectedUser
     ) throws IOException {
-        List<TourGalleryRequest> metadataList = objectMapper.readValue(metadataJson, new TypeReference<>() {});
-        return ResponseEntity.ok(tourGalleryService.replaceAllForTour(files, metadataList, tourId, connectedUser));
+        List<TourGalleryRequest> galleryRequests = objectMapper.readValue(galleryDataJson, new TypeReference<>() {});
+
+        List<TourGalleryResponse> updatedGallery = tourGalleryService.syncTourGallery(
+                tourId, newFiles, galleryRequests, connectedUser
+        );
+        return ResponseEntity.ok(updatedGallery);
+    }
+
+    @PostMapping(value = "/syncWithUpdate", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<List<TourGalleryResponse>> syncGalleryWithUpdate(
+            @PathVariable Integer tourId,
+            // 'files' es un Map donde la clave es el 'fileKey' y el valor es el MultipartFile.
+            // Esto permite que el frontend asocie cualquier archivo (nuevo o de reemplazo) a su TourGalleryRequest
+            @RequestPart(value = "files", required = false) List<MultipartFile> files,
+            @RequestPart("galleryData") String galleryDataJson,
+            Authentication connectedUser
+    ) throws IOException {
+        List<TourGalleryRequest> galleryRequests = objectMapper.readValue(galleryDataJson, new TypeReference<>() {});
+
+        List<TourGalleryResponse> updatedGallery = tourGalleryService.syncTourGalleryWithUpdate(
+                tourId, files, galleryRequests, connectedUser
+        );
+        return ResponseEntity.ok(updatedGallery);
     }
 }

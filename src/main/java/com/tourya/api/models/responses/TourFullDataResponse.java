@@ -17,7 +17,6 @@ public class TourFullDataResponse {
     private String duration;
     private Integer maxPeople;
     private Integer highlight;
-    private BigDecimal price;
     private Integer minAge;
     private BigDecimal rating;
     private TourStatusEnum status;
@@ -28,6 +27,6 @@ public class TourFullDataResponse {
     private List<TourFaqResponse>  faq = new ArrayList<>();
     private List<TourItineraryResponse>  itineraries = new ArrayList<>();
     private List<TourCancellationPolicyResponse>  cancellationPolicies = new ArrayList<>();
-    private List<TourGalleryResponse>  galleries = new ArrayList<>();
+    //private List<TourGalleryResponse>  galleries = new ArrayList<>();
 
 }

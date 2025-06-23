@@ -4,6 +4,7 @@ package com.tourya.api.controller;
 
 import com.tourya.api.common.PageResponse;
 import com.tourya.api.constans.enums.RequestProviderStatusEnum;
+import com.tourya.api.models.request.RequestProviderActionRequest;
 import com.tourya.api.models.responses.RequestProviderResponse;
 import com.tourya.api.models.request.RequestProviderRequest;
 import com.tourya.api.services.RequestProviderService;
@@ -69,9 +70,18 @@ public class RequestProviderController {
     }
     @PutMapping("/admin/decline/{requestProviderById}")
     public ResponseEntity<RequestProviderResponse> declineRequestProviderById(
+            @RequestBody RequestProviderActionRequest requestProviderActionRequest,
             @PathVariable Integer requestProviderById,
             Authentication connectedUser
     ) {
-        return ResponseEntity.ok(requestProviderService.declineRequestProviderById(requestProviderById, connectedUser));
+        return ResponseEntity.ok(requestProviderService.declineRequestProviderById(requestProviderActionRequest, requestProviderById, connectedUser));
+    }
+    @PutMapping("/admin/incomplete/{requestProviderById}")
+    public ResponseEntity<RequestProviderResponse> incompleteRequestProviderById(
+            @RequestBody RequestProviderActionRequest requestProviderActionRequest,
+            @PathVariable Integer requestProviderById,
+            Authentication connectedUser
+    ) {
+        return ResponseEntity.ok(requestProviderService.incompleteRequestProviderById(requestProviderActionRequest, requestProviderById, connectedUser));
     }
 }

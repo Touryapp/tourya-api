@@ -26,4 +26,21 @@ public class TourItineraryMapper {
                 entity.getDescription()
         );
     }
+    public void updateTourItineraryFromRequest(TourItineraryRequest request, TourItinerary entity) {
+        if (request == null || entity == null) {
+            return;
+        }
+        if (request.getTitle() != null) {
+            entity.setTitle(request.getTitle());
+        }
+        if (request.getDay() != null) {
+            entity.setDay(request.getDay());
+        }
+        if (request.getTime() != null) {
+            entity.setTime(request.getTime());
+        }
+        if (request.getDescription() != null) {
+            entity.setDescription(request.getDescription());
+        }
+    }
 }

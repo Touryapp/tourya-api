@@ -27,4 +27,18 @@ public class TourCancellationPolicyMapper {
         tourCancellationPolicyResponse.setCancellationPolicyType(tourCancellationPolicy.getCancellationPolicyType());
         return tourCancellationPolicyResponse;
     }
+    public void updateTourCancellationPolicyFromRequest(TourCancellationPolicyRequest request, TourCancellationPolicy entity) {
+        if (request == null || entity == null) {
+            return;
+        }
+        if (request.getObservations() != null) {
+            entity.setObservations(request.getObservations());
+        }
+        entity.setAllowsRainRefund(request.isAllowsRainRefund());
+        entity.setAllowsRescheduling(request.isAllowsRescheduling());
+
+        if (request.getCancellationPolicyType() != null) {
+            entity.setCancellationPolicyType(request.getCancellationPolicyType());
+        }
+    }
 }

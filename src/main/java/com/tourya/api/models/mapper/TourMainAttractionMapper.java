@@ -30,5 +30,12 @@ public class TourMainAttractionMapper {
                 .collect(Collectors.toList());
     }
 
-
+    public void updateTourMainAttractionFromRequest(TourMainAttractionRequest request, TourMainAttraction entity) {
+        if (request == null || entity == null) {
+            return;
+        }
+        if (request.getDescription() != null) {
+            entity.setDescription(request.getDescription());
+        }
+    }
 }

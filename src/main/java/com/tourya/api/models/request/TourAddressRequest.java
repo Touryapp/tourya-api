@@ -7,7 +7,7 @@ import lombok.Data;
 
 @Data
 public class TourAddressRequest {
-
+    private Integer Id;
     @NotNull(message = "countryId is mandatory")
     private Integer countryId;
 
