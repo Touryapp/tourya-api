@@ -19,5 +19,6 @@ public class TourResponse {
     private TourStatusEnum status;
     private TourCategoryResponse tourCategory;
     private ProviderResponse provider;
+    private TourGalleryResponse profilePicture;
 
 }

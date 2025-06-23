@@ -40,6 +40,7 @@ public class TourService {
     private final TourFaqRepository tourFaqRepository;
     private final TourCancellationPolicyRepository tourCancellationPolicyRepository;
     private final TourItineraryRepository tourItineraryRepository;
+    private final TourGalleryRepository tourGalleryRepository;
     private final TourCategoryService tourCategoryService;
     private final ProviderService providerService;
     private final CountryService countryService;
@@ -52,6 +53,7 @@ public class TourService {
     private final TourFaqMapper tourFaqMapper;
     private final TourItineraryMapper tourItineraryMapper;
     private final TourCancellationPolicyMapper tourCancellationPolicyMapper;
+    private final TourGalleryMapper tourGalleryMapper;
 
 
     private static final String NOT_PRIVILEGES = "You have no privileges to perform this action.";
@@ -77,6 +79,14 @@ public class TourService {
                     .map(tourMapper::toTourResponse)
                     .toList();
 
+            for(TourResponse tourResponse :toursResponse){
+                List<TourGallery> tourGalleries = tourGalleryRepository.findByTourIdAndOrderIndex(tourResponse.getId(), 1);
+                if(!tourGalleries.isEmpty()){
+                    tourResponse.setProfilePicture(tourGalleryMapper.toTourGalleryResponse(tourGalleries.get(0)));
+                }
+            }
+
+
             return new PageResponse<>(
                     toursResponse,
                     allTours.getNumber(),
@@ -101,6 +111,13 @@ public class TourService {
             List<TourResponse> toursResponse = allTours.stream()
                     .map(tourMapper::toTourResponse)
                     .toList();
+
+            for(TourResponse tourResponse :toursResponse){
+                List<TourGallery> tourGalleries = tourGalleryRepository.findByTourIdAndOrderIndex(tourResponse.getId(), 1);
+                if(!tourGalleries.isEmpty()){
+                    tourResponse.setProfilePicture(tourGalleryMapper.toTourGalleryResponse(tourGalleries.get(0)));
+                }
+            }
 
             return new PageResponse<>(
                     toursResponse,
