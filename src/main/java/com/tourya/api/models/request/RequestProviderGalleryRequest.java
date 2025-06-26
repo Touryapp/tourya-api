@@ -8,6 +8,8 @@ import lombok.Data;
 @Data
 public class RequestProviderGalleryRequest {
 
+    private Integer id;
+
     @NotEmpty(message = "Image URL is mandatory")
     private String imageUrl;
 

@@ -19,6 +19,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 @Service
@@ -30,6 +32,49 @@ public class RequestProviderGalleryService {
     private final S3Service s3Service;
     private final RequestProviderGalleryMapper mapper;
     private final ProviderService providerService;
+
+    @Transactional
+    public List<RequestProviderGalleryResponse> syncGalleryMetadata(Integer requestId,
+                                                                    List<RequestProviderGalleryRequest> addedGalleries,
+                                                                    List<RequestProviderGalleryRequest> deletedGalleries,
+                                                                    List<MultipartFile> files,
+                                                                    Authentication connectedUser) throws IOException {
+
+
+        User user = getAuthenticatedUser(connectedUser);
+        Provider provider = providerService.findByUserAndStatusActive(user);
+        RequestProvider requestProvider = validateAndGetRequestProvider(requestId, provider.getId());
+
+        List<RequestProviderGallery> toDeleteEntities = deletedGalleries.stream()
+                .map(id -> repository.findById(id.getId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Gallery item not found for deletion.")))
+                .toList();
+
+        toDeleteEntities.forEach(entity -> s3Service.deleteFile(entity.getImageUrl()));
+        repository.deleteAll(toDeleteEntities);
+
+
+        if (files == null || files.isEmpty()) return List.of();
+
+        if (files.size() != addedGalleries.size()) {
+            throw new IllegalArgumentException("Number of uploaded files must match number of metadata entries.");
+        }
+
+        List<RequestProviderGallery> saved = IntStream.range(0, files.size())
+                .mapToObj(i -> {
+                    MultipartFile file = files.get(i);
+                    RequestProviderGalleryRequest meta = addedGalleries.get(i);
+                    return buildEntity(file, meta, user, requestProvider);
+                })
+                .map(repository::save)
+                .toList();
+
+        return saved.stream()
+                .map(mapper::toRequestProviderGalleryResponse)
+                .toList();
+    }
+
+
     public List<RequestProviderGalleryResponse> create(List<MultipartFile> files,
                                                        List<RequestProviderGalleryRequest> requests,
                                                        Integer requestId,
@@ -85,13 +130,27 @@ public class RequestProviderGalleryService {
         return create(files, requests, requestId, connectedUser);
     }
 
-
-
+    private RequestProviderGallery buildEntity(MultipartFile file,
+                                               RequestProviderGalleryRequest request,
+                                               User user,
+                                               RequestProvider requestProvider) {
+        try {
+            RequestProviderGallery entity = mapper.toRequestProviderGallery(request);
+            entity.setRequestProvider(requestProvider);
+            entity.setCreatedBy(user.getId());
+            entity.setCreatedDate(LocalDateTime.now());
+            entity.setImageUrl(s3Service.uploadFile("requests/" + requestProvider.getId(), file));
+            return entity;
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to upload file to S3", e);
+        }
+    }
     private void validateFilesAndMetadata(List<MultipartFile> files, List<RequestProviderGalleryRequest> requests) {
         if (files.size() != requests.size()) {
             throw new IllegalArgumentException("Each uploaded file must match a metadata entry.");
         }
     }
+
 
     private User getAuthenticatedUser(Authentication connectedUser) {
         User user = (User) connectedUser.getPrincipal();

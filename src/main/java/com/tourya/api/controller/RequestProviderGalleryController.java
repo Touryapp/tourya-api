@@ -2,7 +2,7 @@ package com.tourya.api.controller;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tourya.api.models.request.RequestProviderGalleryRequest;
+import com.tourya.api.models.request.RequestProviderGalleryMetadata;
 import com.tourya.api.models.responses.RequestProviderGalleryResponse;
 import com.tourya.api.services.RequestProviderGalleryService;
 import lombok.RequiredArgsConstructor;
@@ -23,33 +23,33 @@ public class RequestProviderGalleryController {
     private final RequestProviderGalleryService requestProviderGalleryService;
     private final ObjectMapper objectMapper;
 
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<List<RequestProviderGalleryResponse>> create(
+    @PostMapping( consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<List<RequestProviderGalleryResponse>> syncGallery(
             @PathVariable Integer requestId,
-            @RequestPart("files") List<MultipartFile> files,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files,
             @RequestPart("metadata") String metadataJson,
-            Authentication connectedUser
-    ) throws IOException {
-        List<RequestProviderGalleryRequest> metadataList = objectMapper.readValue(metadataJson, new TypeReference<>() {});
-        return ResponseEntity.ok(requestProviderGalleryService.create(files, metadataList, requestId, connectedUser));
-    }
+            Authentication connectedUser) throws IOException {
 
+        RequestProviderGalleryMetadata metadata = objectMapper.readValue(
+                metadataJson,
+                new TypeReference<>() {}
+        );
+
+        List<RequestProviderGalleryResponse> response = requestProviderGalleryService.syncGalleryMetadata(
+                requestId,
+                metadata.getAddedGalleries(),
+                metadata.getDeletedGalleries(),
+                (files != null && !files.isEmpty()) ? files : List.of(),
+                connectedUser
+        );
+
+        return ResponseEntity.ok(response);
+    }
     @GetMapping
     public ResponseEntity<List<RequestProviderGalleryResponse>> getGallery(
             @PathVariable Integer requestId,
             Authentication connectedUser
     ) {
         return ResponseEntity.ok(requestProviderGalleryService.getAllByRequest(requestId, connectedUser));
-    }
-
-    @PostMapping(value = "/replace", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<List<RequestProviderGalleryResponse>> replaceGallery(
-            @PathVariable Integer requestId,
-            @RequestPart("files") List<MultipartFile> files,
-            @RequestPart("metadata") String metadataJson,
-            Authentication connectedUser
-    ) throws IOException {
-        List<RequestProviderGalleryRequest> metadataList = objectMapper.readValue(metadataJson, new TypeReference<>() {});
-        return ResponseEntity.ok(requestProviderGalleryService.replaceAll(files, metadataList, requestId, connectedUser));
     }
 }
