@@ -5,7 +5,7 @@ import lombok.Data;
 import java.math.BigDecimal;
 
 @Data
-public class TourSchedulePriceResponseDto {
+public class TourSchedulePriceResponse {
     private Integer id;
     private String ageType;
     private Integer minAge;
