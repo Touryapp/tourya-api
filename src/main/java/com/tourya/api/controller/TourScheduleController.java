@@ -1,10 +1,7 @@
 package com.tourya.api.controller;
 
-import com.tourya.api.models.TourScheduleConfig;
 import com.tourya.api.models.request.TourScheduleConfigCreationRequest;
-import com.tourya.api.models.request.TourScheduleRequest;
-import com.tourya.api.models.responses.TourScheduleConfigResponseDto;
-import com.tourya.api.models.responses.TourScheduleResponse;
+import com.tourya.api.models.responses.TourScheduleConfigResponse;
 import com.tourya.api.services.TourScheduleService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -28,14 +25,6 @@ import org.springframework.web.server.ResponseStatusException;
 public class TourScheduleController {
     private final TourScheduleService tourScheduleService;
 
-    /*@PostMapping("/user/save/{tourId}")
-    public ResponseEntity<TourScheduleResponse> save(
-            @Valid @RequestBody TourScheduleRequest tourScheduleRequest,
-            @PathVariable Integer tourId,
-            Authentication connectedUser
-    ){
-        return ResponseEntity.ok(tourScheduleService.saveTourScheduleByTourId(tourScheduleRequest, tourId, connectedUser));
-    }*/
     /**
      * Endpoint para crear una nueva configuración de horario de tour
      * y generar automáticamente las instancias de horarios de tour individuales.
@@ -44,19 +33,17 @@ public class TourScheduleController {
      * @return ResponseEntity con la configuración de horario creada y un estado HTTP 201 Created.
      */
     @PostMapping
-    public ResponseEntity<TourScheduleConfigResponseDto> createTourSchedule(
+    public ResponseEntity<TourScheduleConfigResponse> createTourSchedule(
             @Valid @RequestBody TourScheduleConfigCreationRequest request,
-            Authentication connectedUser) { // @Valid si añades validaciones en los DTOs
+            Authentication connectedUser) {
         try {
-            TourScheduleConfigResponseDto dto = tourScheduleService.createTourScheduleConfigAndGenerateSchedules(request, connectedUser);
+            TourScheduleConfigResponse dto = tourScheduleService.createTourScheduleConfigAndGenerateSchedules(request, connectedUser);
             return new ResponseEntity<>(dto, HttpStatus.CREATED);
         } catch (ResponseStatusException e) {
-            // Manejo de errores específicos (ej. tour no encontrado, día de la semana inválido)
-            throw e; // Spring Boot se encargará de mapear esto a una respuesta HTTP
+
+            throw e;
         } catch (Exception e) {
-            // Manejo de errores genéricos inesperados
-            // Idealmente, aquí se registraría el error para depuración
-            System.err.println("Error al crear la configuración de horario del tour: " + e.getMessage());
+            System.err.println("Error creating tour schedule configuration:" + e.getMessage());
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
@@ -69,25 +56,22 @@ public class TourScheduleController {
      * @return ResponseEntity con la configuración de horario actualizada y un estado HTTP 200 OK.
      */
     @PutMapping("/{configId}")
-    public ResponseEntity<TourScheduleConfigResponseDto> updateTourSchedule(
+    public ResponseEntity<TourScheduleConfigResponse> updateTourSchedule(
             @PathVariable Integer configId,
             @Valid @RequestBody TourScheduleConfigCreationRequest request,
             Authentication connectedUser) {
         try {
-            // Es buena práctica que el ID del path coincida con el ID del body si existe
             if (request.getId() != null && !request.getId().equals(configId)) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "El ID en el path no coincide con el ID en el cuerpo de la solicitud.");
+                        "The ID in the path doesn't match the ID in the request body.");
             }
-            // Aseguramos que el ID del request sea el del path para el servicio
             request.setId(configId);
-
-            TourScheduleConfigResponseDto dto = tourScheduleService.updateTourScheduleConfigAndGenerateSchedules(configId, request, connectedUser);
+            TourScheduleConfigResponse dto = tourScheduleService.updateTourScheduleConfigAndGenerateSchedules(configId, request, connectedUser);
             return new ResponseEntity<>(dto, HttpStatus.OK);
         } catch (ResponseStatusException e) {
             throw e;
         } catch (Exception e) {
-            System.err.println("Error al actualizar la configuración de horario del tour: " + e.getMessage());
+            System.err.println("Error updating tour schedule configuration:" + e.getMessage());
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
@@ -100,10 +84,10 @@ public class TourScheduleController {
      * @return ResponseEntity con el DTO de respuesta completo y un estado HTTP 200 OK.
      */
     @GetMapping("/{configId}")
-    public ResponseEntity<TourScheduleConfigResponseDto> getTourScheduleDetails(
+    public ResponseEntity<TourScheduleConfigResponse> getTourScheduleDetails(
             @PathVariable Integer configId) {
         try {
-            TourScheduleConfigResponseDto details = tourScheduleService.getTourScheduleConfigDetails(configId);
+            TourScheduleConfigResponse details = tourScheduleService.getTourScheduleConfigDetails(configId);
             return new ResponseEntity<>(details, HttpStatus.OK);
         } catch (ResponseStatusException e) {
             throw e;
