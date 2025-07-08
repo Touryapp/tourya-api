@@ -47,7 +47,7 @@ public class BeansConfig {
         config.setAllowCredentials(true);
         //config.setAllowedOrigins(List.of("*")); //Despues cambiar a las urls de origen.
         config.setAllowedOrigins(List.of("http://localhost:4200",
-                "http://localhost:8080", "http://44.203.38.85:8088",
+                "http://localhost:8080", "http://44.203.38.85:8088", "http://44.203.38.85:8080",
                 "http://localhost:8100", "https://localhost/"));
         config.setAllowedHeaders(Arrays.asList(
                 HttpHeaders.ORIGIN,
