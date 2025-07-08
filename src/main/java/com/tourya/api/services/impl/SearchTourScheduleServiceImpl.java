@@ -3,7 +3,7 @@ package com.tourya.api.services.impl;
 import com.tourya.api.models.request.SearchTourScheduleRequest;
 import com.tourya.api.models.responses.SearchTourScheduleResponse;
 import com.tourya.api.repository.SearchTourScheduleRepository;
-import com.tourya.api.service.SearchTourScheduleService;
+import com.tourya.api.services.SearchTourScheduleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

@@ -3,7 +3,7 @@ package com.tourya.api.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tourya.api.models.request.SearchTourScheduleRequest;
 import com.tourya.api.models.responses.SearchTourScheduleResponse;
-import com.tourya.api.service.SearchTourScheduleService;
+import com.tourya.api.services.SearchTourScheduleService;
 import jakarta.validation.Valid;
 import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/v1/tour/schedule")
+@RequestMapping("/tours/schedule")
 @RequiredArgsConstructor
 public class SearchTourScheduleController {
 

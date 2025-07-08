@@ -10,7 +10,7 @@ import java.time.LocalTime;
 @Table(name = "tour_schedule")
 @Data
 @SqlResultSetMapping(
-        name = "TourScheduleMapping",
+        name = "SearchTourScheduleMapping",
         classes = @ConstructorResult(
                 targetClass = com.tourya.api.models.responses.SearchTourScheduleResponse.class,
                 columns = {

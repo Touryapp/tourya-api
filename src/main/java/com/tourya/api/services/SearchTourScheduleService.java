@@ -1,4 +1,4 @@
-package com.tourya.api.service;
+package com.tourya.api.services;
 
 import com.tourya.api.models.request.SearchTourScheduleRequest;
 import com.tourya.api.models.responses.SearchTourScheduleResponse;
