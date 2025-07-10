@@ -7,6 +7,7 @@ import com.tourya.api.constans.enums.TourStatusEnumConverter;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -38,7 +39,8 @@ public class Tour extends BaseEntity {
     private String description;
 
     // Many-to-One relationship with TourCategory
-    @ManyToOne
+    //@ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
     private TourCategory tourCategory;
 
@@ -61,7 +63,8 @@ public class Tour extends BaseEntity {
     private TourStatusEnum status;
 
     // Many-to-One relationship with Provider
-    @ManyToOne
+    //@ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "provider_id")
     private Provider provider;
 

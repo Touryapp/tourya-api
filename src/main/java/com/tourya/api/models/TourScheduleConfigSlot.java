@@ -4,6 +4,7 @@ import com.tourya.api.common.BaseEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -50,8 +51,9 @@ public class TourScheduleConfigSlot extends BaseEntity {
     @Column(name = "config_id", nullable = false, insertable = false, updatable = false) // MODIFICACIÓN
     private Integer configId;
 
-    @ManyToOne // Relación Many-to-One con la entidad TourScheduleConfig
+    //@ManyToOne // Relación Many-to-One con la entidad TourScheduleConfig
     //@JoinColumn(name = "config_id", insertable = false, updatable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "config_id", nullable = false) // MODIFICACIÓN: nullable=false para FK
     private TourScheduleConfig config; // La relación es la dueña de la columna 'config_id'
 

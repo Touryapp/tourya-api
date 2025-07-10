@@ -3,6 +3,7 @@ package com.tourya.api.models;
 import com.tourya.api.common.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -35,8 +36,9 @@ public class TourScheduleConfigPrice extends BaseEntity {
     //@Column(name = "slot_id", nullable = false)
     private Integer slotId;
 
-    @ManyToOne // Relación Many-to-One con la entidad TourScheduleConfigSlot
+    //@ManyToOne // Relación Many-to-One con la entidad TourScheduleConfigSlot
     //@JoinColumn(name = "slot_id", insertable = false, updatable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "slot_id", nullable = false)
     private TourScheduleConfigSlot slot;
 

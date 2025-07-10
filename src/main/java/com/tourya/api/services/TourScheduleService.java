@@ -7,6 +7,7 @@ import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.models.Provider;
 import com.tourya.api.models.Role;
 import com.tourya.api.models.Tour;
+import com.tourya.api.models.TourAddress;
 import com.tourya.api.models.TourSchedule;
 import com.tourya.api.models.TourScheduleConfig;
 import com.tourya.api.models.TourScheduleConfigPrice;
@@ -15,14 +16,25 @@ import com.tourya.api.models.User;
 import com.tourya.api.models.request.TourScheduleConfigCreationRequest;
 import com.tourya.api.models.request.TourScheduleConfigPriceDto;
 import com.tourya.api.models.request.TourScheduleConfigSlotDto;
+import com.tourya.api.models.request.TourSearchRequestDto;
+import com.tourya.api.models.responses.TourDetailsInSearchDto;
+import com.tourya.api.models.responses.TourLocationInSearchDto;
+import com.tourya.api.models.responses.TourPriceOptionDto;
 import com.tourya.api.models.responses.TourScheduleConfigResponse;
 import com.tourya.api.models.responses.TourSchedulePriceResponse;
 import com.tourya.api.models.responses.TourScheduleResponse;
+import com.tourya.api.models.responses.TourScheduleSearchResponseDto;
 import com.tourya.api.models.responses.TourScheduleSlotResponse;
+import com.tourya.api.models.specification.TourScheduleSpecification;
 import com.tourya.api.repository.TourRepository;
 import com.tourya.api.repository.TourScheduleConfigRepository;
 import com.tourya.api.repository.TourScheduleRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -383,5 +395,129 @@ public class TourScheduleService {
         responseDto.setSchedules(scheduleDtos);
 
         return responseDto;
+    }
+
+    /**
+     * Realiza una búsqueda inteligente de tours disponibles para reserva.
+     *
+     * @param request DTO con los parámetros de búsqueda.
+     * @return Una página de TourScheduleSearchResponseDto que coinciden con los criterios.
+     */
+    @Transactional(readOnly = true)
+    public Page<TourScheduleSearchResponseDto> searchToursForReservation(TourSearchRequestDto request) {
+        // Construir la especificación de búsqueda
+        Specification<TourSchedule> spec = TourScheduleSpecification.withSearchCriteria(request);
+
+        // Crear Pageable para paginación y ordenación
+        Sort sort = Sort.by(Sort.Direction.fromString(request.getSortDir()), request.getSortBy());
+        Pageable pageable = org.springframework.data.domain.PageRequest.of(request.getPage(), request.getSize(), sort);
+
+        // Ejecutar la búsqueda paginada
+        Page<TourSchedule> tourSchedulesPage = tourScheduleRepository.findAll(spec, pageable);
+
+        // Obtener los IDs de los TourSchedules de la página actual
+        List<Integer> scheduleIds = tourSchedulesPage.getContent().stream()
+                .map(TourSchedule::getId)
+                .collect(Collectors.toList());
+
+        // Cargar los detalles completos de los TourSchedules (con todos los FETCH JOINs)
+        // Esto evita N+1 y asegura que todas las relaciones estén cargadas para el mapeo
+        List<TourSchedule> detailedTourSchedules = new ArrayList<>();
+        if (!scheduleIds.isEmpty()) {
+            detailedTourSchedules = tourScheduleRepository.findAllByIdsWithDetails(scheduleIds);
+        }
+
+        // Crear un mapa para fácil acceso a los horarios detallados por ID
+        Map<Integer, TourSchedule> detailedSchedulesMap = detailedTourSchedules.stream()
+                .collect(Collectors.toMap(TourSchedule::getId, Function.identity()));
+
+
+        // Mapear las entidades a DTOs de respuesta
+        List<TourScheduleSearchResponseDto> responseDtos = tourSchedulesPage.getContent().stream()
+                .map(simpleSchedule -> {
+                    // Usar la entidad detallada del mapa para el mapeo
+                    TourSchedule schedule = detailedSchedulesMap.get(simpleSchedule.getId());
+                    if (schedule == null) {
+                        // Esto no debería ocurrir si findAllByIdsWithDetails funciona correctamente
+                        return null;
+                    }
+
+                    TourScheduleSearchResponseDto dto = new TourScheduleSearchResponseDto();
+                    dto.setScheduleId(schedule.getId());
+                    dto.setScheduleDate(schedule.getScheduleDate());
+                    dto.setStartTime(schedule.getStartTime());
+                    dto.setEndTime(schedule.getEndTime());
+                    dto.setMaxCapacity(schedule.getMaxCapacity());
+                    dto.setReservedCapacity(schedule.getReservedCapacity());
+                    dto.setIsUnlimitedCapacity(schedule.getIsUnlimitedCapacity());
+                    dto.setStatus(schedule.getStatus().getValue());
+                    dto.setConfigId(schedule.getConfigId());
+
+                    // Calcular capacidad disponible
+                    if (schedule.getIsUnlimitedCapacity() != null && schedule.getIsUnlimitedCapacity()) {
+                        dto.setAvailableCapacity(null); // O un valor que indique ilimitado
+                    } else if (schedule.getMaxCapacity() != null && schedule.getReservedCapacity() != null) {
+                        dto.setAvailableCapacity(schedule.getMaxCapacity() - schedule.getReservedCapacity());
+                    } else {
+                        dto.setAvailableCapacity(0); // O manejar como prefieras
+                    }
+
+                    // Mapear detalles del tour
+                    if (schedule.getTour() != null) {
+                        TourDetailsInSearchDto tourDetailsDto = new TourDetailsInSearchDto();
+                        tourDetailsDto.setTourId(schedule.getTour().getId());
+                        tourDetailsDto.setTourName(schedule.getTour().getName());
+                        tourDetailsDto.setDescription(schedule.getTour().getDescription());
+                        tourDetailsDto.setMinAge(schedule.getTour().getMinAge());
+                        tourDetailsDto.setRating(schedule.getTour().getRating());
+                        tourDetailsDto.setProviderId(schedule.getTour().getProvider().getId());
+                        if (schedule.getTour().getTourCategory() != null) {
+                            tourDetailsDto.setCategoryName(schedule.getTour().getTourCategory().getName());
+                        }
+                        dto.setTourDetails(tourDetailsDto);
+
+                        // Mapear detalles de ubicación (asumiendo que un tour puede tener varias direcciones, tomamos la primera o la principal)
+                        /*if (schedule.getTour().getAddresses() != null && !schedule.getTour().getAddresses().isEmpty()) {
+                            TourAddress tourAddress = schedule.getTour().getAddresses().iterator().next(); // Tomar la primera dirección
+                            TourLocationInSearchDto locationDto = new TourLocationInSearchDto();
+                            locationDto.setAddress(tourAddress.getAddress());
+                            locationDto.setLocation(tourAddress.getLocation());
+                            locationDto.setLatitude(tourAddress.getLatitude());
+                            locationDto.setLongitude(tourAddress.getLongitude());
+                            if (tourAddress.getCity() != null) locationDto.setCityName(tourAddress.getCity().getName());
+                            if (tourAddress.getState() != null) locationDto.setStateName(tourAddress.getState().getName());
+                            if (tourAddress.getCountry() != null) locationDto.setCountryName(tourAddress.getCountry().getName());
+                            dto.setLocationDetails(locationDto);
+                        }*/
+                    }
+
+                    // Mapear opciones de precio desde el slot de configuración
+                    if (schedule.getConfig() != null && schedule.getConfig().getSlots() != null) {
+                        // Encontrar el slot de configuración que generó este horario
+                        schedule.getConfig().getSlots().stream()
+                                .filter(s -> s.getStartTime().equals(schedule.getStartTime()) && s.getEndTime().equals(schedule.getEndTime()))
+                                .findFirst()
+                                .ifPresent(matchingSlot -> {
+                                    List<TourPriceOptionDto> priceOptions = matchingSlot.getPrices().stream()
+                                            .map(price -> {
+                                                TourPriceOptionDto priceDto = new TourPriceOptionDto();
+                                                priceDto.setPriceId(price.getId());
+                                                priceDto.setAgeType(price.getAgeType());
+                                                priceDto.setMinAge(price.getMinAge());
+                                                priceDto.setMaxAge(price.getMaxAge());
+                                                priceDto.setPrice(price.getPrice());
+                                                return priceDto;
+                                            })
+                                            .collect(Collectors.toList());
+                                    dto.setPriceOptions(priceOptions);
+                                });
+                    }
+
+                    return dto;
+                })
+                .filter(java.util.Objects::nonNull) // Filtrar cualquier resultado nulo si el mapeo falla
+                .collect(Collectors.toList());
+
+        return new PageImpl<>(responseDtos, pageable, tourSchedulesPage.getTotalElements());
     }
 }
