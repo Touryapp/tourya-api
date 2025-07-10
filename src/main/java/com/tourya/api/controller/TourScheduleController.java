@@ -1,15 +1,19 @@
 package com.tourya.api.controller;
 
 import com.tourya.api.models.request.TourScheduleConfigCreationRequest;
+import com.tourya.api.models.request.TourSearchRequestDto;
 import com.tourya.api.models.responses.TourScheduleConfigResponse;
+import com.tourya.api.models.responses.TourScheduleSearchResponseDto;
 import com.tourya.api.services.TourScheduleService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -93,6 +97,25 @@ public class TourScheduleController {
             throw e;
         } catch (Exception e) {
             System.err.println("Error al obtener los detalles de la configuración de horario del tour: " + e.getMessage());
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Endpoint para realizar una búsqueda inteligente de tours disponibles para reserva.
+     * Permite filtrar por múltiples criterios como palabra clave, categoría, fechas, horas, capacidad, precio y ubicación.
+     *
+     * @param request DTO con los parámetros de búsqueda.
+     * @return Una página de TourScheduleSearchResponseDto que coinciden con los criterios.
+     */
+    @GetMapping("/search")
+    public ResponseEntity<Page<TourScheduleSearchResponseDto>> searchTours(
+            @ModelAttribute TourSearchRequestDto request) {
+        try {
+            Page<TourScheduleSearchResponseDto> result = tourScheduleService.searchToursForReservation(request);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            System.err.println("Error al realizar la búsqueda de tours: " + e.getMessage());
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }

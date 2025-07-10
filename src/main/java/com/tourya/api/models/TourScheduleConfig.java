@@ -4,6 +4,7 @@ import com.tourya.api.common.BaseEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -40,7 +41,8 @@ public class TourScheduleConfig extends BaseEntity {
     @Column(name = "tour_id", nullable = false)
     private Integer tourId;
 
-    @ManyToOne // Relación Many-to-One con la entidad Tour
+    //@ManyToOne // Relación Many-to-One con la entidad Tour
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "tour_id", insertable = false, updatable = false)
     private Tour tour; // Asegúrate de tener una entidad Tour definida
 

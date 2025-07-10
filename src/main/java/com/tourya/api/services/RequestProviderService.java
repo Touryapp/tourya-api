@@ -114,7 +114,7 @@ public class RequestProviderService {
         Provider provider = providerService.findByUser(user);
         if(provider != null){
             RequestProvider requestProvider = requestProviderRepository.findByProvider(provider);
-            List<RequestProviderGalleryResponse>   requestProviderGalleryList = getRequestProviderGalleryList(requestProvider);
+            List<RequestProviderGalleryResponse>   requestProviderGalleryList = getRequestProviderGalleryList(requestProvider.getId());
             RequestProviderResponse requestProviderResponse = requestProviderMapper.toRequestProviderResponse(requestProvider);
             requestProviderResponse.setRequestProviderGalleryList(requestProviderGalleryList);
             return requestProviderResponse;
@@ -122,8 +122,8 @@ public class RequestProviderService {
             return null;
         }
     }
-    private List<RequestProviderGalleryResponse> getRequestProviderGalleryList(RequestProvider requestProvider){
-        return requestProviderGalleryRepository.findByRequestProviderIdOrderByOrderIndexAsc(requestProvider.getId())
+    private List<RequestProviderGalleryResponse> getRequestProviderGalleryList(Integer id){
+        return requestProviderGalleryRepository.findByRequestProviderIdOrderByOrderIndexAsc(id)
                 .stream()
                 .map(requestProviderGalleryMapper::toRequestProviderGalleryResponse)
                 .toList();
@@ -136,7 +136,9 @@ public class RequestProviderService {
             Optional<RequestProvider> requestProviderOpt = requestProviderRepository.findById(requestProviderId);
             if(requestProviderOpt.isPresent()){
                 RequestProvider requestProvider = requestProviderOpt.get();
-                return requestProviderMapper.toRequestProviderResponse(requestProvider);
+                RequestProviderResponse requestProviderResponse = requestProviderMapper.toRequestProviderResponse(requestProvider);
+                requestProviderResponse.setRequestProviderGalleryList(getRequestProviderGalleryList(requestProviderResponse.getId()));
+                return requestProviderResponse;
             }else{
                 throw new ResourceNotFoundException(REQUEST_PROVIDER_NOT_FOUND+requestProviderId);
             }
@@ -225,6 +227,7 @@ public class RequestProviderService {
             List<RequestProviderResponse> requestProvidersResponse = allRequestProviderPending.stream()
                     .map(requestProviderMapper::toRequestProviderResponse)
                     .toList();
+            setGallery(requestProvidersResponse);
             return new PageResponse<>(
                     requestProvidersResponse,
                     allRequestProviderPending.getNumber(),
@@ -236,6 +239,11 @@ public class RequestProviderService {
             );
         }else{
             throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
+        }
+    }
+    private void setGallery(List<RequestProviderResponse> requestProvidersResponse){
+        for(RequestProviderResponse requestProviderResponse : requestProvidersResponse){
+            requestProviderResponse.setRequestProviderGalleryList(getRequestProviderGalleryList(requestProviderResponse.getId()));
         }
     }
     public RequestProvider getRequestProviderByProvider(Provider provider){
