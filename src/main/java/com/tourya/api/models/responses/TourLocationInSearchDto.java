@@ -11,6 +11,6 @@ public class TourLocationInSearchDto {
     private String cityName;
     private String stateName;
     private String countryName;
-    private BigDecimal latitude;
-    private BigDecimal longitude;
+    private Double latitude;
+    private Double longitude;
 }
