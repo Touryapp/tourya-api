@@ -1,5 +1,6 @@
 package com.tourya.api.controller;
 
+import com.tourya.api.common.PageResponse;
 import com.tourya.api.models.request.TourScheduleConfigCreationRequest;
 import com.tourya.api.models.request.TourSearchRequestDto;
 import com.tourya.api.models.responses.TourScheduleConfigResponse;
@@ -8,7 +9,6 @@ import com.tourya.api.services.TourScheduleService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -109,10 +109,10 @@ public class TourScheduleController {
      * @return Una página de TourScheduleSearchResponseDto que coinciden con los criterios.
      */
     @GetMapping("/search")
-    public ResponseEntity<Page<TourScheduleSearchResponseDto>> searchTours(
+    public ResponseEntity<PageResponse<TourScheduleSearchResponseDto>> searchTours(
             @ModelAttribute TourSearchRequestDto request) {
         try {
-            Page<TourScheduleSearchResponseDto> result = tourScheduleService.searchToursForReservation(request);
+            PageResponse<TourScheduleSearchResponseDto> result = tourScheduleService.searchToursForReservation(request);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             System.err.println("Error al realizar la búsqueda de tours: " + e.getMessage());
@@ -121,3 +121,4 @@ public class TourScheduleController {
     }
 
 }
+

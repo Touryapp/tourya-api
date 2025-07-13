@@ -19,8 +19,13 @@ public interface TourScheduleRepository extends JpaRepository<TourSchedule, Inte
 
     void deleteByConfigId(Integer configId);
 
-    // Consulta simplificada para evitar el error de validación.
-    // Las relaciones se cargarán perezosamente o se gestionarán en el servicio.
-    @Query("SELECT ts FROM TourSchedule ts WHERE ts.id IN :ids")
+    @Query("SELECT DISTINCT ts FROM TourSchedule ts " +
+           "LEFT JOIN FETCH ts.tour t " +
+           "LEFT JOIN FETCH t.tourCategory " +
+           "LEFT JOIN FETCH t.provider " +
+           "LEFT JOIN FETCH ts.config c " +
+           "LEFT JOIN FETCH c.slots s " +
+           "LEFT JOIN FETCH s.prices " +
+           "WHERE ts.id IN :ids")
     List<TourSchedule> findAllByIdsWithDetails(@Param("ids") List<Integer> ids);
 }
