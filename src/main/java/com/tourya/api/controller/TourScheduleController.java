@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -28,6 +29,16 @@ import org.springframework.web.server.ResponseStatusException;
 @Tag(name = "TourSchedule")
 public class TourScheduleController {
     private final TourScheduleService tourScheduleService;
+
+    @GetMapping("/by-tour/{tourId}")
+    public ResponseEntity<PageResponse<TourScheduleConfigResponse>> getAllTourSchedulesByTourId(
+            @PathVariable Integer tourId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            Authentication connectedUser
+    ) {
+        return ResponseEntity.ok(tourScheduleService.findAllByTourId(tourId, page, size, connectedUser));
+    }
 
     /**
      * Endpoint para crear una nueva configuración de horario de tour

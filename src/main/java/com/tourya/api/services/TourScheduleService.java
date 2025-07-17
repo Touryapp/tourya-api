@@ -17,6 +17,7 @@ import com.tourya.api.repository.TourRepository;
 import com.tourya.api.repository.TourScheduleConfigRepository;
 import com.tourya.api.repository.TourScheduleRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -354,6 +355,76 @@ public class TourScheduleService {
                 })
                 .collect(Collectors.toList());
         responseDto.setSchedules(scheduleDtos);
+
+        return responseDto;
+    }
+
+    public PageResponse<TourScheduleConfigResponse> findAllByTourId(Integer tourId, int page, int size, Authentication connectedUser) {
+        User user = ((User) connectedUser.getPrincipal());
+        List<Role> roleList = user.getRoles();
+        if(Utils.isProvider(roleList)) {
+            Provider provider = providerService.findByUserAndStatusActive(user);
+            Tour tour = getTour(tourId, provider.getId());
+            Pageable pageable = PageRequest.of(page, size, Sort.by("createdDate").descending());
+            Page<TourScheduleConfig> tourScheduleConfigs = tourScheduleConfigRepository.findByTourId(tour.getId(), pageable);
+            List<TourScheduleConfigResponse> tourScheduleConfigResponses = tourScheduleConfigs.stream()
+                    .map(this::convertToTourScheduleConfigResponse)
+                    .collect(Collectors.toList());
+            return new PageResponse<>(
+                    tourScheduleConfigResponses,
+                    tourScheduleConfigs.getNumber(),
+                    tourScheduleConfigs.getSize(),
+                    tourScheduleConfigs.getTotalElements(),
+                    tourScheduleConfigs.getTotalPages(),
+                    tourScheduleConfigs.isFirst(),
+                    tourScheduleConfigs.isLast()
+            );
+        }else{
+            throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
+        }
+    }
+
+    private TourScheduleConfigResponse convertToTourScheduleConfigResponse(TourScheduleConfig config) {
+        TourScheduleConfigResponse responseDto = new TourScheduleConfigResponse();
+        responseDto.setId(config.getId());
+        responseDto.setTourId(config.getTourId());
+        responseDto.setLabel(config.getLabel());
+        responseDto.setStartDate(config.getStartDate());
+        responseDto.setEndDate(config.getEndDate());
+        responseDto.setDaysOfWeek(config.getDaysOfWeek());
+        responseDto.setIsUnlimitedCapacity(config.getIsUnlimitedCapacity());
+        responseDto.setCreatedDate(config.getCreatedDate());
+        responseDto.setLastModifiedDate(config.getLastModifiedDate());
+
+        if (config.getSlots() != null) {
+            Set<TourScheduleSlotResponse> slotDtos = config.getSlots().stream()
+                    .map(slot -> {
+                        TourScheduleSlotResponse slotDto = new TourScheduleSlotResponse();
+                        slotDto.setId(slot.getId());
+                        slotDto.setStartTime(slot.getStartTime());
+                        slotDto.setEndTime(slot.getEndTime());
+                        slotDto.setMinCapacity(slot.getMinCapacity());
+                        slotDto.setMaxCapacity(slot.getMaxCapacity());
+
+                        if (slot.getPrices() != null) {
+                            Set<TourSchedulePriceResponse> priceDtos = slot.getPrices().stream()
+                                    .map(price -> {
+                                        TourSchedulePriceResponse priceDto = new TourSchedulePriceResponse();
+                                        priceDto.setId(price.getId());
+                                        priceDto.setAgeType(price.getAgeType());
+                                        priceDto.setMinAge(price.getMinAge());
+                                        priceDto.setMaxAge(price.getMaxAge());
+                                        priceDto.setPrice(price.getPrice());
+                                        return priceDto;
+                                    })
+                                    .collect(Collectors.toSet());
+                            slotDto.setPrices(priceDtos);
+                        }
+                        return slotDto;
+                    })
+                    .collect(Collectors.toSet());
+            responseDto.setSlots(slotDtos);
+        }
 
         return responseDto;
     }
