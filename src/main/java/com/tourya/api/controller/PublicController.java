@@ -22,7 +22,7 @@ import java.util.Map;
 @RequestMapping("public")
 @RequiredArgsConstructor
 @Tag(name = "Public")
-public class PublicController {
+public class    PublicController {
     private final CountryService countryService;
     private final StateService stateService;
     private final CityService cityService;

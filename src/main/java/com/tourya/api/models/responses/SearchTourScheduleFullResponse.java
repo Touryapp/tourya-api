@@ -1,6 +1,7 @@
 package com.tourya.api.models.responses;
 
 import lombok.Data;
+
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -11,7 +12,7 @@ public class SearchTourScheduleFullResponse {
     private Tour tour;
     private Address address;
     private List<Gallery> gallery;
-    private List<Price> prices;
+    private List<Slot> slots;
 
     @Data
     public static class Schedule {
@@ -47,6 +48,16 @@ public class SearchTourScheduleFullResponse {
         private String imageUrl;
         private String description;
         private Integer order;
+    }
+
+    @Data
+    public static class Slot {
+        private Integer slotId;
+        private LocalTime startTime;
+        private LocalTime endTime;
+        private Integer minCapacity;
+        private Integer maxCapacity;
+        private List<Price> prices;
     }
 
     @Data
