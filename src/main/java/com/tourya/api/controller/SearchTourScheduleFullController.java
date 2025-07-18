@@ -5,9 +5,11 @@ import com.tourya.api.models.responses.SearchTourScheduleFullResponse;
 import com.tourya.api.services.SearchTourScheduleFullService;
 import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -15,12 +17,14 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class SearchTourScheduleFullController {
 
-    private final SearchTourScheduleFullService service;
+    private final SearchTourScheduleFullService searchTourScheduleFullService;
     private final ObjectMapper objectMapper;
     private final Validator validator;
 
-    @PostMapping("/search")
-    public List<SearchTourScheduleFullResponse> search(@RequestBody Map<String, Object> filters) {
-        return service.searchTourSchedule(filters);
+    @PostMapping("/tours/schedule/search")
+    public ResponseEntity<Page<SearchTourScheduleFullResponse>> search(
+            @RequestBody Map<String, Object> filters,
+            Pageable pageable) {
+        return ResponseEntity.ok(searchTourScheduleFullService.searchTourSchedule(filters, pageable));
     }
 }
