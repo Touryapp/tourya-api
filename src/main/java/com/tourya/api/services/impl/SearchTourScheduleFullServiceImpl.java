@@ -4,6 +4,8 @@ import com.tourya.api.models.responses.SearchTourScheduleFullResponse;
 import com.tourya.api.repository.SearchTourScheduleFullRepository;
 import com.tourya.api.services.SearchTourScheduleFullService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -13,10 +15,10 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class SearchTourScheduleFullServiceImpl implements SearchTourScheduleFullService {
 
-    private final SearchTourScheduleFullRepository repository;
+    private final SearchTourScheduleFullRepository searchRepo;
 
     @Override
-    public List<SearchTourScheduleFullResponse> searchTourSchedule(Map<String, Object> filters) {
-        return repository.callStoredProcedure(filters);
+    public Page<SearchTourScheduleFullResponse> searchTourSchedule(Map<String, Object> filters, Pageable pageable) {
+        return searchRepo.callStoredProcedure(filters, pageable);
     }
 }

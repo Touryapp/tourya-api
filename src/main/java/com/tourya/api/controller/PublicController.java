@@ -12,6 +12,8 @@ import com.tourya.api.services.StateService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,7 +28,7 @@ public class    PublicController {
     private final CountryService countryService;
     private final StateService stateService;
     private final CityService cityService;
-    private final SearchTourScheduleFullService service;
+    private final SearchTourScheduleFullService searchTourScheduleFullService;
     private final ObjectMapper objectMapper;
     private final Validator validator;
 
@@ -49,9 +51,11 @@ public class    PublicController {
         return ResponseEntity.ok(cityService.getAllCityByStateIdList(stateId));
     }
 
-    @PostMapping("/tours/schedule/search")
-    public List<SearchTourScheduleFullResponse> search(@RequestBody Map<String, Object> filters) {
-        return service.searchTourSchedule(filters);
-    }
 
+    @PostMapping("/tours/schedule/search")
+    public ResponseEntity<Page<SearchTourScheduleFullResponse>> search(
+            @RequestBody Map<String, Object> filters,
+            Pageable pageable) {
+        return ResponseEntity.ok(searchTourScheduleFullService.searchTourSchedule(filters, pageable));
+    }
 }
