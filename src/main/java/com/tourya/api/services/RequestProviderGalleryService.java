@@ -1,7 +1,9 @@
 package com.tourya.api.services;
 
 import com.tourya.api._utils.Utils;
+import com.tourya.api.constans.enums.RequestProviderStatusEnum;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
+import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.models.*;
 import com.tourya.api.models.mapper.RequestProviderGalleryMapper;
@@ -40,8 +42,9 @@ public class RequestProviderGalleryService {
 
 
         User user = getAuthenticatedUser(connectedUser);
-        Provider provider = providerService.findByUserAndStatusActive(user);
+        Provider provider = providerService.findByUser(user);
         RequestProvider requestProvider = validateAndGetRequestProvider(requestId, provider.getId());
+        validateSyncGalleryMetadata(requestProvider);
 
         List<RequestProviderGallery> toDeleteEntities = deletedGalleries.stream()
                 .map(id -> repository.findById(id.getId())
@@ -71,7 +74,12 @@ public class RequestProviderGalleryService {
                 .map(mapper::toRequestProviderGalleryResponse)
                 .toList();
     }
-
+    private void validateSyncGalleryMetadata(RequestProvider requestProvider){
+        if(!requestProvider.getStatus().equals(RequestProviderStatusEnum.PRE_APPROVED)
+                || !requestProvider.getStatus().equals(RequestProviderStatusEnum.INCOMPLETE_INFORMATION)){
+            throw new OperationNotPermittedException("Documents cannot be updated unless the provider request is in 'Pre-Approved' or 'Incomplete Information' status.");
+        }
+    }
 
     public List<RequestProviderGalleryResponse> create(List<MultipartFile> files,
                                                        List<RequestProviderGalleryRequest> requests,

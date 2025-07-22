@@ -77,7 +77,7 @@ public class RequestProviderService {
 
         RequestProvider requestProvider = new RequestProvider();
         requestProvider.setProvider(providerNew);
-        requestProvider.setStatus(RequestProviderStatusEnum.PENDING);
+        requestProvider.setStatus(RequestProviderStatusEnum.CREATED);
 
         RequestProvider requestProviderNew = requestProviderRepository.save(requestProvider);
 
@@ -172,7 +172,7 @@ public class RequestProviderService {
         }
     }
     @Transactional
-    public RequestProviderResponse declineRequestProviderById(RequestProviderActionRequest requestProviderActionRequest, Integer requestProviderId,
+    public RequestProviderResponse cancelRequestProviderById(RequestProviderActionRequest requestProviderActionRequest, Integer requestProviderId,
                                                         Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
@@ -185,7 +185,7 @@ public class RequestProviderService {
                 provider.setStatus(ProviderStatusEnum.INACTIVE);
                 providerService.save(provider);
 
-                requestProvider.setStatus(RequestProviderStatusEnum.DECLINED);
+                requestProvider.setStatus(RequestProviderStatusEnum.CANCELLED);
                 requestProvider.setDeclinedReason(requestProviderActionRequest.getDeclinedReason());
                 RequestProvider requestProviderUpdate = requestProviderRepository.save(requestProvider);
 
@@ -206,7 +206,7 @@ public class RequestProviderService {
             Optional<RequestProvider> requestProviderOpt = requestProviderRepository.findById(requestProviderId);
             if(requestProviderOpt.isPresent()){
                 RequestProvider requestProvider = requestProviderOpt.get();
-                requestProvider.setStatus(RequestProviderStatusEnum.INCOMPLETE);
+                requestProvider.setStatus(RequestProviderStatusEnum.INCOMPLETE_INFORMATION);
                 requestProvider.setIncompleteReason(requestProviderActionRequest.getIncompleteReason());
                 RequestProvider requestProviderUpdate = requestProviderRepository.save(requestProvider);
                 return requestProviderMapper.toRequestProviderResponse(requestProviderUpdate);
@@ -246,10 +246,24 @@ public class RequestProviderService {
             requestProviderResponse.setRequestProviderGalleryList(getRequestProviderGalleryList(requestProviderResponse.getId()));
         }
     }
-    public RequestProvider getRequestProviderByProvider(Provider provider){
-        return requestProviderRepository.findByProvider(provider);
-    }
-    public RequestProvider getRequestByIdAndProviderId(Integer id, Integer providerId){
-        return requestProviderRepository.findByIdAndProviderId(id, providerId);
+    @Transactional
+    public RequestProviderResponse preApproveRequestProviderById(Integer requestProviderId,
+                                                              Authentication connectedUser){
+        User user = ((User) connectedUser.getPrincipal());
+        List<Role> roleList = user.getRoles();
+        if(Utils.isAdmin(roleList)){
+            Optional<RequestProvider> requestProviderOpt = requestProviderRepository.findById(requestProviderId);
+            if(requestProviderOpt.isPresent()){
+                RequestProvider requestProvider = requestProviderOpt.get();
+                requestProvider.setStatus(RequestProviderStatusEnum.PRE_APPROVED);
+                RequestProvider requestProviderUpdate = requestProviderRepository.save(requestProvider);
+
+                return requestProviderMapper.toRequestProviderResponse(requestProviderUpdate);
+            }else{
+                throw new ResourceNotFoundException(REQUEST_PROVIDER_NOT_FOUND+requestProviderId);
+            }
+        }else{
+            throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
+        }
     }
 }

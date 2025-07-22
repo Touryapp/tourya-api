@@ -198,7 +198,7 @@ public class ProviderService {
                 if (requestProvider != null) {
                     requestProvider.setProvider(providerUpdate);
                     requestProvider.setStatus(status.equals(ProviderStatusEnum.ACTIVE) ?
-                            RequestProviderStatusEnum.COMPLETED : RequestProviderStatusEnum.DECLINED);
+                            RequestProviderStatusEnum.APPROVED : RequestProviderStatusEnum.CANCELLED);
                     requestProviderRepository.save(requestProvider);
                     return providerMapper.toProviderResponse(providerUpdate);
                 } else {
