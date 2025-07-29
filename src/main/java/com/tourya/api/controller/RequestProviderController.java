@@ -44,6 +44,13 @@ public class RequestProviderController {
         return ResponseEntity.ok(requestProviderService.consultData(connectedUser));
     }
 
+    @GetMapping("/user/send")
+    public ResponseEntity<RequestProviderResponse> send(
+            Authentication connectedUser
+    ) {
+        return ResponseEntity.ok(requestProviderService.send(connectedUser));
+    }
+
     @GetMapping("/admin/findAll")
     public ResponseEntity<PageResponse<RequestProviderResponse>> findAll(
             @RequestParam(name = "page", defaultValue = "0", required = false) int page,

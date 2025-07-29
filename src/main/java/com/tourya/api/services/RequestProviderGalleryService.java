@@ -169,6 +169,11 @@ public class RequestProviderGalleryService {
         RequestProvider requestProvider = requestProviderRepository.findByIdAndProviderId(requestId, providerId);
         if (requestProvider == null) {
             throw new ResourceNotFoundException("No request with this ID was found for this provider.");
+        }else{
+            if (!(requestProvider.getStatus().equals(RequestProviderStatusEnum.INCOMPLETE_INFORMATION) ||
+                    requestProvider.getStatus().equals(RequestProviderStatusEnum.PRE_APPROVED))) {
+                throw new OperationNotPermittedException("You cannot upload documents if your application is not in the status ‘Incomplete Information’ or ‘Pre-approved.’");
+            }
         }
         return requestProvider;
     }
