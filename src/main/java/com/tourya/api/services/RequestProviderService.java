@@ -122,6 +122,27 @@ public class RequestProviderService {
             return null;
         }
     }
+    public RequestProviderResponse send(Authentication connectedUser){
+        User user = ((User) connectedUser.getPrincipal());
+
+        Provider provider = providerService.findByUser(user);
+        if(provider != null){
+            RequestProvider requestProvider = requestProviderRepository.findByProvider(provider);
+            if(requestProvider != null){
+                requestProvider.setStatus(RequestProviderStatusEnum.SUBMITTED);
+                RequestProvider requestProviderUpdate = requestProviderRepository.save(requestProvider);
+
+                List<RequestProviderGalleryResponse>   requestProviderGalleryList = getRequestProviderGalleryList(requestProviderUpdate.getId());
+                RequestProviderResponse requestProviderResponse = requestProviderMapper.toRequestProviderResponse(requestProviderUpdate);
+                requestProviderResponse.setRequestProviderGalleryList(requestProviderGalleryList);
+                return requestProviderResponse;
+            }else{
+                throw new ResourceNotFoundException("No requestProvider found with the providerId = "+ provider.getId());
+            }
+        }else{
+            throw new ResourceNotFoundException("No provider found with the userId = "+ user.getId());
+        }
+    }
     private List<RequestProviderGalleryResponse> getRequestProviderGalleryList(Integer id){
         return requestProviderGalleryRepository.findByRequestProviderIdOrderByOrderIndexAsc(id)
                 .stream()
