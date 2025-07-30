@@ -36,6 +36,14 @@ public class SearchTourScheduleFullRepositoryImpl implements SearchTourScheduleF
             filters.put("page", pageable.getOffset());
             filters.put("size", pageable.getPageSize());
 
+
+            // Extraer campo de ordenamiento si existe
+            if (pageable.getSort().isSorted()) {
+                pageable.getSort().forEach(order -> {
+                    filters.put("sort_by", order.getProperty());
+                    filters.put("sort_dir", order.getDirection().name()); // ASC o DESC
+                });
+            }
             String jsonFilters = objectMapper.writeValueAsString(filters);
 
             // Asignar el parámetro sin el ":" (solo se usa en la cadena SQL)
