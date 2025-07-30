@@ -8,12 +8,12 @@ import lombok.AllArgsConstructor;
 
 @AllArgsConstructor
 public enum RequestProviderStatusEnum {
-    PENDING("Pending"),
-    INCOMPLETE("Incomplete"),
-    PROCESSING("Processing"),
+    CREATED("Created"),
+    SUBMITTED("Submitted"),
+    PRE_APPROVED("Pre-Approved"),
+    DOCUMENTS_SENT("Documents Sent"),
     APPROVED("Approved"),
-    DECLINED("Declined"),
-    COMPLETED("Completed"),
+    INCOMPLETE_INFORMATION ("Incomplete Information"),
     CANCELLED("Cancelled");
 
     private String value;

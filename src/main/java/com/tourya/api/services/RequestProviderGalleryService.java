@@ -1,7 +1,9 @@
 package com.tourya.api.services;
 
 import com.tourya.api._utils.Utils;
+import com.tourya.api.constans.enums.RequestProviderStatusEnum;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
+import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.models.*;
 import com.tourya.api.models.mapper.RequestProviderGalleryMapper;
@@ -40,7 +42,7 @@ public class RequestProviderGalleryService {
 
 
         User user = getAuthenticatedUser(connectedUser);
-        Provider provider = providerService.findByUserAndStatusActive(user);
+        Provider provider = providerService.findByUser(user);
         RequestProvider requestProvider = validateAndGetRequestProvider(requestId, provider.getId());
 
         List<RequestProviderGallery> toDeleteEntities = deletedGalleries.stream()
@@ -67,11 +69,13 @@ public class RequestProviderGalleryService {
                 .map(repository::save)
                 .toList();
 
-        return saved.stream()
+        List<RequestProviderGalleryResponse> requestProviderGalleryResponses = saved.stream()
                 .map(mapper::toRequestProviderGalleryResponse)
                 .toList();
+        requestProvider.setStatus(RequestProviderStatusEnum.DOCUMENTS_SENT);
+        requestProviderRepository.save(requestProvider);
+        return requestProviderGalleryResponses;
     }
-
 
     public List<RequestProviderGalleryResponse> create(List<MultipartFile> files,
                                                        List<RequestProviderGalleryRequest> requests,
@@ -161,6 +165,11 @@ public class RequestProviderGalleryService {
         RequestProvider requestProvider = requestProviderRepository.findByIdAndProviderId(requestId, providerId);
         if (requestProvider == null) {
             throw new ResourceNotFoundException("No request with this ID was found for this provider.");
+        }else{
+            if (!(requestProvider.getStatus().equals(RequestProviderStatusEnum.INCOMPLETE_INFORMATION) ||
+                    requestProvider.getStatus().equals(RequestProviderStatusEnum.PRE_APPROVED))) {
+                throw new OperationNotPermittedException("You cannot upload documents if your application is not in the status ‘Incomplete Information’ or ‘Pre-approved.’");
+            }
         }
         return requestProvider;
     }

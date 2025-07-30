@@ -1,7 +1,10 @@
 package com.tourya.api.controller;
 
+import com.tourya.api.common.PageResponse;
 import com.tourya.api.models.request.TourScheduleConfigCreationRequest;
+import com.tourya.api.models.request.TourSearchRequestDto;
 import com.tourya.api.models.responses.TourScheduleConfigResponse;
+import com.tourya.api.models.responses.TourScheduleSearchResponseDto;
 import com.tourya.api.services.TourScheduleService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -10,11 +13,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -24,6 +29,16 @@ import org.springframework.web.server.ResponseStatusException;
 @Tag(name = "TourSchedule")
 public class TourScheduleController {
     private final TourScheduleService tourScheduleService;
+
+    @GetMapping("/by-tour/{tourId}")
+    public ResponseEntity<PageResponse<TourScheduleConfigResponse>> getAllTourSchedulesByTourId(
+            @PathVariable Integer tourId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            Authentication connectedUser
+    ) {
+        return ResponseEntity.ok(tourScheduleService.findAllByTourId(tourId, page, size, connectedUser));
+    }
 
     /**
      * Endpoint para crear una nueva configuración de horario de tour
@@ -97,4 +112,24 @@ public class TourScheduleController {
         }
     }
 
+    /**
+     * Endpoint para realizar una búsqueda inteligente de tours disponibles para reserva.
+     * Permite filtrar por múltiples criterios como palabra clave, categoría, fechas, horas, capacidad, precio y ubicación.
+     *
+     * @param request DTO con los parámetros de búsqueda.
+     * @return Una página de TourScheduleSearchResponseDto que coinciden con los criterios.
+     */
+    @GetMapping("/search")
+    public ResponseEntity<PageResponse<TourScheduleSearchResponseDto>> searchTours(
+            @ModelAttribute TourSearchRequestDto request) {
+        try {
+            PageResponse<TourScheduleSearchResponseDto> result = tourScheduleService.searchToursForReservation(request);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            System.err.println("Error al realizar la búsqueda de tours: " + e.getMessage());
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
 }
+

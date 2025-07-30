@@ -1,8 +1,12 @@
 package com.tourya.api.models;
 
 import com.tourya.api.common.BaseEntity;
+import com.tourya.api.constans.enums.AgePriceType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -14,6 +18,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 
@@ -35,13 +41,16 @@ public class TourScheduleConfigPrice extends BaseEntity {
     //@Column(name = "slot_id", nullable = false)
     private Integer slotId;
 
-    @ManyToOne // Relación Many-to-One con la entidad TourScheduleConfigSlot
+    //@ManyToOne // Relación Many-to-One con la entidad TourScheduleConfigSlot
     //@JoinColumn(name = "slot_id", insertable = false, updatable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "slot_id", nullable = false)
     private TourScheduleConfigSlot slot;
 
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "age_type", length = 20, nullable = false)
-    private String ageType;
+    private AgePriceType ageType;
 
     @Column(name = "min_age", nullable = false)
     private Integer minAge;

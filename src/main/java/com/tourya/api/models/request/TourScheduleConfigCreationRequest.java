@@ -25,8 +25,6 @@ public class TourScheduleConfigCreationRequest {
     private List<String> daysOfWeek; // Días de la semana como Strings (ej. "MONDAY", "TUESDAY")
     // isUnlimitedCapacity tiene un default en DB, no requiere @NotNull aquí
     private Boolean isUnlimitedCapacity;
-    @NotNull(message = "El ID del creador no puede ser nulo")
-    private Long createdBy; // ID del usuario que crea la configuración
     @Valid // Habilita la validación anidada de los slots
     @NotEmpty(message = "La configuración debe tener al menos un slot de horario")
     private Set<TourScheduleConfigSlotDto> slots = new HashSet<>(); // CAMBIO: De List a Set, inicialización

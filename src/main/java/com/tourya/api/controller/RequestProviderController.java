@@ -44,6 +44,13 @@ public class RequestProviderController {
         return ResponseEntity.ok(requestProviderService.consultData(connectedUser));
     }
 
+    @GetMapping("/user/send")
+    public ResponseEntity<RequestProviderResponse> send(
+            Authentication connectedUser
+    ) {
+        return ResponseEntity.ok(requestProviderService.send(connectedUser));
+    }
+
     @GetMapping("/admin/findAll")
     public ResponseEntity<PageResponse<RequestProviderResponse>> findAll(
             @RequestParam(name = "page", defaultValue = "0", required = false) int page,
@@ -68,13 +75,13 @@ public class RequestProviderController {
     ) {
         return ResponseEntity.ok(requestProviderService.approveRequestProviderById(requestProviderById, connectedUser));
     }
-    @PutMapping("/admin/decline/{requestProviderById}")
-    public ResponseEntity<RequestProviderResponse> declineRequestProviderById(
+    @PutMapping("/admin/cancel/{requestProviderById}")
+    public ResponseEntity<RequestProviderResponse> cancelRequestProviderById(
             @RequestBody RequestProviderActionRequest requestProviderActionRequest,
             @PathVariable Integer requestProviderById,
             Authentication connectedUser
     ) {
-        return ResponseEntity.ok(requestProviderService.declineRequestProviderById(requestProviderActionRequest, requestProviderById, connectedUser));
+        return ResponseEntity.ok(requestProviderService.cancelRequestProviderById(requestProviderActionRequest, requestProviderById, connectedUser));
     }
     @PutMapping("/admin/incomplete/{requestProviderById}")
     public ResponseEntity<RequestProviderResponse> incompleteRequestProviderById(
@@ -83,5 +90,12 @@ public class RequestProviderController {
             Authentication connectedUser
     ) {
         return ResponseEntity.ok(requestProviderService.incompleteRequestProviderById(requestProviderActionRequest, requestProviderById, connectedUser));
+    }
+    @PutMapping("/admin/pre-approve/{requestProviderById}")
+    public ResponseEntity<RequestProviderResponse> preApproveRequestProviderById(
+            @PathVariable Integer requestProviderById,
+            Authentication connectedUser
+    ) {
+        return ResponseEntity.ok(requestProviderService.preApproveRequestProviderById(requestProviderById, connectedUser));
     }
 }

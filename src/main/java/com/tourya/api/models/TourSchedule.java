@@ -6,6 +6,7 @@ import com.tourya.api.constans.enums.TourScheduleStatusEnumConverter;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -37,7 +38,8 @@ public class TourSchedule extends BaseEntity {
     @Column(name = "tour_id", nullable = false)
     private Integer tourId;
 
-    @ManyToOne // Relación Many-to-One con la entidad Tour
+    //@ManyToOne // Relación Many-to-One con la entidad Tour
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "tour_id", insertable = false, updatable = false)
     private Tour tour; // Asegúrate de tener una entidad Tour definida
 
@@ -68,8 +70,9 @@ public class TourSchedule extends BaseEntity {
     @Column(name = "config_id", insertable = false, updatable = false)
     private Integer configId; // ID de la configuración que generó este horario
 
-    @ManyToOne // Relación Many-to-One con la entidad TourScheduleConfig (si aplica)
+    //@ManyToOne // Relación Many-to-One con la entidad TourScheduleConfig (si aplica)
     //@JoinColumn(name = "config_id", insertable = false, updatable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "config_id")
     private TourScheduleConfig config; // Asegúrate de tener una entidad TourScheduleConfig definida (la que creamos antes)
 

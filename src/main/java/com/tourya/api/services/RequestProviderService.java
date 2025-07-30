@@ -77,7 +77,7 @@ public class RequestProviderService {
 
         RequestProvider requestProvider = new RequestProvider();
         requestProvider.setProvider(providerNew);
-        requestProvider.setStatus(RequestProviderStatusEnum.PENDING);
+        requestProvider.setStatus(RequestProviderStatusEnum.CREATED);
 
         RequestProvider requestProviderNew = requestProviderRepository.save(requestProvider);
 
@@ -114,7 +114,7 @@ public class RequestProviderService {
         Provider provider = providerService.findByUser(user);
         if(provider != null){
             RequestProvider requestProvider = requestProviderRepository.findByProvider(provider);
-            List<RequestProviderGalleryResponse>   requestProviderGalleryList = getRequestProviderGalleryList(requestProvider);
+            List<RequestProviderGalleryResponse>   requestProviderGalleryList = getRequestProviderGalleryList(requestProvider.getId());
             RequestProviderResponse requestProviderResponse = requestProviderMapper.toRequestProviderResponse(requestProvider);
             requestProviderResponse.setRequestProviderGalleryList(requestProviderGalleryList);
             return requestProviderResponse;
@@ -122,8 +122,29 @@ public class RequestProviderService {
             return null;
         }
     }
-    private List<RequestProviderGalleryResponse> getRequestProviderGalleryList(RequestProvider requestProvider){
-        return requestProviderGalleryRepository.findByRequestProviderIdOrderByOrderIndexAsc(requestProvider.getId())
+    public RequestProviderResponse send(Authentication connectedUser){
+        User user = ((User) connectedUser.getPrincipal());
+
+        Provider provider = providerService.findByUser(user);
+        if(provider != null){
+            RequestProvider requestProvider = requestProviderRepository.findByProvider(provider);
+            if(requestProvider != null){
+                requestProvider.setStatus(RequestProviderStatusEnum.SUBMITTED);
+                RequestProvider requestProviderUpdate = requestProviderRepository.save(requestProvider);
+
+                List<RequestProviderGalleryResponse>   requestProviderGalleryList = getRequestProviderGalleryList(requestProviderUpdate.getId());
+                RequestProviderResponse requestProviderResponse = requestProviderMapper.toRequestProviderResponse(requestProviderUpdate);
+                requestProviderResponse.setRequestProviderGalleryList(requestProviderGalleryList);
+                return requestProviderResponse;
+            }else{
+                throw new ResourceNotFoundException("No requestProvider found with the providerId = "+ provider.getId());
+            }
+        }else{
+            throw new ResourceNotFoundException("No provider found with the userId = "+ user.getId());
+        }
+    }
+    private List<RequestProviderGalleryResponse> getRequestProviderGalleryList(Integer id){
+        return requestProviderGalleryRepository.findByRequestProviderIdOrderByOrderIndexAsc(id)
                 .stream()
                 .map(requestProviderGalleryMapper::toRequestProviderGalleryResponse)
                 .toList();
@@ -136,7 +157,9 @@ public class RequestProviderService {
             Optional<RequestProvider> requestProviderOpt = requestProviderRepository.findById(requestProviderId);
             if(requestProviderOpt.isPresent()){
                 RequestProvider requestProvider = requestProviderOpt.get();
-                return requestProviderMapper.toRequestProviderResponse(requestProvider);
+                RequestProviderResponse requestProviderResponse = requestProviderMapper.toRequestProviderResponse(requestProvider);
+                requestProviderResponse.setRequestProviderGalleryList(getRequestProviderGalleryList(requestProviderResponse.getId()));
+                return requestProviderResponse;
             }else{
                 throw new ResourceNotFoundException(REQUEST_PROVIDER_NOT_FOUND+requestProviderId);
             }
@@ -170,7 +193,7 @@ public class RequestProviderService {
         }
     }
     @Transactional
-    public RequestProviderResponse declineRequestProviderById(RequestProviderActionRequest requestProviderActionRequest, Integer requestProviderId,
+    public RequestProviderResponse cancelRequestProviderById(RequestProviderActionRequest requestProviderActionRequest, Integer requestProviderId,
                                                         Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
@@ -183,7 +206,7 @@ public class RequestProviderService {
                 provider.setStatus(ProviderStatusEnum.INACTIVE);
                 providerService.save(provider);
 
-                requestProvider.setStatus(RequestProviderStatusEnum.DECLINED);
+                requestProvider.setStatus(RequestProviderStatusEnum.CANCELLED);
                 requestProvider.setDeclinedReason(requestProviderActionRequest.getDeclinedReason());
                 RequestProvider requestProviderUpdate = requestProviderRepository.save(requestProvider);
 
@@ -204,7 +227,7 @@ public class RequestProviderService {
             Optional<RequestProvider> requestProviderOpt = requestProviderRepository.findById(requestProviderId);
             if(requestProviderOpt.isPresent()){
                 RequestProvider requestProvider = requestProviderOpt.get();
-                requestProvider.setStatus(RequestProviderStatusEnum.INCOMPLETE);
+                requestProvider.setStatus(RequestProviderStatusEnum.INCOMPLETE_INFORMATION);
                 requestProvider.setIncompleteReason(requestProviderActionRequest.getIncompleteReason());
                 RequestProvider requestProviderUpdate = requestProviderRepository.save(requestProvider);
                 return requestProviderMapper.toRequestProviderResponse(requestProviderUpdate);
@@ -225,6 +248,7 @@ public class RequestProviderService {
             List<RequestProviderResponse> requestProvidersResponse = allRequestProviderPending.stream()
                     .map(requestProviderMapper::toRequestProviderResponse)
                     .toList();
+            setGallery(requestProvidersResponse);
             return new PageResponse<>(
                     requestProvidersResponse,
                     allRequestProviderPending.getNumber(),
@@ -238,10 +262,29 @@ public class RequestProviderService {
             throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
         }
     }
-    public RequestProvider getRequestProviderByProvider(Provider provider){
-        return requestProviderRepository.findByProvider(provider);
+    private void setGallery(List<RequestProviderResponse> requestProvidersResponse){
+        for(RequestProviderResponse requestProviderResponse : requestProvidersResponse){
+            requestProviderResponse.setRequestProviderGalleryList(getRequestProviderGalleryList(requestProviderResponse.getId()));
+        }
     }
-    public RequestProvider getRequestByIdAndProviderId(Integer id, Integer providerId){
-        return requestProviderRepository.findByIdAndProviderId(id, providerId);
+    @Transactional
+    public RequestProviderResponse preApproveRequestProviderById(Integer requestProviderId,
+                                                              Authentication connectedUser){
+        User user = ((User) connectedUser.getPrincipal());
+        List<Role> roleList = user.getRoles();
+        if(Utils.isAdmin(roleList)){
+            Optional<RequestProvider> requestProviderOpt = requestProviderRepository.findById(requestProviderId);
+            if(requestProviderOpt.isPresent()){
+                RequestProvider requestProvider = requestProviderOpt.get();
+                requestProvider.setStatus(RequestProviderStatusEnum.PRE_APPROVED);
+                RequestProvider requestProviderUpdate = requestProviderRepository.save(requestProvider);
+
+                return requestProviderMapper.toRequestProviderResponse(requestProviderUpdate);
+            }else{
+                throw new ResourceNotFoundException(REQUEST_PROVIDER_NOT_FOUND+requestProviderId);
+            }
+        }else{
+            throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
+        }
     }
 }

@@ -6,8 +6,8 @@ import lombok.Data;
 import java.math.BigDecimal;
 
 @Data
-public class TourSchedulePriceResponse {
-    private Integer id;
+public class TourPriceOptionDto {
+    private Integer priceId;
     private AgePriceType ageType;
     private Integer minAge;
     private Integer maxAge;
