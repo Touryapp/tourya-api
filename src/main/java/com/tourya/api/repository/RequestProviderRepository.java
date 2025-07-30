@@ -16,11 +16,18 @@ import java.util.Optional;
 public interface RequestProviderRepository extends JpaRepository<RequestProvider, Integer> {
     RequestProvider findByProvider(Provider provider);
 
-    @Query("""
+    /*@Query("""
             SELECT requestProvider
             FROM RequestProvider requestProvider
             WHERE ((:status IS NULL ) OR (requestProvider.status = :status))
             """)
+    Page<RequestProvider> findAllRequestProviderPending(@Param("status") RequestProviderStatusEnum status, Pageable pageable);*/
+    @Query("""
+        SELECT rp
+        FROM RequestProvider rp
+        WHERE (:status IS NULL AND rp.status != 'CREATED')
+           OR (rp.status = :status)
+        """)
     Page<RequestProvider> findAllRequestProviderPending(@Param("status") RequestProviderStatusEnum status, Pageable pageable);
 
 
