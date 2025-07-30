@@ -44,7 +44,6 @@ public class RequestProviderGalleryService {
         User user = getAuthenticatedUser(connectedUser);
         Provider provider = providerService.findByUser(user);
         RequestProvider requestProvider = validateAndGetRequestProvider(requestId, provider.getId());
-        validateSyncGalleryMetadata(requestProvider);
 
         List<RequestProviderGallery> toDeleteEntities = deletedGalleries.stream()
                 .map(id -> repository.findById(id.getId())
@@ -70,15 +69,12 @@ public class RequestProviderGalleryService {
                 .map(repository::save)
                 .toList();
 
-        return saved.stream()
+        List<RequestProviderGalleryResponse> requestProviderGalleryResponses = saved.stream()
                 .map(mapper::toRequestProviderGalleryResponse)
                 .toList();
-    }
-    private void validateSyncGalleryMetadata(RequestProvider requestProvider){
-        if(!requestProvider.getStatus().equals(RequestProviderStatusEnum.PRE_APPROVED)
-                || !requestProvider.getStatus().equals(RequestProviderStatusEnum.INCOMPLETE_INFORMATION)){
-            throw new OperationNotPermittedException("Documents cannot be updated unless the provider request is in 'Pre-Approved' or 'Incomplete Information' status.");
-        }
+        requestProvider.setStatus(RequestProviderStatusEnum.DOCUMENTS_SENT);
+        requestProviderRepository.save(requestProvider);
+        return requestProviderGalleryResponses;
     }
 
     public List<RequestProviderGalleryResponse> create(List<MultipartFile> files,
