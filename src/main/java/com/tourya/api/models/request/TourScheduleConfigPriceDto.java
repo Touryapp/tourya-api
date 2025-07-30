@@ -1,9 +1,8 @@
 package com.tourya.api.models.request;
 
-import jakarta.validation.constraints.NotBlank;
+import com.tourya.api.constans.enums.AgePriceType;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
-import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -11,9 +10,8 @@ import java.math.BigDecimal;
 @Data
 public class TourScheduleConfigPriceDto {
     private Integer id; // Agregado para permitir actualizaciones (identificar precios existentes)
-    @NotBlank(message = "El tipo de edad no puede estar vacío")
-    @Size(max = 20, message = "El tipo de edad no puede exceder los 20 caracteres") // AÑADIDA ESTA VALIDACIÓN
-    private String ageType;
+    @NotNull(message = "El tipo de edad no puede ser nulo")
+    private AgePriceType ageType;
     @NotNull(message = "La edad mínima no puede ser nula")
     @PositiveOrZero(message = "La edad mínima debe ser un número no negativo")
     private Integer minAge;

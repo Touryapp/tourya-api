@@ -1,5 +1,6 @@
 package com.tourya.api.models.mapper.responses;
 
+import com.tourya.api.constans.enums.AgePriceType;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
@@ -16,5 +17,5 @@ public class ShoppingCartItemResponse {
     private Integer quantity;
     private BigDecimal unitPrice;
     private BigDecimal totalPrice;
-    private String ageType;
+    private AgePriceType ageType;
 }

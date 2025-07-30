@@ -182,7 +182,7 @@ public class ShoppingCartService {
                         .quantity(item.getQuantity())
                         .unitPrice(item.getUnitPrice())
                         .totalPrice(item.getTotalPrice())
-                        .ageType(item.getTourScheduleConfigPrice() != null ? item.getTourScheduleConfigPrice().getAgeType() : "N/A")
+                        .ageType(item.getTourScheduleConfigPrice() != null ? item.getTourScheduleConfigPrice().getAgeType() : null)
                         .build())
                 .collect(Collectors.toList());
 

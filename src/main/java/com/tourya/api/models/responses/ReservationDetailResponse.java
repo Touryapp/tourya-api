@@ -1,5 +1,6 @@
 package com.tourya.api.models.responses;
 
+import com.tourya.api.constans.enums.AgePriceType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -13,7 +14,7 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 public class ReservationDetailResponse {
     private Integer detailId;
-    private String ageType;
+    private AgePriceType ageType;
     private Integer quantity;
     private BigDecimal priceAtReservation;
     private BigDecimal subtotal;
