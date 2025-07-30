@@ -1,14 +1,8 @@
 package com.tourya.api.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tourya.api.models.responses.CityResponse;
-import com.tourya.api.models.responses.CountryResponse;
-import com.tourya.api.models.responses.SearchTourScheduleFullResponse;
-import com.tourya.api.models.responses.StateResponse;
-import com.tourya.api.services.CityService;
-import com.tourya.api.services.CountryService;
-import com.tourya.api.services.SearchTourScheduleFullService;
-import com.tourya.api.services.StateService;
+import com.tourya.api.models.responses.*;
+import com.tourya.api.services.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +23,10 @@ public class    PublicController {
     private final StateService stateService;
     private final CityService cityService;
     private final SearchTourScheduleFullService searchTourScheduleFullService;
+    private final SearchTourLocationService SearchTourLocationService;
+    private final SearchTourCategoryService SearchTourCategoryService;
+
+
     private final ObjectMapper objectMapper;
     private final Validator validator;
 
@@ -57,5 +55,15 @@ public class    PublicController {
             @RequestBody Map<String, Object> filters,
             Pageable pageable) {
         return ResponseEntity.ok(searchTourScheduleFullService.searchTourSchedule(filters, pageable));
+    }
+
+    @GetMapping("/search/locations")
+    public ResponseEntity<List<SearchTourLocationResponse>> getTourLocations() {
+        return  ResponseEntity.ok(SearchTourLocationService.getTourLocations());
+    }
+
+    @GetMapping("/search/categories")
+    public ResponseEntity<List<SearchTourCategoryResponse>>getTourCategories() {
+        return ResponseEntity.ok(SearchTourCategoryService.getTourCategories());
     }
 }
