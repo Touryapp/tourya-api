@@ -187,7 +187,7 @@ public class TourScheduleService {
                     currentSlot.setMinCapacity(slotDto.getMinCapacity());
                     currentSlot.setMaxCapacity(slotDto.getMaxCapacity());
 
-                    updateSlotPrices(currentSlot, slotDto.getPrices(), request.getCreatedBy());
+                    updateSlotPrices(currentSlot, slotDto.getPrices());
                     newOrUpdatedSlots.add(currentSlot);
                 }
             }
@@ -205,7 +205,7 @@ public class TourScheduleService {
 
     }
 
-    private void updateSlotPrices(TourScheduleConfigSlot slot, List<TourScheduleConfigPriceDto> incomingPriceDtos, Long userId) {
+    private void updateSlotPrices(TourScheduleConfigSlot slot, List<TourScheduleConfigPriceDto> incomingPriceDtos) {
         Map<Integer, TourScheduleConfigPriceDto> incomingPriceDtosById = incomingPriceDtos != null ?
                 incomingPriceDtos.stream()
                         .filter(p -> p.getId() != null)
