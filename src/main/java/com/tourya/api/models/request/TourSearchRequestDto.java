@@ -1,5 +1,6 @@
 package com.tourya.api.models.request;
 
+import com.tourya.api.constans.enums.AgePriceType;
 import lombok.Data;
 import org.springframework.format.annotation.DateTimeFormat;
 
@@ -29,7 +30,7 @@ public class TourSearchRequestDto {
     private Integer minCapacityAvailable; // Capacidad disponible mínima (max_capacity - reserved_capacity)
     private BigDecimal minPrice;
     private BigDecimal maxPrice;
-    private String ageType; // age_type del precio (ej. "ADULT", "CHILD")
+    private AgePriceType ageType; // age_type del precio (ej. "ADULT", "CHILD")
 
     private Long countryId;
     private Long stateId;

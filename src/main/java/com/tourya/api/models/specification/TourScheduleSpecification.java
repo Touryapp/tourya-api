@@ -86,7 +86,7 @@ public class TourScheduleSpecification {
             // --- FILTROS CON SUBCONSULTAS PARA EVITAR JOINS PROBLEMÁTICOS ---
 
             // 8. Subconsulta para filtrar por Precio (CORREGIDA)
-            if (request.getMinPrice() != null || request.getMaxPrice() != null || (request.getAgeType() != null && !request.getAgeType().isEmpty())) {
+            if (request.getMinPrice() != null || request.getMaxPrice() != null || request.getAgeType() != null) {
                 Subquery<Integer> priceSubquery = query.subquery(Integer.class);
                 Root<TourScheduleConfigPrice> priceRoot = priceSubquery.from(TourScheduleConfigPrice.class);
                 Join<TourScheduleConfigPrice, TourScheduleConfigSlot> slotJoin = priceRoot.join("slot");
@@ -98,8 +98,8 @@ public class TourScheduleSpecification {
                 if (request.getMaxPrice() != null) {
                     subqueryPredicates.add(criteriaBuilder.lessThanOrEqualTo(priceRoot.get("price"), request.getMaxPrice()));
                 }
-                if (request.getAgeType() != null && !request.getAgeType().isEmpty()) {
-                    subqueryPredicates.add(criteriaBuilder.equal(criteriaBuilder.lower(priceRoot.get("ageType")), request.getAgeType().toLowerCase()));
+                if (request.getAgeType() != null) {
+                    subqueryPredicates.add(criteriaBuilder.equal(priceRoot.get("ageType"), request.getAgeType()));
                 }
 
                 // Correlación correcta: el precio debe pertenecer a un slot que coincida

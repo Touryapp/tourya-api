@@ -1,5 +1,6 @@
 package com.tourya.api.models.responses;
 
+import com.tourya.api.constans.enums.AgePriceType;
 import lombok.Data;
 
 import java.time.LocalDate;
@@ -62,7 +63,7 @@ public class SearchTourScheduleFullResponse {
 
     @Data
     public static class Price {
-        private String ageType;
+        private AgePriceType ageType;
         private Integer minAge;
         private Integer maxAge;
         private Double price;
