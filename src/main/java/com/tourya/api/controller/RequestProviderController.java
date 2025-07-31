@@ -44,7 +44,7 @@ public class RequestProviderController {
         return ResponseEntity.ok(requestProviderService.consultData(connectedUser));
     }
 
-    @GetMapping("/user/send")
+    @PutMapping("/user/send")
     public ResponseEntity<RequestProviderResponse> send(
             Authentication connectedUser
     ) {
