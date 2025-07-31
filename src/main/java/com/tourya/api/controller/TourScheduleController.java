@@ -51,16 +51,8 @@ public class TourScheduleController {
     public ResponseEntity<TourScheduleConfigResponse> createTourSchedule(
             @Valid @RequestBody TourScheduleConfigCreationRequest request,
             Authentication connectedUser) {
-        try {
-            TourScheduleConfigResponse dto = tourScheduleService.createTourScheduleConfigAndGenerateSchedules(request, connectedUser);
-            return new ResponseEntity<>(dto, HttpStatus.CREATED);
-        } catch (ResponseStatusException e) {
-
-            throw e;
-        } catch (Exception e) {
-            System.err.println("Error creating tour schedule configuration:" + e.getMessage());
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-        }
+        TourScheduleConfigResponse dto = tourScheduleService.createTourScheduleConfig(request, connectedUser);
+        return new ResponseEntity<>(dto, HttpStatus.CREATED);
     }
     /**
      * Endpoint para modificar una configuración de horario de tour existente
@@ -75,20 +67,13 @@ public class TourScheduleController {
             @PathVariable Integer configId,
             @Valid @RequestBody TourScheduleConfigCreationRequest request,
             Authentication connectedUser) {
-        try {
-            if (request.getId() != null && !request.getId().equals(configId)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "The ID in the path doesn't match the ID in the request body.");
-            }
-            request.setId(configId);
-            TourScheduleConfigResponse dto = tourScheduleService.updateTourScheduleConfigAndGenerateSchedules(configId, request, connectedUser);
-            return new ResponseEntity<>(dto, HttpStatus.OK);
-        } catch (ResponseStatusException e) {
-            throw e;
-        } catch (Exception e) {
-            System.err.println("Error updating tour schedule configuration:" + e.getMessage());
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        if (request.getId() != null && !request.getId().equals(configId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "The ID in the path doesn't match the ID in the request body.");
         }
+        request.setId(configId);
+        TourScheduleConfigResponse dto = tourScheduleService.updateTourScheduleConfig(configId, request, connectedUser);
+        return new ResponseEntity<>(dto, HttpStatus.OK);
     }
 
     /**
