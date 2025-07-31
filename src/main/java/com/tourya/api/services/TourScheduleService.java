@@ -31,6 +31,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -150,20 +151,77 @@ public class TourScheduleService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Tour configuration with ID " + configId + " not found."));
 
-        // 2. Actualizar las propiedades y colecciones de la entidad
+        // 2. VALIDACIÓN INTELIGENTE: Prevenir cambios destructivos si hay reservas
+        validateUpdateRequestAgainstExistingReservations(existingConfig, request);
+
+        // 3. Actualizar las propiedades y colecciones de la entidad
         updateConfigProperties(existingConfig, request, tour);
         manageSlotsUpdate(existingConfig, request.getSlots());
 
-        // 3. Guardar la entidad actualizada
+        // 4. Guardar la entidad actualizada
         TourScheduleConfig savedConfig = tourScheduleConfigRepository.save(existingConfig);
 
-        // 4. Regenerar los horarios
+        // 5. Regenerar los horarios
         Set<DayOfWeek> newValidDaysOfWeek = getValidDaysOfWeek(request.getDaysOfWeek());
         List<TourSchedule> generatedSchedules = generateAndSaveTourSchedules(savedConfig, newValidDaysOfWeek);
 
-        // 5. Mapear y devolver la respuesta
+        // 6. Mapear y devolver la respuesta
         return mapToTourScheduleConfigResponse(savedConfig, generatedSchedules);
     }
+
+    private void validateUpdateRequestAgainstExistingReservations(TourScheduleConfig existingConfig, TourScheduleConfigCreationRequest request) {
+        List<TourSchedule> existingSchedules = tourScheduleRepository.findByConfigId(existingConfig.getId());
+
+        Set<String> reservedScheduleKeys = existingSchedules.stream()
+                .filter(s -> s.getReservedCapacity() > 0)
+                .map(this::generateScheduleKey)
+                .collect(Collectors.toSet());
+
+        // Si no hay reservas, no hay nada que validar. Permitir cualquier cambio.
+        if (reservedScheduleKeys.isEmpty()) {
+            return;
+        }
+
+        // Simular los horarios que se generarían con la nueva configuración
+        Set<String> prospectiveScheduleKeys = generateProspectiveScheduleKeys(request);
+
+        // Encontrar los horarios existentes que serían eliminados por la actualización
+        Set<String> schedulesToBeDeletedKeys = existingSchedules.stream()
+                .map(this::generateScheduleKey)
+                .collect(Collectors.toSet());
+        schedulesToBeDeletedKeys.removeAll(prospectiveScheduleKeys);
+
+        // Comprobar si alguno de los horarios a eliminar tiene reservas
+        for (String deletedKey : schedulesToBeDeletedKeys) {
+            if (reservedScheduleKeys.contains(deletedKey)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Update failed. The requested change would delete a schedule (" + deletedKey.replace("_", " ") + ") that has existing reservations.");
+            }
+        }
+    }
+
+    private String generateScheduleKey(TourSchedule schedule) {
+        return schedule.getScheduleDate() + "_" + schedule.getStartTime() + "_" + schedule.getEndTime();
+    }
+
+    private Set<String> generateProspectiveScheduleKeys(TourScheduleConfigCreationRequest request) {
+        Set<String> keys = new HashSet<>();
+        Set<DayOfWeek> validDaysOfWeek = getValidDaysOfWeek(request.getDaysOfWeek());
+        LocalDate currentDate = request.getStartDate();
+
+        while (!currentDate.isAfter(request.getEndDate())) {
+            if (validDaysOfWeek.contains(currentDate.getDayOfWeek())) {
+                if (request.getSlots() != null) {
+                    for (TourScheduleConfigSlotDto slot : request.getSlots()) {
+                        keys.add(currentDate + "_" + slot.getStartTime() + "_" + slot.getEndTime());
+                    }
+                }
+            }
+            currentDate = currentDate.plusDays(1);
+        }
+        return keys;
+    }
+
 
     private void updateConfigProperties(TourScheduleConfig existingConfig, TourScheduleConfigCreationRequest request, Tour tour) {
         existingConfig.setTour(tour);
@@ -285,7 +343,7 @@ public class TourScheduleService {
         Map<String, TourSchedule> existingSchedulesMap = tourScheduleRepository.findByConfigId(config.getId())
                 .stream()
                 .collect(Collectors.toMap(
-                        s -> s.getScheduleDate().toString() + "_" + s.getStartTime().toString() + "_" + s.getEndTime().toString(),
+                        this::generateScheduleKey,
                         Function.identity()
                 ));
         tourScheduleRepository.deleteByConfigId(config.getId());
