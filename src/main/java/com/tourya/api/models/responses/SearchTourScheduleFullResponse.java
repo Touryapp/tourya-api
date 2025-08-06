@@ -33,7 +33,17 @@ public class SearchTourScheduleFullResponse {
         private String name;
         private String description;
         private String duration;
+        private String durationType; // DIAS o HORAS
         private Double rating;
+        private String status;
+        private List<Tag> tags;
+    }
+
+    @Data
+    public static class Tag {
+        private Integer id;
+        private String name;
+        private String category;
     }
 
     @Data
@@ -59,6 +69,7 @@ public class SearchTourScheduleFullResponse {
         private Integer minCapacity;
         private Integer maxCapacity;
         private List<Price> prices;
+        private HighestPrice highestPrice;
     }
 
     @Data
@@ -66,6 +77,12 @@ public class SearchTourScheduleFullResponse {
         private AgePriceType ageType;
         private Integer minAge;
         private Integer maxAge;
+        private Double price;
+    }
+
+    @Data
+    public static class HighestPrice {
+        private AgePriceType ageType;
         private Double price;
     }
 }

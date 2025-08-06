@@ -25,7 +25,8 @@ public class    PublicController {
     private final SearchTourScheduleFullService searchTourScheduleFullService;
     private final SearchTourLocationService SearchTourLocationService;
     private final SearchTourCategoryService SearchTourCategoryService;
-
+    private final TagCategoryService tagCategoryService;
+    private final TourTagService tourTagService;
 
     private final ObjectMapper objectMapper;
     private final Validator validator;
@@ -66,4 +67,18 @@ public class    PublicController {
     public ResponseEntity<List<SearchTourCategoryResponse>>getTourCategories() {
         return ResponseEntity.ok(SearchTourCategoryService.getTourCategories());
     }
+
+
+    @GetMapping("tag/categories")
+    public ResponseEntity<List<String>> getCategories() {
+        return ResponseEntity.ok(tagCategoryService.getCategories());
+    }
+
+    @GetMapping
+    public ResponseEntity<List<TourTagResponse>> getAllTags() {
+        return ResponseEntity.ok(tourTagService.getAllTags());
+    }
+
+
+
 }
