@@ -1,6 +1,7 @@
 package com.tourya.api.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tourya.api.constans.enums.AgePriceType;
 import com.tourya.api.models.responses.*;
 import com.tourya.api.services.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -11,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -68,17 +70,20 @@ public class    PublicController {
         return ResponseEntity.ok(SearchTourCategoryService.getTourCategories());
     }
 
-
     @GetMapping("tag/categories")
-    public ResponseEntity<List<String>> getCategories() {
+    public ResponseEntity<List<TagCategoryResponse>> getCategories() {
         return ResponseEntity.ok(tagCategoryService.getCategories());
     }
 
-    @GetMapping
+    @GetMapping("tags")
     public ResponseEntity<List<TourTagResponse>> getAllTags() {
         return ResponseEntity.ok(tourTagService.getAllTags());
     }
 
+    @GetMapping("/age-price-types")
+    public AgePriceType[] getAgePriceTypes() {
+        return AgePriceType.values();
+    }
 
 
 }
