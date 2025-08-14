@@ -13,8 +13,8 @@ import java.util.Set;
 @Data
 public class TourScheduleConfigCreationRequest {
     private Integer id; // Agregado para permitir actualizaciones (identificar la configuración existente)
-    @NotNull(message = "El ID del tour no puede ser nulo")
     private Integer tourId; // ID del tour al que se aplica esta configuración
+    private Integer providerId; // ID del provider al que se aplica esta configuración
     // Label puede ser nulo según tu tabla, pero se puede añadir @NotBlank si se desea
     private String label;
     @NotNull(message = "La fecha de inicio de la configuración no puede ser nula")

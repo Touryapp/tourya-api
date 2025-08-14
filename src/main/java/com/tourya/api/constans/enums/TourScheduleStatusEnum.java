@@ -7,7 +7,8 @@ import lombok.AllArgsConstructor;
 
 @AllArgsConstructor
 public enum TourScheduleStatusEnum {
-    AVAILABLE("available");
+    AVAILABLE("available"),
+    RESERVED("reserved");
 
     private String value;
 

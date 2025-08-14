@@ -13,6 +13,7 @@ import java.util.Set;
 public class TourScheduleConfigResponse {
     private Integer id;
     private Integer tourId;
+    private Integer providerId;
     private String label;
     private LocalDate startDate;
     private LocalDate endDate;

@@ -17,6 +17,9 @@ public interface TourScheduleRepository extends JpaRepository<TourSchedule, Inte
     Optional<TourSchedule> findByConfigIdAndScheduleDateAndStartTimeAndEndTime(
             Long configId, LocalDate scheduleDate, LocalTime startTime, LocalTime endTime);
 
+
+    Optional<TourSchedule> findByTourIdAndScheduleDate(Integer tourId, LocalDate scheduleDate);
+
     void deleteByConfigId(Integer configId);
 
     @Query("SELECT DISTINCT ts FROM TourSchedule ts " +

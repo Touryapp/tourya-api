@@ -2,9 +2,11 @@ package com.tourya.api.controller;
 
 import com.tourya.api.common.PageResponse;
 import com.tourya.api.models.request.TourScheduleConfigCreationRequest;
+import com.tourya.api.models.request.TourScheduleRequest;
 import com.tourya.api.models.request.TourSearchRequestDto;
 import com.tourya.api.models.responses.TourScheduleConfigResponse;
 import com.tourya.api.models.responses.TourScheduleSearchResponseDto;
+import com.tourya.api.services.TourScheduleConfigGeneralService;
 import com.tourya.api.services.TourScheduleService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -29,6 +31,7 @@ import org.springframework.web.server.ResponseStatusException;
 @Tag(name = "TourSchedule")
 public class TourScheduleController {
     private final TourScheduleService tourScheduleService;
+    private final TourScheduleConfigGeneralService tourScheduleConfigGeneralService;
 
     @GetMapping("/by-tour/{tourId}")
     public ResponseEntity<PageResponse<TourScheduleConfigResponse>> getAllTourSchedulesByTourId(
@@ -116,5 +119,17 @@ public class TourScheduleController {
         }
     }
 
-}
+    /**
+     * Endpoint para guardar o actualizar en lote los horarios de tour enviados desde el frontend.
+     *
+     * @param requests Lista de TourScheduleRequest a procesar.
+     * @return ResponseEntity con estado 204 No Content si todo fue exitoso.
+     */
+    @PostMapping("/bulk")
+    public ResponseEntity<Void> saveOrUpdateTourSchedulesBulk(
+            @Valid @RequestBody java.util.List<TourScheduleRequest> requests) {
+        tourScheduleConfigGeneralService.saveOrUpdateTourSchedules(requests);
+        return ResponseEntity.noContent().build();
+    }
 
+}
