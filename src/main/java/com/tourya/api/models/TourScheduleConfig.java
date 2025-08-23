@@ -1,29 +1,14 @@
 package com.tourya.api.models;
 
 import com.tourya.api.common.BaseEntity;
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import jakarta.persistence.*;
+import lombok.*;
 import lombok.experimental.SuperBuilder;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
 
 @Getter
 @Setter
@@ -33,34 +18,42 @@ import java.util.Set;
 @Entity
 @Table(name = "tour_schedule_config")
 public class TourScheduleConfig extends BaseEntity {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
     private Integer id;
 
-    @Column(name = "tour_id", nullable = false)
+    // --- Opcional: config asociada a un tour específico ---
+    @Column(name = "tour_id", nullable = true)
     private Integer tourId;
 
-    //@ManyToOne // Relación Many-to-One con la entidad Tour
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "tour_id", insertable = false, updatable = false)
-    private Tour tour; // Asegúrate de tener una entidad Tour definida
+    private Tour tour;
+
+    // --- NUEVO: Opcional, config por proveedor ---
+    @Column(name = "provider_id", nullable = true)
+    private Integer providerId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "provider_id", insertable = false, updatable = false)
+    private Provider provider;
 
     // Una configuración puede tener múltiples slots
-    // orphanRemoval = true: Si un slot se elimina de esta lista, se borra de la DB
     @OneToMany(mappedBy = "config", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<TourScheduleConfigSlot> slots = new HashSet<>(); // CAMBIO: De List a Set, inicialización
+    private Set<TourScheduleConfigSlot> slots = new HashSet<>();
 
     @Column(name = "label")
-    private String label; // TEXT en SQL se mapea a String en Java
+    private String label;
 
-    @Column(name = "start_date", nullable = false)
-    private LocalDate startDate; // DATE en SQL se mapea a LocalDate en Java
+    // Eliminado: start_date / end_date (sin rango de fechas)
+    @Column(name = "start_date", nullable = true)
+    private LocalDate startDate;
+    @Column(name = "end_date", nullable = true)
+    private LocalDate endDate;
 
-    @Column(name = "end_date", nullable = false)
-    private LocalDate endDate; // DATE en SQL se mapea a LocalDate en Java
-
-    // Opción 1 (Directa, a veces funciona con ciertos dialectos de Hibernate para PostgreSQL arrays)
+    // Si usas PostgreSQL text[] (asegúrate del mapping de array)
     @Column(name = "days_of_week", columnDefinition = "text[]")
     private List<String> daysOfWeek;
 
