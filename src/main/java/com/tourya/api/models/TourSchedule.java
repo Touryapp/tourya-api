@@ -67,13 +67,14 @@ public class TourSchedule extends BaseEntity {
 
     // MODIFICACIÓN: Esta propiedad ahora es solo de lectura para la columna 'config_id'.
     // La relación @ManyToOne 'config' será la propietaria para insertar/actualizar.
+    //@Column(name = "config_id")
     @Column(name = "config_id", insertable = false, updatable = false)
     private Integer configId; // ID de la configuración que generó este horario
 
     //@ManyToOne // Relación Many-to-One con la entidad TourScheduleConfig (si aplica)
     //@JoinColumn(name = "config_id", insertable = false, updatable = false)
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "config_id")
-    private TourScheduleConfig config; // Asegúrate de tener una entidad TourScheduleConfig definida (la que creamos antes)
+     @ManyToOne(fetch = FetchType.LAZY)
+     @JoinColumn(name = "config_id")
+     private TourScheduleConfig config; // Asegúrate de tener una entidad TourScheduleConfig definida (la que creamos antes)
 
 }
