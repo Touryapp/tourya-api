@@ -48,10 +48,12 @@ public class TourScheduleConfig extends BaseEntity {
     private String label;
 
     // Eliminado: start_date / end_date (sin rango de fechas)
+/*
     @Column(name = "start_date", nullable = true)
     private LocalDate startDate;
     @Column(name = "end_date", nullable = true)
     private LocalDate endDate;
+*/
 
     // Si usas PostgreSQL text[] (asegúrate del mapping de array)
     @Column(name = "days_of_week", columnDefinition = "text[]")
@@ -59,4 +61,7 @@ public class TourScheduleConfig extends BaseEntity {
 
     @Column(name = "is_unlimited_capacity")
     private Boolean isUnlimitedCapacity;
+
+    @Column(name = "is_template")
+    private Boolean isTemplate;
 }

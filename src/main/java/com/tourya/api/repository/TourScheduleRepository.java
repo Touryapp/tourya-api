@@ -1,6 +1,9 @@
 package com.tourya.api.repository;
 
 import com.tourya.api.models.TourSchedule;
+import com.tourya.api.models.TourScheduleConfig;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -17,6 +20,7 @@ public interface TourScheduleRepository extends JpaRepository<TourSchedule, Inte
     Optional<TourSchedule> findByConfigIdAndScheduleDateAndStartTimeAndEndTime(
             Long configId, LocalDate scheduleDate, LocalTime startTime, LocalTime endTime);
 
+    Page<TourSchedule> findByTourId(@Param("tourId") Integer tourId, Pageable pageable);
 
     Optional<TourSchedule> findByTourIdAndScheduleDate(Integer tourId, LocalDate scheduleDate);
 

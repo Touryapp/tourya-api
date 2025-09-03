@@ -5,9 +5,10 @@ import com.tourya.api.models.request.TourScheduleConfigCreationRequest;
 import com.tourya.api.models.request.TourScheduleRequest;
 import com.tourya.api.models.request.TourSearchRequestDto;
 import com.tourya.api.models.responses.TourScheduleConfigResponse;
+import com.tourya.api.models.responses.TourScheduleResponse;
 import com.tourya.api.models.responses.TourScheduleSearchResponseDto;
+import com.tourya.api.services.TourConfigTemplateService;
 import com.tourya.api.services.TourScheduleConfigGeneralService;
-import com.tourya.api.services.TourScheduleService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,22 +26,24 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("tour-schedules")
 @RequiredArgsConstructor
 @Tag(name = "TourSchedule")
 public class TourScheduleController {
-    private final TourScheduleService tourScheduleService;
     private final TourScheduleConfigGeneralService tourScheduleConfigGeneralService;
+    private final TourConfigTemplateService configTemplateService;
 
     @GetMapping("/by-tour/{tourId}")
-    public ResponseEntity<PageResponse<TourScheduleConfigResponse>> getAllTourSchedulesByTourId(
+    public ResponseEntity<PageResponse<TourScheduleResponse>> getAllTourSchedulesByTourId(
             @PathVariable Integer tourId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             Authentication connectedUser
     ) {
-        return ResponseEntity.ok(tourScheduleService.findAllByTourId(tourId, page, size, connectedUser));
+        return ResponseEntity.ok(tourScheduleConfigGeneralService.findAllByTourId(tourId, page, size, connectedUser));
     }
 
     /**
@@ -50,11 +53,11 @@ public class TourScheduleController {
      * @param request Datos de la solicitud que incluyen la configuración, slots y precios.
      * @return ResponseEntity con la configuración de horario creada y un estado HTTP 201 Created.
      */
-    @PostMapping
+    @PostMapping("/config")
     public ResponseEntity<TourScheduleConfigResponse> createTourSchedule(
             @Valid @RequestBody TourScheduleConfigCreationRequest request,
             Authentication connectedUser) {
-        TourScheduleConfigResponse dto = tourScheduleService.createTourScheduleConfig(request, connectedUser);
+        TourScheduleConfigResponse dto = tourScheduleConfigGeneralService.createTourScheduleConfig(request, connectedUser);
         return new ResponseEntity<>(dto, HttpStatus.CREATED);
     }
     /**
@@ -65,7 +68,7 @@ public class TourScheduleController {
      * @param request Datos de la solicitud con la configuración, slots y precios actualizados.
      * @return ResponseEntity con la configuración de horario actualizada y un estado HTTP 200 OK.
      */
-    @PutMapping("/{configId}")
+    @PutMapping("config/{configId}")
     public ResponseEntity<TourScheduleConfigResponse> updateTourSchedule(
             @PathVariable Integer configId,
             @Valid @RequestBody TourScheduleConfigCreationRequest request,
@@ -75,7 +78,7 @@ public class TourScheduleController {
                     "The ID in the path doesn't match the ID in the request body.");
         }
         request.setId(configId);
-        TourScheduleConfigResponse dto = tourScheduleService.updateTourScheduleConfig(configId, request, connectedUser);
+        TourScheduleConfigResponse dto = tourScheduleConfigGeneralService.updateTourScheduleConfig(configId, request, connectedUser);
         return new ResponseEntity<>(dto, HttpStatus.OK);
     }
 
@@ -90,7 +93,7 @@ public class TourScheduleController {
     public ResponseEntity<TourScheduleConfigResponse> getTourScheduleDetails(
             @PathVariable Integer configId) {
         try {
-            TourScheduleConfigResponse details = tourScheduleService.getTourScheduleConfigDetails(configId);
+            TourScheduleConfigResponse details =tourScheduleConfigGeneralService.getTourScheduleConfigDetails(configId);
             return new ResponseEntity<>(details, HttpStatus.OK);
         } catch (ResponseStatusException e) {
             throw e;
@@ -111,7 +114,7 @@ public class TourScheduleController {
     public ResponseEntity<PageResponse<TourScheduleSearchResponseDto>> searchTours(
             @ModelAttribute TourSearchRequestDto request) {
         try {
-            PageResponse<TourScheduleSearchResponseDto> result = tourScheduleService.searchToursForReservation(request);
+            PageResponse<TourScheduleSearchResponseDto> result =  tourScheduleConfigGeneralService.searchToursForReservation(request);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             System.err.println("Error al realizar la búsqueda de tours: " + e.getMessage());
@@ -127,9 +130,15 @@ public class TourScheduleController {
      */
     @PostMapping("/bulk")
     public ResponseEntity<Void> saveOrUpdateTourSchedulesBulk(
-            @Valid @RequestBody java.util.List<TourScheduleRequest> requests) {
-        tourScheduleConfigGeneralService.saveOrUpdateTourSchedules(requests);
-        return ResponseEntity.noContent().build();
+            @Valid @RequestBody java.util.List<TourScheduleRequest> requests,Authentication connectedUser) {
+        tourScheduleConfigGeneralService.saveOrUpdateTourSchedules(requests,connectedUser);
+        return ResponseEntity.ok().build();
     }
 
+    @GetMapping("/config-templates/{providerId}")
+    public ResponseEntity<List<TourScheduleConfigResponse>> getTemplatesByProvider(
+            @PathVariable Integer providerId
+    ) {
+        return ResponseEntity.ok(configTemplateService.getConfigTemplatesByProvider(providerId));
+    }
 }

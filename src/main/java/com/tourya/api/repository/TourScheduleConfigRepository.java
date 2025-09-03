@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface TourScheduleConfigRepository extends JpaRepository<TourScheduleConfig, Integer> {
@@ -17,4 +18,12 @@ public interface TourScheduleConfigRepository extends JpaRepository<TourSchedule
     Optional<TourScheduleConfig> findByIdWithSlots(@Param("id") Integer id);
 
     Page<TourScheduleConfig> findByTourId(@Param("tourId") Integer tourId, Pageable pageable);
+
+    // Consulta JPA para templates
+    List<TourScheduleConfig> findByProviderIdAndIsTemplateTrue(Integer providerId);
+
+    // Consulta por procedimiento almacenado en Postgres
+    @Query(value = "SELECT * FROM get_templates_by_provider(:providerId)", nativeQuery = true)
+    List<Object[]> findTemplatesByProviderSP(@Param("providerId") Integer providerId);
 }
+
