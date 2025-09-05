@@ -95,7 +95,7 @@ public class TourScheduleController {
      * @param configId El ID de la configuración de tour a consultar.
      * @return ResponseEntity con el DTO de respuesta completo y un estado HTTP 200 OK.
      */
-    @GetMapping("/{configId}")
+    @GetMapping("config/{configId}")
     public ResponseEntity<TourScheduleConfigResponse> getTourScheduleDetails(
             @PathVariable Integer configId) {
         try {
