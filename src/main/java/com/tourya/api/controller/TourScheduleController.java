@@ -1,9 +1,12 @@
 package com.tourya.api.controller;
 
 import com.tourya.api.common.PageResponse;
+import com.tourya.api.models.Provider;
+import com.tourya.api.models.User;
 import com.tourya.api.models.request.TourScheduleConfigCreationRequest;
 import com.tourya.api.models.request.TourScheduleRequest;
 import com.tourya.api.models.request.TourSearchRequestDto;
+import com.tourya.api.models.responses.TourScheduleBulkResponse;
 import com.tourya.api.models.responses.TourScheduleConfigResponse;
 import com.tourya.api.models.responses.TourScheduleResponse;
 import com.tourya.api.models.responses.TourScheduleSearchResponseDto;
@@ -36,7 +39,7 @@ public class TourScheduleController {
     private final TourScheduleConfigGeneralService tourScheduleConfigGeneralService;
     private final TourConfigTemplateService configTemplateService;
 
-    @GetMapping("/by-tour/{tourId}")
+    @GetMapping("/tours/{tourId}")
     public ResponseEntity<PageResponse<TourScheduleResponse>> getAllTourSchedulesByTourId(
             @PathVariable Integer tourId,
             @RequestParam(defaultValue = "0") int page,
@@ -50,13 +53,16 @@ public class TourScheduleController {
      * Endpoint para crear una nueva configuración de horario de tour
      * y generar automáticamente las instancias de horarios de tour individuales.
      *
+     * @param isTemplate Indica si la configuración es una plantilla.
      * @param request Datos de la solicitud que incluyen la configuración, slots y precios.
      * @return ResponseEntity con la configuración de horario creada y un estado HTTP 201 Created.
      */
     @PostMapping("/config")
     public ResponseEntity<TourScheduleConfigResponse> createTourSchedule(
+            @RequestParam Boolean isTemplate,
             @Valid @RequestBody TourScheduleConfigCreationRequest request,
             Authentication connectedUser) {
+        request.setIsTemplate(isTemplate);
         TourScheduleConfigResponse dto = tourScheduleConfigGeneralService.createTourScheduleConfig(request, connectedUser);
         return new ResponseEntity<>(dto, HttpStatus.CREATED);
     }
@@ -103,24 +109,6 @@ public class TourScheduleController {
         }
     }
 
-    /**
-     * Endpoint para realizar una búsqueda inteligente de tours disponibles para reserva.
-     * Permite filtrar por múltiples criterios como palabra clave, categoría, fechas, horas, capacidad, precio y ubicación.
-     *
-     * @param request DTO con los parámetros de búsqueda.
-     * @return Una página de TourScheduleSearchResponseDto que coinciden con los criterios.
-     */
-    @GetMapping("/search")
-    public ResponseEntity<PageResponse<TourScheduleSearchResponseDto>> searchTours(
-            @ModelAttribute TourSearchRequestDto request) {
-        try {
-            PageResponse<TourScheduleSearchResponseDto> result =  tourScheduleConfigGeneralService.searchToursForReservation(request);
-            return ResponseEntity.ok(result);
-        } catch (Exception e) {
-            System.err.println("Error al realizar la búsqueda de tours: " + e.getMessage());
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-    }
 
     /**
      * Endpoint para guardar o actualizar en lote los horarios de tour enviados desde el frontend.
@@ -128,17 +116,15 @@ public class TourScheduleController {
      * @param requests Lista de TourScheduleRequest a procesar.
      * @return ResponseEntity con estado 204 No Content si todo fue exitoso.
      */
-    @PostMapping("/bulk")
-    public ResponseEntity<Void> saveOrUpdateTourSchedulesBulk(
-            @Valid @RequestBody java.util.List<TourScheduleRequest> requests,Authentication connectedUser) {
-        tourScheduleConfigGeneralService.saveOrUpdateTourSchedules(requests,connectedUser);
-        return ResponseEntity.ok().build();
+    @PostMapping("/batch")
+    public ResponseEntity<List<TourScheduleBulkResponse>> saveOrUpdateTourSchedulesBulk(
+            @Valid @RequestBody java.util.List<TourScheduleRequest> requests, Authentication connectedUser) {
+        List<TourScheduleBulkResponse> response = tourScheduleConfigGeneralService.saveOrUpdateTourSchedules(requests, connectedUser);
+        return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/config-templates/{providerId}")
-    public ResponseEntity<List<TourScheduleConfigResponse>> getTemplatesByProvider(
-            @PathVariable Integer providerId
-    ) {
-        return ResponseEntity.ok(configTemplateService.getConfigTemplatesByProvider(providerId));
+    @GetMapping("/templates")
+    public ResponseEntity<List<TourScheduleConfigResponse>> getTemplatesByProvider(Authentication connectedUser)  {
+        return ResponseEntity.ok(configTemplateService.getConfigTemplatesByProvider(connectedUser));
     }
 }

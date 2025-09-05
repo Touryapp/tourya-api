@@ -11,8 +11,6 @@ import java.util.List;
 public class TourScheduleSearchResponseDto {
     private Integer scheduleId;
     private LocalDate scheduleDate;
-    private LocalTime startTime;
-    private LocalTime endTime;
     private Integer maxCapacity; // Capacidad máxima del slot
     private Integer reservedCapacity;
     private Integer availableCapacity; // Calculado: maxCapacity - reservedCapacity

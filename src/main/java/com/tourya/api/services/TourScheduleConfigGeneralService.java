@@ -27,7 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.DayOfWeek;
-import java.time.LocalDate;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -170,7 +169,7 @@ public class TourScheduleConfigGeneralService {
     }
 
     private String generateScheduleKey(TourSchedule schedule) {
-        return schedule.getScheduleDate() + "_" + schedule.getStartTime() + "_" + schedule.getEndTime();
+        return schedule.getScheduleDate() +"";
     }
 
     private void updateConfigProperties(TourScheduleConfig existingConfig, TourScheduleConfigCreationRequest request) {
@@ -542,8 +541,6 @@ public class TourScheduleConfigGeneralService {
                     TourScheduleSearchResponseDto dto = new TourScheduleSearchResponseDto();
                     dto.setScheduleId(schedule.getId());
                     dto.setScheduleDate(schedule.getScheduleDate());
-                    dto.setStartTime(schedule.getStartTime());
-                    dto.setEndTime(schedule.getEndTime());
                     dto.setMaxCapacity(schedule.getMaxCapacity());
                     dto.setReservedCapacity(schedule.getReservedCapacity());
                     dto.setIsUnlimitedCapacity(schedule.getIsUnlimitedCapacity());
@@ -590,7 +587,6 @@ public class TourScheduleConfigGeneralService {
 
                     if (schedule.getConfig() != null && schedule.getConfig().getSlots() != null) {
                         schedule.getConfig().getSlots().stream()
-                                .filter(s -> s.getStartTime().equals(schedule.getStartTime()) && s.getEndTime().equals(schedule.getEndTime()))
                                 .findFirst()
                                 .ifPresent(matchingSlot -> {
                                     List<TourPriceOptionDto> priceOptions = matchingSlot.getPrices().stream()
@@ -624,7 +620,8 @@ public class TourScheduleConfigGeneralService {
     }
 
     @Transactional
-    public void saveOrUpdateTourSchedules(List<TourScheduleRequest> scheduleRequests, Authentication connectedUser) {
+    public List<TourScheduleBulkResponse> saveOrUpdateTourSchedules(List<TourScheduleRequest> scheduleRequests, Authentication connectedUser) {
+        List<TourScheduleBulkResponse> responses = new ArrayList<>();
         for (TourScheduleRequest dto : scheduleRequests) {
             Optional<TourSchedule> existingOpt = tourScheduleRepository.findByTourIdAndScheduleDate(
                 dto.getTourId(), dto.getScheduleDate()
@@ -642,13 +639,11 @@ public class TourScheduleConfigGeneralService {
             configRequest.setDaysOfWeek(configDto.getDaysOfWeek());
             configRequest.setIsUnlimitedCapacity(configDto.getIsUnlimitedCapacity());
             configRequest.setSlots(configDto.getSlots());
-            configRequest.setIsTemplate(false); // <-- Mapear isTemplate
+            configRequest.setIsTemplate(false);
 
             if (configDto.getId() == null) {
-                // Crear nueva configuración
                 configResponse = createTourScheduleConfig(configRequest, connectedUser);
             } else {
-                // Actualizar configuración existente
                 configResponse = updateTourScheduleConfig(configDto.getId(), configRequest, connectedUser);
             }
 
@@ -659,9 +654,6 @@ public class TourScheduleConfigGeneralService {
                         tourScheduleRepository.delete(existing);
                     }
                     else {
-                        // Actualizar siempre que exista
-                        existing.setStartTime(dto.getStartTime());
-                        existing.setEndTime(dto.getEndTime());
                         existing.setMaxCapacity(dto.getMaxCapacity());
                         existing.setReservedCapacity(dto.getReservedCapacity());
                         existing.setIsUnlimitedCapacity(dto.getIsUnlimitedCapacity());
@@ -672,19 +664,15 @@ public class TourScheduleConfigGeneralService {
                         tourScheduleRepository.save(existing);
                     }
                 } else {
-                    // Crear nuevo
                     TourSchedule newSchedule = new TourSchedule();
                     newSchedule.setTourId(dto.getTourId());
                     newSchedule.setScheduleDate(dto.getScheduleDate());
-                    newSchedule.setStartTime(dto.getStartTime());
-                    newSchedule.setEndTime(dto.getEndTime());
                     newSchedule.setMaxCapacity(dto.getMaxCapacity());
                     newSchedule.setReservedCapacity(dto.getReservedCapacity());
                     newSchedule.setIsUnlimitedCapacity(dto.getIsUnlimitedCapacity());
                     newSchedule.setStatus(dto.getStatus());
                     if (configResponse != null) {
                         newSchedule.setConfigId(configResponse.getId());
-                        // Crear objeto TourScheduleConfig con los valores de configResponse
                         TourScheduleConfig config = new TourScheduleConfig();
                         config.setId(configResponse.getId());
                         newSchedule.setConfig(config);
@@ -692,6 +680,18 @@ public class TourScheduleConfigGeneralService {
                     tourScheduleRepository.save(newSchedule);
                 }
             }
+
+            // Construir respuesta para cada schedule procesado
+            TourScheduleBulkResponse resp = new TourScheduleBulkResponse();
+            resp.setTourId(dto.getTourId());
+            resp.setScheduleDate(dto.getScheduleDate());
+            TourScheduleConfigResponse configIdOnly = new TourScheduleConfigResponse();
+            if (configResponse != null) {
+                configIdOnly.setId(configResponse.getId());
+            }
+            resp.setConfig(configIdOnly);
+            responses.add(resp);
         }
+        return responses;
     }
 }

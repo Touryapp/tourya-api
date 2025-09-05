@@ -162,8 +162,6 @@ public class ShoppingCartService {
         }
 
         TourScheduleConfigSlot matchingSlot = tourScheduleConfig.getSlots().stream()
-                .filter(slot -> slot.getStartTime().equals(tourSchedule.getStartTime()) &&
-                                 slot.getEndTime().equals(tourSchedule.getEndTime()))
                 .findFirst()
                 .orElseThrow(() -> new ResourceNotFoundException("No matching schedule slot found for tour schedule ID: " + tourSchedule.getId()));
 

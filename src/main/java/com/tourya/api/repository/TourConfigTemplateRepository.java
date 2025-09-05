@@ -2,10 +2,14 @@ package com.tourya.api.repository;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import com.tourya.api.models.Provider;
+import com.tourya.api.models.User;
 import com.tourya.api.models.responses.TourScheduleConfigResponse;
+import com.tourya.api.services.ProviderService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -22,7 +26,9 @@ public class TourConfigTemplateRepository {
     public TourConfigTemplateRepository(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
-    public List<TourScheduleConfigResponse> findByProviderId(Integer providerId) {
+    public List<TourScheduleConfigResponse> findByProviderId(Provider provider) {
+        Integer  providerId = provider.getId();
+
         Query query = entityManager.createNativeQuery("SELECT get_templates_by_provider(:providerId)");
         query.setParameter("providerId", providerId);
 

@@ -46,13 +46,7 @@ public class TourSchedule extends BaseEntity {
     @Column(name = "schedule_date", nullable = false)
     private LocalDate scheduleDate; // DATE en SQL se mapea a LocalDate en Java
 
-    @Column(name = "start_time", nullable = false)
-    private LocalTime startTime; // TIME en SQL se mapea a LocalTime en Java
-
-    @Column(name = "end_time", nullable = false)
-    private LocalTime endTime; // TIME en SQL se mapea a LocalTime en Java
-
-    @Column(name = "max_capacity")
+      @Column(name = "max_capacity")
     private Integer maxCapacity; // int4 en SQL se mapea a Integer en Java (permite NULL)
 
     @Column(name = "reserved_capacity")
