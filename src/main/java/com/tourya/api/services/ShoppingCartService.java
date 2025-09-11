@@ -86,7 +86,6 @@ public class ShoppingCartService {
         }
 
         shoppingCartRepository.save(cart);
-
         return buildShoppingCartResponse(cart);
     }
 
@@ -142,7 +141,6 @@ public class ShoppingCartService {
                 .build();
 
         tourReservationService.createReservation(reservationRequest, user);
-
         cart.setStatus(ShoppingCartStatusEnum.COMPLETED);
         shoppingCartRepository.save(cart);
     }
