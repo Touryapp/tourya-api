@@ -63,10 +63,12 @@ public class Tour extends BaseEntity {
     private TourStatusEnum status;
 
     // Many-to-One relationship with Provider
-    //@ManyToOne
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "provider_id")
     private Provider provider;
 
-
+    // Many-to-One relationship with Service
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "service_id", nullable = false)
+    private TouryaService service;
 }
