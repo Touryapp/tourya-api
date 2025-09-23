@@ -3,7 +3,7 @@ package com.tourya.api.controller;
 import com.tourya.api.common.PageResponse;
 import com.tourya.api.models.User;
 import com.tourya.api.models.request.ReservationRequest;
-import com.tourya.api.models.responses.ReservationResponse;
+import com.tourya.api.models.responses.TourReservationResponse;
 import com.tourya.api.services.TourReservationService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -16,7 +16,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("reservations")
+@RequestMapping("tour-reservations")
 @RequiredArgsConstructor
 @Tag(name = "Reservations")
 public class TourReservationController {
@@ -24,17 +24,17 @@ public class TourReservationController {
     private final TourReservationService tourReservationService;
 
     @PostMapping
-    public ResponseEntity<ReservationResponse> createReservation(
+    public ResponseEntity<TourReservationResponse> createReservation(
             @Valid @RequestBody ReservationRequest request,
             Authentication authentication
     ) {
         User connectedUser = (User) authentication.getPrincipal();
-        ReservationResponse response = tourReservationService.createReservation(request, connectedUser);
+        TourReservationResponse response = tourReservationService.createReservation(request, connectedUser);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{reservationId}")
-    public ResponseEntity<ReservationResponse> getReservation(
+    public ResponseEntity<TourReservationResponse> getReservation(
             @PathVariable Integer reservationId,
             Authentication authentication
     ) {
@@ -43,7 +43,7 @@ public class TourReservationController {
     }
 
     @GetMapping("/my-reservations")
-    public ResponseEntity<PageResponse<ReservationResponse>> getMyReservations(
+    public ResponseEntity<PageResponse<TourReservationResponse>> getMyReservations(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdDate,desc") String[] sort,
@@ -55,7 +55,7 @@ public class TourReservationController {
     }
 
     @PutMapping("/{reservationId}/cancel")
-    public ResponseEntity<ReservationResponse> cancelReservation(
+    public ResponseEntity<TourReservationResponse> cancelReservation(
             @PathVariable Integer reservationId,
             Authentication authentication
     ) {
