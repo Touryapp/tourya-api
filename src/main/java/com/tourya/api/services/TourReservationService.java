@@ -13,7 +13,7 @@ import com.tourya.api.models.User;
 import com.tourya.api.models.request.ReservationItemRequest;
 import com.tourya.api.models.request.ReservationRequest;
 import com.tourya.api.models.responses.ReservationDetailResponse;
-import com.tourya.api.models.responses.ReservationResponse;
+import com.tourya.api.models.responses.TourReservationResponse;
 import com.tourya.api.repository.TourReservationRepository;
 import com.tourya.api.repository.TourScheduleConfigPriceRepository;
 import com.tourya.api.repository.TourScheduleRepository;
@@ -41,7 +41,7 @@ public class TourReservationService {
 
     @Transactional
     @Lock(LockModeType.PESSIMISTIC_WRITE) // Apply lock to all queries in this transaction if applicable
-    public ReservationResponse createReservation(ReservationRequest request, User connectedUser) {
+    public TourReservationResponse createReservation(ReservationRequest request, User connectedUser) {
 
         // 1. Lock and validate the schedule
         TourSchedule schedule = tourScheduleRepository.findById(request.getScheduleId())
@@ -116,7 +116,7 @@ public class TourReservationService {
     }
 
     @Transactional(readOnly = true)
-    public ReservationResponse getReservationById(Integer reservationId, User connectedUser) {
+    public TourReservationResponse getReservationById(Integer reservationId, User connectedUser) {
         TourReservation reservation = tourReservationRepository.findById(reservationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Reservation with ID " + reservationId + " not found."));
 
@@ -130,9 +130,9 @@ public class TourReservationService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<ReservationResponse> getAllReservationsForUser(User connectedUser, Pageable pageable) {
+    public PageResponse<TourReservationResponse> getAllReservationsForUser(User connectedUser, Pageable pageable) {
         Page<TourReservation> reservationPage = tourReservationRepository.findByUserId(connectedUser.getId(), pageable);
-        Page<ReservationResponse> responsePage = reservationPage.map(this::mapToReservationResponse);
+        Page<TourReservationResponse> responsePage = reservationPage.map(this::mapToReservationResponse);
 
         return new PageResponse<>(
                 responsePage.getContent(),
@@ -147,7 +147,7 @@ public class TourReservationService {
 
     @Transactional
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    public ReservationResponse cancelReservation(Integer reservationId, User connectedUser) {
+    public TourReservationResponse cancelReservation(Integer reservationId, User connectedUser) {
         // 1. Find the reservation
         TourReservation reservation = tourReservationRepository.findById(reservationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Reservation with ID " + reservationId + " not found."));
@@ -188,7 +188,7 @@ public class TourReservationService {
         return mapToReservationResponse(savedReservation);
     }
 
-    private ReservationResponse mapToReservationResponse(TourReservation reservation) {
+    private TourReservationResponse mapToReservationResponse(TourReservation reservation) {
         List<ReservationDetailResponse> detailResponses = reservation.getDetails().stream()
                 .map(detail -> ReservationDetailResponse.builder()
                         .detailId(detail.getId())
@@ -199,10 +199,10 @@ public class TourReservationService {
                         .build())
                 .collect(Collectors.toList());
 
-        return ReservationResponse.builder()
-                .reservationId(reservation.getId())
-                .scheduleId(reservation.getSchedule().getId())
-                .tourId(reservation.getSchedule().getTour().getId())
+        return TourReservationResponse.builder()
+                .reservationId(reservation.getId().longValue())
+                .scheduleId(reservation.getSchedule().getId().longValue())
+                .tourId(reservation.getSchedule().getTour().getId().longValue())
                 .tourName(reservation.getSchedule().getTour().getName())
                 .status(reservation.getStatus().name())
                 .totalAmount(reservation.getTotalAmount())
