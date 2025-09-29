@@ -1,6 +1,7 @@
 package com.tourya.api.services;
 
 import com.tourya.api.config.security.JwtService;
+import com.tourya.api.constans.enums.DeliveryStatusEnum;
 import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.models.Payment;
 import com.tourya.api.models.Reservation;
@@ -15,9 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -40,40 +39,8 @@ public class ReservationService {
     private final JwtService jwtService;
 
     /**
-     * Crea una nueva reserva después de un pago exitoso.
-     * Si no se proporciona serviceData, se genera automáticamente.
-     * 
-     * @param request Datos de la reserva a crear
-     * @return ReservationResponse con la información de la reserva creada
-     * @throws ResourceNotFoundException si el pago no existe
+     * Método createReservation removido - las reservas se crean automáticamente con los pagos
      */
-    @Transactional
-    public ReservationResponse createReservation(CreateReservationRequest request) {
-        log.info("Creating reservation for payment: {}", request.getPaymentId());
-        
-        return Optional.ofNullable(request)
-                .map(this::validatePayment)
-                .map(payment -> {
-                    // Generar QR token si no se proporciona
-                    if (request.getQrToken() == null || request.getQrToken().trim().isEmpty()) {
-                        String qrToken = generateQrToken(request.getPaymentId(), request.getPayerId());
-                        request.setQrToken(qrToken);
-                        log.debug("Generated QR token for payment: {}", request.getPaymentId());
-                    }
-                    
-                    // Generar serviceData si no se proporciona
-                    if (request.getServiceData() == null || request.getServiceData().trim().isEmpty()) {
-                        request.setServiceData(generateServiceData(request.getPaymentId()));
-                        log.debug("Generated serviceData for payment: {}", request.getPaymentId());
-                    }
-                    
-                    Reservation reservation = reservationMapper.toEntity(request);
-                    reservation.setPayment(payment);
-                    return reservationRepository.save(reservation);
-                })
-                .map(reservationMapper::toResponse)
-                .orElseThrow(() -> new IllegalStateException("Error creating reservation"));
-    }
 
     /**
      * Consulta una reserva por su ID.
@@ -92,19 +59,19 @@ public class ReservationService {
     }
 
     /**
-     * Consulta una reserva por su token QR.
+     * Consulta una reserva por su URL QR.
      * 
-     * @param qrToken Token QR de la reserva
+     * @param qrUrl URL QR de la reserva
      * @return ReservationResponse con la información de la reserva
      * @throws ResourceNotFoundException si la reserva no existe
      */
     @Transactional(readOnly = true)
-    public ReservationResponse getReservationByQrToken(String qrToken) {
-        log.info("Getting reservation by QR token: {}", qrToken);
+    public ReservationResponse getReservationByQrUrl(String qrUrl) {
+        log.info("Getting reservation by QR URL: {}", qrUrl);
         
-        return reservationRepository.findByQrToken(qrToken)
+        return reservationRepository.findByQrUrl(qrUrl)
                 .map(reservationMapper::toResponse)
-                .orElseThrow(() -> new ResourceNotFoundException("Reservation not found with QR token: " + qrToken));
+                .orElseThrow(() -> new ResourceNotFoundException("Reservation not found with QR URL: " + qrUrl));
     }
 
     /**
@@ -130,7 +97,7 @@ public class ReservationService {
      * @return Lista de ReservationResponse
      */
     @Transactional(readOnly = true)
-    public List<ReservationResponse> getReservationsByDeliveryStatus(String deliveryStatus) {
+    public List<ReservationResponse> getReservationsByDeliveryStatus(DeliveryStatusEnum deliveryStatus) {
         log.info("Getting reservations by delivery status: {}", deliveryStatus);
         
         return reservationRepository.findByDeliveryStatus(deliveryStatus)
@@ -140,64 +107,33 @@ public class ReservationService {
     }
 
     /**
-     * Consulta todas las reservas de un responsable de servicio.
+     * Consulta reservas por fecha de reserva.
      * 
-     * @param serviceResponsibleId ID del responsable del servicio
+     * @param reservationDate Fecha de reserva
      * @return Lista de ReservationResponse
      */
     @Transactional(readOnly = true)
-    public List<ReservationResponse> getReservationsByServiceResponsibleId(Integer serviceResponsibleId) {
-        log.info("Getting reservations for service responsible: {}", serviceResponsibleId);
+    public List<ReservationResponse> getReservationsByReservationDate(LocalDateTime reservationDate) {
+        log.info("Getting reservations by reservation date: {}", reservationDate);
         
-        return reservationRepository.findByServiceResponsibleId(serviceResponsibleId)
+        return reservationRepository.findByReservationDate(reservationDate)
                 .stream()
                 .map(reservationMapper::toResponse)
                 .collect(Collectors.toList());
     }
 
     /**
-     * Consulta todas las reservas de un pagador.
+     * Consulta reservas por rango de fechas de reserva.
      * 
-     * @param payerId ID del pagador
+     * @param startDate Fecha de inicio
+     * @param endDate Fecha de fin
      * @return Lista de ReservationResponse
      */
     @Transactional(readOnly = true)
-    public List<ReservationResponse> getReservationsByPayerId(Integer payerId) {
-        log.info("Getting reservations for payer: {}", payerId);
+    public List<ReservationResponse> getReservationsByReservationDateRange(LocalDateTime startDate, LocalDateTime endDate) {
+        log.info("Getting reservations by date range: {} to {}", startDate, endDate);
         
-        return reservationRepository.findByPayerId(payerId)
-                .stream()
-                .map(reservationMapper::toResponse)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Consulta todas las reservas por email del responsable del servicio.
-     * 
-     * @param serviceResponsibleEmail Email del responsable del servicio
-     * @return Lista de ReservationResponse
-     */
-    @Transactional(readOnly = true)
-    public List<ReservationResponse> getReservationsByServiceResponsibleEmail(String serviceResponsibleEmail) {
-        log.info("Getting reservations for service responsible email: {}", serviceResponsibleEmail);
-        
-        return reservationRepository.findByServiceResponsibleEmail(serviceResponsibleEmail)
-                .stream()
-                .map(reservationMapper::toResponse)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Consulta todas las reservas por email del pagador.
-     * 
-     * @param payerEmail Email del pagador
-     * @return Lista de ReservationResponse
-     */
-    @Transactional(readOnly = true)
-    public List<ReservationResponse> getReservationsByPayerEmail(String payerEmail) {
-        log.info("Getting reservations for payer email: {}", payerEmail);
-        
-        return reservationRepository.findByPayerEmail(payerEmail)
+        return reservationRepository.findByReservationDateBetween(startDate, endDate)
                 .stream()
                 .map(reservationMapper::toResponse)
                 .collect(Collectors.toList());

@@ -10,9 +10,10 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
- * Entidad que representa una reserva generada después de un pago exitoso.
+ * Entidad que representa una reserva.
  * 
  * @author Tourya API Team
  * @version 1.0
@@ -28,14 +29,13 @@ public class Reservation extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long reservationId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "payment_id", nullable = false)
-    private Payment payment;
+    @Column(name = "payment_id", nullable = false)
+    private Long paymentId;
 
-    @Column(name = "qr_token", nullable = false, length = 500)
-    private String qrToken;
+    @Column(name = "qr_url", length = 500)
+    private String qrUrl;
 
     @Column(name = "reservation_date", nullable = false)
     private LocalDateTime reservationDate;
@@ -44,30 +44,10 @@ public class Reservation extends BaseEntity {
     @Column(name = "delivery_status", nullable = false)
     private DeliveryStatusEnum deliveryStatus;
 
-    @Column(name = "service_responsible_name", nullable = false, length = 255)
-    private String serviceResponsibleName;
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "payment_id", insertable = false, updatable = false)
+    private Payment payment;
 
-    @Column(name = "service_responsible_email", nullable = false, length = 255)
-    private String serviceResponsibleEmail;
-
-    @Column(name = "service_responsible_id", nullable = false)
-    private Integer serviceResponsibleId;
-
-    @Column(name = "payer_name", nullable = false, length = 255)
-    private String payerName;
-
-    @Column(name = "payer_email", nullable = false, length = 255)
-    private String payerEmail;
-
-    @Column(name = "payer_id", nullable = false)
-    private Integer payerId;
-
-    @Column(name = "provider_rating")
-    private Integer providerRating;
-
-    @Column(name = "comments", length = 1000)
-    private String comments;
-
-    @Column(name = "service_data", length = 2000)
-    private String serviceData; // JSON string con todos los datos del servicio
+    @OneToMany(mappedBy = "reservation", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ReservationItem> reservationItems;
 }

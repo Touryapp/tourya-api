@@ -15,69 +15,47 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 /**
- * Controlador REST para gestionar pagos.
+ * Controlador REST para gestión de pagos.
  * 
  * @author Tourya API Team
  * @version 1.0
  */
 @Slf4j
 @RestController
-@RequestMapping("/payments")
+@RequestMapping("/payment")
 @RequiredArgsConstructor
 @Tag(name = "Payment Management", description = "API para gestión de pagos")
 public class PaymentController {
 
     private final PaymentService paymentService;
 
-    /**
-     * Crea un nuevo pago.
-     * 
-     * @param request Datos del pago a crear
-     * @return PaymentResponse con la información del pago creado
-     */
     @PostMapping
-    @Operation(summary = "Crear pago", description = "Crea un nuevo pago para un item del carrito de compras")
+    @Operation(summary = "Crear pago", description = "Crea un nuevo pago y automáticamente genera la reserva con sus items")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Pago creado exitosamente"),
+            @ApiResponse(responseCode = "201", description = "Pago y reserva creados exitosamente"),
             @ApiResponse(responseCode = "400", description = "Datos de entrada inválidos"),
-            @ApiResponse(responseCode = "404", description = "Item del carrito no encontrado")
+            @ApiResponse(responseCode = "404", description = "Items del carrito no encontrados")
     })
     public ResponseEntity<PaymentResponse> createPayment(@Valid @RequestBody CreatePaymentRequest request) {
-        log.info("Creating payment for shopping cart item: {}", request.getShoppingCartItemId());
-        
+        log.info("Creating payment for transaction: {}", request.getTransactionId());
         PaymentResponse response = paymentService.createPayment(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    /**
-     * Obtiene un pago por su ID.
-     * 
-     * @param id ID del pago
-     * @return PaymentResponse con la información del pago
-     */
-    @GetMapping("/{id}")
+    @GetMapping("/{paymentId}")
     @Operation(summary = "Obtener pago por ID", description = "Obtiene la información de un pago específico por su ID")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Pago encontrado"),
             @ApiResponse(responseCode = "404", description = "Pago no encontrado")
     })
     public ResponseEntity<PaymentResponse> getPaymentById(
-            @Parameter(description = "ID del pago") @PathVariable Long id) {
-        log.info("Getting payment by id: {}", id);
-        
-        PaymentResponse response = paymentService.getPaymentById(id);
+            @Parameter(description = "ID del pago") @PathVariable Long paymentId) {
+        log.info("Getting payment by id: {}", paymentId);
+        PaymentResponse response = paymentService.getPaymentById(paymentId);
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * Obtiene un pago por su ID de transacción.
-     * 
-     * @param transactionId ID de transacción
-     * @return PaymentResponse con la información del pago
-     */
     @GetMapping("/transaction/{transactionId}")
     @Operation(summary = "Obtener pago por ID de transacción", description = "Obtiene la información de un pago por su ID de transacción")
     @ApiResponses(value = {
@@ -87,8 +65,20 @@ public class PaymentController {
     public ResponseEntity<PaymentResponse> getPaymentByTransactionId(
             @Parameter(description = "ID de transacción") @PathVariable String transactionId) {
         log.info("Getting payment by transaction id: {}", transactionId);
-        
         PaymentResponse response = paymentService.getPaymentByTransactionId(transactionId);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/qr/{qrToken}")
+    @Operation(summary = "Obtener imagen QR", description = "Obtiene la imagen QR en Base64 para un token específico")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Imagen QR generada exitosamente"),
+            @ApiResponse(responseCode = "404", description = "Token QR no encontrado")
+    })
+    public ResponseEntity<String> getQrImage(
+            @Parameter(description = "Token QR") @PathVariable String qrToken) {
+        log.info("Getting QR image for token: {}", qrToken);
+        String qrImageBase64 = paymentService.generateQrImageBase64(qrToken);
+        return ResponseEntity.ok(qrImageBase64);
     }
 }

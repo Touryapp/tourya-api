@@ -3,6 +3,7 @@ package com.tourya.api.models.mapper;
 import com.tourya.api.models.Payment;
 import com.tourya.api.models.request.CreatePaymentRequest;
 import com.tourya.api.models.responses.PaymentResponse;
+import com.tourya.api.models.responses.PayerResponse;
 import org.springframework.stereotype.Component;
 
 /**
@@ -24,23 +25,13 @@ public class PaymentMapper {
 
         return Payment.builder()
                 .transactionId(request.getTransactionId())
-                .status(request.getStatus())
-                .amount(request.getAmount())
-                .currency(request.getCurrency())
-                .paymentMethodType(request.getPaymentMethodType())
-                .productId(request.getProductId())
-                .productType(request.getProductType())
-                .scheduleDate(request.getScheduleDate())
-                .tourScheduleId(request.getTourScheduleId())
-                .slotId(request.getSlotId())
-                .itemTotalPrice(request.getItemTotalPrice())
-                .itemStatus(request.getItemStatus())
-                .payerName(request.getPayerName())
-                .payerEmail(request.getPayerEmail())
-                .payerId(request.getPayerId())
-                .payerPhone(request.getPayerPhone())
-                .payerDocumentType(request.getPayerDocumentType())
-                .payerDocumentNumber(request.getPayerDocumentNumber())
+                .transactionData(request.getTransactionData())
+                .payerId(request.getPayer().getId())
+                .payerName(request.getPayer().getName())
+                .payerEmail(request.getPayer().getEmail())
+                .payerPhone(request.getPayer().getPhone())
+                .payerDocumentType(request.getPayer().getDocumentType())
+                .payerDocumentNumber(request.getPayer().getDocumentNumber())
                 .build();
     }
 
@@ -52,27 +43,22 @@ public class PaymentMapper {
             return null;
         }
 
+        // Crear PayerResponse
+        PayerResponse payerResponse = PayerResponse.builder()
+                .id(payment.getPayerId())
+                .name(payment.getPayerName())
+                .email(payment.getPayerEmail())
+                .phone(payment.getPayerPhone())
+                .documentType(payment.getPayerDocumentType())
+                .documentNumber(payment.getPayerDocumentNumber())
+                .build();
+
         return PaymentResponse.builder()
-                .id(payment.getId())
+                .paymentId(payment.getPaymentId())
                 .transactionId(payment.getTransactionId())
-                .status(payment.getStatus())
-                .amount(payment.getAmount())
-                .currency(payment.getCurrency())
-                .paymentMethodType(payment.getPaymentMethodType())
-                .shoppingCartItemId(payment.getShoppingCartItem() != null ? payment.getShoppingCartItem().getId() : null)
-                .productId(payment.getProductId())
-                .productType(payment.getProductType())
-                .scheduleDate(payment.getScheduleDate())
-                .tourScheduleId(payment.getTourScheduleId())
-                .slotId(payment.getSlotId())
-                .itemTotalPrice(payment.getItemTotalPrice())
-                .itemStatus(payment.getItemStatus())
-                .payerName(payment.getPayerName())
-                .payerEmail(payment.getPayerEmail())
-                .payerId(payment.getPayerId())
-                .payerPhone(payment.getPayerPhone())
-                .payerDocumentType(payment.getPayerDocumentType())
-                .payerDocumentNumber(payment.getPayerDocumentNumber())
+                .transactionData(payment.getTransactionData())
+                .reservationItems(null) // Se llenará desde el servicio si es necesario
+                .payer(payerResponse)
                 .createdDate(payment.getCreatedDate())
                 .lastModifiedDate(payment.getLastModifiedDate())
                 .createdBy(payment.getCreatedBy())
@@ -89,22 +75,12 @@ public class PaymentMapper {
         }
 
         payment.setTransactionId(request.getTransactionId());
-        payment.setStatus(request.getStatus());
-        payment.setAmount(request.getAmount());
-        payment.setCurrency(request.getCurrency());
-        payment.setPaymentMethodType(request.getPaymentMethodType());
-        payment.setProductId(request.getProductId());
-        payment.setProductType(request.getProductType());
-        payment.setScheduleDate(request.getScheduleDate());
-        payment.setTourScheduleId(request.getTourScheduleId());
-        payment.setSlotId(request.getSlotId());
-        payment.setItemTotalPrice(request.getItemTotalPrice());
-        payment.setItemStatus(request.getItemStatus());
-        payment.setPayerName(request.getPayerName());
-        payment.setPayerEmail(request.getPayerEmail());
-        payment.setPayerId(request.getPayerId());
-        payment.setPayerPhone(request.getPayerPhone());
-        payment.setPayerDocumentType(request.getPayerDocumentType());
-        payment.setPayerDocumentNumber(request.getPayerDocumentNumber());
+        payment.setTransactionData(request.getTransactionData());
+        payment.setPayerId(request.getPayer().getId());
+        payment.setPayerName(request.getPayer().getName());
+        payment.setPayerEmail(request.getPayer().getEmail());
+        payment.setPayerPhone(request.getPayer().getPhone());
+        payment.setPayerDocumentType(request.getPayer().getDocumentType());
+        payment.setPayerDocumentNumber(request.getPayer().getDocumentNumber());
     }
 }

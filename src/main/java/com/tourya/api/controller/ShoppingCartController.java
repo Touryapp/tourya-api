@@ -91,6 +91,28 @@ public class ShoppingCartController {
     }
 
     @Operation(
+            summary = "Obtener carrito activo del usuario",
+            description = "Obtiene el carrito activo único del usuario autenticado"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Carrito activo obtenido exitosamente"),
+            @ApiResponse(responseCode = "204", description = "No hay carrito activo"),
+            @ApiResponse(responseCode = "401", description = "No autorizado")
+    })
+    @SecurityRequirement(name = "bearerAuth")
+    @GetMapping("/user")
+    public ResponseEntity<ShoppingCartResponse> getActiveShoppingCartByUser(
+            Authentication connectedUser
+    ) {
+        ShoppingCartResponse cart = shoppingCartService.getActiveShoppingCartByUser(connectedUser);
+        if (cart != null) {
+            return ResponseEntity.ok(cart);
+        } else {
+            return ResponseEntity.noContent().build();
+        }
+    }
+
+    @Operation(
             summary = "Obtener carrito por ID",
             description = "Obtiene un carrito de compras específico por su ID"
     )
@@ -107,21 +129,6 @@ public class ShoppingCartController {
         return ResponseEntity.ok(shoppingCartService.getShoppingCartById(cartId));
     }
 
-    @Operation(
-            summary = "Obtener carritos por usuario",
-            description = "Obtiene todos los carritos del usuario autenticado ordenados por tour y fecha de viaje"
-    )
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Carritos obtenidos exitosamente"),
-            @ApiResponse(responseCode = "401", description = "No autorizado")
-    })
-    @SecurityRequirement(name = "bearerAuth")
-    @GetMapping("/user")
-    public ResponseEntity<List<ShoppingCartResponse>> getShoppingCartsByUser(
-            Authentication connectedUser
-    ) {
-        return ResponseEntity.ok(shoppingCartService.getShoppingCartsByUser(connectedUser));
-    }
 
     @Operation(
             summary = "Obtener detalles del carrito",

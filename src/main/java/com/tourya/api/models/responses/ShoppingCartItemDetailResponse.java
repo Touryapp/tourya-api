@@ -26,3 +26,5 @@ public class ShoppingCartItemDetailResponse {
     private BigDecimal unitPrice;
     private BigDecimal totalPrice;
 }
+
+
