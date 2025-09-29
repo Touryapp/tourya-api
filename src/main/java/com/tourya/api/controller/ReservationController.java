@@ -40,19 +40,7 @@ public class ReservationController {
      * @param request Datos de la reserva a crear
      * @return ReservationResponse con la información de la reserva creada
      */
-    @PostMapping
-    @Operation(summary = "Crear reserva", description = "Crea una nueva reserva después de un pago exitoso")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Reserva creada exitosamente"),
-            @ApiResponse(responseCode = "400", description = "Datos de entrada inválidos"),
-            @ApiResponse(responseCode = "404", description = "Pago no encontrado")
-    })
-    public ResponseEntity<ReservationResponse> createReservation(@Valid @RequestBody CreateReservationRequest request) {
-        log.info("Creating reservation for payment: {}", request.getPaymentId());
-        
-        ReservationResponse response = reservationService.createReservation(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
+    // Método createReservation removido - las reservas se crean automáticamente con los pagos
 
     /**
      * Obtiene una reserva por su ID.

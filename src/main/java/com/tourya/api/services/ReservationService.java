@@ -39,40 +39,8 @@ public class ReservationService {
     private final JwtService jwtService;
 
     /**
-     * Crea una nueva reserva después de un pago exitoso.
-     * Si no se proporciona serviceData, se genera automáticamente.
-     * 
-     * @param request Datos de la reserva a crear
-     * @return ReservationResponse con la información de la reserva creada
-     * @throws ResourceNotFoundException si el pago no existe
+     * Método createReservation removido - las reservas se crean automáticamente con los pagos
      */
-    @Transactional
-    public ReservationResponse createReservation(CreateReservationRequest request) {
-        log.info("Creating reservation for payment: {}", request.getPaymentId());
-        
-        return Optional.ofNullable(request)
-                .map(this::validatePayment)
-                .map(payment -> {
-                    // Generar QR token si no se proporciona
-                    if (request.getQrToken() == null || request.getQrToken().trim().isEmpty()) {
-                        String qrToken = generateQrToken(request.getPaymentId(), request.getPayerId());
-                        request.setQrToken(qrToken);
-                        log.debug("Generated QR token for payment: {}", request.getPaymentId());
-                    }
-                    
-                    // Generar serviceData si no se proporciona
-                    if (request.getServiceData() == null || request.getServiceData().trim().isEmpty()) {
-                        request.setServiceData(generateServiceData(request.getPaymentId()));
-                        log.debug("Generated serviceData for payment: {}", request.getPaymentId());
-                    }
-                    
-                    Reservation reservation = reservationMapper.toEntity(request);
-                    reservation.setPayment(payment);
-                    return reservationRepository.save(reservation);
-                })
-                .map(reservationMapper::toResponse)
-                .orElseThrow(() -> new IllegalStateException("Error creating reservation"));
-    }
 
     /**
      * Consulta una reserva por su ID.
