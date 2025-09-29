@@ -57,7 +57,7 @@ public class PaymentMapper {
                 .paymentId(payment.getPaymentId())
                 .transactionId(payment.getTransactionId())
                 .transactionData(payment.getTransactionData())
-                .reservationItems(null) // Se llenará desde el servicio si es necesario
+                .reservation(null) // Se llenará desde el servicio si es necesario
                 .payer(payerResponse)
                 .createdDate(payment.getCreatedDate())
                 .lastModifiedDate(payment.getLastModifiedDate())

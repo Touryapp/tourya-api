@@ -4,6 +4,7 @@ import com.tourya.api.constans.enums.DeliveryStatusEnum;
 import com.tourya.api.models.request.CreateReservationRequest;
 import com.tourya.api.models.responses.ReservationResponse;
 import com.tourya.api.services.ReservationService;
+import com.tourya.api.services.ReservationQrService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -33,6 +34,7 @@ import java.util.List;
 public class ReservationController {
 
     private final ReservationService reservationService;
+    private final ReservationQrService reservationQrService;
 
     /**
      * Crea una nueva reserva.
@@ -177,6 +179,32 @@ public class ReservationController {
         
         boolean exists = reservationService.existsReservationForPayment(paymentId);
         return ResponseEntity.ok(exists);
+    }
+
+    @PostMapping("/{reservationId}/qr/regenerate")
+    @Operation(summary = "Regenerar código QR", description = "Regenera y actualiza el código QR de una reserva")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "QR regenerado exitosamente"),
+            @ApiResponse(responseCode = "404", description = "Reserva no encontrada")
+    })
+    public ResponseEntity<String> regenerateQrCode(
+            @Parameter(description = "ID de la reserva") @PathVariable Long reservationId) {
+        log.info("Regenerating QR code for reservation: {}", reservationId);
+        String qrUrl = reservationQrService.regenerateQrCode(reservationId);
+        return ResponseEntity.ok(qrUrl);
+    }
+
+    @DeleteMapping("/{reservationId}/qr")
+    @Operation(summary = "Eliminar código QR", description = "Elimina el código QR de una reserva de S3")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "QR eliminado exitosamente"),
+            @ApiResponse(responseCode = "404", description = "Reserva no encontrada")
+    })
+    public ResponseEntity<Void> deleteQrCode(
+            @Parameter(description = "ID de la reserva") @PathVariable Long reservationId) {
+        log.info("Deleting QR code for reservation: {}", reservationId);
+        reservationQrService.deleteQrCode(reservationId);
+        return ResponseEntity.noContent().build();
     }
 
 }

@@ -14,5 +14,5 @@ import lombok.experimental.SuperBuilder;
 public class ServiceResponsibleResponse {
     private String name;
     private String email;
-    private String phone;
+    private Long phone; // Cambiado a Long para coincidir con el ejemplo
 }
