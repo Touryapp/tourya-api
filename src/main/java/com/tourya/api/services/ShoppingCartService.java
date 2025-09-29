@@ -56,19 +56,50 @@ public class ShoppingCartService {
     public ShoppingCartResponse createShoppingCart(CreateShoppingCartRequest request, Authentication connectedUser) {
         User user = (User) connectedUser.getPrincipal();
         
-        // Crear nuevo carrito (sin verificar carritos existentes)
+        // Buscar carrito activo existente o crear uno nuevo
+        ShoppingCart cart = findOrCreateActiveCart(user);
+        return buildShoppingCartResponse(cart);
+    }
+
+    /**
+     * Busca el carrito activo del usuario o crea uno nuevo si no existe.
+     * Implementa la lógica de carrito activo único por usuario.
+     * 
+     * @param user usuario para el cual buscar/crear el carrito
+     * @return carrito activo del usuario
+     */
+    private ShoppingCart findOrCreateActiveCart(User user) {
+        // Buscar carrito activo del usuario
+        List<ShoppingCart> activeCarts = shoppingCartRepository.findByUserAndStatus(user, ShoppingCartStatusEnum.ACTIVE);
+        
+        if (!activeCarts.isEmpty()) {
+            // Si existe un carrito activo, devolverlo
+            return activeCarts.get(0);
+        } else {
+            // Si no existe carrito activo, crear uno nuevo
+            return createNewCart(user);
+        }
+    }
+
+    /**
+     * Crea un nuevo carrito de compras para un usuario.
+     * 
+     * @param user usuario para el cual crear el carrito
+     * @return carrito creado
+     */
+    private ShoppingCart createNewCart(User user) {
         ShoppingCart cart = ShoppingCart.builder()
                 .user(user)
                 .status(ShoppingCartStatusEnum.ACTIVE)
                 .items(new ArrayList<>())
                 .build();
 
-        cart = shoppingCartRepository.save(cart);
-        return buildShoppingCartResponse(cart);
+        return shoppingCartRepository.save(cart);
     }
 
     /**
      * Agrega un item al carrito de compras.
+     * Implementa la lógica de carrito activo único por usuario.
      * 
      * @param request datos del item a agregar
      * @param connectedUser usuario autenticado
@@ -85,16 +116,8 @@ public class ShoppingCartService {
                     .orElseThrow(() -> new ResourceNotFoundException("Servicio no encontrado"));
         }
 
-        // Buscar carrito existente o crear uno nuevo
-        ShoppingCart cart;
-        if (request.getCartId() != null) {
-            // Buscar carrito existente por ID
-            cart = shoppingCartRepository.findById(request.getCartId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Carrito no encontrado"));
-        } else {
-            // Crear nuevo carrito
-            cart = createNewCart(user);
-        }
+        // Buscar carrito activo del usuario o crear uno nuevo
+        ShoppingCart cart = findOrCreateActiveCart(user);
 
         // Verificar disponibilidad para tours
         if (request.getTourScheduleId() != null) {
@@ -175,6 +198,7 @@ public class ShoppingCartService {
 
     /**
      * Agrega múltiples items al carrito de compras.
+     * Implementa la lógica de carrito activo único por usuario.
      * 
      * @param request lista de items a agregar
      * @param connectedUser usuario autenticado
@@ -184,16 +208,8 @@ public class ShoppingCartService {
     public ShoppingCartResponse addMultipleItemsToCart(AddMultipleItemsToCartRequest request, Authentication connectedUser) {
         User user = (User) connectedUser.getPrincipal();
         
-        // Determinar el carrito a usar
-        ShoppingCart cart;
-        if (request.getCartId() != null) {
-            // Buscar carrito existente por ID
-            cart = shoppingCartRepository.findById(request.getCartId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Carrito no encontrado"));
-        } else {
-            // Crear nuevo carrito
-            cart = createNewCart(user);
-        }
+        // Usar el carrito activo del usuario o crear uno nuevo
+        ShoppingCart cart = findOrCreateActiveCart(user);
 
         // Agregar cada item al carrito
         for (AddItemToCartRequest itemRequest : request.getItems()) {
@@ -316,19 +332,26 @@ public class ShoppingCartService {
     }
 
     /**
-     * Obtiene los carritos de compras de un usuario ordenados por tour y fecha de viaje.
+     * Obtiene el carrito activo de un usuario.
+     * Implementa la lógica de carrito activo único por usuario.
      * 
      * @param connectedUser usuario autenticado
-     * @return Lista de carritos del usuario
+     * @return Carrito activo del usuario (puede ser null si no existe)
      */
     @Transactional(readOnly = true)
-    public List<ShoppingCartResponse> getShoppingCartsByUser(Authentication connectedUser) {
+    public ShoppingCartResponse getActiveShoppingCartByUser(Authentication connectedUser) {
         User user = (User) connectedUser.getPrincipal();
-        List<ShoppingCart> carts = shoppingCartRepository.findByUserIdOrderByCreatedDateDesc(user.getId());
-        return carts.stream()
-                .map(this::buildShoppingCartResponse)
-                .collect(Collectors.toList());
+        
+        // Buscar carrito activo del usuario
+        List<ShoppingCart> activeCarts = shoppingCartRepository.findByUserAndStatus(user, ShoppingCartStatusEnum.ACTIVE);
+        
+        if (!activeCarts.isEmpty()) {
+            return buildShoppingCartResponse(activeCarts.get(0));
+        } else {
+            return null; // No hay carrito activo
+        }
     }
+
 
     /**
      * Obtiene los detalles de un carrito de compras por ID.
@@ -475,20 +498,28 @@ public class ShoppingCartService {
     }
 
     /**
-     * Crea un nuevo carrito para un usuario.
+     * Verifica si un carrito debe ser desactivado cuando todos sus items están inactivos.
      * 
-     * @param user usuario para el cual crear el carrito
-     * @return ShoppingCart creado
+     * @param cart carrito a verificar
      */
-    private ShoppingCart createNewCart(User user) {
-        ShoppingCart newCart = ShoppingCart.builder()
-                .user(user)
-                .status(ShoppingCartStatusEnum.ACTIVE)
-                .items(new ArrayList<>())
-                .build();
+    private void checkAndDeactivateCartIfNeeded(ShoppingCart cart) {
+        List<ShoppingCartItem> allItems = shoppingCartItemRepository.findByShoppingCart(cart);
         
-        // Guardar el carrito en la base de datos para obtener el ID
-        return shoppingCartRepository.save(newCart);
+        if (!allItems.isEmpty()) {
+            // Verificar si todos los items están inactivos (PAID, COMPLETED, ABANDONED)
+            boolean allItemsInactive = allItems.stream()
+                    .allMatch(item -> item.getStatus() == ShoppingCartStatusEnum.PAID || 
+                                    item.getStatus() == ShoppingCartStatusEnum.COMPLETED ||
+                                    item.getStatus() == ShoppingCartStatusEnum.ABANDONED);
+
+            if (allItemsInactive) {
+                // Desactivar el carrito
+                cart.setStatus(ShoppingCartStatusEnum.COMPLETED);
+                shoppingCartRepository.save(cart);
+                // Log para auditoría
+                System.out.println("Cart " + cart.getId() + " deactivated - all items are inactive");
+            }
+        }
     }
 
     /**

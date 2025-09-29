@@ -48,3 +48,5 @@ public class ShoppingCartItemDetail extends BaseEntity {
     private BigDecimal totalPrice;
 }
 
+
+

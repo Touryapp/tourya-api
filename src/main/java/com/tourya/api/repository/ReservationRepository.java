@@ -1,12 +1,13 @@
 package com.tourya.api.repository;
 
-import com.tourya.api.models.Payment;
 import com.tourya.api.models.Reservation;
+import com.tourya.api.constans.enums.DeliveryStatusEnum;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -20,51 +21,45 @@ import java.util.Optional;
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
 
     /**
-     * Busca reservas por token QR
+     * Busca reservas por URL del QR
      */
-    Optional<Reservation> findByQrToken(String qrToken);
-
-    /**
-     * Busca reservas por pago
-     */
-    List<Reservation> findByPayment(Payment payment);
+    Optional<Reservation> findByQrUrl(String qrUrl);
 
     /**
      * Busca reservas por ID del pago
      */
-    @Query("SELECT r FROM Reservation r WHERE r.payment.id = :paymentId")
-    List<Reservation> findByPaymentId(@Param("paymentId") Long paymentId);
+    List<Reservation> findByPaymentId(Long paymentId);
 
     /**
      * Busca reservas por estado de entrega
      */
-    List<Reservation> findByDeliveryStatus(String deliveryStatus);
+    List<Reservation> findByDeliveryStatus(DeliveryStatusEnum deliveryStatus);
 
     /**
-     * Busca reservas por responsable del servicio
+     * Busca reservas por fecha de reserva
      */
-    @Query("SELECT r FROM Reservation r WHERE r.serviceResponsibleId = :serviceResponsibleId")
-    List<Reservation> findByServiceResponsibleId(@Param("serviceResponsibleId") Integer serviceResponsibleId);
+    List<Reservation> findByReservationDateBetween(LocalDateTime startDate, LocalDateTime endDate);
 
     /**
-     * Busca reservas por pagador
+     * Busca reservas por fecha de reserva específica
      */
-    @Query("SELECT r FROM Reservation r WHERE r.payerId = :payerId")
-    List<Reservation> findByPayerId(@Param("payerId") Integer payerId);
-
-    /**
-     * Busca reservas por email del responsable del servicio
-     */
-    List<Reservation> findByServiceResponsibleEmail(String serviceResponsibleEmail);
-
-    /**
-     * Busca reservas por email del pagador
-     */
-    List<Reservation> findByPayerEmail(String payerEmail);
+    List<Reservation> findByReservationDate(LocalDateTime reservationDate);
 
     /**
      * Verifica si existe una reserva para un pago específico
      */
-    @Query("SELECT COUNT(r) > 0 FROM Reservation r WHERE r.payment.id = :paymentId")
-    boolean existsByPaymentId(@Param("paymentId") Long paymentId);
+    boolean existsByPaymentId(Long paymentId);
+
+    /**
+     * Cuenta el número de reservas por estado de entrega
+     */
+    @Query("SELECT COUNT(r) FROM Reservation r WHERE r.deliveryStatus = :deliveryStatus")
+    long countByDeliveryStatus(@Param("deliveryStatus") DeliveryStatusEnum deliveryStatus);
+
+    /**
+     * Busca reservas creadas en un rango de fechas
+     */
+    @Query("SELECT r FROM Reservation r WHERE r.createdDate BETWEEN :startDate AND :endDate")
+    List<Reservation> findByCreatedDateBetween(@Param("startDate") LocalDateTime startDate, 
+                                               @Param("endDate") LocalDateTime endDate);
 }

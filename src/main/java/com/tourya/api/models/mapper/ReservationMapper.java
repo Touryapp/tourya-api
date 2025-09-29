@@ -7,8 +7,6 @@ import com.tourya.api.services.QrCodeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-import java.io.IOException;
-
 /**
  * Mapper para convertir entre entidades Reservation y DTOs.
  * 
@@ -30,18 +28,10 @@ public class ReservationMapper {
         }
 
         return Reservation.builder()
-                .qrToken(request.getQrToken())
+                .paymentId(request.getPaymentId())
+                .qrUrl(request.getQrToken()) // Mapear qrToken a qrUrl
                 .reservationDate(request.getReservationDate())
                 .deliveryStatus(request.getDeliveryStatus())
-                .serviceResponsibleName(request.getServiceResponsibleName())
-                .serviceResponsibleEmail(request.getServiceResponsibleEmail())
-                .serviceResponsibleId(request.getServiceResponsibleId())
-                .payerName(request.getPayerName())
-                .payerEmail(request.getPayerEmail())
-                .payerId(request.getPayerId())
-                .providerRating(request.getProviderRating())
-                .comments(request.getComments())
-                .serviceData(request.getServiceData())
                 .build();
     }
 
@@ -57,19 +47,10 @@ public class ReservationMapper {
         String qrImageBase64 = generateQrImage(reservation);
 
         return ReservationResponse.builder()
-                .id(reservation.getId())
-                .paymentId(reservation.getPayment() != null ? reservation.getPayment().getId() : null)
+                .id(reservation.getReservationId())
+                .paymentId(reservation.getPaymentId())
                 .reservationDate(reservation.getReservationDate())
                 .deliveryStatus(reservation.getDeliveryStatus())
-                .serviceResponsibleName(reservation.getServiceResponsibleName())
-                .serviceResponsibleEmail(reservation.getServiceResponsibleEmail())
-                .serviceResponsibleId(reservation.getServiceResponsibleId())
-                .payerName(reservation.getPayerName())
-                .payerEmail(reservation.getPayerEmail())
-                .payerId(reservation.getPayerId())
-                .providerRating(reservation.getProviderRating())
-                .comments(reservation.getComments())
-                .serviceData(reservation.getServiceData())
                 .qrImageBase64(qrImageBase64)
                 .createdDate(reservation.getCreatedDate())
                 .lastModifiedDate(reservation.getLastModifiedDate())
@@ -86,18 +67,10 @@ public class ReservationMapper {
             return;
         }
 
-        reservation.setQrToken(request.getQrToken());
+        reservation.setPaymentId(request.getPaymentId());
+        reservation.setQrUrl(request.getQrToken());
         reservation.setReservationDate(request.getReservationDate());
         reservation.setDeliveryStatus(request.getDeliveryStatus());
-        reservation.setServiceResponsibleName(request.getServiceResponsibleName());
-        reservation.setServiceResponsibleEmail(request.getServiceResponsibleEmail());
-        reservation.setServiceResponsibleId(request.getServiceResponsibleId());
-        reservation.setPayerName(request.getPayerName());
-        reservation.setPayerEmail(request.getPayerEmail());
-        reservation.setPayerId(request.getPayerId());
-        reservation.setProviderRating(request.getProviderRating());
-        reservation.setComments(request.getComments());
-        reservation.setServiceData(request.getServiceData());
     }
 
     /**
@@ -107,14 +80,11 @@ public class ReservationMapper {
         try {
             // Crear contenido del QR con datos clave de la reserva
             StringBuilder qrContent = new StringBuilder();
-            qrContent.append("RESERVATION_ID:").append(reservation.getId()).append("\n");
-            qrContent.append("PAYMENT_ID:").append(reservation.getPayment() != null ? reservation.getPayment().getId() : "N/A").append("\n");
-            qrContent.append("PAYER_NAME:").append(reservation.getPayerName()).append("\n");
-            qrContent.append("PAYER_EMAIL:").append(reservation.getPayerEmail()).append("\n");
+            qrContent.append("RESERVATION_ID:").append(reservation.getReservationId()).append("\n");
+            qrContent.append("PAYMENT_ID:").append(reservation.getPaymentId()).append("\n");
             qrContent.append("RESERVATION_DATE:").append(reservation.getReservationDate()).append("\n");
             qrContent.append("DELIVERY_STATUS:").append(reservation.getDeliveryStatus()).append("\n");
-            qrContent.append("SERVICE_RESPONSIBLE:").append(reservation.getServiceResponsibleName()).append("\n");
-            qrContent.append("SERVICE_EMAIL:").append(reservation.getServiceResponsibleEmail()).append("\n");
+            qrContent.append("QR_URL:").append(reservation.getQrUrl() != null ? reservation.getQrUrl() : "N/A").append("\n");
             
             // Generar imagen QR
             byte[] qrImageBytes = qrCodeService.generateQrCodeImage(qrContent.toString());

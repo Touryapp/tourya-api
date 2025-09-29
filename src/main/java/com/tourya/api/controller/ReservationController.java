@@ -1,5 +1,6 @@
 package com.tourya.api.controller;
 
+import com.tourya.api.constans.enums.DeliveryStatusEnum;
 import com.tourya.api.models.request.CreateReservationRequest;
 import com.tourya.api.models.responses.ReservationResponse;
 import com.tourya.api.services.ReservationService;
@@ -15,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -73,22 +75,22 @@ public class ReservationController {
     }
 
     /**
-     * Obtiene una reserva por su token QR.
+     * Obtiene una reserva por su URL QR.
      * 
-     * @param qrToken Token QR de la reserva
+     * @param qrUrl URL QR de la reserva
      * @return ReservationResponse con la información de la reserva
      */
-    @GetMapping("/qr/{qrToken}")
-    @Operation(summary = "Obtener reserva por token QR", description = "Obtiene la información de una reserva por su token QR")
+    @GetMapping("/qr/{qrUrl}")
+    @Operation(summary = "Obtener reserva por URL QR", description = "Obtiene la información de una reserva por su URL QR")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Reserva encontrada"),
             @ApiResponse(responseCode = "404", description = "Reserva no encontrada")
     })
-    public ResponseEntity<ReservationResponse> getReservationByQrToken(
-            @Parameter(description = "Token QR de la reserva") @PathVariable String qrToken) {
-        log.info("Getting reservation by QR token: {}", qrToken);
+    public ResponseEntity<ReservationResponse> getReservationByQrUrl(
+            @Parameter(description = "URL QR de la reserva") @PathVariable String qrUrl) {
+        log.info("Getting reservation by QR URL: {}", qrUrl);
         
-        ReservationResponse response = reservationService.getReservationByQrToken(qrToken);
+        ReservationResponse response = reservationService.getReservationByQrUrl(qrUrl);
         return ResponseEntity.ok(response);
     }
 
@@ -123,7 +125,7 @@ public class ReservationController {
             @ApiResponse(responseCode = "200", description = "Lista de reservas obtenida exitosamente")
     })
     public ResponseEntity<List<ReservationResponse>> getReservationsByDeliveryStatus(
-            @Parameter(description = "Estado de entrega") @PathVariable String deliveryStatus) {
+            @Parameter(description = "Estado de entrega") @PathVariable DeliveryStatusEnum deliveryStatus) {
         log.info("Getting reservations by delivery status: {}", deliveryStatus);
         
         List<ReservationResponse> responses = reservationService.getReservationsByDeliveryStatus(deliveryStatus);
@@ -131,78 +133,42 @@ public class ReservationController {
     }
 
     /**
-     * Obtiene todas las reservas de un responsable de servicio.
+     * Obtiene todas las reservas por fecha de reserva.
      * 
-     * @param serviceResponsibleId ID del responsable del servicio
+     * @param reservationDate Fecha de reserva
      * @return Lista de ReservationResponse
      */
-    @GetMapping("/service-responsible/{serviceResponsibleId}")
-    @Operation(summary = "Obtener reservas por responsable", description = "Obtiene todas las reservas de un responsable de servicio específico")
+    @GetMapping("/date/{reservationDate}")
+    @Operation(summary = "Obtener reservas por fecha", description = "Obtiene todas las reservas de una fecha específica")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Lista de reservas obtenida exitosamente")
     })
-    public ResponseEntity<List<ReservationResponse>> getReservationsByServiceResponsibleId(
-            @Parameter(description = "ID del responsable del servicio") @PathVariable Integer serviceResponsibleId) {
-        log.info("Getting reservations for service responsible: {}", serviceResponsibleId);
+    public ResponseEntity<List<ReservationResponse>> getReservationsByReservationDate(
+            @Parameter(description = "Fecha de reserva") @PathVariable LocalDateTime reservationDate) {
+        log.info("Getting reservations by reservation date: {}", reservationDate);
         
-        List<ReservationResponse> responses = reservationService.getReservationsByServiceResponsibleId(serviceResponsibleId);
+        List<ReservationResponse> responses = reservationService.getReservationsByReservationDate(reservationDate);
         return ResponseEntity.ok(responses);
     }
 
     /**
-     * Obtiene todas las reservas de un pagador.
+     * Obtiene todas las reservas por rango de fechas de reserva.
      * 
-     * @param payerId ID del pagador
+     * @param startDate Fecha de inicio
+     * @param endDate Fecha de fin
      * @return Lista de ReservationResponse
      */
-    @GetMapping("/payer/{payerId}")
-    @Operation(summary = "Obtener reservas por pagador", description = "Obtiene todas las reservas de un pagador específico")
+    @GetMapping("/date-range")
+    @Operation(summary = "Obtener reservas por rango de fechas", description = "Obtiene todas las reservas dentro de un rango de fechas")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Lista de reservas obtenida exitosamente")
     })
-    public ResponseEntity<List<ReservationResponse>> getReservationsByPayerId(
-            @Parameter(description = "ID del pagador") @PathVariable Integer payerId) {
-        log.info("Getting reservations for payer: {}", payerId);
+    public ResponseEntity<List<ReservationResponse>> getReservationsByReservationDateRange(
+            @Parameter(description = "Fecha de inicio") @RequestParam LocalDateTime startDate,
+            @Parameter(description = "Fecha de fin") @RequestParam LocalDateTime endDate) {
+        log.info("Getting reservations by date range: {} to {}", startDate, endDate);
         
-        List<ReservationResponse> responses = reservationService.getReservationsByPayerId(payerId);
-        return ResponseEntity.ok(responses);
-    }
-
-    /**
-     * Obtiene todas las reservas por email del responsable del servicio.
-     * 
-     * @param serviceResponsibleEmail Email del responsable del servicio
-     * @return Lista de ReservationResponse
-     */
-    @GetMapping("/service-responsible/email/{serviceResponsibleEmail}")
-    @Operation(summary = "Obtener reservas por email del responsable", description = "Obtiene todas las reservas de un responsable de servicio por su email")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Lista de reservas obtenida exitosamente")
-    })
-    public ResponseEntity<List<ReservationResponse>> getReservationsByServiceResponsibleEmail(
-            @Parameter(description = "Email del responsable del servicio") @PathVariable String serviceResponsibleEmail) {
-        log.info("Getting reservations for service responsible email: {}", serviceResponsibleEmail);
-        
-        List<ReservationResponse> responses = reservationService.getReservationsByServiceResponsibleEmail(serviceResponsibleEmail);
-        return ResponseEntity.ok(responses);
-    }
-
-    /**
-     * Obtiene todas las reservas por email del pagador.
-     * 
-     * @param payerEmail Email del pagador
-     * @return Lista de ReservationResponse
-     */
-    @GetMapping("/payer/email/{payerEmail}")
-    @Operation(summary = "Obtener reservas por email del pagador", description = "Obtiene todas las reservas de un pagador por su email")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Lista de reservas obtenida exitosamente")
-    })
-    public ResponseEntity<List<ReservationResponse>> getReservationsByPayerEmail(
-            @Parameter(description = "Email del pagador") @PathVariable String payerEmail) {
-        log.info("Getting reservations for payer email: {}", payerEmail);
-        
-        List<ReservationResponse> responses = reservationService.getReservationsByPayerEmail(payerEmail);
+        List<ReservationResponse> responses = reservationService.getReservationsByReservationDateRange(startDate, endDate);
         return ResponseEntity.ok(responses);
     }
 

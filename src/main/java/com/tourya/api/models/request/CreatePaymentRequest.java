@@ -1,7 +1,6 @@
 package com.tourya.api.models.request;
 
-import com.tourya.api.constans.enums.OrderStatusEnum;
-import com.tourya.api.constans.enums.PaymentMethodTypeEnum;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -9,11 +8,10 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.util.List;
 
 /**
- * Request para crear un nuevo pago.
+ * Request DTO para crear un pago.
  * 
  * @author Tourya API Team
  * @version 1.0
@@ -29,66 +27,79 @@ public class CreatePaymentRequest {
     @Size(max = 255, message = "El ID de transacción no puede exceder 255 caracteres")
     private String transactionId;
 
-    @NotNull(message = "El estado del pago es obligatorio")
-    private OrderStatusEnum status;
+    private String transactionData; // JSON string
 
-    @NotNull(message = "El monto es obligatorio")
-    @DecimalMin(value = "0.01", message = "El monto debe ser mayor a 0")
-    private BigDecimal amount;
+    @Valid
+    @NotEmpty(message = "Debe incluir al menos un item")
+    private List<PaymentItemRequest> items;
 
-    @NotBlank(message = "La moneda es obligatoria")
-    @Size(min = 3, max = 3, message = "La moneda debe tener exactamente 3 caracteres")
-    private String currency;
+    @Valid
+    @NotNull(message = "Los datos del pagador son obligatorios")
+    private PayerRequest payer;
 
-    private PaymentMethodTypeEnum paymentMethodType;
+    @Getter
+    @Setter
+    @SuperBuilder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class PaymentItemRequest {
+        
+        @NotNull(message = "El ID del item del carrito es obligatorio")
+        @Positive(message = "El ID del item del carrito debe ser positivo")
+        private Long shoppingCartItemId;
 
-    @NotNull(message = "El ID del item del carrito es obligatorio")
-    @Positive(message = "El ID del item del carrito debe ser positivo")
-    private Long shoppingCartItemId;
+        @Valid
+        @NotNull(message = "Los datos del responsable del servicio son obligatorios")
+        private ServiceResponsibleRequest serviceResponsible;
+    }
 
-    // Datos del shopping cart item
-    @NotNull(message = "El ID del producto es obligatorio")
-    @Positive(message = "El ID del producto debe ser positivo")
-    private Integer productId;
+    @Getter
+    @Setter
+    @SuperBuilder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class ServiceResponsibleRequest {
+        
+        @NotBlank(message = "El nombre del responsable es obligatorio")
+        @Size(max = 255, message = "El nombre del responsable no puede exceder 255 caracteres")
+        private String name;
 
-    @NotBlank(message = "El tipo de producto es obligatorio")
-    @Size(max = 50, message = "El tipo de producto no puede exceder 50 caracteres")
-    private String productType;
+        @NotBlank(message = "El email del responsable es obligatorio")
+        @Email(message = "El email del responsable debe tener un formato válido")
+        @Size(max = 255, message = "El email del responsable no puede exceder 255 caracteres")
+        private String email;
 
-    private LocalDate scheduleDate;
+        @Size(max = 20, message = "El teléfono del responsable no puede exceder 20 caracteres")
+        private String phone;
+    }
 
-    private Long tourScheduleId;
+    @Getter
+    @Setter
+    @SuperBuilder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class PayerRequest {
+        
+        @NotBlank(message = "El nombre del pagador es obligatorio")
+        @Size(max = 255, message = "El nombre del pagador no puede exceder 255 caracteres")
+        private String name;
 
-    private Long slotId;
+        @NotBlank(message = "El email del pagador es obligatorio")
+        @Email(message = "El email del pagador debe tener un formato válido")
+        @Size(max = 255, message = "El email del pagador no puede exceder 255 caracteres")
+        private String email;
 
-    @NotNull(message = "El precio total del item es obligatorio")
-    @DecimalMin(value = "0.01", message = "El precio total del item debe ser mayor a 0")
-    private BigDecimal itemTotalPrice;
+        @NotNull(message = "El ID del pagador es obligatorio")
+        @Positive(message = "El ID del pagador debe ser positivo")
+        private Integer id;
 
-    @NotBlank(message = "El estado del item es obligatorio")
-    @Size(max = 50, message = "El estado del item no puede exceder 50 caracteres")
-    private String itemStatus;
+        @Size(max = 20, message = "El teléfono del pagador no puede exceder 20 caracteres")
+        private String phone;
 
-    // Datos de la persona que paga
-    @NotBlank(message = "El nombre del pagador es obligatorio")
-    @Size(max = 255, message = "El nombre del pagador no puede exceder 255 caracteres")
-    private String payerName;
+        @Size(max = 50, message = "El tipo de documento del pagador no puede exceder 50 caracteres")
+        private String documentType;
 
-    @NotBlank(message = "El email del pagador es obligatorio")
-    @Email(message = "El email del pagador debe tener un formato válido")
-    @Size(max = 255, message = "El email del pagador no puede exceder 255 caracteres")
-    private String payerEmail;
-
-    @NotNull(message = "El ID del pagador es obligatorio")
-    @Positive(message = "El ID del pagador debe ser positivo")
-    private Integer payerId;
-
-    @Size(max = 20, message = "El teléfono del pagador no puede exceder 20 caracteres")
-    private String payerPhone;
-
-    @Size(max = 50, message = "El tipo de documento del pagador no puede exceder 50 caracteres")
-    private String payerDocumentType;
-
-    @Size(max = 50, message = "El número de documento del pagador no puede exceder 50 caracteres")
-    private String payerDocumentNumber;
+        @Size(max = 50, message = "El número de documento del pagador no puede exceder 50 caracteres")
+        private String documentNumber;
+    }
 }

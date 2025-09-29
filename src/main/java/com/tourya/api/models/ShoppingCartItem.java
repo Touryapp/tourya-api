@@ -60,8 +60,11 @@ public class ShoppingCartItem extends BaseEntity {
     private BigDecimal totalPrice;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
+    @Column(name = "status", nullable = false, length = 20)
     private ShoppingCartStatusEnum status;
+
+    @Column(name = "reservation_id")
+    private Long reservationId;
 
     @OneToMany(mappedBy = "shoppingCartItem", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ShoppingCartItemDetail> details = new ArrayList<>();
