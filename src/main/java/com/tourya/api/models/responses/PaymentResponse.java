@@ -25,7 +25,7 @@ public class PaymentResponse {
     private Long paymentId;
     private String transactionId;
     private String transactionData;
-    private List<ReservationItemResponse> reservationItems;
+    private ReservationResponse reservation;
     private PayerResponse payer;
     private LocalDateTime createdDate;
     private LocalDateTime lastModifiedDate;

@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tourya.api.models.*;
 import com.tourya.api.models.request.CreatePaymentRequest;
 import com.tourya.api.models.responses.PaymentResponse;
+import com.tourya.api.models.responses.ReservationResponse;
 import com.tourya.api.models.responses.ReservationItemResponse;
+import com.tourya.api.models.responses.ServiceResponsibleResponse;
 import com.tourya.api.models.responses.PayerResponse;
 import com.tourya.api.repository.*;
 import com.tourya.api.constans.enums.DeliveryStatusEnum;
@@ -36,6 +38,7 @@ public class PaymentService {
     private final ShoppingCartItemRepository shoppingCartItemRepository;
     private final ShoppingCartRepository shoppingCartRepository;
     private final QrCodeService qrCodeService;
+    private final ReservationQrService reservationQrService;
     private final ObjectMapper objectMapper;
 
     /**
@@ -101,16 +104,21 @@ public class PaymentService {
     private Reservation createReservation(Payment payment) {
         log.debug("Creating reservation for payment: {}", payment.getPaymentId());
 
-        String qrUrl = generateQrUrl(payment);
-
         Reservation reservation = Reservation.builder()
                 .paymentId(payment.getPaymentId())
-                .qrUrl(qrUrl)
+                .qrUrl(null) // Se generará y subirá después
                 .reservationDate(LocalDateTime.now().plusDays(1)) // Fecha por defecto
                 .deliveryStatus(DeliveryStatusEnum.PENDING)
                 .build();
 
-        return reservationRepository.save(reservation);
+        reservation = reservationRepository.save(reservation);
+        
+        // Generar y subir QR code a S3
+        String qrUrl = reservationQrService.generateAndUploadQrCode(reservation.getReservationId());
+        reservation.setQrUrl(qrUrl);
+        reservation = reservationRepository.save(reservation);
+        
+        return reservation;
     }
 
     /**
@@ -172,33 +180,34 @@ public class PaymentService {
         }
     }
 
-    /**
-     * Genera un token único para el QR de la reserva.
-     */
-    private String generateQrUrl(Payment payment) {
-        try {
-            // Generar un token único basado en el payment ID y timestamp
-            String qrToken = "QR_" + payment.getPaymentId() + "_" + System.currentTimeMillis();
-            
-            // En un entorno real, podrías guardar el contenido del QR en caché o base de datos
-            // Por ahora, simplemente devolvemos el token
-            return qrToken;
-        } catch (Exception e) {
-            log.error("Error generating QR token: {}", e.getMessage());
-            return "QR_ERROR_" + payment.getPaymentId();
-        }
-    }
+    // Método generateQrUrl removido - ahora se usa ReservationQrService
 
     /**
      * Construye la respuesta del pago.
      */
     private PaymentResponse buildPaymentResponse(Payment payment, Reservation reservation) {
+        // Construir items de la reserva
         List<ReservationItemResponse> itemResponses = 
                 reservationItemRepository.findByReservationId(reservation.getReservationId())
                         .stream()
                         .map(this::buildReservationItemResponse)
                         .collect(Collectors.toList());
 
+        // Construir respuesta de la reserva
+        ReservationResponse reservationResponse = ReservationResponse.builder()
+                .reservationId(reservation.getReservationId())
+                .paymentId(reservation.getPaymentId())
+                .qrUrl(reservation.getQrUrl()) // URL del QR en S3
+                .reservationDate(reservation.getReservationDate())
+                .deliveryStatus(reservation.getDeliveryStatus())
+                .createdDate(reservation.getCreatedDate())
+                .items(itemResponses)
+                .lastModifiedDate(reservation.getLastModifiedDate())
+                .createdBy(reservation.getCreatedBy())
+                .lastModifiedBy(reservation.getLastModifiedBy())
+                .build();
+
+        // Construir respuesta del pagador
         PayerResponse payerResponse = 
                 PayerResponse.builder()
                         .name(payment.getPayerName())
@@ -209,11 +218,12 @@ public class PaymentService {
                         .documentNumber(payment.getPayerDocumentNumber())
                         .build();
 
+        // Construir respuesta del pago
         return PaymentResponse.builder()
                 .paymentId(payment.getPaymentId())
                 .transactionId(payment.getTransactionId())
                 .transactionData(payment.getTransactionData())
-                .reservationItems(itemResponses)
+                .reservation(reservationResponse)
                 .payer(payerResponse)
                 .createdDate(payment.getCreatedDate())
                 .lastModifiedDate(payment.getLastModifiedDate())
@@ -226,12 +236,17 @@ public class PaymentService {
      * Construye la respuesta de un item de reserva.
      */
     private ReservationItemResponse buildReservationItemResponse(ReservationItem item) {
+        // Construir respuesta del responsable del servicio
+        ServiceResponsibleResponse serviceResponsible = ServiceResponsibleResponse.builder()
+                .name(item.getServiceResponsibleName())
+                .email(item.getServiceResponsibleEmail())
+                .phone(item.getServiceResponsiblePhone() != null ? 
+                      Long.parseLong(item.getServiceResponsiblePhone().replaceAll("[^0-9]", "")) : null)
+                .build();
+
         return ReservationItemResponse.builder()
-                .id(item.getReservationItemId())
                 .shoppingCartItemId(item.getItemId())
-                .serviceResponsibleName(item.getServiceResponsibleName())
-                .serviceResponsibleEmail(item.getServiceResponsibleEmail())
-                .serviceResponsiblePhone(item.getServiceResponsiblePhone())
+                .serviceResponsible(serviceResponsible)
                 .build();
     }
 
@@ -273,29 +288,22 @@ public class PaymentService {
 
     /**
      * Genera la imagen QR en Base64 para una reserva específica.
+     * Ahora usa la URL del QR almacenada en S3.
      */
-    public String generateQrImageBase64(String qrToken) {
+    public String generateQrImageBase64(String qrUrl) {
         try {
-            // Extraer el payment ID del token
-            String paymentIdStr = qrToken.replace("QR_", "").split("_")[0];
-            Long paymentId = Long.parseLong(paymentIdStr);
+            // Si la URL ya es una URL de S3, devolverla directamente
+            if (qrUrl != null && qrUrl.startsWith("https://")) {
+                return qrUrl;
+            }
             
-            Payment payment = paymentRepository.findById(paymentId)
-                    .orElseThrow(() -> new IllegalArgumentException("Payment not found for QR token: " + qrToken));
+            // Si es un token, buscar la reserva correspondiente
+            Reservation reservation = reservationRepository.findByQrUrl(qrUrl)
+                    .orElseThrow(() -> new IllegalArgumentException("Reservation not found for QR: " + qrUrl));
             
-            StringBuilder qrContent = new StringBuilder();
-            qrContent.append("PAYMENT_ID:").append(payment.getPaymentId()).append("\n");
-            qrContent.append("TRANSACTION_ID:").append(payment.getTransactionId()).append("\n");
-            qrContent.append("PAYER_NAME:").append(payment.getPayerName()).append("\n");
-            qrContent.append("PAYER_EMAIL:").append(payment.getPayerEmail()).append("\n");
-            qrContent.append("TIMESTAMP:").append(LocalDateTime.now()).append("\n");
-            
-            byte[] qrImageBytes = qrCodeService.generateQrCodeImage(qrContent.toString());
-            String qrImageBase64 = java.util.Base64.getEncoder().encodeToString(qrImageBytes);
-            
-            return "data:image/png;base64," + qrImageBase64;
+            return reservation.getQrUrl();
         } catch (Exception e) {
-            log.error("Error generating QR image: {}", e.getMessage());
+            log.error("Error getting QR image URL: {}", e.getMessage());
             return "";
         }
     }

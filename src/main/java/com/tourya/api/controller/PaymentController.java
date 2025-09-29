@@ -69,16 +69,16 @@ public class PaymentController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/qr/{qrToken}")
-    @Operation(summary = "Obtener imagen QR", description = "Obtiene la imagen QR en Base64 para un token específico")
+    @GetMapping("/qr/{qrUrl}")
+    @Operation(summary = "Obtener URL de imagen QR", description = "Obtiene la URL de la imagen QR almacenada en S3")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Imagen QR generada exitosamente"),
-            @ApiResponse(responseCode = "404", description = "Token QR no encontrado")
+            @ApiResponse(responseCode = "200", description = "URL de QR obtenida exitosamente"),
+            @ApiResponse(responseCode = "404", description = "QR no encontrado")
     })
-    public ResponseEntity<String> getQrImage(
-            @Parameter(description = "Token QR") @PathVariable String qrToken) {
-        log.info("Getting QR image for token: {}", qrToken);
-        String qrImageBase64 = paymentService.generateQrImageBase64(qrToken);
-        return ResponseEntity.ok(qrImageBase64);
+    public ResponseEntity<String> getQrImageUrl(
+            @Parameter(description = "URL o token QR") @PathVariable String qrUrl) {
+        log.info("Getting QR image URL for: {}", qrUrl);
+        String qrImageUrl = paymentService.generateQrImageBase64(qrUrl);
+        return ResponseEntity.ok(qrImageUrl);
     }
 }

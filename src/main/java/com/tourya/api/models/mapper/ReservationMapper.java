@@ -3,8 +3,6 @@ package com.tourya.api.models.mapper;
 import com.tourya.api.models.Reservation;
 import com.tourya.api.models.request.CreateReservationRequest;
 import com.tourya.api.models.responses.ReservationResponse;
-import com.tourya.api.services.QrCodeService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
@@ -14,10 +12,7 @@ import org.springframework.stereotype.Component;
  * @version 1.0
  */
 @Component
-@RequiredArgsConstructor
 public class ReservationMapper {
-
-    private final QrCodeService qrCodeService;
 
     /**
      * Convierte un CreateReservationRequest a entidad Reservation
@@ -43,16 +38,14 @@ public class ReservationMapper {
             return null;
         }
 
-        // Generar imagen QR automáticamente
-        String qrImageBase64 = generateQrImage(reservation);
-
         return ReservationResponse.builder()
-                .id(reservation.getReservationId())
+                .reservationId(reservation.getReservationId())
                 .paymentId(reservation.getPaymentId())
+                .qrUrl(reservation.getQrUrl()) // URL del QR en S3
                 .reservationDate(reservation.getReservationDate())
                 .deliveryStatus(reservation.getDeliveryStatus())
-                .qrImageBase64(qrImageBase64)
                 .createdDate(reservation.getCreatedDate())
+                .items(null) // Se llenará desde el servicio si es necesario
                 .lastModifiedDate(reservation.getLastModifiedDate())
                 .createdBy(reservation.getCreatedBy())
                 .lastModifiedBy(reservation.getLastModifiedBy())
@@ -73,28 +66,4 @@ public class ReservationMapper {
         reservation.setDeliveryStatus(request.getDeliveryStatus());
     }
 
-    /**
-     * Genera la imagen QR con los datos clave de la reserva
-     */
-    private String generateQrImage(Reservation reservation) {
-        try {
-            // Crear contenido del QR con datos clave de la reserva
-            StringBuilder qrContent = new StringBuilder();
-            qrContent.append("RESERVATION_ID:").append(reservation.getReservationId()).append("\n");
-            qrContent.append("PAYMENT_ID:").append(reservation.getPaymentId()).append("\n");
-            qrContent.append("RESERVATION_DATE:").append(reservation.getReservationDate()).append("\n");
-            qrContent.append("DELIVERY_STATUS:").append(reservation.getDeliveryStatus()).append("\n");
-            qrContent.append("QR_URL:").append(reservation.getQrUrl() != null ? reservation.getQrUrl() : "N/A").append("\n");
-            
-            // Generar imagen QR
-            byte[] qrImageBytes = qrCodeService.generateQrCodeImage(qrContent.toString());
-            
-            // Convertir a Base64
-            return java.util.Base64.getEncoder().encodeToString(qrImageBytes);
-            
-        } catch (Exception e) {
-            // Si hay error generando QR, devolver string vacío
-            return "";
-        }
-    }
 }

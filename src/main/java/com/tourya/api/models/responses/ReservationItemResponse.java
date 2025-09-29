@@ -12,9 +12,6 @@ import lombok.experimental.SuperBuilder;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ReservationItemResponse {
-    private Long id;
     private Long shoppingCartItemId;
-    private String serviceResponsibleName;
-    private String serviceResponsibleEmail;
-    private String serviceResponsiblePhone;
+    private ServiceResponsibleResponse serviceResponsible;
 }
