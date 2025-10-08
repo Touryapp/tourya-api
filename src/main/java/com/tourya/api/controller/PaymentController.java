@@ -81,4 +81,7 @@ public class PaymentController {
         String qrImageUrl = paymentService.generateQrImageBase64(qrUrl);
         return ResponseEntity.ok(qrImageUrl);
     }
+
+
+
 }
