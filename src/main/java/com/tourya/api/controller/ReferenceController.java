@@ -64,7 +64,23 @@ public class ReferenceController {
     }
 
     // 🆔 Generar referencia única
+    //private String generateReference(String prefix) {
+    //    return prefix + "_" + UUID.randomUUID();
+    //}
+
+
     private String generateReference(String prefix) {
-        return prefix + "_" + UUID.randomUUID();
+        if (prefix == null || prefix.isBlank()) {
+            prefix = "TOURYA";
+        }
+
+        long timestamp = System.currentTimeMillis();
+
+        // Equivalente a Math.random().toString(36).substring(2, 8).toUpperCase()
+        String random = Long.toString(Double.doubleToLongBits(Math.random()), 36)
+                .substring(2, 8)
+                .toUpperCase();
+
+        return String.format("%s_%d_%s", prefix, timestamp, random);
     }
 }
