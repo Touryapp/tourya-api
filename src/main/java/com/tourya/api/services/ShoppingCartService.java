@@ -8,6 +8,7 @@ import com.tourya.api.models.*;
 import com.tourya.api.models.request.AddItemToCartRequest;
 import com.tourya.api.models.request.AddMultipleItemsToCartRequest;
 import com.tourya.api.models.request.ConfigQuantityRequest;
+import com.tourya.api.models.responses.ClearCartResponse;
 import com.tourya.api.models.responses.ShoppingCartItemDetailResponse;
 import com.tourya.api.models.responses.ShoppingCartItemResponse;
 import com.tourya.api.models.responses.ShoppingCartResponse;
@@ -576,4 +577,9 @@ public class ShoppingCartService {
                 .build();
     }
 
+    @Transactional
+    public ClearCartResponse clearShoppingCart(Long cartId) {
+        Integer deletedCount = shoppingCartRepository.clearCart(cartId);
+        return new ClearCartResponse(deletedCount != null ? deletedCount : 0);
+    }
 }
