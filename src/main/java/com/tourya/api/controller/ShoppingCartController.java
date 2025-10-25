@@ -2,6 +2,7 @@ package com.tourya.api.controller;
 
 import com.tourya.api.models.request.AddItemToCartRequest;
 import com.tourya.api.models.request.AddMultipleItemsToCartRequest;
+import com.tourya.api.models.responses.ClearCartResponse;
 import com.tourya.api.models.responses.ShoppingCartResponse;
 import com.tourya.api.models.request.CreateShoppingCartRequest;
 import com.tourya.api.models.request.UpdateItemStatusRequest;
@@ -211,5 +212,12 @@ public class ShoppingCartController {
     ) {
         shoppingCartService.checkout(cartId, connectedUser);
         return ResponseEntity.accepted().build();
+    }
+
+
+    @DeleteMapping("/{cartId}/clear")
+    public ResponseEntity<ClearCartResponse> clearCart(@PathVariable Long cartId) {
+        ClearCartResponse response = shoppingCartService.clearShoppingCart(cartId);
+        return ResponseEntity.ok(response);
     }
 }

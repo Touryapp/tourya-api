@@ -4,6 +4,8 @@ import com.tourya.api.constans.enums.ShoppingCartStatusEnum;
 import com.tourya.api.models.ShoppingCart;
 import com.tourya.api.models.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -25,4 +27,7 @@ public interface ShoppingCartRepository extends JpaRepository<ShoppingCart, Long
      * @return Lista de carritos activos del usuario
      */
     List<ShoppingCart> findByUserAndStatus(User user, ShoppingCartStatusEnum status);
+
+    @Query(value = "SELECT public.sp_clear_shopping_cart(:cartId)", nativeQuery = true)
+    Integer clearCart(@Param("cartId") Long cartId);
 }
