@@ -420,55 +420,47 @@ public class TourScheduleConfigGeneralService {
         return responseDto;
     }
 
-    public PageResponse<TourScheduleResponse> findAllByTourId(Integer tourId, int page, int size, Authentication connectedUser) {
-        User user = ((User) connectedUser.getPrincipal());
+    public List<TourScheduleResponse> findAllByTourId(Integer tourId, Authentication connectedUser) {
+        User user = (User) connectedUser.getPrincipal();
         List<Role> roleList = user.getRoles();
-        if(Utils.isProvider(roleList)) {
+
+        if (Utils.isProvider(roleList)) {
             Provider provider = providerService.findByUserAndStatusActive(user);
             Tour tour = getTour(tourId, provider.getId());
-            Pageable pageable = PageRequest.of(page, size, Sort.by("createdDate").descending());
 
             // Consultar los TourSchedule por tourId
-            Page<TourSchedule> tourSchedules = tourScheduleRepository.findByTourId(tour.getId(), pageable);
+            List<TourSchedule> tourSchedules = tourScheduleRepository.findByTourId(tour.getId());
 
             // Por cada TourSchedule, incluir todos sus datos y los del config asociado
-            List<TourScheduleResponse> responseDtos = tourSchedules.stream()
-                .map(schedule -> {
-                    TourScheduleResponse dto = new TourScheduleResponse();
-                    dto.setId(schedule.getId());
-                    dto.setTourId(schedule.getTourId());
-                    dto.setScheduleDate(schedule.getScheduleDate());
-                    dto.setMaxCapacity(schedule.getMaxCapacity());
-                    dto.setReservedCapacity(schedule.getReservedCapacity());
-                    dto.setIsUnlimitedCapacity(schedule.getIsUnlimitedCapacity());
-                    dto.setStatus(schedule.getStatus());
-                    dto.setConfigId(schedule.getConfigId());
+            return tourSchedules.stream()
+                    .map(schedule -> {
+                        TourScheduleResponse dto = new TourScheduleResponse();
+                        dto.setId(schedule.getId());
+                        dto.setTourId(schedule.getTourId());
+                        dto.setScheduleDate(schedule.getScheduleDate());
+                        dto.setMaxCapacity(schedule.getMaxCapacity());
+                        dto.setReservedCapacity(schedule.getReservedCapacity());
+                        dto.setIsUnlimitedCapacity(schedule.getIsUnlimitedCapacity());
+                        dto.setStatus(schedule.getStatus());
+                        dto.setConfigId(schedule.getConfigId());
 
-                    // Agregar datos completos del config
-                    if (schedule.getConfigId() != null) {
-                        Optional<TourScheduleConfig> configOpt = tourScheduleConfigRepository.findByIdWithSlots(schedule.getConfigId());
-                        configOpt.ifPresent(config -> {
-                            TourScheduleConfigResponse configResponse = convertToTourScheduleConfigResponse(config);
-                            dto.setConfig(configResponse); // Debes agregar este setter en TourScheduleResponse
-                        });
-                    }
-                    return dto;
-                })
-                .collect(Collectors.toList());
+                        // Agregar datos completos del config
+                        if (schedule.getConfigId() != null) {
+                            Optional<TourScheduleConfig> configOpt = tourScheduleConfigRepository.findByIdWithSlots(schedule.getConfigId());
+                            configOpt.ifPresent(config -> {
+                                TourScheduleConfigResponse configResponse = convertToTourScheduleConfigResponse(config);
+                                dto.setConfig(configResponse);
+                            });
+                        }
+                        return dto;
+                    })
+                    .collect(Collectors.toList());
 
-            return new PageResponse<>(
-                    responseDtos,
-                    tourSchedules.getNumber(),
-                    tourSchedules.getSize(),
-                    tourSchedules.getTotalElements(),
-                    tourSchedules.getTotalPages(),
-                    tourSchedules.isFirst(),
-                    tourSchedules.isLast()
-            );
         } else {
             throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
         }
     }
+
 
     private TourScheduleConfigResponse convertToTourScheduleConfigResponse(TourScheduleConfig config) {
         TourScheduleConfigResponse responseDto = new TourScheduleConfigResponse();

@@ -17,8 +17,8 @@ import java.util.Optional;
 public interface TourScheduleRepository extends JpaRepository<TourSchedule, Integer>, JpaSpecificationExecutor<TourSchedule> {
     List<TourSchedule> findByConfigId(Integer configId);
 
-    Page<TourSchedule> findByTourId(@Param("tourId") Integer tourId, Pageable pageable);
-
+    //Page<TourSchedule> findByTourId(@Param("tourId") Integer tourId, Pageable pageable);
+    List <TourSchedule> findByTourId(@Param("tourId") Integer tourId);
     Optional<TourSchedule> findByTourIdAndScheduleDate(Integer tourId, LocalDate scheduleDate);
 
     void deleteByConfigId(Integer configId);
