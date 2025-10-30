@@ -39,7 +39,7 @@ public class TourScheduleController {
     private final TourScheduleConfigGeneralService tourScheduleConfigGeneralService;
     private final TourConfigTemplateService configTemplateService;
 
-    @GetMapping("/tours/{tourId}")
+   /* @GetMapping("/tours/{tourId}")
     public ResponseEntity<PageResponse<TourScheduleResponse>> getAllTourSchedulesByTourId(
             @PathVariable Integer tourId,
             @RequestParam(defaultValue = "0") int page,
@@ -47,7 +47,16 @@ public class TourScheduleController {
             Authentication connectedUser
     ) {
         return ResponseEntity.ok(tourScheduleConfigGeneralService.findAllByTourId(tourId, page, size, connectedUser));
-    }
+    }*/
+   @GetMapping("/tours/{tourId}")
+   public ResponseEntity<List<TourScheduleResponse>> getAllTourSchedulesByTourId(
+           @PathVariable Integer tourId,
+           Authentication connectedUser
+   ) {
+       List<TourScheduleResponse> schedules = tourScheduleConfigGeneralService.findAllByTourId(tourId, connectedUser);
+       return ResponseEntity.ok(schedules);
+   }
+
 
     /**
      * Endpoint para crear una nueva configuración de horario de tour
