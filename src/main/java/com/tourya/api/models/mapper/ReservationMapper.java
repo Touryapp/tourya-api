@@ -38,14 +38,28 @@ public class ReservationMapper {
             return null;
         }
 
+        // Construir respuesta del responsable del servicio
+        com.tourya.api.models.responses.ServiceResponsibleResponse serviceResponsible = null;
+        if (reservation.getServiceResponsibleName() != null || 
+            reservation.getServiceResponsibleEmail() != null ||
+            reservation.getServiceResponsiblePhone() != null) {
+            serviceResponsible = com.tourya.api.models.responses.ServiceResponsibleResponse.builder()
+                    .name(reservation.getServiceResponsibleName())
+                    .email(reservation.getServiceResponsibleEmail())
+                    .phone(reservation.getServiceResponsiblePhone() != null ? 
+                          Long.parseLong(reservation.getServiceResponsiblePhone().replaceAll("[^0-9]", "")) : null)
+                    .build();
+        }
+
         return ReservationResponse.builder()
                 .reservationId(reservation.getReservationId())
                 .paymentId(reservation.getPaymentId())
+                .itemId(reservation.getItemId())
                 .qrUrl(reservation.getQrUrl()) // URL del QR en S3
                 .reservationDate(reservation.getReservationDate())
                 .deliveryStatus(reservation.getDeliveryStatus())
+                .serviceResponsible(serviceResponsible)
                 .createdDate(reservation.getCreatedDate())
-                .items(null) // Se llenará desde el servicio si es necesario
                 .lastModifiedDate(reservation.getLastModifiedDate())
                 .createdBy(reservation.getCreatedBy())
                 .lastModifiedBy(reservation.getLastModifiedBy())

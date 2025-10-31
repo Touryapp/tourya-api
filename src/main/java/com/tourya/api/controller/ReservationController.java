@@ -207,4 +207,25 @@ public class ReservationController {
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * Consume/procesa una reserva, cambiando su estado y creando la cuenta por pagar al proveedor.
+     * 
+     * @param reservationId ID de la reserva a procesar
+     * @return ReservationResponse con la información actualizada
+     */
+    @PostMapping("/{reservationId}/consume")
+    @Operation(summary = "Consumir reserva", description = "Procesa una reserva, cambia su estado a DELIVERED, actualiza el item del carrito a COMPLETED y crea una cuenta por pagar al proveedor")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Reserva consumida exitosamente"),
+            @ApiResponse(responseCode = "404", description = "Reserva no encontrada"),
+            @ApiResponse(responseCode = "400", description = "La reserva ya fue consumida o hay datos inválidos")
+    })
+    public ResponseEntity<ReservationResponse> consumeReservation(
+            @Parameter(description = "ID de la reserva a consumir") @PathVariable Long reservationId) {
+        log.info("Consuming reservation: {}", reservationId);
+        
+        ReservationResponse response = reservationService.consumeReservation(reservationId);
+        return ResponseEntity.ok(response);
+    }
+
 }

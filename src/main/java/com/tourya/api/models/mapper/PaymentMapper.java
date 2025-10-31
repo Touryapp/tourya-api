@@ -6,6 +6,8 @@ import com.tourya.api.models.responses.PaymentResponse;
 import com.tourya.api.models.responses.PayerResponse;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+
 /**
  * Mapper para convertir entre entidades Payment y DTOs.
  * 
@@ -57,7 +59,7 @@ public class PaymentMapper {
                 .paymentId(payment.getPaymentId())
                 .transactionId(payment.getTransactionId())
                 .transactionData(payment.getTransactionData())
-                .reservation(null) // Se llenará desde el servicio si es necesario
+                .reservations(new ArrayList<>()) // Se llenará desde el servicio si es necesario
                 .payer(payerResponse)
                 .createdDate(payment.getCreatedDate())
                 .lastModifiedDate(payment.getLastModifiedDate())

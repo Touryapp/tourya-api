@@ -5,7 +5,6 @@ import com.tourya.api.models.*;
 import com.tourya.api.models.request.CreatePaymentRequest;
 import com.tourya.api.models.responses.PaymentResponse;
 import com.tourya.api.models.responses.ReservationResponse;
-import com.tourya.api.models.responses.ReservationItemResponse;
 import com.tourya.api.models.responses.ServiceResponsibleResponse;
 import com.tourya.api.models.responses.PayerResponse;
 import com.tourya.api.repository.*;
@@ -34,7 +33,6 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final ReservationRepository reservationRepository;
-    private final ReservationItemRepository reservationItemRepository;
     private final ShoppingCartItemRepository shoppingCartItemRepository;
     private final ShoppingCartRepository shoppingCartRepository;
     private final QrCodeService qrCodeService;
@@ -76,57 +74,28 @@ public class PaymentService {
 
         Payment savedPayment = paymentRepository.save(payment);
 
-        // Crear la reserva automáticamente
-        Reservation reservation = createReservation(savedPayment);
-        
-        // Actualizar el pago con el ID de la reserva
-        savedPayment.setReservationId(reservation.getReservationId());
-        paymentRepository.save(savedPayment);
-
-        // Crear los items de la reserva
-        createReservationItems(reservation, request.getItems(), items);
+        // Crear una reserva por cada item del pago
+        List<Reservation> reservations = createReservationsForItems(savedPayment, request.getItems(), items);
 
         // Actualizar el estado de los items del carrito a PAGADO
-        updateShoppingCartItemsStatus(items, reservation.getReservationId());
+        updateShoppingCartItemsStatus(items, reservations);
 
         // Verificar si el carrito debe pasar a inactivo
         checkAndDeactivateCart(items);
 
-        log.info("Payment and reservation created successfully. Payment ID: {}, Reservation ID: {}", 
-                savedPayment.getPaymentId(), reservation.getReservationId());
+        log.info("Payment and {} reservations created successfully. Payment ID: {}", 
+                reservations.size(), savedPayment.getPaymentId());
 
-        return buildPaymentResponse(savedPayment, reservation);
+        return buildPaymentResponse(savedPayment, reservations);
     }
 
     /**
-     * Crea una reserva automáticamente después del pago.
+     * Crea una reserva por cada item del pago, cada una con su propio QR.
      */
-    private Reservation createReservation(Payment payment) {
-        log.debug("Creating reservation for payment: {}", payment.getPaymentId());
-
-        Reservation reservation = Reservation.builder()
-                .paymentId(payment.getPaymentId())
-                .qrUrl(null) // Se generará y subirá después
-                .reservationDate(LocalDateTime.now().plusDays(1)) // Fecha por defecto
-                .deliveryStatus(DeliveryStatusEnum.PENDING)
-                .build();
-
-        reservation = reservationRepository.save(reservation);
-        
-        // Generar y subir QR code a S3
-        String qrUrl = reservationQrService.generateAndUploadQrCode(reservation.getReservationId());
-        reservation.setQrUrl(qrUrl);
-        reservation = reservationRepository.save(reservation);
-        
-        return reservation;
-    }
-
-    /**
-     * Crea los items de la reserva.
-     */
-    private void createReservationItems(Reservation reservation, 
-                                      List<CreatePaymentRequest.PaymentItemRequest> requestItems,
-                                      List<ShoppingCartItem> cartItems) {
+    private List<Reservation> createReservationsForItems(Payment payment,
+                                                        List<CreatePaymentRequest.PaymentItemRequest> requestItems,
+                                                        List<ShoppingCartItem> cartItems) {
+        List<Reservation> reservations = new java.util.ArrayList<>();
         
         for (CreatePaymentRequest.PaymentItemRequest requestItem : requestItems) {
             ShoppingCartItem cartItem = cartItems.stream()
@@ -134,25 +103,50 @@ public class PaymentService {
                     .findFirst()
                     .orElseThrow(() -> new IllegalArgumentException("Cart item not found"));
 
-            ReservationItem reservationItem = ReservationItem.builder()
-                    .reservationId(reservation.getReservationId())
+            // Crear reserva para este item
+            Reservation reservation = Reservation.builder()
+                    .paymentId(payment.getPaymentId())
                     .itemId(cartItem.getId())
+                    .qrUrl(null) // Se generará y subirá después
+                    .reservationDate(LocalDateTime.now().plusDays(1)) // Fecha por defecto
+                    .deliveryStatus(DeliveryStatusEnum.PENDING)
                     .serviceResponsibleName(requestItem.getServiceResponsible().getName())
                     .serviceResponsibleEmail(requestItem.getServiceResponsible().getEmail())
                     .serviceResponsiblePhone(requestItem.getServiceResponsible().getPhone())
                     .build();
 
-            reservationItemRepository.save(reservationItem);
+            reservation = reservationRepository.save(reservation);
+            
+            // Generar y subir QR code a S3 para esta reserva
+            String qrUrl = reservationQrService.generateAndUploadQrCode(reservation.getReservationId());
+            reservation.setQrUrl(qrUrl);
+            reservation = reservationRepository.save(reservation);
+            
+            reservations.add(reservation);
+            
+            log.debug("Created reservation {} for item {} in payment {}", 
+                    reservation.getReservationId(), cartItem.getId(), payment.getPaymentId());
         }
+        
+        return reservations;
     }
 
     /**
      * Actualiza el estado de los items del carrito a PAGADO y asigna reservationId.
      */
-    private void updateShoppingCartItemsStatus(List<ShoppingCartItem> items, Long reservationId) {
+    private void updateShoppingCartItemsStatus(List<ShoppingCartItem> items, List<Reservation> reservations) {
+        // Crear un mapa de itemId -> reservationId
+        java.util.Map<Long, Long> itemToReservationMap = new java.util.HashMap<>();
+        for (Reservation reservation : reservations) {
+            itemToReservationMap.put(reservation.getItemId(), reservation.getReservationId());
+        }
+        
         for (ShoppingCartItem item : items) {
             item.setStatus(ShoppingCartStatusEnum.PAID);
-            item.setReservationId(reservationId);
+            Long reservationId = itemToReservationMap.get(item.getId());
+            if (reservationId != null) {
+                item.setReservationId(reservationId);
+            }
             shoppingCartItemRepository.save(item);
         }
     }
@@ -183,29 +177,13 @@ public class PaymentService {
     // Método generateQrUrl removido - ahora se usa ReservationQrService
 
     /**
-     * Construye la respuesta del pago.
+     * Construye la respuesta del pago con lista de reservas.
      */
-    private PaymentResponse buildPaymentResponse(Payment payment, Reservation reservation) {
-        // Construir items de la reserva
-        List<ReservationItemResponse> itemResponses = 
-                reservationItemRepository.findByReservationId(reservation.getReservationId())
-                        .stream()
-                        .map(this::buildReservationItemResponse)
-                        .collect(Collectors.toList());
-
-        // Construir respuesta de la reserva
-        ReservationResponse reservationResponse = ReservationResponse.builder()
-                .reservationId(reservation.getReservationId())
-                .paymentId(reservation.getPaymentId())
-                .qrUrl(reservation.getQrUrl()) // URL del QR en S3
-                .reservationDate(reservation.getReservationDate())
-                .deliveryStatus(reservation.getDeliveryStatus())
-                .createdDate(reservation.getCreatedDate())
-                .items(itemResponses)
-                .lastModifiedDate(reservation.getLastModifiedDate())
-                .createdBy(reservation.getCreatedBy())
-                .lastModifiedBy(reservation.getLastModifiedBy())
-                .build();
+    private PaymentResponse buildPaymentResponse(Payment payment, List<Reservation> reservations) {
+        // Construir respuestas de las reservas
+        List<ReservationResponse> reservationResponses = reservations.stream()
+                .map(this::buildReservationResponse)
+                .collect(Collectors.toList());
 
         // Construir respuesta del pagador
         PayerResponse payerResponse = 
@@ -223,7 +201,7 @@ public class PaymentService {
                 .paymentId(payment.getPaymentId())
                 .transactionId(payment.getTransactionId())
                 .transactionData(payment.getTransactionData())
-                .reservation(reservationResponse)
+                .reservations(reservationResponses)
                 .payer(payerResponse)
                 .createdDate(payment.getCreatedDate())
                 .lastModifiedDate(payment.getLastModifiedDate())
@@ -233,20 +211,29 @@ public class PaymentService {
     }
 
     /**
-     * Construye la respuesta de un item de reserva.
+     * Construye la respuesta de una reserva.
      */
-    private ReservationItemResponse buildReservationItemResponse(ReservationItem item) {
+    private ReservationResponse buildReservationResponse(Reservation reservation) {
         // Construir respuesta del responsable del servicio
         ServiceResponsibleResponse serviceResponsible = ServiceResponsibleResponse.builder()
-                .name(item.getServiceResponsibleName())
-                .email(item.getServiceResponsibleEmail())
-                .phone(item.getServiceResponsiblePhone() != null ? 
-                      Long.parseLong(item.getServiceResponsiblePhone().replaceAll("[^0-9]", "")) : null)
+                .name(reservation.getServiceResponsibleName())
+                .email(reservation.getServiceResponsibleEmail())
+                .phone(reservation.getServiceResponsiblePhone() != null ? 
+                      Long.parseLong(reservation.getServiceResponsiblePhone().replaceAll("[^0-9]", "")) : null)
                 .build();
 
-        return ReservationItemResponse.builder()
-                .shoppingCartItemId(item.getItemId())
+        return ReservationResponse.builder()
+                .reservationId(reservation.getReservationId())
+                .paymentId(reservation.getPaymentId())
+                .itemId(reservation.getItemId())
+                .qrUrl(reservation.getQrUrl()) // URL del QR en S3
+                .reservationDate(reservation.getReservationDate())
+                .deliveryStatus(reservation.getDeliveryStatus())
                 .serviceResponsible(serviceResponsible)
+                .createdDate(reservation.getCreatedDate())
+                .lastModifiedDate(reservation.getLastModifiedDate())
+                .createdBy(reservation.getCreatedBy())
+                .lastModifiedBy(reservation.getLastModifiedBy())
                 .build();
     }
 
@@ -260,12 +247,12 @@ public class PaymentService {
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new IllegalArgumentException("Payment not found with id: " + paymentId));
 
-        Reservation reservation = reservationRepository.findByPaymentId(payment.getPaymentId())
-                .stream()
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Reservation not found for payment: " + paymentId));
+        List<Reservation> reservations = reservationRepository.findByPaymentId(payment.getPaymentId());
+        if (reservations.isEmpty()) {
+            throw new IllegalArgumentException("Reservations not found for payment: " + paymentId);
+        }
 
-        return buildPaymentResponse(payment, reservation);
+        return buildPaymentResponse(payment, reservations);
     }
 
     /**
@@ -278,12 +265,12 @@ public class PaymentService {
         Payment payment = paymentRepository.findByTransactionId(transactionId)
                 .orElseThrow(() -> new IllegalArgumentException("Payment not found with transaction id: " + transactionId));
 
-        Reservation reservation = reservationRepository.findByPaymentId(payment.getPaymentId())
-                .stream()
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Reservation not found for payment: " + payment.getPaymentId()));
+        List<Reservation> reservations = reservationRepository.findByPaymentId(payment.getPaymentId());
+        if (reservations.isEmpty()) {
+            throw new IllegalArgumentException("Reservations not found for payment: " + payment.getPaymentId());
+        }
 
-        return buildPaymentResponse(payment, reservation);
+        return buildPaymentResponse(payment, reservations);
     }
 
     /**

@@ -24,11 +24,6 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     Optional<Payment> findByTransactionId(String transactionId);
 
     /**
-     * Busca pagos por ID de la reserva
-     */
-    List<Payment> findByReservationId(Long reservationId);
-
-    /**
      * Busca pagos por ID del pagador
      */
     List<Payment> findByPayerId(Integer payerId);
@@ -53,11 +48,6 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
      * Busca pagos por número de documento del pagador
      */
     List<Payment> findByPayerDocumentNumber(String documentNumber);
-
-    /**
-     * Verifica si existe un pago para una reserva específica
-     */
-    boolean existsByReservationId(Long reservationId);
 
     /**
      * Cuenta el número de pagos por pagador
