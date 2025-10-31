@@ -8,6 +8,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
+import java.util.List;
+
 /**
  * Entidad que representa un pago realizado.
  * 
@@ -33,9 +35,6 @@ public class Payment extends BaseEntity {
     @Column(name = "transaction_data", columnDefinition = "TEXT")
     private String transactionData; // JSON string
 
-    @Column(name = "reservation_id")
-    private Long reservationId;
-
     @Column(name = "payer_id", nullable = false)
     private Integer payerId;
 
@@ -54,7 +53,7 @@ public class Payment extends BaseEntity {
     @Column(name = "payer_document_number", length = 50)
     private String payerDocumentNumber;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "reservation_id", insertable = false, updatable = false)
-    private Reservation reservation;
+    @OneToMany(fetch = FetchType.LAZY)
+    @JoinColumn(name = "payment_id", insertable = false, updatable = false)
+    private List<Reservation> reservations;
 }

@@ -8,7 +8,6 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 /**
  * Response para información de reserva.
@@ -25,11 +24,12 @@ public class ReservationResponse {
 
     private Long reservationId;
     private Long paymentId;
+    private Long itemId;
     private String qrUrl; // URL del QR en S3
     private LocalDateTime reservationDate;
     private DeliveryStatusEnum deliveryStatus;
+    private ServiceResponsibleResponse serviceResponsible;
     private LocalDateTime createdDate;
-    private List<ReservationItemResponse> items;
     private LocalDateTime lastModifiedDate;
     private Integer createdBy;
     private Integer lastModifiedBy;

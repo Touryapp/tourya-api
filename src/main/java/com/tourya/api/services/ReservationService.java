@@ -2,14 +2,14 @@ package com.tourya.api.services;
 
 import com.tourya.api.config.security.JwtService;
 import com.tourya.api.constans.enums.DeliveryStatusEnum;
+import com.tourya.api.constans.enums.ShoppingCartStatusEnum;
+import com.tourya.api.constans.enums.AccountPayableStatusEnum;
 import com.tourya.api.exceptions.ResourceNotFoundException;
-import com.tourya.api.models.Payment;
-import com.tourya.api.models.Reservation;
+import com.tourya.api.models.*;
 import com.tourya.api.models.mapper.ReservationMapper;
 import com.tourya.api.models.request.CreateReservationRequest;
 import com.tourya.api.models.responses.ReservationResponse;
-import com.tourya.api.repository.PaymentRepository;
-import com.tourya.api.repository.ReservationRepository;
+import com.tourya.api.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -37,6 +37,10 @@ public class ReservationService {
     private final PaymentRepository paymentRepository;
     private final ReservationMapper reservationMapper;
     private final JwtService jwtService;
+    private final ShoppingCartItemRepository shoppingCartItemRepository;
+    private final TourScheduleRepository tourScheduleRepository;
+    private final TourRepository tourRepository;
+    private final AccountPayableRepository accountPayableRepository;
 
     /**
      * Método createReservation removido - las reservas se crean automáticamente con los pagos
@@ -200,5 +204,79 @@ public class ReservationService {
         // Crear JSON con datos básicos del servicio
         return String.format("{\"paymentId\":%d,\"timestamp\":\"%s\",\"serviceType\":\"tour_reservation\"}", 
                 paymentId, timestamp);
+    }
+
+    /**
+     * Consume/procesa una reserva, cambiando su estado y creando la cuenta por pagar al proveedor.
+     * 
+     * @param reservationId ID de la reserva a procesar
+     * @return ReservationResponse con la información actualizada
+     * @throws ResourceNotFoundException si la reserva no existe
+     */
+    @Transactional
+    public ReservationResponse consumeReservation(Long reservationId) {
+        log.info("Consuming reservation with id: {}", reservationId);
+        
+        // 1. Obtener la reserva
+        Reservation reservation = reservationRepository.findById(reservationId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Reservation not found with id: " + reservationId));
+
+        // Validar que la reserva esté en un estado válido para consumir
+        if (reservation.getDeliveryStatus() == DeliveryStatusEnum.DELIVERED) {
+            throw new IllegalStateException("Reservation is already consumed (DELIVERED)");
+        }
+
+        // 2. Obtener el shopping cart item relacionado
+        final Long itemId = reservation.getItemId();
+        ShoppingCartItem cartItem = shoppingCartItemRepository.findById(itemId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Shopping cart item not found with id: " + itemId));
+
+        // 3. Obtener el tour schedule
+        TourSchedule tourSchedule = cartItem.getTourSchedule();
+        if (tourSchedule == null || tourSchedule.getId() == null) {
+            throw new IllegalStateException(
+                    "Shopping cart item does not have an associated tour schedule");
+        }
+
+        // 4. Obtener el tour
+        Tour tour = tourRepository.findById(tourSchedule.getTourId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Tour not found with id: " + tourSchedule.getTourId()));
+
+        // 5. Obtener el proveedor
+        if (tour.getProvider() == null || tour.getProvider().getId() == null) {
+            throw new IllegalStateException(
+                    "Tour does not have an associated provider");
+        }
+
+        Provider provider = tour.getProvider();
+        Integer providerId = provider.getId();
+
+        // 6. Actualizar el estado de la reserva a DELIVERED
+        reservation.setDeliveryStatus(DeliveryStatusEnum.DELIVERED);
+        reservation = reservationRepository.save(reservation);
+
+        // 7. Actualizar el estado del shopping cart item a COMPLETED
+        cartItem.setStatus(ShoppingCartStatusEnum.COMPLETED);
+        shoppingCartItemRepository.save(cartItem);
+
+        // 8. Crear la cuenta por pagar al proveedor
+        AccountPayable accountPayable = AccountPayable.builder()
+                .reservationId(reservation.getReservationId())
+                .providerId(providerId)
+                .transactionDate(LocalDateTime.now())
+                .amount(cartItem.getTotalPrice()) // Usar el precio total del item
+                .deliveryStatus(AccountPayableStatusEnum.PENDING)
+                .build();
+
+        accountPayable = accountPayableRepository.save(accountPayable);
+
+        log.info("Reservation {} consumed successfully. Account payable {} created for provider {} with amount {}", 
+                reservationId, accountPayable.getId(), providerId, cartItem.getTotalPrice());
+
+        // 9. Retornar la respuesta actualizada
+        return reservationMapper.toResponse(reservation);
     }
 }
