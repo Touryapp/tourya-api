@@ -4,6 +4,7 @@ package com.tourya.api.controller;
 import com.tourya.api.common.PageResponse;
 import com.tourya.api.constans.enums.TourStatusEnum;
 import com.tourya.api.models.request.TourFullDataRequest;
+import com.tourya.api.models.responses.TourCompleteDataResponse;
 import com.tourya.api.models.responses.TourFullDataResponse;
 import com.tourya.api.models.responses.TourResponse;
 import com.tourya.api.services.TourService;
@@ -37,7 +38,7 @@ public class TourController {
         return ResponseEntity.ok(tourService.findAll(page, size, status, connectedUser));
     }
     @GetMapping("/admin/consultDataTourById/{tourId}")
-    public ResponseEntity<TourFullDataResponse> consultDataTourByIdToAdmin (
+    public ResponseEntity<TourCompleteDataResponse> consultDataTourByIdToAdmin (
             @PathVariable Integer tourId, Authentication connectedUser){
         return ResponseEntity.ok(tourService.consultDataTourByIdToAdmin(tourId, connectedUser));
     }
@@ -46,6 +47,18 @@ public class TourController {
             @PathVariable Integer tourId, Authentication connectedUser){
         return ResponseEntity.ok(tourService.acceptTourByIdToAdmin(tourId, connectedUser));
     }
+    @PutMapping("/admin/returnedTourById/{tourId}")
+    public ResponseEntity<TourFullDataResponse> returnedTourById (
+            @PathVariable Integer tourId, Authentication connectedUser){
+        return ResponseEntity.ok(tourService.returnedTourByIdToAdmin(tourId, connectedUser));
+    }
+
+    @PutMapping("/user/submitTourById/{tourId}")
+    public ResponseEntity<TourFullDataResponse> submitTourById (
+            @PathVariable Integer tourId, Authentication connectedUser){
+        return ResponseEntity.ok(tourService.submitTourByIdToProvider(tourId, connectedUser));
+    }
+
     @PutMapping("/admin/cancelTourById/{tourId}")
     public ResponseEntity<TourFullDataResponse> cancelTourById (
             @PathVariable Integer tourId, Authentication connectedUser){

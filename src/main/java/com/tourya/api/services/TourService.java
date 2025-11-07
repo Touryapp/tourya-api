@@ -605,17 +605,17 @@ public class TourService {
             throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
         }
     }
-    public TourFullDataResponse consultDataTourByIdToAdmin(Integer tourId, Authentication connectedUser){
+    public TourCompleteDataResponse consultDataTourByIdToAdmin(Integer tourId, Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
         if(Utils.isAdmin(roleList)){
             Optional<Tour> optionalTour = tourRepository.findById(tourId);
             if(optionalTour.isPresent()){
                 Tour tour = optionalTour.get();
-                return tourMapper.toTourFullDataResponse(tour, consultDataTourAddressListByTourId(tourId),
+                return tourMapper.toTourCompleteDataResponse(tour, consultDataTourAddressListByTourId(tourId),
                         getAllByTourMainAttractions(tourId), getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
                         getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId),
-                        getAllByTourItineraries(tourId), getAllByTourCancellationPolicy(tourId));
+                        getAllByTourItineraries(tourId), getAllByTourCancellationPolicy(tourId),getAllByTourGallery(tourId));
             }else{
                 throw new ResourceNotFoundException("Tour not found with id = "+tourId);
             }
@@ -643,6 +643,48 @@ public class TourService {
             throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
         }
     }
+    public TourFullDataResponse returnedTourByIdToAdmin(Integer tourId, Authentication connectedUser){
+        User user = ((User) connectedUser.getPrincipal());
+        List<Role> roleList = user.getRoles();
+        if(Utils.isAdmin(roleList)){
+            Optional<Tour> optionalTour = tourRepository.findById(tourId);
+            if(optionalTour.isPresent()){
+                Tour tour = optionalTour.get();
+                tour.setStatus(TourStatusEnum.RETURNED);
+                Tour tourUpdate = tourRepository.save(tour);
+                return tourMapper.toTourFullDataResponse(tourUpdate, consultDataTourAddressListByTourId(tourId),
+                        getAllByTourMainAttractions(tourId), getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
+                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId),
+                        getAllByTourItineraries(tourId), getAllByTourCancellationPolicy(tourId));
+            }else{
+                throw new ResourceNotFoundException("Tour not found with id = "+tourId);
+            }
+        }else{
+            throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
+        }
+    }
+
+    public TourFullDataResponse submitTourByIdToProvider(Integer tourId, Authentication connectedUser){
+        User user = ((User) connectedUser.getPrincipal());
+        List<Role> roleList = user.getRoles();
+        if(Utils.isProvider(roleList)){
+            Optional<Tour> optionalTour = tourRepository.findById(tourId);
+            if(optionalTour.isPresent()){
+                Tour tour = optionalTour.get();
+                tour.setStatus(TourStatusEnum.SUBMITTED);
+                Tour tourUpdate = tourRepository.save(tour);
+                return tourMapper.toTourFullDataResponse(tourUpdate, consultDataTourAddressListByTourId(tourId),
+                        getAllByTourMainAttractions(tourId), getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
+                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId),
+                        getAllByTourItineraries(tourId), getAllByTourCancellationPolicy(tourId));
+            }else{
+                throw new ResourceNotFoundException("Tour not found with id = "+tourId);
+            }
+        }else{
+            throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
+        }
+    }
+
     public TourFullDataResponse cancelTourByIdToAdmin(Integer tourId, Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
@@ -701,6 +743,12 @@ public class TourService {
         return tourCancellationPolicyRepository.findByTourId(tourId)
                 .stream()
                 .map(tourCancellationPolicyMapper::toTourCancellationPolicyResponse)
+                .toList();
+    }
+    private List<TourGalleryResponse> getAllByTourGallery(Integer tourId) {
+        return tourGalleryRepository.findByTourId(tourId)
+                .stream()
+                .map(tourGalleryMapper::toTourGalleryResponse)
                 .toList();
     }
 }
