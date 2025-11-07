@@ -12,7 +12,7 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 # Usa una imagen base de OpenJDK para ejecutar la aplicación
-FROM eclipse-temurin:17-jdk-slim
+FROM eclipse-temurin:17-jre-jammy
 
 # Establece el directorio de trabajo dentro del contenedor
 WORKDIR /app
