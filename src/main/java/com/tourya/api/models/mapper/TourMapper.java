@@ -91,4 +91,34 @@ public class TourMapper {
         tourFullDataResponse.setCancellationPolicies(tourCancellationPolicyResponseList);
         return tourFullDataResponse;
     }
+    public TourCompleteDataResponse toTourCompleteDataResponse(Tour tour, List<TourAddressResponse> tourAddressResponseList,
+                                                       List<TourMainAttractionResponse>  tourMainAttractionResponseList,
+                                                       List<TourIncludesExcludesResponse>  tourIncludesResponseList,
+                                                       List<TourIncludesExcludesResponse>  tourExcludesResponseList,
+                                                       List<TourFaqResponse> tourFaqResponseList,
+                                                       List<TourItineraryResponse> tourItineraryResponseList,
+                                                       List<TourCancellationPolicyResponse>  tourCancellationPolicyResponseList,
+                                                       List<TourGalleryResponse>  tourGalleryResponseList){
+        TourCompleteDataResponse tourFullDataResponse = new TourCompleteDataResponse();
+        tourFullDataResponse.setId(tour.getId());
+        tourFullDataResponse.setName(tour.getName());
+        tourFullDataResponse.setDescription(tour.getDescription());
+        tourFullDataResponse.setDescription(tour.getDescription());
+        tourFullDataResponse.setTourCategoryId(tour.getTourCategory().getId());
+        tourFullDataResponse.setDuration(tour.getDuration());
+        tourFullDataResponse.setMaxPeople(tour.getMaxPeople());
+        tourFullDataResponse.setHighlight(tour.getHighlight());
+        tourFullDataResponse.setMinAge(tour.getMinAge());
+        tourFullDataResponse.setRating(tour.getRating());
+        tourFullDataResponse.setStatus(tour.getStatus());
+        tourFullDataResponse.setLocations(tourAddressResponseList);
+        tourFullDataResponse.setMainAttractions(tourMainAttractionResponseList);
+        tourFullDataResponse.setIncludes(tourIncludesResponseList);
+        tourFullDataResponse.setExcludes(tourExcludesResponseList);
+        tourFullDataResponse.setFaq(tourFaqResponseList);
+        tourFullDataResponse.setItineraries(tourItineraryResponseList);
+        tourFullDataResponse.setCancellationPolicies(tourCancellationPolicyResponseList);
+        tourFullDataResponse.setGalleries(tourGalleryResponseList);
+        return tourFullDataResponse;
+    }
 }
