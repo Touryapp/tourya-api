@@ -20,6 +20,7 @@ public class TourFullDataResponse {
     private Integer minAge;
     private BigDecimal rating;
     private TourStatusEnum status;
+    private ProviderResponse provider;
     private List<TourAddressResponse> locations = new ArrayList<>();
     private List<TourMainAttractionResponse> mainAttractions = new ArrayList<>();
     private List<TourIncludesExcludesResponse>  includes = new ArrayList<>();
@@ -27,6 +28,6 @@ public class TourFullDataResponse {
     private List<TourFaqResponse>  faq = new ArrayList<>();
     private List<TourItineraryResponse>  itineraries = new ArrayList<>();
     private List<TourCancellationPolicyResponse>  cancellationPolicies = new ArrayList<>();
-    //private List<TourGalleryResponse>  galleries = new ArrayList<>();
+    private List<TourGalleryResponse>  galleries = new ArrayList<>();
 
 }
