@@ -4,6 +4,7 @@ package com.tourya.api.services;
 import com.tourya.api._utils.Utils;
 import com.tourya.api.common.PageResponse;
 import com.tourya.api.constans.enums.IncludeExcludeTypeEnum;
+import com.tourya.api.constans.enums.UserRoleType;
 import com.tourya.api.constans.enums.TourStatusEnum;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
 import com.tourya.api.exceptions.OperationNotPermittedException;
@@ -18,6 +19,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.lang.Nullable;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -605,14 +607,14 @@ public class TourService {
             throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
         }
     }
-    public TourCompleteDataResponse consultDataTourByIdToAdmin(Integer tourId, Authentication connectedUser){
+    public TourFullDataResponse consultDataTourByIdToAdmin(Integer tourId, Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
         if(Utils.isAdmin(roleList)){
             Optional<Tour> optionalTour = tourRepository.findById(tourId);
             if(optionalTour.isPresent()){
                 Tour tour = optionalTour.get();
-                return tourMapper.toTourCompleteDataResponse(tour, consultDataTourAddressListByTourId(tourId),
+                return tourMapper.toTourFullDataResponse(tour, consultDataTourAddressListByTourId(tourId),
                         getAllByTourMainAttractions(tourId), getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
                         getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId),
                         getAllByTourItineraries(tourId), getAllByTourCancellationPolicy(tourId),getAllByTourGallery(tourId));
@@ -750,5 +752,72 @@ public class TourService {
                 .stream()
                 .map(tourGalleryMapper::toTourGalleryResponse)
                 .toList();
+    }
+
+    // ------------------- NEW UNIFIED METHODS -------------------
+
+    /**
+     * Determines the user's role and calls the builder method.
+     * This acts as a dispatcher.
+     */
+    public TourFullDataResponse getTourDetailsById(Integer tourId, @Nullable Authentication connectedUser) {
+        UserRoleType roleType = UserRoleType.PUBLIC;
+        User user = null;
+
+        if (connectedUser != null) {
+            user = (User) connectedUser.getPrincipal();
+            List<Role> roles = user.getRoles();
+
+            if (Utils.isAdmin(roles)) {
+                roleType = UserRoleType.ADMIN;
+            } else if (Utils.isProvider(roles)) {
+                roleType = UserRoleType.PROVIDER;
+            }
+        }
+
+        return buildTourResponse(tourId, roleType, user);
+    }
+
+    /**
+     * Fetches and builds the complete Tour response based on the user's role.
+     * This is the core builder logic.
+     */
+    private TourFullDataResponse buildTourResponse(Integer tourId, UserRoleType roleType, @Nullable User user) {
+        Tour tour;
+
+        switch (roleType) {
+            case ADMIN:
+                tour = tourRepository.findById(tourId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Tour not found with id = " + tourId));
+                break;
+
+            case PROVIDER:
+                Provider provider = providerService.findByUserAndStatusActive(user);
+                tour = tourRepository.findTourByIdAndProviderId(tourId, provider.getId());
+                if (tour == null) {
+                    throw new ResourceNotFoundException("Tour not found with id = " + tourId + " for this provider.");
+                }
+                break;
+
+            case PUBLIC:
+            default:
+                // For public, we only show accepted tours.
+                tour = tourRepository.findTourByIdAndStatus(tourId, TourStatusEnum.ACCEPTED)
+                        .orElseThrow(() -> new ResourceNotFoundException("Tour not found or is not available with id = " + tourId));
+                break;
+        }
+
+        // Fetch all related data
+        List<TourAddressResponse> locations = consultDataTourAddressListByTourId(tourId);
+        List<TourMainAttractionResponse> mainAttractions = getAllByTourMainAttractions(tourId);
+        List<TourIncludesExcludesResponse> includes = getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE);
+        List<TourIncludesExcludesResponse> excludes = getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE);
+        List<TourFaqResponse> faqs = getAllByTourFaqs(tourId);
+        List<TourItineraryResponse> itineraries = getAllByTourItineraries(tourId);
+        List<TourCancellationPolicyResponse> cancellationPolicies = getAllByTourCancellationPolicy(tourId);
+        //List<TourGalleryResponse> galleries = (roleType == UserRoleType.ADMIN) ? getAllByTourGallery(tourId) : null;
+        List<TourGalleryResponse> galleries = getAllByTourGallery(tourId);
+
+        return tourMapper.toTourFullDataResponse(tour, locations, mainAttractions, includes, excludes, faqs, itineraries, cancellationPolicies, galleries);
     }
 }

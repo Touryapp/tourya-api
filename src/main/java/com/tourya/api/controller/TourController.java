@@ -3,7 +3,6 @@ package com.tourya.api.controller;
 
 import com.tourya.api.common.PageResponse;
 import com.tourya.api.constans.enums.TourStatusEnum;
-import com.tourya.api.models.request.TourFullDataRequest;
 import com.tourya.api.models.responses.TourCompleteDataResponse;
 import com.tourya.api.models.responses.TourFullDataResponse;
 import com.tourya.api.models.responses.TourResponse;
@@ -11,6 +10,7 @@ import com.tourya.api.services.TourService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.lang.Nullable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import com.tourya.api.models.request.TourFullDataRequest;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -38,7 +39,7 @@ public class TourController {
         return ResponseEntity.ok(tourService.findAll(page, size, status, connectedUser));
     }
     @GetMapping("/admin/consultDataTourById/{tourId}")
-    public ResponseEntity<TourCompleteDataResponse> consultDataTourByIdToAdmin (
+    public ResponseEntity<TourFullDataResponse> consultDataTourByIdToAdmin (
             @PathVariable Integer tourId, Authentication connectedUser){
         return ResponseEntity.ok(tourService.consultDataTourByIdToAdmin(tourId, connectedUser));
     }
@@ -82,5 +83,14 @@ public class TourController {
     public ResponseEntity<TourFullDataResponse> consultDataTourById (
             @PathVariable Integer tourId, Authentication connectedUser){
         return ResponseEntity.ok(tourService.consultDataTourById(tourId, connectedUser));
+    }
+
+    // --- NEW UNIFIED ENDPOINT ---
+    @GetMapping("/details/{tourId}")
+    public ResponseEntity<TourFullDataResponse> getTourDetails(
+            @PathVariable Integer tourId,
+            @Nullable Authentication connectedUser
+    ) {
+        return ResponseEntity.ok(tourService.getTourDetailsById(tourId, connectedUser));
     }
 }

@@ -10,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.Nullable;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
@@ -29,6 +31,7 @@ public class    PublicController {
     private final SearchTourCategoryService SearchTourCategoryService;
     private final TagCategoryService tagCategoryService;
     private final TourTagService tourTagService;
+    private final TourService tourService;
 
     private final ObjectMapper objectMapper;
     private final Validator validator;
@@ -84,6 +87,19 @@ public class    PublicController {
     public AgePriceType[] getAgePriceTypes() {
         return AgePriceType.values();
     }
+    @GetMapping("/consultDataTourById/{tourId}")
+    public ResponseEntity<TourFullDataResponse> consultDataTourById (
+            @PathVariable Integer tourId, Authentication connectedUser){
+        return ResponseEntity.ok(tourService.consultDataTourById(tourId, connectedUser));
+    }
 
+    // --- NEW UNIFIED ENDPOINT ---
+    @GetMapping("/tour/details/{tourId}")
+    public ResponseEntity<TourFullDataResponse> getTourDetails(
+            @PathVariable Integer tourId,
+            @Nullable Authentication connectedUser
+    ) {
+        return ResponseEntity.ok(tourService.getTourDetailsById(tourId, connectedUser));
+    }
 
 }

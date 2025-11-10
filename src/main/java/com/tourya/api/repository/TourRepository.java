@@ -9,6 +9,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Optional;
+
 public interface TourRepository extends JpaRepository<Tour, Integer> {
 
     @Query("""
@@ -31,4 +33,6 @@ public interface TourRepository extends JpaRepository<Tour, Integer> {
             WHERE ((:status IS NULL ) OR (tour.status = :status))
             """)
     Page<Tour> findAllTour(@Param("status") TourStatusEnum status, Pageable pageable);
+
+    Optional<Tour> findTourByIdAndStatus(Integer tourId, TourStatusEnum tourStatusEnum);
 }
