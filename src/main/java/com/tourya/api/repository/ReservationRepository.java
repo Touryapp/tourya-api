@@ -1,7 +1,10 @@
 package com.tourya.api.repository;
 
+import com.tourya.api.models.responses.ReservationDetailsResponse;
 import com.tourya.api.models.Reservation;
 import com.tourya.api.constans.enums.DeliveryStatusEnum;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -60,6 +63,36 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
      * Busca reservas creadas en un rango de fechas
      */
     @Query("SELECT r FROM Reservation r WHERE r.createdDate BETWEEN :startDate AND :endDate")
-    List<Reservation> findByCreatedDateBetween(@Param("startDate") LocalDateTime startDate, 
+    List<Reservation> findByCreatedDateBetween(@Param("startDate") LocalDateTime startDate,
                                                @Param("endDate") LocalDateTime endDate);
+
+    /**
+     * Busca reservas general
+     */
+    @Query(
+            value = """
+        SELECT r.*
+        FROM (
+            SELECT *
+            FROM sp_get_provider_reservations(:providerId, :reservationId, :deliveryStatus)
+        ) AS r
+        """,
+            countQuery = """
+        SELECT COUNT(*)
+        FROM (
+            SELECT *
+            FROM sp_get_provider_reservations(:providerId, :reservationId, :deliveryStatus)
+        ) AS r
+        """,
+            nativeQuery = true
+    )
+    Page<ReservationDetailsResponse> getProviderReservations(
+            @Param("providerId") Integer providerId,
+            @Param("reservationId") Long reservationId,
+            @Param("deliveryStatus") String deliveryStatus,
+            Pageable pageable
+    );
+
+
+
 }

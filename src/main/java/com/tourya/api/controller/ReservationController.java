@@ -1,8 +1,9 @@
 package com.tourya.api.controller;
 
+import com.tourya.api.common.PageResponse;
 import com.tourya.api.constans.enums.DeliveryStatusEnum;
-import com.tourya.api.models.request.CreateReservationRequest;
 import com.tourya.api.models.responses.ReservationResponse;
+import com.tourya.api.models.responses.ReservationDetailsResponse;
 import com.tourya.api.services.ReservationService;
 import com.tourya.api.services.ReservationQrService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -10,9 +11,11 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
+import org.springframework.lang.Nullable;
+import org.springframework.security.core.Authentication;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -36,13 +39,32 @@ public class ReservationController {
     private final ReservationService reservationService;
     private final ReservationQrService reservationQrService;
 
-    /**
-     * Crea una nueva reserva.
-     * 
-     * @param request Datos de la reserva a crear
-     * @return ReservationResponse con la información de la reserva creada
-     */
-    // Método createReservation removido - las reservas se crean automáticamente con los pagos
+    @GetMapping
+    public ResponseEntity<PageResponse<ReservationDetailsResponse>> getProviderReservations(
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "providerId", required = false) Integer providerId,
+            @RequestParam(name = "reservationId", required = false) Long reservationId,
+            @RequestParam(name = "status", required = false) DeliveryStatusEnum status,
+            Authentication connectedUser
+    ) {
+
+        PageResponse<ReservationDetailsResponse> response =
+                reservationService.getProviderReservations(
+                        page,
+                        size,
+                        providerId,
+                        reservationId,
+                        status,
+                        connectedUser
+                );
+
+        return ResponseEntity.ok(response);
+    }
+
+
+
+    // --- OTROS MÉTODOS ---
 
     /**
      * Obtiene una reserva por su ID.

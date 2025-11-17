@@ -1,5 +1,7 @@
 package com.tourya.api.services;
 
+import com.tourya.api._utils.Utils;
+import com.tourya.api.common.PageResponse;
 import com.tourya.api.config.security.JwtService;
 import com.tourya.api.constans.enums.DeliveryStatusEnum;
 import com.tourya.api.constans.enums.ShoppingCartStatusEnum;
@@ -7,11 +9,16 @@ import com.tourya.api.constans.enums.AccountPayableStatusEnum;
 import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.models.*;
 import com.tourya.api.models.mapper.ReservationMapper;
-import com.tourya.api.models.request.CreateReservationRequest;
+import com.tourya.api.models.responses.ReservationDetailsResponse;
 import com.tourya.api.models.responses.ReservationResponse;
 import com.tourya.api.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.lang.Nullable;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,8 +47,9 @@ public class ReservationService {
     private final ShoppingCartItemRepository shoppingCartItemRepository;
     private final TourScheduleRepository tourScheduleRepository;
     private final TourRepository tourRepository;
+    private final ProviderService providerService;
     private final AccountPayableRepository accountPayableRepository;
-
+    private final ReservationNativeRepository reservationNativeRepository;
     /**
      * Método createReservation removido - las reservas se crean automáticamente con los pagos
      */
@@ -157,19 +165,6 @@ public class ReservationService {
     }
 
     /**
-     * Valida que el pago existe.
-     * 
-     * @param request Request con el ID del pago
-     * @return Payment si existe
-     * @throws ResourceNotFoundException si el pago no existe
-     */
-    private Payment validatePayment(CreateReservationRequest request) {
-        return paymentRepository.findById(request.getPaymentId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Payment not found with id: " + request.getPaymentId()));
-    }
-
-    /**
      * Genera un token QR para la reserva.
      * Este método crea un token único basado en información de la reserva y pago.
      * 
@@ -279,4 +274,73 @@ public class ReservationService {
         // 9. Retornar la respuesta actualizada
         return reservationMapper.toResponse(reservation);
     }
+
+    /**
+     * Obtiene las reservas para un proveedor o para el administrador con filtros y paginación.
+     *
+     * @param page               Número de página.
+     * @param size               Tamaño de la página.
+     * @param requestedProviderId ID opcional del proveedor (solo para admin).
+     * @param reservationId      ID opcional para filtrar por una reserva específica.
+     * @param deliveryStatus     Estado opcional para filtrar las reservas.
+     * @param connectedUser      Usuario autenticado.
+     * @return Una página de {@link ReservationDetailsResponse}.
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<ReservationDetailsResponse> getProviderReservations(
+            int page,
+            int size,
+            @Nullable Integer requestedProviderId,
+            @Nullable Long reservationId,
+            @Nullable DeliveryStatusEnum deliveryStatus,
+            Authentication connectedUser
+    ) {
+        //User user = (User) connectedUser.getPrincipal();
+        //List<Role> roles = user.getRoles();
+        Integer finalProviderId = null; // null = admin puede consultar todos
+
+        // --- Lógica de roles ---
+        /*if (Utils.isProvider(roles)) {
+            Provider provider = providerService.findByUserAndStatusActive(user);
+            finalProviderId = provider.getId(); // proveedor solo ve sus reservas
+        } else if (Utils.isAdmin(roles)) {
+            finalProviderId = requestedProviderId; // admin puede ver todos o filtrar
+        } else {
+            // sin rol adecuado
+            return new PageResponse<>();
+        }*/
+
+        String status = (deliveryStatus != null) ? deliveryStatus.name() : null;
+
+        // --- Consulta con JdbcTemplate (NO JPA) ---
+        List<ReservationDetailsResponse> content =
+                reservationNativeRepository.getProviderReservations(
+                        finalProviderId,
+                        reservationId,
+                        status,
+                        page,
+                        size
+                );
+
+        Long total =
+                reservationNativeRepository.countProviderReservations(
+                        finalProviderId,
+                        reservationId,
+                        status
+                );
+
+        // --- Construcción del PageResponse ---
+        int totalPages = (int) Math.ceil((double) total / size);
+
+        return new PageResponse<>(
+                content,
+                page,
+                size,
+                total,
+                totalPages,
+                page == 0,
+                page == (totalPages - 1)
+        );
+    }
+
 }
