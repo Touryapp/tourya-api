@@ -15,9 +15,9 @@ import java.math.BigDecimal;
 @Data
 public class TourRequest {
 
-    @NotEmpty(message = "Name is mandatory")
+    @Valid
     @NotNull(message = "Name is mandatory")
-    private String name;
+    private TranslatedField name;
 
     @Valid
     @NotNull(message = "Description is mandatory")

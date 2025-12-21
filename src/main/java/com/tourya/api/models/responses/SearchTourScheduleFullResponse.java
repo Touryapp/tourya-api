@@ -1,5 +1,6 @@
 package com.tourya.api.models.responses;
 
+import com.tourya.api.models.TranslatedField;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -17,8 +18,8 @@ public class SearchTourScheduleFullResponse {
     @Data
     public static class TourInfo {
         private Integer id;
-        private String name;
-        private String description;
+        private TranslatedField name;
+        private TranslatedField description;
         private Integer duration;
         private String durationType;             // Si tienes enum en Java, cámbialo al enum correspondiente
         private Double rating;
@@ -49,7 +50,7 @@ public class SearchTourScheduleFullResponse {
     public static class GalleryItemResponse {
         private Integer id;
         private String imageUrl;
-        private String description;
+        private TranslatedField description;
         private Integer order;
     }
 

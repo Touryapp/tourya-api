@@ -552,8 +552,8 @@ public class ShoppingCartService {
                             .serviceType(null)
                             .scheduleDate(item.getScheduleDate())
                             .tourScheduleId(item.getTourSchedule() != null ? item.getTourSchedule().getId() : null)
-                            .tourName(item.getTourSchedule() != null ? 
-                                item.getTourSchedule().getTour().getName() : null)
+                            .tourName(item.getTourSchedule() != null && item.getTourSchedule().getTour().getName() != null ? 
+                                item.getTourSchedule().getTour().getName().getEs() : null)
                             .slotId(item.getSlot() != null ? item.getSlot().getId() : null)
                             .totalPrice(item.getTotalPrice())
                             .status(item.getStatus())

@@ -16,9 +16,9 @@ import java.util.List;
 @Data
 public class TourCreateRequest {
 
-    @NotEmpty(message = "name is mandatory")
+    @Valid
     @NotNull(message = "name is mandatory")
-    private String name;
+    private TranslatedField name;
 
     @Valid
     @NotNull(message = "description is mandatory")

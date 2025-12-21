@@ -203,7 +203,7 @@ public class TourReservationService {
                 .reservationId(reservation.getId().longValue())
                 .scheduleId(reservation.getSchedule().getId().longValue())
                 .tourId(reservation.getSchedule().getTour().getId().longValue())
-                .tourName(reservation.getSchedule().getTour().getName())
+                .tourName(reservation.getSchedule().getTour().getName() != null ? reservation.getSchedule().getTour().getName().getEs() : null)
                 .status(reservation.getStatus().name())
                 .totalAmount(reservation.getTotalAmount())
                 .currency(reservation.getCurrency())

@@ -551,7 +551,7 @@ public class TourScheduleConfigGeneralService {
                         Tour tour = schedule.getTour();
                         TourDetailsInSearchDto tourDetailsDto = new TourDetailsInSearchDto();
                         tourDetailsDto.setTourId(tour.getId());
-                        tourDetailsDto.setTourName(tour.getName());
+                        tourDetailsDto.setTourName(tour.getName() != null ? tour.getName().getEs() : null);
                         tourDetailsDto.setDescription(tour.getDescription() != null ? tour.getDescription().getEs() : null);
                         tourDetailsDto.setMinAge(tour.getMinAge());
                         tourDetailsDto.setRating(tour.getRating());

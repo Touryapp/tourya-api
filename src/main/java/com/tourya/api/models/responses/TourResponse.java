@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 @Data
 public class TourResponse {
     private Integer id;
-    private String name;
+    private TranslatedField name;
     private TranslatedField description;
     private String duration;
     private Integer maxPeople;

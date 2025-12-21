@@ -35,7 +35,10 @@ public class Tour extends BaseEntity {
     @Column(name = "id")
     private Integer id;
 
-    private String name;
+    @Convert(converter = com.tourya.api.config.TranslatedFieldConverter.class)
+    @Column(name = "name", columnDefinition = "jsonb")
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    private TranslatedField name;
     
     @Convert(converter = com.tourya.api.config.TranslatedFieldConverter.class)
     @Column(name = "description", columnDefinition = "jsonb")
