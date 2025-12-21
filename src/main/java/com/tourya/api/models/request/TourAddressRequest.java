@@ -2,6 +2,8 @@ package com.tourya.api.models.request;
 
 
 import com.tourya.api.constans.enums.AddressTypeEnum;
+import com.tourya.api.models.TranslatedField;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
@@ -23,7 +25,8 @@ public class TourAddressRequest {
 
     private String address;
 
-    private String location;
+    @Valid
+    private TranslatedField location;
 
     @NotNull(message = "addressType is mandatory")
     private AddressTypeEnum addressType;

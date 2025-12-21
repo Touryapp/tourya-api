@@ -64,7 +64,10 @@ public class TourAddress extends BaseEntity {
 
     private String address;
 
-    private String location;
+    @Convert(converter = com.tourya.api.config.TranslatedFieldConverter.class)
+    @Column(name = "location", columnDefinition = "jsonb")
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    private TranslatedField location;
 
     @Convert(converter = AddressTypeEnumConverter.class)
     @Column(name = "address_type")

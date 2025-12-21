@@ -1,5 +1,6 @@
 package com.tourya.api.models.responses;
 
+import com.tourya.api.models.TranslatedField;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -8,8 +9,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class TourItineraryResponse {
     private Integer id;
-    private String title;
+    private TranslatedField title;
     private Integer day;
     private String time;
-    private String description;
+    private TranslatedField description;
 }

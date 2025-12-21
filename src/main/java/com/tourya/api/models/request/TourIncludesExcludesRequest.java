@@ -1,7 +1,8 @@
 package com.tourya.api.models.request;
 
 import com.tourya.api.constans.enums.IncludeExcludeTypeEnum;
-import jakarta.validation.constraints.NotEmpty;
+import com.tourya.api.models.TranslatedField;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
@@ -10,9 +11,9 @@ import lombok.*;
 @AllArgsConstructor
 public class TourIncludesExcludesRequest {
     private Integer id;
-    @NotEmpty(message = "description is mandatory")
+    @Valid
     @NotNull(message = "description is mandatory")
-    private String description;
+    private TranslatedField description;
 
     @NotNull(message = "type is mandatory")
     private IncludeExcludeTypeEnum type;

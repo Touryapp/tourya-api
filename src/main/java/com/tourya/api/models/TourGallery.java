@@ -25,8 +25,10 @@ public class TourGallery extends BaseEntity {
     @Column(name = "image_url", nullable = false, columnDefinition = "TEXT")
     private String imageUrl;
 
-    @Column(columnDefinition = "TEXT")
-    private String description;
+    @Convert(converter = com.tourya.api.config.TranslatedFieldConverter.class)
+    @Column(name = "description", columnDefinition = "jsonb")
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    private TranslatedField description;
 
     @Column(name = "order_index")
     private Integer orderIndex;

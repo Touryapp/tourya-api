@@ -1,5 +1,6 @@
 package com.tourya.api.models.request;
 
+import com.tourya.api.models.TranslatedField;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -21,7 +22,8 @@ public class TourFullDataRequest {
     @NotNull(message = "name is mandatory")
     private String name;
 
-    private String description;
+    @Valid
+    private TranslatedField description;
 
     @NotNull(message = "Tour Category ID is mandatory")
     private Integer tourCategoryId;

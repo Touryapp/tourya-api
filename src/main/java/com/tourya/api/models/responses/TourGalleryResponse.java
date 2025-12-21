@@ -1,5 +1,6 @@
 package com.tourya.api.models.responses;
 
+import com.tourya.api.models.TranslatedField;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -11,6 +12,6 @@ public class TourGalleryResponse {
 
     private Integer id;
     private String imageUrl;
-    private String description;
+    private TranslatedField description;
     private Integer orderIndex;
 }

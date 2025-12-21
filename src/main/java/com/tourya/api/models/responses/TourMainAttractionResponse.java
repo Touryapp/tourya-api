@@ -1,5 +1,6 @@
 package com.tourya.api.models.responses;
 
+import com.tourya.api.models.TranslatedField;
 import lombok.*;
 
 @Data
@@ -7,5 +8,5 @@ import lombok.*;
 @AllArgsConstructor
 public class TourMainAttractionResponse {
     private Integer id;
-    private String description;
+    private TranslatedField description;
 }
