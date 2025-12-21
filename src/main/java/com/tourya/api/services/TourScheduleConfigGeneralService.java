@@ -552,7 +552,7 @@ public class TourScheduleConfigGeneralService {
                         TourDetailsInSearchDto tourDetailsDto = new TourDetailsInSearchDto();
                         tourDetailsDto.setTourId(tour.getId());
                         tourDetailsDto.setTourName(tour.getName());
-                        tourDetailsDto.setDescription(tour.getDescription());
+                        tourDetailsDto.setDescription(tour.getDescription() != null ? tour.getDescription().getEs() : null);
                         tourDetailsDto.setMinAge(tour.getMinAge());
                         tourDetailsDto.setRating(tour.getRating());
                         tourDetailsDto.setProviderId(tour.getProvider().getId());
@@ -567,7 +567,8 @@ public class TourScheduleConfigGeneralService {
                             TourAddress tourAddress = tourAddresses.get(0); // Tomar la primera dirección
                             TourLocationInSearchDto locationDto = new TourLocationInSearchDto();
                             locationDto.setAddress(tourAddress.getAddress());
-                            locationDto.setLocation(tourAddress.getLocation());
+                            // Extraer el valor en español del TranslatedField
+                            locationDto.setLocation(tourAddress.getLocation() != null ? tourAddress.getLocation().getEs() : null);
                             locationDto.setLatitude(tourAddress.getLatitude());
                             locationDto.setLongitude(tourAddress.getLongitude());
                             if (tourAddress.getCity() != null) locationDto.setCityName(tourAddress.getCity().getName());

@@ -1,6 +1,7 @@
 package com.tourya.api.models.responses;
 
 import com.tourya.api.constans.enums.IncludeExcludeTypeEnum;
+import com.tourya.api.models.TranslatedField;
 import lombok.*;
 
 @Data
@@ -8,6 +9,6 @@ import lombok.*;
 @AllArgsConstructor
 public class TourIncludesExcludesResponse {
     private Integer id;
-    private String description;
+    private TranslatedField description;
     private IncludeExcludeTypeEnum type;
 }

@@ -49,6 +49,9 @@ public class TourCancellationPolicy extends BaseEntity {
     @Column(name = "allows_rescheduling")
     private boolean allowsRescheduling = Boolean.TRUE;
 
-    private String observations;
+    @Convert(converter = com.tourya.api.config.TranslatedFieldConverter.class)
+    @Column(name = "observations", columnDefinition = "jsonb")
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    private TranslatedField observations;
 
 }

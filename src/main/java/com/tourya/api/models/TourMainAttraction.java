@@ -26,5 +26,8 @@ public class TourMainAttraction extends BaseEntity {
     @JoinColumn(name = "tour_id", nullable = false)
     private Tour tour;
 
-    private String description;
+    @Convert(converter = com.tourya.api.config.TranslatedFieldConverter.class)
+    @Column(name = "description", columnDefinition = "jsonb")
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    private TranslatedField description;
 }

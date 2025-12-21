@@ -1,6 +1,7 @@
 package com.tourya.api.models.responses;
 
 import com.tourya.api.constans.enums.TourStatusEnum;
+import com.tourya.api.models.TranslatedField;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -9,7 +10,7 @@ import java.math.BigDecimal;
 public class TourResponse {
     private Integer id;
     private String name;
-    private String description;
+    private TranslatedField description;
     private String duration;
     private Integer maxPeople;
     private Integer highlight;

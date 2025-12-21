@@ -24,12 +24,18 @@ public class TourItinerary extends BaseEntity {
     @JoinColumn(name = "tour_id")
     private Tour tour;
 
-    private String title;
+    @Convert(converter = com.tourya.api.config.TranslatedFieldConverter.class)
+    @Column(name = "title", columnDefinition = "jsonb")
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    private TranslatedField title;
 
     @Column(name = "day")
     private Integer day;
 
     private LocalTime time;
 
-    private String description;
+    @Convert(converter = com.tourya.api.config.TranslatedFieldConverter.class)
+    @Column(name = "description", columnDefinition = "jsonb")
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    private TranslatedField description;
 }

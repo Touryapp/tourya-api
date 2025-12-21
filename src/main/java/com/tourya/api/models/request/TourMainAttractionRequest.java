@@ -1,13 +1,14 @@
 package com.tourya.api.models.request;
 
-import jakarta.validation.constraints.NotEmpty;
+import com.tourya.api.models.TranslatedField;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 @Data
 public class TourMainAttractionRequest {
     private Integer id;
-    @NotEmpty(message = "description is mandatory")
+    @Valid
     @NotNull(message = "description is mandatory")
-    private String description;
+    private TranslatedField description;
 }
