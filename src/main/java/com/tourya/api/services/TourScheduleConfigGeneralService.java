@@ -75,6 +75,15 @@ public class TourScheduleConfigGeneralService {
         config.setLabel(request.getLabel());
         config.setProvider(provider);
         config.setProviderId(provider.getId());
+        
+        // Setear el tour_id si viene en el request
+        if (request.getTourId() != null) {
+            Tour tour = new Tour();
+            tour.setId(request.getTourId());
+            config.setTour(tour);
+            config.setTourId(request.getTourId());
+        }
+        
         config.setDaysOfWeek(new ArrayList<>(request.getDaysOfWeek()));
         config.setIsUnlimitedCapacity(request.getIsUnlimitedCapacity() != null && request.getIsUnlimitedCapacity());
         config.setIsTemplate(request.getIsTemplate());
@@ -551,7 +560,7 @@ public class TourScheduleConfigGeneralService {
                         Tour tour = schedule.getTour();
                         TourDetailsInSearchDto tourDetailsDto = new TourDetailsInSearchDto();
                         tourDetailsDto.setTourId(tour.getId());
-                        tourDetailsDto.setTourName(tour.getName());
+                        tourDetailsDto.setTourName(tour.getName() != null ? tour.getName().getEs() : null);
                         tourDetailsDto.setDescription(tour.getDescription() != null ? tour.getDescription().getEs() : null);
                         tourDetailsDto.setMinAge(tour.getMinAge());
                         tourDetailsDto.setRating(tour.getRating());
@@ -615,76 +624,182 @@ public class TourScheduleConfigGeneralService {
     @Transactional
     public List<TourScheduleBulkResponse> saveOrUpdateTourSchedules(List<TourScheduleRequest> scheduleRequests, Authentication connectedUser) {
         List<TourScheduleBulkResponse> responses = new ArrayList<>();
+        
         for (TourScheduleRequest dto : scheduleRequests) {
-            Optional<TourSchedule> existingOpt = tourScheduleRepository.findByTourIdAndScheduleDate(
-                dto.getTourId(), dto.getScheduleDate()
-            );
-
-            TourScheduleConfigDto configDto = dto.getConfig();
-            TourScheduleConfigResponse configResponse = null;
-
-            TourScheduleConfigCreationRequest configRequest = new TourScheduleConfigCreationRequest();
-            // Mapear los campos necesarios del DTO al request
-            configRequest.setId(configDto.getId());
-            configRequest.setTourId(configDto.getTourId());
-            configRequest.setProviderId(configDto.getProviderId());
-            configRequest.setLabel(configDto.getLabel());
-            configRequest.setDaysOfWeek(configDto.getDaysOfWeek());
-            configRequest.setIsUnlimitedCapacity(configDto.getIsUnlimitedCapacity());
-            configRequest.setSlots(configDto.getSlots());
-            configRequest.setIsTemplate(false);
-
-            if (configDto.getId() == null) {
-                configResponse = createTourScheduleConfig(configRequest, connectedUser);
-            } else {
-                configResponse = updateTourScheduleConfig(configDto.getId(), configRequest, connectedUser);
-            }
-
-            if (dto.getStatus() == TourScheduleStatusEnum.AVAILABLE) {
-                if (existingOpt.isPresent()) {
-                    TourSchedule existing = existingOpt.get();
-                    if (existing.getConfigId() == null) {
-                        tourScheduleRepository.delete(existing);
-                    }
-                    else {
-                        existing.setMaxCapacity(dto.getMaxCapacity());
-                        existing.setReservedCapacity(dto.getReservedCapacity());
-                        existing.setIsUnlimitedCapacity(dto.getIsUnlimitedCapacity());
-                        existing.setStatus(dto.getStatus());
-                        if (configResponse != null) {
-                            existing.setConfigId(configResponse.getId());
-                        }
-                        tourScheduleRepository.save(existing);
-                    }
+            // 1. Buscar schedule existente por (tour_id, schedule_date)
+            //    Gracias al constraint único, solo puede haber uno o ninguno
+            Optional<TourSchedule> existingScheduleOpt = 
+                tourScheduleRepository.findByTourIdAndScheduleDate(
+                    dto.getTourId(), 
+                    dto.getScheduleDate()
+                );
+            
+            TourScheduleConfig config;
+            TourSchedule schedule;
+            
+            if (existingScheduleOpt.isPresent()) {
+                // 2a. Schedule YA EXISTE para esta fecha
+                schedule = existingScheduleOpt.get();
+                
+                if (schedule.getConfigId() != null) {
+                    // Ya tiene un config asignado - ACTUALIZARLO
+                    TourScheduleConfigCreationRequest configRequest = 
+                        mapDtoToCreationRequest(dto.getConfig(), dto.getTourId());
+                    
+                    TourScheduleConfigResponse configResponse = 
+                        updateTourScheduleConfig(
+                            schedule.getConfigId(), 
+                            configRequest, 
+                            connectedUser
+                        );
+                    
+                    config = tourScheduleConfigRepository
+                        .findById(configResponse.getId())
+                        .orElseThrow(() -> new ResourceNotFoundException(
+                            "Config not found after update: " + configResponse.getId()
+                        ));
+                    
+                    // IMPORTANTE: Usar setConfig() en lugar de setConfigId()
+                    // porque configId tiene insertable=false, updatable=false
+                    schedule.setConfig(config);
                 } else {
-                    TourSchedule newSchedule = new TourSchedule();
-                    newSchedule.setTourId(dto.getTourId());
-                    newSchedule.setScheduleDate(dto.getScheduleDate());
-                    newSchedule.setMaxCapacity(dto.getMaxCapacity());
-                    newSchedule.setReservedCapacity(dto.getReservedCapacity());
-                    newSchedule.setIsUnlimitedCapacity(dto.getIsUnlimitedCapacity());
-                    newSchedule.setStatus(dto.getStatus());
-                    if (configResponse != null) {
-                        newSchedule.setConfigId(configResponse.getId());
-                        TourScheduleConfig config = new TourScheduleConfig();
-                        config.setId(configResponse.getId());
-                        newSchedule.setConfig(config);
-                    }
-                    tourScheduleRepository.save(newSchedule);
+                    // No tiene config - crear uno nuevo y asignarlo
+                    config = createConfigFromDto(dto.getConfig(), dto.getTourId(), connectedUser);
+                    schedule.setConfig(config);  // Usar setConfig() en lugar de setConfigId()
+                    
+                    // Log para debug
+                    System.out.println("DEBUG: Config creado con ID: " + config.getId());
+                    System.out.println("DEBUG: Schedule.config seteado");
                 }
+                
+                // Actualizar propiedades del schedule
+                updateScheduleProperties(schedule, dto);
+                
+            } else {
+                // 2b. Schedule NUEVO - crear schedule + config
+                config = createConfigFromDto(dto.getConfig(), dto.getTourId(), connectedUser);
+                schedule = createScheduleFromDto(dto, config);  // Pasar config en lugar de config.getId()
+                
+                // Log para debug
+                System.out.println("DEBUG: Nuevo schedule creado con config ID: " + config.getId());
             }
-
-            // Construir respuesta para cada schedule procesado
-            TourScheduleBulkResponse resp = new TourScheduleBulkResponse();
-            resp.setTourId(dto.getTourId());
-            resp.setScheduleDate(dto.getScheduleDate());
-            TourScheduleConfigResponse configIdOnly = new TourScheduleConfigResponse();
-            if (configResponse != null) {
-                configIdOnly.setId(configResponse.getId());
+            
+            // Log antes de guardar
+            System.out.println("DEBUG: Guardando schedule ID: " + schedule.getId() + " con configId: " + schedule.getConfigId());
+            
+            // 3. Guardar el schedule (con config actualizado o nuevo)
+            TourSchedule savedSchedule = tourScheduleRepository.save(schedule);
+            tourScheduleRepository.flush();  // Forzar el flush para asegurar que se persista
+            
+            // Log después de guardar
+            System.out.println("DEBUG: Schedule guardado. ID: " + savedSchedule.getId() + ", configId: " + savedSchedule.getConfigId());
+            
+            // 4. Construir respuesta
+            try {
+                responses.add(buildBulkResponse(dto, config));
+                System.out.println("DEBUG: Respuesta construida exitosamente");
+            } catch (Exception e) {
+                System.err.println("ERROR: Excepción al construir respuesta: " + e.getMessage());
+                e.printStackTrace();
+                throw e;  // Re-lanzar para que se vea el error
             }
-            resp.setConfig(configIdOnly);
-            responses.add(resp);
         }
+        
+        System.out.println("DEBUG: Retornando " + responses.size() + " respuestas");
         return responses;
+    }
+
+    /**
+     * Crea un nuevo TourScheduleConfig a partir de un DTO
+     */
+    private TourScheduleConfig createConfigFromDto(
+            TourScheduleConfigDto configDto,
+            Integer tourId,
+            Authentication connectedUser) {
+        
+        TourScheduleConfigCreationRequest request = 
+            mapDtoToCreationRequest(configDto, tourId);
+        
+        TourScheduleConfigResponse response = 
+            createTourScheduleConfig(request, connectedUser);
+        
+        return tourScheduleConfigRepository
+            .findById(response.getId())
+            .orElseThrow(() -> new ResourceNotFoundException(
+                "Config not found after creation: " + response.getId()
+            ));
+    }
+
+    /**
+     * Crea un nuevo TourSchedule a partir de un DTO y config
+     */
+    private TourSchedule createScheduleFromDto(
+            TourScheduleRequest dto, 
+            TourScheduleConfig config) {
+        
+        TourSchedule schedule = new TourSchedule();
+        schedule.setTourId(dto.getTourId());
+        schedule.setScheduleDate(dto.getScheduleDate());
+        schedule.setMaxCapacity(dto.getMaxCapacity());
+        schedule.setReservedCapacity(dto.getReservedCapacity());
+        schedule.setIsUnlimitedCapacity(dto.getIsUnlimitedCapacity());
+        schedule.setStatus(dto.getStatus());
+        schedule.setConfig(config);  // Usar setConfig() en lugar de setConfigId()
+        
+        return schedule;
+    }
+
+    /**
+     * Actualiza las propiedades de un TourSchedule existente
+     */
+    private void updateScheduleProperties(
+            TourSchedule schedule, 
+            TourScheduleRequest dto) {
+        
+        schedule.setMaxCapacity(dto.getMaxCapacity());
+        schedule.setReservedCapacity(dto.getReservedCapacity());
+        schedule.setIsUnlimitedCapacity(dto.getIsUnlimitedCapacity());
+        schedule.setStatus(dto.getStatus());
+    }
+
+    /**
+     * Mapea un TourScheduleConfigDto a TourScheduleConfigCreationRequest
+     */
+    private TourScheduleConfigCreationRequest mapDtoToCreationRequest(
+            TourScheduleConfigDto dto,
+            Integer tourId) {
+        
+        TourScheduleConfigCreationRequest request = 
+            new TourScheduleConfigCreationRequest();
+        
+        request.setId(dto.getId());
+        request.setTourId(tourId);  // Usar el tourId del request padre, no del DTO
+        request.setProviderId(dto.getProviderId());
+        request.setLabel(dto.getLabel());
+        request.setDaysOfWeek(dto.getDaysOfWeek());
+        request.setIsUnlimitedCapacity(dto.getIsUnlimitedCapacity());
+        request.setSlots(dto.getSlots());
+        request.setIsTemplate(false);
+        
+        return request;
+    }
+
+    /**
+     * Construye la respuesta para el bulk operation
+     */
+    private TourScheduleBulkResponse buildBulkResponse(
+            TourScheduleRequest dto, 
+            TourScheduleConfig config) {
+        
+        TourScheduleBulkResponse response = new TourScheduleBulkResponse();
+        response.setTourId(dto.getTourId());
+        response.setScheduleDate(dto.getScheduleDate());
+        
+        TourScheduleConfigResponse configResponse = 
+            new TourScheduleConfigResponse();
+        configResponse.setId(config.getId());
+        response.setConfig(configResponse);
+        
+        return response;
     }
 }

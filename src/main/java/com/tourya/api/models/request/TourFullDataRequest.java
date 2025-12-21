@@ -18,9 +18,9 @@ import java.util.List;
 @Data
 public class TourFullDataRequest {
     private Integer id;
-    @NotEmpty(message = "name is mandatory")
+    @Valid
     @NotNull(message = "name is mandatory")
-    private String name;
+    private TranslatedField name;
 
     @Valid
     private TranslatedField description;

@@ -103,6 +103,15 @@ ALTER TABLE tour
         ELSE jsonb_build_object('es', description, 'en', '', 'pt', '')
     END;
 
+-- Table: tour
+-- Column: name
+ALTER TABLE tour 
+    ALTER COLUMN name TYPE jsonb USING 
+    CASE 
+        WHEN name IS NULL OR name = '' THEN NULL
+        ELSE jsonb_build_object('es', name, 'en', '', 'pt', '')
+    END;
+
 -- =====================================================
 -- 2. ADD VALIDATION CONSTRAINTS (Optional but recommended)
 -- =====================================================
@@ -148,6 +157,10 @@ ALTER TABLE tour
     ADD CONSTRAINT tour_description_es_required 
     CHECK (description IS NULL OR (description->>'es' IS NOT NULL AND description->>'es' != ''));
 
+ALTER TABLE tour 
+    ADD CONSTRAINT tour_name_es_required 
+    CHECK (name IS NULL OR (name->>'es' IS NOT NULL AND name->>'es' != ''));
+
 -- =====================================================
 -- 3. CREATE INDEXES FOR PERFORMANCE (Optional but recommended)
 -- =====================================================
@@ -163,12 +176,14 @@ CREATE INDEX IF NOT EXISTS idx_tour_itinerary_description_gin ON tour_itinerary 
 CREATE INDEX IF NOT EXISTS idx_tour_cancellation_policy_observations_gin ON tour_cancellation_policy USING GIN (observations);
 CREATE INDEX IF NOT EXISTS idx_tour_gallery_description_gin ON tour_gallery USING GIN (description);
 CREATE INDEX IF NOT EXISTS idx_tour_description_gin ON tour USING GIN (description);
+CREATE INDEX IF NOT EXISTS idx_tour_name_gin ON tour USING GIN (name);
 
 -- Create indexes for specific language searches (Spanish)
 CREATE INDEX IF NOT EXISTS idx_tour_address_location_es ON tour_address ((location->>'es'));
 CREATE INDEX IF NOT EXISTS idx_tour_main_attractions_description_es ON tour_main_attractions ((description->>'es'));
 CREATE INDEX IF NOT EXISTS idx_tour_includes_excludes_description_es ON tour_includes_excludes ((description->>'es'));
 CREATE INDEX IF NOT EXISTS idx_tour_description_es ON tour ((description->>'es'));
+CREATE INDEX IF NOT EXISTS idx_tour_name_es ON tour ((name->>'es'));
 
 -- Commit transaction
 COMMIT;

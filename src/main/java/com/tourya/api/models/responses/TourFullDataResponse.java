@@ -12,7 +12,7 @@ import java.util.List;
 @Data
 public class TourFullDataResponse {
     private Integer id;
-    private String name;
+    private TranslatedField name;
     private TranslatedField description;
     private Integer tourCategoryId;
     private String duration;

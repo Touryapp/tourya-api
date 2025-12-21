@@ -28,6 +28,7 @@ ALTER TABLE tour_itinerary DROP CONSTRAINT IF EXISTS tour_itinerary_description_
 ALTER TABLE tour_cancellation_policy DROP CONSTRAINT IF EXISTS tour_cancellation_policy_observations_es_required;
 ALTER TABLE tour_gallery DROP CONSTRAINT IF EXISTS tour_gallery_description_es_required;
 ALTER TABLE tour DROP CONSTRAINT IF EXISTS tour_description_es_required;
+ALTER TABLE tour DROP CONSTRAINT IF EXISTS tour_name_es_required;
 
 -- =====================================================
 -- 2. DROP INDEXES
@@ -43,10 +44,12 @@ DROP INDEX IF EXISTS idx_tour_itinerary_description_gin;
 DROP INDEX IF EXISTS idx_tour_cancellation_policy_observations_gin;
 DROP INDEX IF EXISTS idx_tour_gallery_description_gin;
 DROP INDEX IF EXISTS idx_tour_description_gin;
+DROP INDEX IF EXISTS idx_tour_name_gin;
 DROP INDEX IF EXISTS idx_tour_address_location_es;
 DROP INDEX IF EXISTS idx_tour_main_attractions_description_es;
 DROP INDEX IF EXISTS idx_tour_includes_excludes_description_es;
 DROP INDEX IF EXISTS idx_tour_description_es;
+DROP INDEX IF EXISTS idx_tour_name_es;
 
 -- =====================================================
 -- 3. REVERT COLUMNS TO TEXT TYPE
@@ -136,6 +139,15 @@ ALTER TABLE tour
     CASE 
         WHEN description IS NULL THEN NULL
         ELSE description->>'es'
+    END;
+
+-- Table: tour
+-- Column: name
+ALTER TABLE tour 
+    ALTER COLUMN name TYPE TEXT USING 
+    CASE 
+        WHEN name IS NULL THEN NULL
+        ELSE name->>'es'
     END;
 
 -- Commit transaction
