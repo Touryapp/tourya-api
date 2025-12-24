@@ -20,7 +20,7 @@ public class SearchTourScheduleFullResponse {
         private Integer id;
         private TranslatedField name;
         private TranslatedField description;
-        private Integer duration;
+        private String duration;
         private String durationType;             // Si tienes enum en Java, cámbialo al enum correspondiente
         private Double rating;
         private String status;                   // accepted, etc.
