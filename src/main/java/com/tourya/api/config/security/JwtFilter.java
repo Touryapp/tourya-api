@@ -30,18 +30,25 @@ public class JwtFilter extends OncePerRequestFilter{
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
         logger.info("request.getServletPath() : "  + request.getServletPath());
-        //if (request.getServletPath().contains("/api/v1/auth") || request.getServletPath().contains("/api/v1/public")) {
-        if (request.getServletPath().contains("/auth") || request.getServletPath().contains("/public")) {
+        
+        // Para rutas /auth, no procesar el token
+        if (request.getServletPath().contains("/auth")) {
             filterChain.doFilter(request, response);
             return;
         }
+        
+        // Para rutas /public y otras rutas, procesar el token si viene
         final String authHeader = request.getHeader("Authorization");
         final String jwt;
         final String userEmail;
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            // Si no hay token y es ruta /public, permitir acceso (permitAll)
+            // Si no hay token y es otra ruta, Spring Security rechazará (authenticated)
             filterChain.doFilter(request, response);
             return;
         }
+        
+        // Procesar el token si viene
         jwt = authHeader.substring(7);
         userEmail = jwtService.extractUsername(jwt);
         if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {

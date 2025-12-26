@@ -6,6 +6,7 @@ import com.tourya.api.config.security.JwtService;
 import com.tourya.api.constans.enums.DeliveryStatusEnum;
 import com.tourya.api.constans.enums.ShoppingCartStatusEnum;
 import com.tourya.api.constans.enums.AccountPayableStatusEnum;
+import com.tourya.api.constans.enums.IncludeExcludeTypeEnum;
 import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.models.*;
 import com.tourya.api.models.mapper.ReservationMapper;
@@ -14,17 +15,14 @@ import com.tourya.api.models.responses.ReservationResponse;
 import com.tourya.api.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.lang.Nullable;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -49,6 +47,9 @@ public class ReservationService {
     private final TourRepository tourRepository;
     private final ProviderService providerService;
     private final AccountPayableRepository accountPayableRepository;
+    private final TourMainAttractionRepository tourMainAttractionRepository;
+    private final TourIncludesExcludesRepository tourIncludesExcludesRepository;
+    private final TourAddressRepository tourAddressRepository;
     private final ReservationNativeRepository reservationNativeRepository;
     /**
      * Método createReservation removido - las reservas se crean automáticamente con los pagos
@@ -68,6 +69,146 @@ public class ReservationService {
         return reservationRepository.findById(id)
                 .map(reservationMapper::toResponse)
                 .orElseThrow(() -> new ResourceNotFoundException("Reservation not found with id: " + id));
+    }
+    
+    @Transactional(readOnly = true)
+    public com.tourya.api.models.responses.BookingDetailsResponse getBookingDetailsById(Long reservationId) {
+        log.info("Getting booking details for reservation id: {}", reservationId);
+        
+        Reservation reservation = reservationRepository.findById(reservationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Reservation not found with id: " + reservationId));
+        
+        return buildBookingDetailsResponse(reservation);
+    }
+    
+    private com.tourya.api.models.responses.BookingDetailsResponse buildBookingDetailsResponse(Reservation reservation) {
+        // Cargar relaciones necesarias
+        Payment payment = paymentRepository.findById(reservation.getPaymentId())
+                .orElse(null);
+        ShoppingCartItem item = shoppingCartItemRepository.findById(reservation.getItemId())
+                .orElse(null);
+        
+        // Obtener tour
+        Integer tourId = null;
+        String tourName = null;
+        String tourType = null;
+        String duration = null;
+        LocalDateTime checkInDate = null;
+        LocalDateTime returnDate = null;
+        String destination = null;
+        List<String> activities = new ArrayList<>();
+        List<String> extraServices = new ArrayList<>();
+        
+        if (item != null && item.getTourSchedule() != null) {
+            TourSchedule schedule = item.getTourSchedule();
+            tourId = schedule.getTourId();
+            checkInDate = schedule.getScheduleDate() != null 
+                ? schedule.getScheduleDate().atStartOfDay() 
+                : null;
+            
+            // Cargar tour completo desde repositorio
+            if (tourId != null) {
+                Tour tour = tourRepository.findById(tourId).orElse(null);
+                if (tour != null) {
+                    tourName = tour.getName() != null && tour.getName().getEs() != null 
+                        ? tour.getName().getEs() 
+                        : null;
+                    tourType = tour.getTourCategory() != null && tour.getTourCategory().getName() != null 
+                        ? tour.getTourCategory().getName() 
+                        : null;
+                    duration = tour.getDuration() != null ? tour.getDuration() : null;
+                    
+                    // Obtener actividades (main attractions) desde repositorio
+                    activities = tourMainAttractionRepository.findByTourId(tourId).stream()
+                        .filter(attr -> attr.getDescription() != null && attr.getDescription().getEs() != null)
+                        .map(attr -> attr.getDescription().getEs())
+                        .toList();
+                    
+                    // Obtener servicios extra (includes) desde repositorio
+                    extraServices = tourIncludesExcludesRepository.findByTourIdAndType(tourId, IncludeExcludeTypeEnum.INCLUDE).stream()
+                        .filter(inc -> inc.getDescription() != null && inc.getDescription().getEs() != null)
+                        .map(inc -> inc.getDescription().getEs())
+                        .toList();
+                    
+                    // Destination desde tour address
+                    List<TourAddress> addresses = tourAddressRepository.findByTourId(tourId);
+                    if (addresses != null && !addresses.isEmpty()) {
+                        TourAddress firstAddress = addresses.get(0);
+                        if (firstAddress.getCity() != null && firstAddress.getCity().getName() != null) {
+                            destination = firstAddress.getCity().getName();
+                        } else if (firstAddress.getLocation() != null && firstAddress.getLocation().getEs() != null) {
+                            destination = firstAddress.getLocation().getEs();
+                        }
+                    }
+                }
+            }
+            
+            // Calcular returnDate basado en duration y checkInDate
+            if (checkInDate != null && duration != null) {
+                // Parsear duration (ej: "3 Days, 2 Nights")
+                try {
+                    String[] parts = duration.split(" ");
+                    int days = 0;
+                    for (int i = 0; i < parts.length; i++) {
+                        if (parts[i].equalsIgnoreCase("Days") || parts[i].equalsIgnoreCase("Day")) {
+                            if (i > 0) {
+                                days = Integer.parseInt(parts[i-1]);
+                                break;
+                            }
+                        }
+                    }
+                    if (days > 0) {
+                        returnDate = checkInDate.plusDays(days);
+                    }
+                } catch (Exception e) {
+                    log.warn("Could not parse duration: {}", duration);
+                }
+            }
+        }
+        
+        // Construir travellers string desde los detalles del item
+        String travellers = null;
+        if (item != null && item.getDetails() != null && !item.getDetails().isEmpty()) {
+            List<String> travellerParts = new ArrayList<>();
+            for (ShoppingCartItemDetail detail : item.getDetails()) {
+                if (detail.getQuantity() != null && detail.getQuantity() > 0) {
+                    String ageType = detail.getAgeType() != null ? detail.getAgeType().name() : "Adult";
+                    travellerParts.add(detail.getQuantity() + " " + ageType + (detail.getQuantity() > 1 ? "s" : ""));
+                }
+            }
+            if (!travellerParts.isEmpty()) {
+                travellers = String.join(", ", travellerParts);
+            }
+        }
+        
+        // Obtener precio
+        Double price = null;
+        if (item != null && item.getTotalPrice() != null) {
+            price = item.getTotalPrice().doubleValue();
+        }
+        
+        return com.tourya.api.models.responses.BookingDetailsResponse.builder()
+                .id(reservation.getReservationId().intValue())
+                .reservationId(reservation.getReservationId().toString())
+                .paymentId(reservation.getPaymentId())
+                .transactionId(payment != null ? payment.getTransactionId() : null)
+                .payer(payment != null ? payment.getPayerName() : null)
+                .email(payment != null ? payment.getPayerEmail() : null)
+                .reservationDate(reservation.getReservationDate())
+                .status(reservation.getDeliveryStatus() != null ? reservation.getDeliveryStatus().name() : null)
+                .tourId(tourId)
+                .tourName(tourName)
+                .tourType(tourType)
+                .price(price)
+                .travellers(travellers)
+                .duration(duration)
+                .checkInDate(checkInDate)
+                .returnDate(returnDate)
+                .destination(destination)
+                .customerPhone(payment != null ? payment.getPayerPhone() : null)
+                .extraServices(extraServices.isEmpty() ? null : extraServices)
+                .activities(activities.isEmpty() ? null : activities)
+                .build();
     }
 
     /**
