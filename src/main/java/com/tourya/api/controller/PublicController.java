@@ -32,6 +32,7 @@ public class    PublicController {
     private final TagCategoryService tagCategoryService;
     private final TourTagService tourTagService;
     private final TourService tourService;
+    private final ReservationService reservationService;
 
     private final ObjectMapper objectMapper;
     private final Validator validator;
@@ -100,6 +101,13 @@ public class    PublicController {
             @Nullable Authentication connectedUser
     ) {
         return ResponseEntity.ok(tourService.getTourDetailsById(tourId, connectedUser));
+    }
+
+    @GetMapping("/bookings/{bookingId}")
+    public ResponseEntity<com.tourya.api.models.responses.BookingDetailsResponse> getBookingById(
+            @PathVariable Long bookingId) {
+        // El bookingId es el reservationId según el mock
+        return ResponseEntity.ok(reservationService.getBookingDetailsById(bookingId));
     }
 
 }
