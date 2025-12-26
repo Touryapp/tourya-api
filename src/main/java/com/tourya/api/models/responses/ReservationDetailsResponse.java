@@ -1,5 +1,6 @@
 package com.tourya.api.models.responses;
 
+import com.tourya.api.models.TranslatedField;
 import lombok.Builder;
 import lombok.Data;
 
@@ -35,7 +36,7 @@ public class ReservationDetailsResponse {
 
     // --- Tour ---
     private Integer tourId;
-    private String tourName;
+    private TranslatedField tourName;
     private Integer tourCategoryId;
     private Integer tourProviderId;
 
