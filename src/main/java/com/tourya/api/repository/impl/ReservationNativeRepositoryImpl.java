@@ -32,11 +32,7 @@ public class ReservationNativeRepositoryImpl implements ReservationNativeReposit
 
         String sql = """
             SELECT *
-            FROM sp_get_provider_reservations(
-                ?::INTEGER,
-                ?::BIGINT,
-                ?::VARCHAR
-            )
+            FROM sp_get_provider_reservations(?, ?, ?)
             ORDER BY reservationdate DESC
             LIMIT ? OFFSET ?
             """;
@@ -61,11 +57,7 @@ public class ReservationNativeRepositoryImpl implements ReservationNativeReposit
     public long countProviderReservations(Integer providerId, Long reservationId, String deliveryStatus) {
         String sql = """
             SELECT COUNT(*) 
-            FROM sp_get_provider_reservations(
-                ?::INTEGER,
-                ?::BIGINT,
-                ?::VARCHAR
-            )
+            FROM sp_get_provider_reservations(?, ?, ?)
             """;
 
         return jdbcTemplate.queryForObject(

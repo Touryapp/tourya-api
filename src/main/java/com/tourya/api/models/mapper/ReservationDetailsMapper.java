@@ -1,15 +1,33 @@
 package com.tourya.api.models.mapper;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tourya.api.models.TranslatedField;
 import com.tourya.api.models.responses.ReservationDetailsResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
 @Component
+@RequiredArgsConstructor
 public class ReservationDetailsMapper {
 
+    private final ObjectMapper objectMapper;
+
     public ReservationDetailsResponse map(ResultSet rs) throws SQLException {
+        // Parse JSONB tourname to TranslatedField
+        TranslatedField tourName = null;
+        String tourNameJson = rs.getString("tourname");
+        if (tourNameJson != null) {
+            try {
+                tourName = objectMapper.readValue(tourNameJson, TranslatedField.class);
+            } catch (Exception e) {
+                // If parsing fails, create a TranslatedField with the raw string
+                tourName = TranslatedField.ofSpanish(tourNameJson);
+            }
+        }
+
         return ReservationDetailsResponse.builder()
                 .reservationId(rs.getLong("reservationid"))
                 .reservationDate(rs.getString("reservationdate"))
@@ -35,7 +53,7 @@ public class ReservationDetailsMapper {
                 .totalTourists(rs.getLong("totaltourists")) // BIGINT OK ✔
 
                 .tourId(rs.getInt("tourid"))
-                .tourName(rs.getString("tourname"))
+                .tourName(tourName)
                 .tourCategoryId(rs.getInt("tourcategoryid"))
                 .tourProviderId(rs.getInt("tourproviderid"))
 
