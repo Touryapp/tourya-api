@@ -1,5 +1,6 @@
 package com.tourya.api.services;
 
+import com.tourya.api._utils.Utils;
 import com.tourya.api.common.PageResponse;
 import com.tourya.api.constans.enums.ReviewStatusEnum;
 import com.tourya.api.exceptions.ResourceNotFoundException;
@@ -19,6 +20,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -53,6 +57,8 @@ public class ReviewService {
     private final ReviewMapper reviewMapper;
     private final ReviewAnswerMapper reviewAnswerMapper;
     private final S3Service s3Service;
+    private final com.tourya.api.config.security.JwtService jwtService;
+    private final org.springframework.security.core.userdetails.UserDetailsService userDetailsService;
 
     /**
      * Crea una nueva reseña
@@ -60,17 +66,10 @@ public class ReviewService {
     public ReviewResponse createReview(CreateReviewRequest request, List<MultipartFile> files, Authentication authentication) {
         log.info("Creating review for reservation: {}", request.getReservationId());
 
-        // Obtener el usuario autenticado (desde el parámetro o desde SecurityContextHolder)
-        User user;
-        if (authentication != null && authentication.getPrincipal() != null) {
-            user = (User) authentication.getPrincipal();
-        } else {
-            // Intentar obtener desde SecurityContextHolder (para rutas /public con token)
-            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            if (auth == null || auth.getPrincipal() == null) {
-                throw new IllegalStateException("Authentication is required to create a review");
-            }
-            user = (User) auth.getPrincipal();
+        // Obtener el usuario autenticado
+        User user = getUserFromAuthentication(authentication);
+        if (user == null) {
+            throw new IllegalStateException("Authentication is required to create a review");
         }
 
         // Obtener la reserva
@@ -183,9 +182,14 @@ public class ReviewService {
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new ResourceNotFoundException("Review not found with id: " + reviewId));
 
+        // Obtener usuario autenticado
+        User user = getUserFromAuthentication(authentication);
+        if (user == null) {
+            throw new IllegalStateException("Authenticated user not found.");
+        }
+
         // Verificar permisos (solo el creador o admin puede actualizar)
-        User user = (User) authentication.getPrincipal();
-        if (!review.getCreatedBy().equals(user.getId())) {
+        if (!review.getCreatedBy().equals(user.getId()) && !Utils.isAdmin(user.getRoles())) {
             throw new IllegalStateException("You don't have permission to update this review");
         }
 
@@ -231,6 +235,64 @@ public class ReviewService {
     }
 
     /**
+     * Obtiene el usuario desde el objeto Authentication.
+     * Maneja tanto cuando el principal es un User como cuando es un String (email).
+     */
+    private User getUserFromAuthentication(@org.springframework.lang.Nullable Authentication authentication) {
+        Authentication auth = authentication;
+        if (auth == null) {
+            // Intentar obtener desde SecurityContextHolder
+            auth = SecurityContextHolder.getContext().getAuthentication();
+        }
+        
+        if (auth == null || auth.getPrincipal() == null) {
+            return null;
+        }
+        
+        Object principal = auth.getPrincipal();
+        
+        // Si el principal es un User, retornarlo directamente
+        if (principal instanceof User) {
+            return (User) principal;
+        }
+        
+        // Si el principal es un String (email), buscar el usuario por email
+        if (principal instanceof String) {
+            String emailOrAnonymous = (String) principal;
+            
+            // Si es "anonymousUser", intentar procesar el token JWT del header
+            if ("anonymousUser".equals(emailOrAnonymous)) {
+                try {
+                    ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+                    if (attributes != null) {
+                        HttpServletRequest request = attributes.getRequest();
+                        String authHeader = request.getHeader("Authorization");
+                        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                            String jwt = authHeader.substring(7);
+                            String userEmail = jwtService.extractUsername(jwt);
+                            if (userEmail != null) {
+                                org.springframework.security.core.userdetails.UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
+                                if (jwtService.isTokenValid(jwt, userDetails) && userDetails instanceof User) {
+                                    return (User) userDetails;
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    log.warn("Error processing JWT token from header: {}", e.getMessage());
+                }
+                throw new IllegalStateException("Valid authentication is required. Please provide a valid Bearer token in the Authorization header.");
+            }
+            
+            // Buscar el usuario por email
+            return userRepository.findByEmail(emailOrAnonymous)
+                    .orElseThrow(() -> new IllegalStateException("User not found with email: " + emailOrAnonymous));
+        }
+        
+        return null;
+    }
+
+    /**
      * Carga las relaciones necesarias de una reseña
      * @param review La reseña a cargar
      * @param reloadAttachments Si true, recarga los attachments desde la BD. Si false, solo carga si están vacíos.
@@ -238,7 +300,7 @@ public class ReviewService {
     private Review loadReviewRelations(Review review) {
         return loadReviewRelations(review, true);
     }
-    
+
     /**
      * Carga las relaciones necesarias de una reseña
      * @param review La reseña a cargar

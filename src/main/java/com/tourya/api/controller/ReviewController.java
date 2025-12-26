@@ -16,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.Nullable;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -81,15 +82,16 @@ public class ReviewController {
      * Crea una nueva reseña
      */
     @PostMapping("/save/review")
-    @Operation(summary = "Crear reseña", description = "Crea una nueva reseña para una reserva")
+    @Operation(summary = "Crear reseña", description = "Crea una nueva reseña para una reserva. Requiere autenticación mediante token Bearer en el header Authorization")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Reseña creada exitosamente"),
+            @ApiResponse(responseCode = "401", description = "No autenticado - se requiere token Bearer"),
             @ApiResponse(responseCode = "400", description = "Datos inválidos"),
             @ApiResponse(responseCode = "404", description = "Reserva no encontrada")
     })
     public ResponseEntity<ReviewResponse> createReview(
             @Parameter(description = "Datos de la reseña") @Valid @RequestBody CreateReviewRequest request,
-            Authentication authentication) {
+            @Nullable Authentication authentication) {
         log.info("Creating review for reservation: {}", request.getReservationId());
         
         ReviewResponse response = reviewService.createReview(request, null, authentication);
@@ -100,9 +102,10 @@ public class ReviewController {
      * Actualiza una reseña existente
      */
     @PatchMapping(value = "/save/review/{reviewId}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(summary = "Actualizar reseña", description = "Actualiza una reseña existente. Las imágenes se envían como URLs (strings) en el campo attachmentUrls")
+    @Operation(summary = "Actualizar reseña", description = "Actualiza una reseña existente. Requiere autenticación mediante token Bearer en el header Authorization")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Reseña actualizada exitosamente"),
+            @ApiResponse(responseCode = "401", description = "No autenticado - se requiere token Bearer"),
             @ApiResponse(responseCode = "404", description = "Reseña no encontrada"),
             @ApiResponse(responseCode = "403", description = "No tiene permisos para actualizar esta reseña")
     })
@@ -110,7 +113,7 @@ public class ReviewController {
             @Parameter(description = "ID de la reseña") @PathVariable String reviewId,
             @Parameter(description = "Datos de actualización") 
             @Valid @RequestBody UpdateReviewRequest request,
-            Authentication authentication) {
+            @Nullable Authentication authentication) {
         log.info("Updating review: {}", reviewId);
         
         Long id = extractReviewId(reviewId);
