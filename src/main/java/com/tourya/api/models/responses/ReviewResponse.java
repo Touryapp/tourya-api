@@ -23,9 +23,9 @@ import java.util.Map;
 @NoArgsConstructor
 public class ReviewResponse {
 
-    private String id;
+    private Long id;
     private String tourName;
-    private String tourId;
+    private Integer tourId;
     private String tourImage;
     private String customerName;
     private String customerImage;

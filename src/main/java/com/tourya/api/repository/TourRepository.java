@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface TourRepository extends JpaRepository<Tour, Integer> {
@@ -19,6 +20,13 @@ public interface TourRepository extends JpaRepository<Tour, Integer> {
             Where tour.provider.id = :id
             """)
     Page<Tour> findAllByProviderId(@Param("id") Integer id,  Pageable pageable);
+
+    @Query("""
+            SELECT tour
+            FROM Tour tour
+            Where tour.provider.id = :id
+            """)
+    List<Tour> findAllByProviderId(@Param("id") Integer id);
 
     @Query("""
             SELECT tour
