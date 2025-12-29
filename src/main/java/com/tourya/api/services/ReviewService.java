@@ -2,6 +2,7 @@ package com.tourya.api.services;
 
 import com.tourya.api._utils.Utils;
 import com.tourya.api.common.PageResponse;
+import com.tourya.api.constans.enums.DeliveryStatusEnum;
 import com.tourya.api.constans.enums.ReviewStatusEnum;
 import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.models.*;
@@ -9,13 +10,16 @@ import com.tourya.api.models.mapper.ReviewMapper;
 import com.tourya.api.models.mapper.ReviewAnswerMapper;
 import com.tourya.api.models.request.CreateReviewRequest;
 import com.tourya.api.models.request.UpdateReviewRequest;
+import com.tourya.api.models.responses.ReservationResponse;
 import com.tourya.api.models.responses.ReviewResponse;
+import com.tourya.api.models.mapper.ReservationMapper;
 import com.tourya.api.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.lang.Nullable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -49,6 +53,7 @@ public class ReviewService {
     private final ReviewRepository reviewRepository;
     private final ReviewAttachmentRepository reviewAttachmentRepository;
     private final ReviewAnswerRepository reviewAnswerRepository;
+    private final ReviewAnswerAttachmentRepository reviewAnswerAttachmentRepository;
     private final ReservationRepository reservationRepository;
     private final ShoppingCartItemRepository shoppingCartItemRepository;
     private final TourRepository tourRepository;
@@ -56,6 +61,8 @@ public class ReviewService {
     private final TourGalleryRepository tourGalleryRepository;
     private final ReviewMapper reviewMapper;
     private final ReviewAnswerMapper reviewAnswerMapper;
+    private final ReservationMapper reservationMapper;
+    private final ProviderService providerService;
     private final S3Service s3Service;
     private final com.tourya.api.config.security.JwtService jwtService;
     private final org.springframework.security.core.userdetails.UserDetailsService userDetailsService;
@@ -63,13 +70,18 @@ public class ReviewService {
     /**
      * Crea una nueva reseña
      */
-    public ReviewResponse createReview(CreateReviewRequest request, List<MultipartFile> files, Authentication authentication) {
+    public ReviewResponse createReview(CreateReviewRequest request, List<MultipartFile> files, Authentication authentication) throws IOException {
         log.info("Creating review for reservation: {}", request.getReservationId());
+
+        // Validar máximo 5 imágenes
+        if (files != null && files.size() > 5) {
+            throw new IllegalStateException("Se permite un máximo de 5 imágenes por review. Se intentaron subir " + files.size() + " imágenes.");
+        }
 
         // Obtener el usuario autenticado
         User user = getUserFromAuthentication(authentication);
         if (user == null) {
-            throw new IllegalStateException("Authentication is required to create a review");
+            throw new com.tourya.api.exceptions.InsufficientPrivilegesException("Authentication is required to create a review. Please provide a valid Bearer token in the Authorization header.");
         }
 
         // Obtener la reserva
@@ -102,17 +114,25 @@ public class ReviewService {
         // Guardar la reseña
         review = reviewRepository.save(review);
         
-        // Los archivos adjuntos no se permiten en la creación inicial de la reseña
+        // Guardar imágenes si se proporcionaron
+        if (files != null && !files.isEmpty()) {
+            saveAttachmentsFromMultipartFiles(review.getId(), files, user.getId());
+        }
 
-        // Cargar relaciones para la respuesta
-        review = loadReviewRelations(review);
+        // Cargar relaciones para la respuesta (recargar desde BD para incluir attachments recién guardados)
+        review = reviewRepository.findById(review.getId()).orElse(review);
+        review = loadReviewRelations(review, true);
 
         ReviewResponse response = reviewMapper.toResponse(review);
         return enrichReviewResponse(response);
     }
 
     /**
-     * Obtiene reseñas con filtros
+     * Obtiene reseñas con filtros basado en el rol del usuario autenticado
+     * - Cliente: solo sus propias reviews
+     * - Proveedor: reviews de sus tours
+     * - Admin: todas las reviews
+     * REQUIERE AUTENTICACIÓN
      */
     @Transactional(readOnly = true)
     public PageResponse<ReviewResponse> getReviews(
@@ -120,17 +140,70 @@ public class ReviewService {
             Integer pageNumber,
             BigDecimal rating,
             Integer tourId,
-            Integer userId) {
-        log.info("Getting reviews with filters - pageSize: {}, pageNumber: {}, rating: {}, tourId: {}, userId: {}",
-                pageSize, pageNumber, rating, tourId, userId);
+            ReviewStatusEnum status,
+            @Nullable Authentication authentication) {
+        log.info("Getting reviews with filters - pageSize: {}, pageNumber: {}, rating: {}, tourId: {}, status: {}",
+                pageSize, pageNumber, rating, tourId, status);
 
-        Pageable pageable = PageRequest.of(pageNumber != null ? pageNumber : 0, pageSize != null ? pageSize : 10);
+        // Validar que pageSize y pageNumber sean proporcionados
+        if (pageSize == null || pageNumber == null) {
+            throw new IllegalArgumentException("pageSize and pageNumber are required parameters");
+        }
+
+        // Obtener usuario autenticado - REQUERIDO
+        User user = getUserFromAuthentication(authentication);
+        if (user == null) {
+            throw new com.tourya.api.exceptions.InsufficientPrivilegesException("Authentication is required to get reviews. Please provide a valid Bearer token in the Authorization header.");
+        }
         
-        // No filtrar por status, mostrar todas las reviews
-        Page<Review> reviewsPage = reviewRepository.findWithFilters(tourId, userId, rating, pageable);
+        // Determinar filtros según el rol del usuario
+        Integer finalUserId = user.getId(); // SIEMPRE usar el userId del usuario autenticado
+        List<Integer> providerTourIds = null;
+        boolean isAdmin = false;
+        List<Role> roles = user.getRoles();
+        
+        if (Utils.isAdmin(roles)) {
+            // Admin: puede ver todas las reviews, usar query especial sin filtro de userId
+            isAdmin = true;
+            providerTourIds = null;
+        } else if (Utils.isProvider(roles)) {
+            // Proveedor: reviews de sus tours
+            try {
+                Provider provider = providerService.findByUser(user);
+                if (provider != null) {
+                    // Buscar todos los tours del proveedor
+                    List<Tour> providerTours = tourRepository.findAllByProviderId(provider.getId());
+                    if (!providerTours.isEmpty()) {
+                        providerTourIds = providerTours.stream()
+                                .map(Tour::getId)
+                                .collect(Collectors.toList());
+                    }
+                    // Si no tiene tours, providerTourIds permanece null y se comportará como cliente
+                }
+            } catch (Exception e) {
+                log.warn("Error getting provider tours: {}", e.getMessage());
+                // Si hay error, providerTourIds permanece null
+            }
+        }
+        // Si no es Provider o no tiene tours, providerTourIds es null y se filtrará solo por userId (cliente)
+
+        Pageable pageable = PageRequest.of(pageNumber, pageSize);
+        
+        Page<Review> reviewsPage;
+        if (isAdmin) {
+            // Admin: usar query sin filtro de userId
+            reviewsPage = reviewRepository.findWithFiltersForAdmin(tourId, rating, status, pageable);
+        } else if (providerTourIds != null && !providerTourIds.isEmpty()) {
+            // Proveedor con tours: usar query con lista de tourIds (no filtra por userId para ver todas las reviews de sus tours)
+            reviewsPage = reviewRepository.findWithFiltersAndTourIds(
+                    providerTourIds, null, rating, status, pageable);
+        } else {
+            // Cliente o Provider sin tours: usar query normal con filtro de userId (solo sus propias reviews)
+            reviewsPage = reviewRepository.findWithFilters(tourId, finalUserId, rating, status, pageable);
+        }
 
         List<ReviewResponse> responses = reviewsPage.getContent().stream()
-                .map(this::loadReviewRelations)
+                .map(review -> loadReviewRelations(review, true))
                 .map(reviewMapper::toResponse)
                 .map(this::enrichReviewResponse)
                 .collect(Collectors.toList());
@@ -147,37 +220,54 @@ public class ReviewService {
     }
 
     /**
-     * Obtiene reseñas pendientes de revisión
+     * Obtiene reservas entregadas (DELIVERED) del cliente autenticado que aún no tienen review asociada
+     * Requiere autenticación para filtrar las reservas del usuario
      */
     @Transactional(readOnly = true)
-    public PageResponse<ReviewResponse> getPendingReviews(Integer pageSize, Integer pageNumber) {
-        log.info("Getting pending reviews - pageSize: {}, pageNumber: {}", pageSize, pageNumber);
+    public PageResponse<ReservationResponse> getPendingReviews(Integer pageSize, Integer pageNumber, @Nullable Authentication authentication) {
+        log.info("Getting reservations delivered without review for authenticated user - pageSize: {}, pageNumber: {}", pageSize, pageNumber);
 
-        Pageable pageable = PageRequest.of(pageNumber != null ? pageNumber : 0, pageSize != null ? pageSize : 10);
-        Page<Review> reviewsPage = reviewRepository.findPendingReviews(pageable);
+        // Validar que pageSize y pageNumber sean proporcionados
+        if (pageSize == null || pageNumber == null) {
+            throw new IllegalArgumentException("pageSize and pageNumber are required parameters");
+        }
 
-        List<ReviewResponse> responses = reviewsPage.getContent().stream()
-                .map(this::loadReviewRelations)
-                .map(reviewMapper::toResponse)
-                .map(this::enrichReviewResponse)
+        // Obtener usuario autenticado - es requerido para filtrar las reservas del cliente
+        User user = getUserFromAuthentication(authentication);
+        if (user == null) {
+            throw new com.tourya.api.exceptions.InsufficientPrivilegesException("Authentication is required to get pending reviews. Please provide a valid Bearer token in the Authorization header.");
+        }
+
+        Pageable pageable = PageRequest.of(pageNumber, pageSize);
+        Page<Reservation> reservationsPage = reservationRepository.findDeliveredWithoutReviewByUserId(
+                DeliveryStatusEnum.DELIVERED, user.getId(), pageable);
+
+        List<ReservationResponse> responses = reservationsPage.getContent().stream()
+                .map(reservationMapper::toResponse)
                 .collect(Collectors.toList());
 
-        return PageResponse.<ReviewResponse>builder()
+        return PageResponse.<ReservationResponse>builder()
                 .content(responses)
-                .number(reviewsPage.getNumber())
-                .size(reviewsPage.getSize())
-                .totalElements(reviewsPage.getTotalElements())
-                .totalPages(reviewsPage.getTotalPages())
-                .first(reviewsPage.isFirst())
-                .last(reviewsPage.isLast())
+                .number(reservationsPage.getNumber())
+                .size(reservationsPage.getSize())
+                .totalElements(reservationsPage.getTotalElements())
+                .totalPages(reservationsPage.getTotalPages())
+                .first(reservationsPage.isFirst())
+                .last(reservationsPage.isLast())
                 .build();
     }
 
     /**
      * Actualiza una reseña
      */
-    public ReviewResponse updateReview(Long reviewId, UpdateReviewRequest request, Authentication authentication) {
+    public ReviewResponse updateReview(Long reviewId, UpdateReviewRequest request, List<MultipartFile> answerFiles, Authentication authentication) throws IOException {
         log.info("Updating review: {}", reviewId);
+
+        // Las imágenes del PATCH van en el answer, no en el review
+        // Validar máximo 5 imágenes para answer
+        if (answerFiles != null && answerFiles.size() > 5) {
+            throw new IllegalStateException("Se permite un máximo de 5 imágenes por answer. Se intentaron subir " + answerFiles.size() + " imágenes.");
+        }
 
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new ResourceNotFoundException("Review not found with id: " + reviewId));
@@ -185,7 +275,7 @@ public class ReviewService {
         // Obtener usuario autenticado
         User user = getUserFromAuthentication(authentication);
         if (user == null) {
-            throw new IllegalStateException("Authenticated user not found.");
+            throw new com.tourya.api.exceptions.InsufficientPrivilegesException("Authentication is required to update a review. Please provide a valid Bearer token in the Authorization header.");
         }
 
         // Verificar permisos (solo el creador o admin puede actualizar)
@@ -204,6 +294,8 @@ public class ReviewService {
         }
         
         review = reviewRepository.save(review);
+
+        // NO se modifican las imágenes del review en PATCH - solo se pueden agregar al crear
 
         // Manejar answer si viene en el request (replica del proveedor)
         if (request.getAnswer() != null) {
@@ -225,10 +317,22 @@ public class ReviewService {
             
             // Guardar el answer
             answer = reviewAnswerRepository.save(answer);
+            
+            // Procesar imágenes del answer (answerFiles)
+            if (answerFiles != null && !answerFiles.isEmpty()) {
+                // Eliminar imágenes existentes del answer si hay
+                List<ReviewAnswerAttachment> existingAnswerAttachments = reviewAnswerAttachmentRepository.findByAnswerId(answer.getAnswerId());
+                for (ReviewAnswerAttachment attachment : existingAnswerAttachments) {
+                    s3Service.deleteFile(attachment.getFileUrl());
+                    reviewAnswerAttachmentRepository.delete(attachment);
+                }
+                // Guardar nuevas imágenes del answer
+                saveAnswerAttachmentsFromMultipartFiles(answer.getAnswerId(), answerFiles, user.getId());
+            }
         }
 
         // Cargar relaciones para la respuesta
-        review = loadReviewRelations(review);
+        review = loadReviewRelations(review, true);
 
         ReviewResponse response = reviewMapper.toResponse(review);
         return enrichReviewResponse(response);
@@ -245,6 +349,7 @@ public class ReviewService {
             auth = SecurityContextHolder.getContext().getAuthentication();
         }
         
+        // Si no hay autenticación o no tiene principal, retornar null
         if (auth == null || auth.getPrincipal() == null) {
             return null;
         }
@@ -256,11 +361,12 @@ public class ReviewService {
             return (User) principal;
         }
         
-        // Si el principal es un String (email), buscar el usuario por email
+        // Si el principal es un String (email o anonymousUser)
         if (principal instanceof String) {
             String emailOrAnonymous = (String) principal;
             
-            // Si es "anonymousUser", intentar procesar el token JWT del header
+            // Si es "anonymousUser", significa que no hay autenticación válida
+            // Intentar procesar el token JWT del header si existe
             if ("anonymousUser".equals(emailOrAnonymous)) {
                 try {
                     ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
@@ -281,14 +387,16 @@ public class ReviewService {
                 } catch (Exception e) {
                     log.warn("Error processing JWT token from header: {}", e.getMessage());
                 }
-                throw new IllegalStateException("Valid authentication is required. Please provide a valid Bearer token in the Authorization header.");
+                // Si llegamos aquí, no hay token válido - retornar null (la excepción se lanzará en el método que llama)
+                return null;
             }
             
-            // Buscar el usuario por email
+            // Si no es anonymousUser, buscar el usuario por email
             return userRepository.findByEmail(emailOrAnonymous)
                     .orElseThrow(() -> new IllegalStateException("User not found with email: " + emailOrAnonymous));
         }
         
+        // Si el principal no es User ni String, retornar null
         return null;
     }
 
@@ -346,33 +454,135 @@ public class ReviewService {
 
         // Cargar answer si existe
         Optional<com.tourya.api.models.ReviewAnswer> answer = reviewAnswerRepository.findByReviewId(review.getId());
-        answer.ifPresent(review::setAnswer);
+        if (answer.isPresent()) {
+            ReviewAnswer answerEntity = answer.get();
+            // Cargar attachments del answer
+            if (answerEntity.getAttachments() == null) {
+                answerEntity.setAttachments(new ArrayList<>());
+            }
+            List<ReviewAnswerAttachment> answerAttachments = reviewAnswerAttachmentRepository.findByAnswerId(answerEntity.getAnswerId());
+            answerEntity.getAttachments().clear();
+            if (!answerAttachments.isEmpty()) {
+                answerEntity.getAttachments().addAll(answerAttachments);
+            }
+            review.setAnswer(answerEntity);
+        }
 
         return review;
     }
 
     /**
-     * Guarda los archivos adjuntos de una reseña desde URLs (strings)
+     * Guarda los archivos adjuntos de una reseña desde MultipartFile
+     * Sube las imágenes a S3 y guarda las referencias en la base de datos
      */
-    private List<ReviewAttachment> saveAttachmentsFromUrls(Long reviewId, List<String> attachmentUrls, Integer userId) {
-        List<ReviewAttachment> attachments = new ArrayList<>();
+    private List<ReviewAttachment> saveAttachmentsFromMultipartFiles(Long reviewId, List<MultipartFile> files, Integer userId) throws IOException {
+        if (files == null || files.isEmpty()) {
+            return new ArrayList<>();
+        }
 
-        for (String fileUrl : attachmentUrls) {
-            if (fileUrl != null && !fileUrl.isEmpty()) {
-                // Extraer el nombre del archivo de la URL si es posible
-                String fileName = extractFileNameFromUrl(fileUrl);
-                
+        List<ReviewAttachment> attachments = new ArrayList<>();
+        String prefix = "reviews/" + reviewId;
+
+        for (MultipartFile file : files) {
+            if (file != null && !file.isEmpty()) {
+                // Subir archivo a S3
+                String fileUrl = s3Service.uploadFile(prefix, file);
+
                 ReviewAttachment attachment = ReviewAttachment.builder()
                         .reviewId(reviewId)
                         .fileUrl(fileUrl)
-                        .fileName(fileName)
-                        .fileType(extractContentTypeFromUrl(fileUrl))
-                        .fileSize(null) // No tenemos el tamaño desde la URL
+                        .fileName(file.getOriginalFilename())
+                        .fileType(file.getContentType())
+                        .fileSize(file.getSize())
                         .createdBy(userId)
                         .createdDate(LocalDateTime.now())
                         .build();
 
                 attachment = reviewAttachmentRepository.save(attachment);
+                attachments.add(attachment);
+            }
+        }
+
+        return attachments;
+    }
+
+    /**
+     * Guarda los archivos adjuntos de una reseña desde URLs (strings)
+     * Valida que no se exceda el límite de 5 imágenes por review
+     */
+    private List<ReviewAttachment> saveAttachmentsFromUrls(Long reviewId, List<String> attachmentUrls, Integer userId) {
+        // Validar límite de máximo 5 imágenes por review
+        if (attachmentUrls != null && attachmentUrls.size() > 5) {
+            throw new IllegalStateException("Se permite un máximo de 5 imágenes por review. Se intentaron subir " + attachmentUrls.size() + " imágenes.");
+        }
+
+        // Verificar cuántas imágenes ya existen para esta review
+        long existingAttachmentsCount = reviewAttachmentRepository.findByReviewId(reviewId).size();
+        int newAttachmentsCount = attachmentUrls != null ? (int) attachmentUrls.stream()
+                .filter(url -> url != null && !url.isEmpty())
+                .count() : 0;
+        
+        if (existingAttachmentsCount + newAttachmentsCount > 5) {
+            throw new IllegalStateException(
+                    String.format("Se permite un máximo de 5 imágenes por review. Ya existen %d imágenes y se intentaron agregar %d más.", 
+                            existingAttachmentsCount, newAttachmentsCount));
+        }
+
+        List<ReviewAttachment> attachments = new ArrayList<>();
+
+        if (attachmentUrls != null) {
+            for (String fileUrl : attachmentUrls) {
+                if (fileUrl != null && !fileUrl.isEmpty()) {
+                    // Extraer el nombre del archivo de la URL si es posible
+                    String fileName = extractFileNameFromUrl(fileUrl);
+                    
+                    ReviewAttachment attachment = ReviewAttachment.builder()
+                            .reviewId(reviewId)
+                            .fileUrl(fileUrl)
+                            .fileName(fileName)
+                            .fileType(extractContentTypeFromUrl(fileUrl))
+                            .fileSize(null) // No tenemos el tamaño desde la URL
+                            .createdBy(userId)
+                            .createdDate(LocalDateTime.now())
+                            .build();
+
+                    attachment = reviewAttachmentRepository.save(attachment);
+                    attachments.add(attachment);
+                }
+            }
+        }
+
+        return attachments;
+    }
+
+    /**
+     * Guarda los archivos adjuntos de una respuesta de review desde MultipartFile
+     * Sube las imágenes a S3 y guarda las referencias en la base de datos
+     */
+    private List<ReviewAnswerAttachment> saveAnswerAttachmentsFromMultipartFiles(Long answerId, List<MultipartFile> files, Integer userId) throws IOException {
+        if (files == null || files.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<ReviewAnswerAttachment> attachments = new ArrayList<>();
+        String prefix = "reviews/answers/" + answerId;
+
+        for (MultipartFile file : files) {
+            if (file != null && !file.isEmpty()) {
+                // Subir archivo a S3
+                String fileUrl = s3Service.uploadFile(prefix, file);
+
+                ReviewAnswerAttachment attachment = ReviewAnswerAttachment.builder()
+                        .answerId(answerId)
+                        .fileUrl(fileUrl)
+                        .fileName(file.getOriginalFilename())
+                        .fileType(file.getContentType())
+                        .fileSize(file.getSize())
+                        .createdBy(userId)
+                        .createdDate(LocalDateTime.now())
+                        .build();
+
+                attachment = reviewAnswerAttachmentRepository.save(attachment);
                 attachments.add(attachment);
             }
         }
@@ -415,20 +625,16 @@ public class ReviewService {
      */
     public ReviewResponse enrichReviewResponse(ReviewResponse response) {
         if (response.getTourId() != null) {
-            try {
-                Integer tourId = Integer.parseInt(response.getTourId());
-                List<TourGallery> galleries = tourGalleryRepository.findByTourIdOrderByOrderIndexAsc(tourId);
-                if (!galleries.isEmpty()) {
-                    response.setTourImage(galleries.get(0).getImageUrl());
-                }
+            Integer tourId = response.getTourId();
+            List<TourGallery> galleries = tourGalleryRepository.findByTourIdOrderByOrderIndexAsc(tourId);
+            if (!galleries.isEmpty()) {
+                response.setTourImage(galleries.get(0).getImageUrl());
+            }
 
-                // Obtener nombre del tour
-                Tour tour = tourRepository.findById(tourId).orElse(null);
-                if (tour != null && tour.getName() != null && tour.getName().getEs() != null) {
-                    response.setTourName(tour.getName().getEs());
-                }
-            } catch (NumberFormatException e) {
-                log.warn("Invalid tourId format: {}", response.getTourId());
+            // Obtener nombre del tour
+            Tour tour = tourRepository.findById(tourId).orElse(null);
+            if (tour != null && tour.getName() != null && tour.getName().getEs() != null) {
+                response.setTourName(tour.getName().getEs());
             }
         }
         return response;

@@ -1,10 +1,6 @@
 package com.tourya.api.models.mapper;
 
-import com.tourya.api.models.Review;
-import com.tourya.api.models.ReviewAttachment;
-import com.tourya.api.models.Tour;
-import com.tourya.api.models.TourGallery;
-import com.tourya.api.models.User;
+import com.tourya.api.models.*;
 import com.tourya.api.models.request.CreateReviewRequest;
 import com.tourya.api.models.request.UpdateReviewRequest;
 import com.tourya.api.models.responses.ReviewAnswerResponse;
@@ -13,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -85,9 +82,6 @@ public class ReviewMapper {
             answerResponse = mapAnswerToResponse(review.getAnswer());
         }
 
-        // Generar ID como string (formato REV-XXX)
-        String reviewId = "REV-" + review.getId();
-
         // bookingId con prefijo TB- según el mock
         String bookingId = review.getReservationId() != null ? "TB-" + review.getReservationId() : null;
 
@@ -98,9 +92,9 @@ public class ReviewMapper {
         }
         
         return ReviewResponse.builder()
-                .id(reviewId)
+                .id(review.getId())
                 .tourName(tourName)
-                .tourId(review.getTourId() != null ? "TOUR-" + review.getTourId() : null)
+                .tourId(review.getTourId())
                 .tourImage(tourImage)
                 .customerName(customerName)
                 .customerImage(customerImage)
@@ -115,7 +109,7 @@ public class ReviewMapper {
                 .status(review.getStatus())
                 .rejectionReason(review.getRejectionReason())
                 .answer(answerResponse)
-                .attachmentUrls(null) // No está en el mock de respuesta, se deja null
+                .attachmentUrls(mapAttachmentsToUrls(review.getAttachments()))
                 .build();
     }
 
@@ -172,7 +166,7 @@ public class ReviewMapper {
     /**
      * Mapea ReviewAnswer entity a ReviewAnswerResponse
      */
-    private ReviewAnswerResponse mapAnswerToResponse(com.tourya.api.models.ReviewAnswer answer) {
+    private ReviewAnswerResponse mapAnswerToResponse(ReviewAnswer answer) {
         if (answer == null) {
             return null;
         }
@@ -189,11 +183,8 @@ public class ReviewMapper {
             daysAgo = calculateDaysAgo(answer.getDate());
         }
 
-        // Generar answerId como string (formato ANS-XXX)
-        String answerId = "ANS-" + answer.getAnswerId();
-
         return ReviewAnswerResponse.builder()
-                .answerId(answerId)
+                .answerId(answer.getAnswerId())
                 .comment(commentText)
                 .providerName(answer.getProviderName())
                 .providerImage(answer.getProviderImage())
@@ -202,7 +193,32 @@ public class ReviewMapper {
                 .likes(answer.getLikes())
                 .dislikes(answer.getDislikes())
                 .hearts(answer.getHearts())
+                .attachmentUrls(mapAnswerAttachmentsToUrls(answer.getAttachments()))
                 .build();
+    }
+
+    /**
+     * Mapea la lista de attachments a URLs
+     */
+    private List<String> mapAttachmentsToUrls(List<ReviewAttachment> attachments) {
+        if (attachments == null || attachments.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return attachments.stream()
+                .map(ReviewAttachment::getFileUrl)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Mapea la lista de attachments de answer a URLs
+     */
+    private List<String> mapAnswerAttachmentsToUrls(List<com.tourya.api.models.ReviewAnswerAttachment> attachments) {
+        if (attachments == null || attachments.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return attachments.stream()
+                .map(com.tourya.api.models.ReviewAnswerAttachment::getFileUrl)
+                .collect(Collectors.toList());
     }
 }
 

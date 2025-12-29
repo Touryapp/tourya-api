@@ -67,6 +67,43 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
                                                @Param("endDate") LocalDateTime endDate);
 
     /**
+     * Busca reservas entregadas (DELIVERED) que no tienen una review asociada
+     */
+    @Query("""
+        SELECT r FROM Reservation r 
+        WHERE r.deliveryStatus = :deliveryStatus 
+        AND NOT EXISTS (
+            SELECT 1 FROM Review rev WHERE rev.reservationId = r.reservationId
+        )
+        ORDER BY r.reservationDate DESC
+        """)
+    Page<Reservation> findDeliveredWithoutReview(
+            @Param("deliveryStatus") DeliveryStatusEnum deliveryStatus,
+            Pageable pageable
+    );
+
+    /**
+     * Busca reservas entregadas (DELIVERED) del usuario que no tienen una review asociada
+     * Filtra por el userId del ShoppingCart asociado al ShoppingCartItem (dueño de la reserva)
+     */
+    @Query("""
+        SELECT r FROM Reservation r 
+        JOIN r.shoppingCartItem item
+        JOIN item.shoppingCart cart
+        WHERE r.deliveryStatus = :deliveryStatus 
+        AND cart.user.id = :userId
+        AND NOT EXISTS (
+            SELECT 1 FROM Review rev WHERE rev.reservationId = r.reservationId
+        )
+        ORDER BY r.reservationDate DESC
+        """)
+    Page<Reservation> findDeliveredWithoutReviewByUserId(
+            @Param("deliveryStatus") DeliveryStatusEnum deliveryStatus,
+            @Param("userId") Integer userId,
+            Pageable pageable
+    );
+
+    /**
      * Busca reservas general
      */
     @Query(

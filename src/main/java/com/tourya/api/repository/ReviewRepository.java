@@ -61,12 +61,50 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
         WHERE (:tourId IS NULL OR r.tourId = :tourId)
         AND (:userId IS NULL OR r.userId = :userId)
         AND (:rating IS NULL OR r.rating >= :rating)
+        AND (:status IS NULL OR r.status = :status)
         ORDER BY r.reviewDate DESC
         """)
     Page<Review> findWithFilters(
             @Param("tourId") Integer tourId,
             @Param("userId") Integer userId,
             @Param("rating") BigDecimal rating,
+            @Param("status") ReviewStatusEnum status,
+            Pageable pageable
+    );
+
+    /**
+     * Busca reseñas con filtros múltiples incluyendo lista de tourIds (para providers)
+     */
+    @Query("""
+        SELECT r FROM Review r 
+        WHERE (:tourIds IS NULL OR r.tourId IN :tourIds)
+        AND (:userId IS NULL OR r.userId = :userId)
+        AND (:rating IS NULL OR r.rating >= :rating)
+        AND (:status IS NULL OR r.status = :status)
+        ORDER BY r.reviewDate DESC
+        """)
+    Page<Review> findWithFiltersAndTourIds(
+            @Param("tourIds") List<Integer> tourIds,
+            @Param("userId") Integer userId,
+            @Param("rating") BigDecimal rating,
+            @Param("status") ReviewStatusEnum status,
+            Pageable pageable
+    );
+
+    /**
+     * Busca reseñas con filtros múltiples SIN filtrar por userId (para Admin)
+     */
+    @Query("""
+        SELECT r FROM Review r 
+        WHERE (:tourId IS NULL OR r.tourId = :tourId)
+        AND (:rating IS NULL OR r.rating >= :rating)
+        AND (:status IS NULL OR r.status = :status)
+        ORDER BY r.reviewDate DESC
+        """)
+    Page<Review> findWithFiltersForAdmin(
+            @Param("tourId") Integer tourId,
+            @Param("rating") BigDecimal rating,
+            @Param("status") ReviewStatusEnum status,
             Pageable pageable
     );
     

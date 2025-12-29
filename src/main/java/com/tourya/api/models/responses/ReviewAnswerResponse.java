@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * Response para la respuesta del proveedor a una reseña.
@@ -19,7 +20,7 @@ import java.time.LocalDate;
 @NoArgsConstructor
 public class ReviewAnswerResponse {
 
-    private String answerId;
+    private Long answerId;
     private String comment;
     private String providerName;
     private String providerImage;
@@ -28,5 +29,6 @@ public class ReviewAnswerResponse {
     private Integer likes;
     private Integer dislikes;
     private Integer hearts;
+    private List<String> attachmentUrls;
 }
 

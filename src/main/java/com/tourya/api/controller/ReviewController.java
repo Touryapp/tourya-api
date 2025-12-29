@@ -1,8 +1,10 @@
 package com.tourya.api.controller;
 
 import com.tourya.api.common.PageResponse;
+import com.tourya.api.constans.enums.ReviewStatusEnum;
 import com.tourya.api.models.request.CreateReviewRequest;
 import com.tourya.api.models.request.UpdateReviewRequest;
+import com.tourya.api.models.responses.ReservationResponse;
 import com.tourya.api.models.responses.ReviewResponse;
 import com.tourya.api.services.ReviewService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -19,8 +21,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -41,98 +46,97 @@ public class ReviewController {
     private final ObjectMapper objectMapper;
 
     /**
-     * Obtiene reseñas pendientes de revisión
+     * Obtiene reservas entregadas (DELIVERED) del cliente autenticado que aún no tienen review asociada
+     * Requiere autenticación mediante token Bearer en el header Authorization
      */
     @GetMapping("/search/pending-reviews")
-    @Operation(summary = "Obtener reseñas pendientes", description = "Obtiene todas las reseñas pendientes de revisión")
+    @Operation(summary = "Obtener reservas pendientes de review", description = "Obtiene las reservas del cliente autenticado que ya fueron entregadas (DELIVERED) pero aún no tienen una reseña asociada. Requiere autenticación.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Lista de reseñas pendientes obtenida exitosamente")
+            @ApiResponse(responseCode = "200", description = "Lista de reservas pendientes de review obtenida exitosamente"),
+            @ApiResponse(responseCode = "401", description = "No autenticado - se requiere token Bearer")
     })
-    public ResponseEntity<PageResponse<ReviewResponse>> getPendingReviews(
-            @Parameter(description = "Tamaño de la página") @RequestParam(required = false, defaultValue = "10") Integer pageSize,
-            @Parameter(description = "Número de página (0-indexed)") @RequestParam(required = false, defaultValue = "0") Integer pageNumber) {
-        log.info("Getting pending reviews - pageSize: {}, pageNumber: {}", pageSize, pageNumber);
+    public ResponseEntity<PageResponse<ReservationResponse>> getPendingReviews(
+            @Parameter(description = "Tamaño de la página", required = true) @RequestParam(required = true) Integer pageSize,
+            @Parameter(description = "Número de página (0-indexed)", required = true) @RequestParam(required = true) Integer pageNumber,
+            @Nullable Authentication authentication) {
+        log.info("Getting reservations delivered without review for authenticated user - pageSize: {}, pageNumber: {}", pageSize, pageNumber);
         
-        PageResponse<ReviewResponse> response = reviewService.getPendingReviews(pageSize, pageNumber);
+        PageResponse<ReservationResponse> response = reviewService.getPendingReviews(pageSize, pageNumber, authentication);
         return ResponseEntity.ok(response);
     }
 
     /**
-     * Obtiene reseñas con filtros
+     * Obtiene reseñas con filtros basado en el rol del usuario autenticado
+     * - Cliente: solo sus propias reviews
+     * - Proveedor: reviews de sus tours
+     * - Admin: todas las reviews
+     * REQUIERE AUTENTICACIÓN
      */
     @GetMapping("/search/reviews")
-    @Operation(summary = "Buscar reseñas", description = "Obtiene reseñas con filtros opcionales")
+    @Operation(summary = "Buscar reseñas", description = "Obtiene reseñas. El filtrado se realiza automáticamente según el rol del usuario autenticado (Cliente/Proveedor/Admin). Requiere autenticación.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Lista de reseñas obtenida exitosamente")
+            @ApiResponse(responseCode = "200", description = "Lista de reseñas obtenida exitosamente"),
+            @ApiResponse(responseCode = "401", description = "No autenticado - se requiere token Bearer")
     })
     public ResponseEntity<PageResponse<ReviewResponse>> getReviews(
-            @Parameter(description = "Tamaño de la página") @RequestParam(required = false, defaultValue = "10") Integer pageSize,
-            @Parameter(description = "Número de página (0-indexed)") @RequestParam(required = false, defaultValue = "0") Integer pageNumber,
-            @Parameter(description = "Filtrar por calificación") @RequestParam(required = false) BigDecimal rating,
-            @Parameter(description = "Filtrar por ID de tour") @RequestParam(required = false) Integer tourId,
-            @Parameter(description = "Filtrar por ID de usuario") @RequestParam(required = false) Integer userId) {
-        log.info("Getting reviews with filters - pageSize: {}, pageNumber: {}, rating: {}, tourId: {}, userId: {}",
-                pageSize, pageNumber, rating, tourId, userId);
+            @Parameter(description = "Tamaño de la página", required = true) @RequestParam(required = true) Integer pageSize,
+            @Parameter(description = "Número de página (0-indexed)", required = true) @RequestParam(required = true) Integer pageNumber,
+            @Parameter(description = "Filtrar por calificación mínima") @RequestParam(required = false) BigDecimal rating,
+            @Parameter(description = "Filtrar por ID de tour (solo para admin)") @RequestParam(required = false) Integer tourId,
+            @Parameter(description = "Filtrar por estado de la reseña (PENDING, PUBLISHED, CANCELED)") @RequestParam(required = false) ReviewStatusEnum status,
+            @Nullable Authentication authentication) {
+        log.info("Getting reviews with filters - pageSize: {}, pageNumber: {}, rating: {}, tourId: {}, status: {}",
+                pageSize, pageNumber, rating, tourId, status);
         
-        PageResponse<ReviewResponse> response = reviewService.getReviews(pageSize, pageNumber, rating, tourId, userId);
+        PageResponse<ReviewResponse> response = reviewService.getReviews(pageSize, pageNumber, rating, tourId, status, authentication);
         return ResponseEntity.ok(response);
     }
 
     /**
      * Crea una nueva reseña
      */
-    @PostMapping("/save/review")
-    @Operation(summary = "Crear reseña", description = "Crea una nueva reseña para una reserva. Requiere autenticación mediante token Bearer en el header Authorization")
+    @PostMapping(value = "/save/review", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Crear reseña", description = "Crea una nueva reseña para una reserva con imágenes (máximo 5). Requiere autenticación mediante token Bearer en el header Authorization")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Reseña creada exitosamente"),
             @ApiResponse(responseCode = "401", description = "No autenticado - se requiere token Bearer"),
-            @ApiResponse(responseCode = "400", description = "Datos inválidos"),
+            @ApiResponse(responseCode = "400", description = "Datos inválidos o más de 5 imágenes"),
             @ApiResponse(responseCode = "404", description = "Reserva no encontrada")
     })
     public ResponseEntity<ReviewResponse> createReview(
-            @Parameter(description = "Datos de la reseña") @Valid @RequestBody CreateReviewRequest request,
-            @Nullable Authentication authentication) {
-        log.info("Creating review for reservation: {}", request.getReservationId());
+            @Parameter(description = "Datos de la reseña en JSON") @RequestPart("reviewData") String reviewDataJson,
+            @Parameter(description = "Imágenes de la reseña (máximo 5)") @RequestPart(value = "files", required = false) List<MultipartFile> files,
+            @Nullable Authentication authentication) throws IOException {
+        log.info("Creating review with {} images", files != null ? files.size() : 0);
         
-        ReviewResponse response = reviewService.createReview(request, null, authentication);
+        CreateReviewRequest request = objectMapper.readValue(reviewDataJson, CreateReviewRequest.class);
+        ReviewResponse response = reviewService.createReview(request, files, authentication);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     /**
      * Actualiza una reseña existente
      */
-    @PatchMapping(value = "/save/review/{reviewId}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(summary = "Actualizar reseña", description = "Actualiza una reseña existente. Requiere autenticación mediante token Bearer en el header Authorization")
+    @PatchMapping(value = "/save/review/{reviewId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Actualizar reseña", description = "Actualiza una reseña existente. Las imágenes van en el answer (máximo 5). Requiere autenticación mediante token Bearer en el header Authorization")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Reseña actualizada exitosamente"),
             @ApiResponse(responseCode = "401", description = "No autenticado - se requiere token Bearer"),
             @ApiResponse(responseCode = "404", description = "Reseña no encontrada"),
-            @ApiResponse(responseCode = "403", description = "No tiene permisos para actualizar esta reseña")
+            @ApiResponse(responseCode = "403", description = "No tiene permisos para actualizar esta reseña"),
+            @ApiResponse(responseCode = "400", description = "Datos inválidos o más de 5 imágenes para answer")
     })
     public ResponseEntity<ReviewResponse> updateReview(
-            @Parameter(description = "ID de la reseña") @PathVariable String reviewId,
-            @Parameter(description = "Datos de actualización") 
-            @Valid @RequestBody UpdateReviewRequest request,
-            @Nullable Authentication authentication) {
-        log.info("Updating review: {}", reviewId);
+            @Parameter(description = "ID de la reseña") @PathVariable Long reviewId,
+            @Parameter(description = "Datos de actualización en JSON") @RequestPart("reviewData") String reviewDataJson,
+            @Parameter(description = "Imágenes del answer (máximo 5)") @RequestPart(value = "answerFiles", required = false) List<MultipartFile> answerFiles,
+            @Nullable Authentication authentication) throws IOException {
+        log.info("Updating review: {} with {} answer images", 
+                reviewId, answerFiles != null ? answerFiles.size() : 0);
         
-        Long id = extractReviewId(reviewId);
-        ReviewResponse response = reviewService.updateReview(id, request, authentication);
+        UpdateReviewRequest request = objectMapper.readValue(reviewDataJson, UpdateReviewRequest.class);
+        ReviewResponse response = reviewService.updateReview(reviewId, request, answerFiles, authentication);
         return ResponseEntity.ok(response);
-    }
-
-    /**
-     * Extrae el ID numérico del formato "REV-XXX"
-     */
-    private Long extractReviewId(String reviewId) {
-        try {
-            if (reviewId.startsWith("REV-")) {
-                return Long.parseLong(reviewId.substring(4));
-            }
-            return Long.parseLong(reviewId);
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Invalid review ID format: " + reviewId);
-        }
     }
 }
 
