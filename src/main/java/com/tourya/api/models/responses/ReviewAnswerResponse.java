@@ -1,5 +1,6 @@
 package com.tourya.api.models.responses;
 
+import com.tourya.api.models.TranslatedField;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -21,7 +22,7 @@ import java.util.List;
 public class ReviewAnswerResponse {
 
     private Long answerId;
-    private String comment;
+    private TranslatedField comment;
     private String providerName;
     private String providerImage;
     private LocalDate date;
