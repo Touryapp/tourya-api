@@ -84,12 +84,6 @@ public class ReviewMapper {
 
         // bookingId con prefijo TB- según el mock
         String bookingId = review.getReservationId() != null ? "TB-" + review.getReservationId() : null;
-
-        // Convertir TranslatedField comment a String (usar español por defecto)
-        String commentText = null;
-        if (review.getComment() != null && review.getComment().getEs() != null) {
-            commentText = review.getComment().getEs();
-        }
         
         return ReviewResponse.builder()
                 .id(review.getId())
@@ -99,7 +93,7 @@ public class ReviewMapper {
                 .customerName(customerName)
                 .customerImage(customerImage)
                 .rating(review.getRating())
-                .comment(commentText)
+                .comment(review.getComment())
                 .date(review.getReviewDate())
                 .daysAgo(daysAgo)
                 .likes(review.getLikes())
@@ -171,12 +165,6 @@ public class ReviewMapper {
             return null;
         }
 
-        // Convertir TranslatedField comment a String (usar español por defecto)
-        String commentText = null;
-        if (answer.getComment() != null && answer.getComment().getEs() != null) {
-            commentText = answer.getComment().getEs();
-        }
-
         // Calcular daysAgo
         String daysAgo = null;
         if (answer.getDate() != null) {
@@ -185,7 +173,7 @@ public class ReviewMapper {
 
         return ReviewAnswerResponse.builder()
                 .answerId(answer.getAnswerId())
-                .comment(commentText)
+                .comment(answer.getComment())
                 .providerName(answer.getProviderName())
                 .providerImage(answer.getProviderImage())
                 .date(answer.getDate())

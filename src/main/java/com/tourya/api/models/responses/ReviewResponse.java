@@ -1,6 +1,7 @@
 package com.tourya.api.models.responses;
 
 import com.tourya.api.constans.enums.ReviewStatusEnum;
+import com.tourya.api.models.TranslatedField;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -9,7 +10,6 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Response para información de reseña.
@@ -30,7 +30,7 @@ public class ReviewResponse {
     private String customerName;
     private String customerImage;
     private BigDecimal rating;
-    private String comment;
+    private TranslatedField comment;
     private LocalDate date;
     private String daysAgo;
     private Integer likes;
