@@ -278,8 +278,34 @@ public class ReviewService {
             throw new com.tourya.api.exceptions.InsufficientPrivilegesException("Authentication is required to update a review. Please provide a valid Bearer token in the Authorization header.");
         }
 
-        // Verificar permisos (solo el creador o admin puede actualizar)
-        if (!review.getCreatedBy().equals(user.getId()) && !Utils.isAdmin(user.getRoles())) {
+        // Verificar permisos
+        boolean hasPermission = false;
+        List<Role> roles = user.getRoles();
+        
+        // El creador de la review puede actualizarla
+        if (review.getCreatedBy().equals(user.getId())) {
+            hasPermission = true;
+        }
+        // Un admin puede actualizar cualquier review
+        else if (Utils.isAdmin(roles)) {
+            hasPermission = true;
+        }
+        // Un provider puede responder a reviews de sus tours
+        else if (Utils.isProvider(roles)) {
+            try {
+                Provider provider = providerService.findByUser(user);
+                if (provider != null && review.getTourId() != null) {
+                    Tour tour = tourRepository.findById(review.getTourId()).orElse(null);
+                    if (tour != null && tour.getProvider() != null && tour.getProvider().getId().equals(provider.getId())) {
+                        hasPermission = true;
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Error checking provider permission: {}", e.getMessage());
+            }
+        }
+        
+        if (!hasPermission) {
             throw new IllegalStateException("You don't have permission to update this review");
         }
 
