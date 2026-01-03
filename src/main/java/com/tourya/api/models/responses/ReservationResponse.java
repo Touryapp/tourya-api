@@ -47,4 +47,7 @@ public class ReservationResponse {
     private String travellers;
     private List<String> activities;
     private List<String> extraServices;
+    
+    // Información del pagador/cliente
+    private PayerResponse payer;
 }

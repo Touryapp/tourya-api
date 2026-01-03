@@ -11,6 +11,7 @@ import com.tourya.api.models.*;
 import com.tourya.api.models.mapper.ReservationMapper;
 import com.tourya.api.models.responses.ReservationDetailsResponse;
 import com.tourya.api.models.responses.ReservationResponse;
+import com.tourya.api.models.responses.PayerResponse;
 import com.tourya.api.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -75,9 +76,20 @@ public class ReservationService {
     }
     
     /**
-     * Enriquece un ReservationResponse con información adicional del tour
+     * Enriquece un ReservationResponse con información adicional del tour y del pagador
      */
     private void enrichReservationResponse(ReservationResponse response, Reservation reservation) {
+        // Cargar información del pagador desde Payment
+        Payment payment = paymentRepository.findById(reservation.getPaymentId()).orElse(null);
+        if (payment != null) {
+            PayerResponse payer = PayerResponse.builder()
+                    .name(payment.getPayerName())
+                    .email(payment.getPayerEmail())
+                    .phone(payment.getPayerPhone())
+                    .build();
+            response.setPayer(payer);
+        }
+        
         ShoppingCartItem item = shoppingCartItemRepository.findById(reservation.getItemId()).orElse(null);
         
         if (item == null || item.getTourSchedule() == null) {
@@ -112,16 +124,25 @@ public class ReservationService {
             // Calcular returnDate basado en duration
             if (tour.getDuration() != null && response.getCheckInDate() != null) {
                 try {
-                    String[] parts = tour.getDuration().split(" ");
+                    String durationStr = tour.getDuration().trim();
                     int days = 0;
-                    for (int i = 0; i < parts.length; i++) {
-                        if (parts[i].equalsIgnoreCase("Days") || parts[i].equalsIgnoreCase("Day")) {
-                            if (i > 0) {
-                                days = Integer.parseInt(parts[i-1]);
-                                break;
+                    
+                    // Intentar parsear directamente si es solo un número
+                    try {
+                        days = Integer.parseInt(durationStr);
+                    } catch (NumberFormatException e) {
+                        // Si no es solo un número, buscar "Days" o "Day" en el string
+                        String[] parts = durationStr.split(" ");
+                        for (int i = 0; i < parts.length; i++) {
+                            if (parts[i].equalsIgnoreCase("Days") || parts[i].equalsIgnoreCase("Day")) {
+                                if (i > 0) {
+                                    days = Integer.parseInt(parts[i-1]);
+                                    break;
+                                }
                             }
                         }
                     }
+                    
                     if (days > 0) {
                         response.setReturnDate(response.getCheckInDate().plusDays(days));
                     }
@@ -254,18 +275,26 @@ public class ReservationService {
             
             // Calcular returnDate basado en duration y checkInDate
             if (checkInDate != null && duration != null) {
-                // Parsear duration (ej: "3 Days, 2 Nights")
                 try {
-                    String[] parts = duration.split(" ");
+                    String durationStr = duration.trim();
                     int days = 0;
-                    for (int i = 0; i < parts.length; i++) {
-                        if (parts[i].equalsIgnoreCase("Days") || parts[i].equalsIgnoreCase("Day")) {
-                            if (i > 0) {
-                                days = Integer.parseInt(parts[i-1]);
-                                break;
+                    
+                    // Intentar parsear directamente si es solo un número
+                    try {
+                        days = Integer.parseInt(durationStr);
+                    } catch (NumberFormatException e) {
+                        // Si no es solo un número, buscar "Days" o "Day" en el string
+                        String[] parts = durationStr.split(" ");
+                        for (int i = 0; i < parts.length; i++) {
+                            if (parts[i].equalsIgnoreCase("Days") || parts[i].equalsIgnoreCase("Day")) {
+                                if (i > 0) {
+                                    days = Integer.parseInt(parts[i-1]);
+                                    break;
+                                }
                             }
                         }
                     }
+                    
                     if (days > 0) {
                         returnDate = checkInDate.plusDays(days);
                     }
