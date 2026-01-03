@@ -8,6 +8,7 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Response para información de reserva.
@@ -33,4 +34,17 @@ public class ReservationResponse {
     private LocalDateTime lastModifiedDate;
     private Integer createdBy;
     private Integer lastModifiedBy;
+    
+    // Información adicional del tour
+    private Integer tourId;
+    private String tourName;
+    private String tourType;
+    private String duration;
+    private LocalDateTime checkInDate;
+    private LocalDateTime returnDate;
+    private String destination;
+    private Double price;
+    private String travellers;
+    private List<String> activities;
+    private List<String> extraServices;
 }
