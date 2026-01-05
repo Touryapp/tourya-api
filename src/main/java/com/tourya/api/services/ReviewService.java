@@ -4,6 +4,7 @@ import com.tourya.api._utils.Utils;
 import com.tourya.api.common.PageResponse;
 import com.tourya.api.constans.enums.DeliveryStatusEnum;
 import com.tourya.api.constans.enums.ReviewStatusEnum;
+import com.tourya.api.constans.enums.IncludeExcludeTypeEnum;
 import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.models.*;
 import com.tourya.api.models.mapper.ReviewMapper;
@@ -12,6 +13,7 @@ import com.tourya.api.models.request.CreateReviewRequest;
 import com.tourya.api.models.request.UpdateReviewRequest;
 import com.tourya.api.models.responses.ReservationResponse;
 import com.tourya.api.models.responses.ReviewResponse;
+import com.tourya.api.models.responses.PayerResponse;
 import com.tourya.api.models.mapper.ReservationMapper;
 import com.tourya.api.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -59,6 +61,10 @@ public class ReviewService {
     private final TourRepository tourRepository;
     private final UserRepository userRepository;
     private final TourGalleryRepository tourGalleryRepository;
+    private final PaymentRepository paymentRepository;
+    private final TourAddressRepository tourAddressRepository;
+    private final TourMainAttractionRepository tourMainAttractionRepository;
+    private final TourIncludesExcludesRepository tourIncludesExcludesRepository;
     private final ReviewMapper reviewMapper;
     private final ReviewAnswerMapper reviewAnswerMapper;
     private final ReservationMapper reservationMapper;
@@ -243,7 +249,11 @@ public class ReviewService {
                 DeliveryStatusEnum.DELIVERED, user.getId(), pageable);
 
         List<ReservationResponse> responses = reservationsPage.getContent().stream()
-                .map(reservationMapper::toResponse)
+                .map(reservation -> {
+                    ReservationResponse response = reservationMapper.toResponse(reservation);
+                    enrichReservationResponse(response, reservation);
+                    return response;
+                })
                 .collect(Collectors.toList());
 
         return PageResponse.<ReservationResponse>builder()
@@ -664,6 +674,132 @@ public class ReviewService {
             }
         }
         return response;
+    }
+
+    /**
+     * Enriquece un ReservationResponse con información adicional del tour y del pagador
+     */
+    private void enrichReservationResponse(ReservationResponse response, Reservation reservation) {
+        // Cargar información del pagador desde Payment
+        Payment payment = paymentRepository.findById(reservation.getPaymentId()).orElse(null);
+        if (payment != null) {
+            PayerResponse payer = PayerResponse.builder()
+                    .name(payment.getPayerName())
+                    .email(payment.getPayerEmail())
+                    .phone(payment.getPayerPhone())
+                    .build();
+            response.setPayer(payer);
+        }
+        
+        ShoppingCartItem item = shoppingCartItemRepository.findById(reservation.getItemId()).orElse(null);
+        
+        if (item == null || item.getTourSchedule() == null) {
+            return;
+        }
+        
+        TourSchedule schedule = item.getTourSchedule();
+        Integer tourId = schedule.getTourId();
+        
+        if (tourId == null) {
+            return;
+        }
+        
+        Tour tour = tourRepository.findById(tourId).orElse(null);
+        if (tour == null) {
+            return;
+        }
+        
+        // Información básica del tour
+        response.setTourId(tourId);
+        if (tour.getName() != null && tour.getName().getEs() != null) {
+            response.setTourName(tour.getName().getEs());
+        }
+        if (tour.getTourCategory() != null && tour.getTourCategory().getName() != null) {
+            response.setTourType(tour.getTourCategory().getName());
+        }
+        response.setDuration(tour.getDuration());
+        
+        // Fechas
+        if (schedule.getScheduleDate() != null) {
+            response.setCheckInDate(schedule.getScheduleDate().atStartOfDay());
+            // Calcular returnDate basado en duration
+            if (tour.getDuration() != null && response.getCheckInDate() != null) {
+                try {
+                    String durationStr = tour.getDuration().trim();
+                    int days = 0;
+                    
+                    // Intentar parsear directamente si es solo un número
+                    try {
+                        days = Integer.parseInt(durationStr);
+                    } catch (NumberFormatException e) {
+                        // Si no es solo un número, buscar "Days" o "Day" en el string
+                        String[] parts = durationStr.split(" ");
+                        for (int i = 0; i < parts.length; i++) {
+                            if (parts[i].equalsIgnoreCase("Days") || parts[i].equalsIgnoreCase("Day")) {
+                                if (i > 0) {
+                                    days = Integer.parseInt(parts[i-1]);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (days > 0) {
+                        response.setReturnDate(response.getCheckInDate().plusDays(days));
+                    }
+                } catch (Exception e) {
+                    log.warn("Could not parse duration: {}", tour.getDuration());
+                }
+            }
+        }
+        
+        // Destination
+        List<TourAddress> addresses = tourAddressRepository.findByTourId(tourId);
+        if (addresses != null && !addresses.isEmpty()) {
+            TourAddress firstAddress = addresses.get(0);
+            if (firstAddress.getCity() != null && firstAddress.getCity().getName() != null) {
+                response.setDestination(firstAddress.getCity().getName());
+            } else if (firstAddress.getLocation() != null && firstAddress.getLocation().getEs() != null) {
+                response.setDestination(firstAddress.getLocation().getEs());
+            }
+        }
+        
+        // Precio
+        if (item.getTotalPrice() != null) {
+            response.setPrice(item.getTotalPrice().doubleValue());
+        }
+        
+        // Travellers
+        if (item.getDetails() != null && !item.getDetails().isEmpty()) {
+            List<String> travellerParts = new ArrayList<>();
+            for (ShoppingCartItemDetail detail : item.getDetails()) {
+                if (detail.getQuantity() != null && detail.getQuantity() > 0) {
+                    String ageType = detail.getAgeType() != null ? detail.getAgeType().name() : "Adult";
+                    travellerParts.add(detail.getQuantity() + " " + ageType + (detail.getQuantity() > 1 ? "s" : ""));
+                }
+            }
+            if (!travellerParts.isEmpty()) {
+                response.setTravellers(String.join(", ", travellerParts));
+            }
+        }
+        
+        // Actividades (main attractions)
+        List<String> activities = tourMainAttractionRepository.findByTourId(tourId).stream()
+                .filter(attr -> attr.getDescription() != null && attr.getDescription().getEs() != null)
+                .map(attr -> attr.getDescription().getEs())
+                .toList();
+        if (!activities.isEmpty()) {
+            response.setActivities(activities);
+        }
+        
+        // Servicios extra (includes)
+        List<String> extraServices = tourIncludesExcludesRepository.findByTourIdAndType(tourId, IncludeExcludeTypeEnum.INCLUDE).stream()
+                .filter(inc -> inc.getDescription() != null && inc.getDescription().getEs() != null)
+                .map(inc -> inc.getDescription().getEs())
+                .toList();
+        if (!extraServices.isEmpty()) {
+            response.setExtraServices(extraServices);
+        }
     }
 }
 
