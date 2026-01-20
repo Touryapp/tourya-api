@@ -1,6 +1,7 @@
 package com.tourya.api.models;
 
 import com.tourya.api.common.BaseEntity;
+import com.tourya.api.constans.enums.CancellationReasonEnum;
 import com.tourya.api.constans.enums.DeliveryStatusEnum;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -9,6 +10,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -54,6 +56,19 @@ public class Reservation extends BaseEntity {
 
     @Column(name = "service_responsible_phone", length = 20)
     private String serviceResponsiblePhone;
+
+    @Column(name = "max_cancellation_date")
+    private LocalDate maxCancellationDate;
+
+    @Column(name = "max_rescheduling_date")
+    private LocalDate maxReschedulingDate;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "cancellation_reason")
+    private CancellationReasonEnum cancellationReason;
+
+    @Column(name = "cancellation_date")
+    private LocalDateTime cancellationDate;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "payment_id", insertable = false, updatable = false)

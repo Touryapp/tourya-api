@@ -7,9 +7,10 @@ import lombok.AllArgsConstructor;
 
 @AllArgsConstructor
 public enum CancellationPolicyTypeEnum {
-    FLEXIBLE("Flexible"),
-    MODERATE("Moderate"),
-    NON_REFUNDABLE("Non-refundable");
+    FLEXIBLE("Flexible"), // hasta 24 horas antes
+    STANDARD("Standard"), // hasta 48 horas antes
+    MODERATE("Moderate"), // hasta 4 días antes
+    STRICT("Strict"); // hasta 7 días antes
 
     private String value;
 
