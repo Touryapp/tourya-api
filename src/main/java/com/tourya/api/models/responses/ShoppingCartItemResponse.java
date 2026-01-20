@@ -25,9 +25,7 @@ public class ShoppingCartItemResponse {
     private Long id;
     private Integer productId;
     private String productType;
-    private Integer serviceId;
-    private String serviceName;
-    private String serviceType;
+    private String productName;
     private LocalDate scheduleDate;
     private Integer tourScheduleId;
     private String tourName;

@@ -211,6 +211,14 @@ public class ShoppingCartService {
         
         // Usar el carrito activo del usuario o crear uno nuevo
         ShoppingCart cart = findOrCreateActiveCart(user);
+        
+        // Asegurarse de que los items se carguen inicializando la colección
+        if (cart.getItems() == null) {
+            cart.setItems(new ArrayList<>());
+        } else {
+            // Forzar la carga de items si están en lazy loading
+            cart.getItems().size();
+        }
 
         // Agregar cada item al carrito
         for (AddItemToCartRequest itemRequest : request.getItems()) {
@@ -543,17 +551,38 @@ public class ShoppingCartService {
                         .build())
                             .collect(Collectors.toList());
 
+                    // Obtener productName y tourName según el tipo de producto
+                    String productName = null;
+                    Integer tourScheduleId = null;
+                    String tourName = null;
+                    
+                    if ("SERVICE".equalsIgnoreCase(item.getProductType())) {
+                        // Cuando es SERVICE, obtener el nombre del servicio
+                        TouryaService service = serviceRepository.findById(item.getProductId()).orElse(null);
+                        if (service != null) {
+                            productName = service.getName();
+                        }
+                    } else if ("TOUR".equalsIgnoreCase(item.getProductType())) {
+                        // Cuando es TOUR, obtener productName y tourName
+                        if (item.getTourSchedule() != null) {
+                            tourScheduleId = item.getTourSchedule().getId();
+                            if (item.getTourSchedule().getTour() != null) {
+                                if (item.getTourSchedule().getTour().getName() != null) {
+                                    productName = item.getTourSchedule().getTour().getName().getEs();
+                                    tourName = productName; // tourName es igual a productName para TOUR
+                                }
+                            }
+                        }
+                    }
+
                     return ShoppingCartItemResponse.builder()
                             .id(item.getId())
                             .productId(item.getProductId())
                             .productType(item.getProductType())
-                            .serviceId(null) // service_id se maneja a través de product_id y product_type
-                            .serviceName(null)
-                            .serviceType(null)
+                            .productName(productName)
                             .scheduleDate(item.getScheduleDate())
-                            .tourScheduleId(item.getTourSchedule() != null ? item.getTourSchedule().getId() : null)
-                            .tourName(item.getTourSchedule() != null && item.getTourSchedule().getTour().getName() != null ? 
-                                item.getTourSchedule().getTour().getName().getEs() : null)
+                            .tourScheduleId(tourScheduleId)
+                            .tourName(tourName)
                             .slotId(item.getSlot() != null ? item.getSlot().getId() : null)
                             .totalPrice(item.getTotalPrice())
                             .status(item.getStatus())
