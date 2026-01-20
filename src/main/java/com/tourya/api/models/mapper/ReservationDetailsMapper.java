@@ -71,6 +71,15 @@ public class ReservationDetailsMapper {
                 .serviceResponsibleEmail(rs.getString("service_responsible_email"))
                 .serviceResponsiblePhone(rs.getString("service_responsible_phone"))
 
+                // Campos de cancelación y re-agendamiento
+                .maxCancellationDate(rs.getDate("max_cancellation_date") != null 
+                        ? rs.getDate("max_cancellation_date").toLocalDate() : null)
+                .maxReschedulingDate(rs.getDate("max_rescheduling_date") != null 
+                        ? rs.getDate("max_rescheduling_date").toLocalDate() : null)
+                .cancellationReason(rs.getString("cancellation_reason"))
+                .cancellationDate(rs.getTimestamp("cancellation_date") != null 
+                        ? rs.getTimestamp("cancellation_date").toLocalDateTime() : null)
+
                 .build();
     }
 }

@@ -48,6 +48,12 @@ public class ReservationResponse {
     private List<String> activities;
     private List<String> extraServices;
     
-    // Información del pagador/cliente
-    private PayerResponse payer;
+    // Campos de cancelación y re-agendamiento
+    private java.time.LocalDate maxCancellationDate;
+    private java.time.LocalDate maxReschedulingDate;
+    private com.tourya.api.constans.enums.CancellationReasonEnum cancellationReason;
+    private LocalDateTime cancellationDate;
+    
+    // Información del crédito creado al re-agendar
+    private CreditResponse credit;
 }

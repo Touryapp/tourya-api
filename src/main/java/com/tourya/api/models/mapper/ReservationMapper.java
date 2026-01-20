@@ -63,6 +63,11 @@ public class ReservationMapper {
                 .lastModifiedDate(reservation.getLastModifiedDate())
                 .createdBy(reservation.getCreatedBy())
                 .lastModifiedBy(reservation.getLastModifiedBy())
+                // Campos de cancelación y re-agendamiento
+                .maxCancellationDate(reservation.getMaxCancellationDate())
+                .maxReschedulingDate(reservation.getMaxReschedulingDate())
+                .cancellationReason(reservation.getCancellationReason())
+                .cancellationDate(reservation.getCancellationDate())
                 .build();
     }
 

@@ -8,6 +8,8 @@ import com.tourya.api.models.responses.ReservationResponse;
 import com.tourya.api.models.responses.ServiceResponsibleResponse;
 import com.tourya.api.models.responses.PayerResponse;
 import com.tourya.api.repository.*;
+import com.tourya.api.constans.enums.IncludeExcludeTypeEnum;
+import com.tourya.api.constans.enums.CancellationPolicyTypeEnum;
 import com.tourya.api.constans.enums.DeliveryStatusEnum;
 import com.tourya.api.constans.enums.ShoppingCartStatusEnum;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -37,6 +40,12 @@ public class PaymentService {
     private final ShoppingCartRepository shoppingCartRepository;
     private final QrCodeService qrCodeService;
     private final ReservationQrService reservationQrService;
+    private final TourRepository tourRepository;
+    private final TourCancellationPolicyRepository tourCancellationPolicyRepository;
+    private final TourScheduleRepository tourScheduleRepository;
+    private final TourMainAttractionRepository tourMainAttractionRepository;
+    private final TourIncludesExcludesRepository tourIncludesExcludesRepository;
+    private final TourAddressRepository tourAddressRepository;
     private final ObjectMapper objectMapper;
 
     /**
@@ -103,6 +112,40 @@ public class PaymentService {
                     .findFirst()
                     .orElseThrow(() -> new IllegalArgumentException("Cart item not found"));
 
+            // Calcular fechas máximas de cancelación y re-agendamiento
+            LocalDate maxCancellationDate = null;
+            LocalDate maxReschedulingDate = null;
+
+            LocalDate selectedTourDate = cartItem.getScheduleDate();
+            
+            if (selectedTourDate != null && cartItem.getTourSchedule() != null) {
+                TourSchedule schedule = tourScheduleRepository.findById(cartItem.getTourSchedule().getId())
+                        .orElse(null);
+                
+                if (schedule != null && schedule.getTourId() != null) {
+                    Tour tour = tourRepository.findById(schedule.getTourId()).orElse(null);
+                    
+                    if (tour != null) {
+                        // Obtener política de cancelación del tour
+                        List<TourCancellationPolicy> policies = tourCancellationPolicyRepository.findByTourId(tour.getId());
+                        
+                        if (!policies.isEmpty()) {
+                            TourCancellationPolicy policy = policies.get(0); // Tomar la primera política
+                            
+                            // Calcular fecha máxima de cancelación según el tipo de política
+                            maxCancellationDate = calculateMaxCancellationDate(
+                                    policy.getCancellationPolicyType(), 
+                                    selectedTourDate
+                            );
+                            
+                            // Calcular fecha máxima de re-agendamiento (2 días antes del tour)
+                            // Se calcula siempre, pero solo se permite re-agendar si allowsRescheduling es true
+                            maxReschedulingDate = selectedTourDate.minusDays(2);
+                        }
+                    }
+                }
+            }
+
             // Crear reserva para este item
             Reservation reservation = Reservation.builder()
                     .paymentId(payment.getPaymentId())
@@ -113,6 +156,8 @@ public class PaymentService {
                     .serviceResponsibleName(requestItem.getServiceResponsible().getName())
                     .serviceResponsibleEmail(requestItem.getServiceResponsible().getEmail())
                     .serviceResponsiblePhone(requestItem.getServiceResponsible().getPhone())
+                    .maxCancellationDate(maxCancellationDate)
+                    .maxReschedulingDate(maxReschedulingDate)
                     .build();
 
             reservation = reservationRepository.save(reservation);
@@ -222,7 +267,7 @@ public class PaymentService {
                       Long.parseLong(reservation.getServiceResponsiblePhone().replaceAll("[^0-9]", "")) : null)
                 .build();
 
-        return ReservationResponse.builder()
+        ReservationResponse response = ReservationResponse.builder()
                 .reservationId(reservation.getReservationId())
                 .paymentId(reservation.getPaymentId())
                 .itemId(reservation.getItemId())
@@ -234,7 +279,134 @@ public class PaymentService {
                 .lastModifiedDate(reservation.getLastModifiedDate())
                 .createdBy(reservation.getCreatedBy())
                 .lastModifiedBy(reservation.getLastModifiedBy())
+                // Campos de cancelación y re-agendamiento
+                .maxCancellationDate(reservation.getMaxCancellationDate())
+                .maxReschedulingDate(reservation.getMaxReschedulingDate())
+                .cancellationReason(reservation.getCancellationReason())
+                .cancellationDate(reservation.getCancellationDate())
                 .build();
+        
+        // Enriquecer con información del tour y del payer
+        enrichReservationResponse(response, reservation);
+        
+        return response;
+    }
+    
+    /**
+     * Enriquece la respuesta de la reserva con información adicional del tour.
+     * Copia exacta de ReservationService.enrichReservationResponse para mantener consistencia.
+     */
+    private void enrichReservationResponse(ReservationResponse response, Reservation reservation) {
+        ShoppingCartItem item = shoppingCartItemRepository.findById(reservation.getItemId()).orElse(null);
+        
+        if (item == null || item.getTourSchedule() == null) {
+            return;
+        }
+        
+        TourSchedule schedule = item.getTourSchedule();
+        Integer tourId = schedule.getTourId();
+        
+        if (tourId == null) {
+            return;
+        }
+        
+        Tour tour = tourRepository.findById(tourId).orElse(null);
+        if (tour == null) {
+            return;
+        }
+        
+        // Información básica del tour
+        response.setTourId(tourId);
+        if (tour.getName() != null && tour.getName().getEs() != null) {
+            response.setTourName(tour.getName().getEs());
+        }
+        if (tour.getTourCategory() != null && tour.getTourCategory().getName() != null) {
+            response.setTourType(tour.getTourCategory().getName());
+        }
+        response.setDuration(tour.getDuration());
+        
+        // checkInDate = fecha del tour que el usuario seleccionó (scheduleDate del request)
+        // returnDate = checkInDate + duration (número de días del tour)
+        if (item.getScheduleDate() != null) {
+            response.setCheckInDate(item.getScheduleDate().atStartOfDay());
+            // Calcular returnDate basado en duration
+            if (tour.getDuration() != null && response.getCheckInDate() != null) {
+                try {
+                    String durationStr = tour.getDuration().trim();
+                    int days = 0;
+                    
+                    // Intentar parsear directamente si es solo un número
+                    try {
+                        days = Integer.parseInt(durationStr);
+                    } catch (NumberFormatException e) {
+                        // Si no es solo un número, buscar "Days" o "Day" en el string
+                        String[] parts = durationStr.split(" ");
+                        for (int i = 0; i < parts.length; i++) {
+                            if (parts[i].equalsIgnoreCase("Days") || parts[i].equalsIgnoreCase("Day")) {
+                                if (i > 0) {
+                                    days = Integer.parseInt(parts[i-1]);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (days > 0) {
+                        response.setReturnDate(response.getCheckInDate().plusDays(days));
+                    }
+                } catch (Exception e) {
+                    log.warn("Could not parse duration: {}", tour.getDuration());
+                }
+            }
+        }
+        
+        // Destination
+        List<TourAddress> addresses = tourAddressRepository.findByTourId(tourId);
+        if (addresses != null && !addresses.isEmpty()) {
+            TourAddress firstAddress = addresses.get(0);
+            if (firstAddress.getCity() != null && firstAddress.getCity().getName() != null) {
+                response.setDestination(firstAddress.getCity().getName());
+            } else if (firstAddress.getLocation() != null && firstAddress.getLocation().getEs() != null) {
+                response.setDestination(firstAddress.getLocation().getEs());
+            }
+        }
+        
+        // Precio
+        if (item.getTotalPrice() != null) {
+            response.setPrice(item.getTotalPrice().doubleValue());
+        }
+        
+        // Travellers
+        if (item.getDetails() != null && !item.getDetails().isEmpty()) {
+            List<String> travellerParts = new java.util.ArrayList<>();
+            for (ShoppingCartItemDetail detail : item.getDetails()) {
+                if (detail.getQuantity() != null && detail.getQuantity() > 0) {
+                    String ageType = detail.getAgeType() != null ? detail.getAgeType().name() : "Adult";
+                    travellerParts.add(detail.getQuantity() + " " + ageType + (detail.getQuantity() > 1 ? "s" : ""));
+                }
+            }
+            if (!travellerParts.isEmpty()) {
+                response.setTravellers(String.join(", ", travellerParts));
+            }
+        }
+        
+        // Actividades (main attractions) - USANDO .toList() como ReservationService
+        List<String> activities = tourMainAttractionRepository.findByTourId(tourId).stream()
+                .filter(attr -> attr.getDescription() != null && attr.getDescription().getEs() != null)
+                .map(attr -> attr.getDescription().getEs())
+                .toList();
+        if (!activities.isEmpty()) {
+            response.setActivities(activities);
+        }
+        
+        // Servicios extra (includes) - USANDO .toList() como ReservationService
+        List<String> extraServices = tourIncludesExcludesRepository.findByTourIdAndType(tourId, IncludeExcludeTypeEnum.INCLUDE).stream()
+                .filter(inc -> inc.getDescription() != null && inc.getDescription().getEs() != null)
+                .map(inc -> inc.getDescription().getEs())
+                .toList();
+        if (!extraServices.isEmpty()) {
+            response.setExtraServices(extraServices);
+        }
     }
 
     /**
@@ -293,5 +465,25 @@ public class PaymentService {
             log.error("Error getting QR image URL: {}", e.getMessage());
             return "";
         }
+    }
+
+    /**
+     * Calcula la fecha máxima de cancelación según el tipo de política.
+     * 
+     * @param policyType Tipo de política de cancelación
+     * @param tourDate Fecha del tour
+     * @return Fecha máxima de cancelación
+     */
+    private LocalDate calculateMaxCancellationDate(CancellationPolicyTypeEnum policyType, LocalDate tourDate) {
+        if (policyType == null || tourDate == null) {
+            return null;
+        }
+
+        return switch (policyType) {
+            case FLEXIBLE -> tourDate.minusDays(1); // hasta 24 horas antes
+            case STANDARD -> tourDate.minusDays(2); // hasta 48 horas antes
+            case MODERATE -> tourDate.minusDays(4); // hasta 4 días antes
+            case STRICT -> tourDate.minusDays(7); // hasta 7 días antes
+        };
     }
 }
