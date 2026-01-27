@@ -6,6 +6,7 @@ import com.tourya.api.models.request.CancelReservationRequest;
 import com.tourya.api.models.request.RescheduleReservationRequest;
 import com.tourya.api.models.responses.ReservationResponse;
 import com.tourya.api.models.responses.ReservationDetailsResponse;
+import com.tourya.api.models.responses.RescheduleValidationResponse;
 import com.tourya.api.services.ReservationService;
 import com.tourya.api.services.ReservationQrService;
 import jakarta.validation.Valid;
@@ -272,6 +273,28 @@ public class ReservationController {
         log.info("Canceling reservation {} with reason: {}", reservationId, request.getCancellationReason());
         
         ReservationResponse response = reservationService.cancelReservation(reservationId, request, authentication);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Valida si una reserva puede ser re-agendada.
+     * 
+     * @param reservationId ID de la reserva a validar
+     * @param authentication Autenticación del usuario
+     * @return RescheduleValidationResponse con el resultado de la validación
+     */
+    @GetMapping("/{reservationId}/reschedule/validate")
+    @Operation(summary = "Validar re-agendamiento", description = "Valida si una reserva puede ser re-agendada según las políticas")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Validación completada"),
+            @ApiResponse(responseCode = "404", description = "Reserva no encontrada")
+    })
+    public ResponseEntity<RescheduleValidationResponse> validateRescheduleReservation(
+            @Parameter(description = "ID de la reserva a validar") @PathVariable Long reservationId,
+            Authentication authentication) {
+        log.info("Validating reschedule for reservation: {}", reservationId);
+        
+        RescheduleValidationResponse response = reservationService.validateRescheduleReservation(reservationId, authentication);
         return ResponseEntity.ok(response);
     }
 
