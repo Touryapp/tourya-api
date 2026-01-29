@@ -1176,8 +1176,6 @@ CREATE TABLE public.tour_schedule_config_slot (
 	config_id int4 NOT NULL,
 	start_time time NOT NULL,
 	end_time time NOT NULL,
-	min_capacity int4 NULL,
-	max_capacity int4 NULL,
 	created_by int4 NOT NULL,
 	last_modified_by int4 NULL,
 	created_date timestamp DEFAULT CURRENT_TIMESTAMP NULL,
