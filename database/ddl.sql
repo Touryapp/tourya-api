@@ -74,6 +74,12 @@ CREATE TYPE public."tour_duration_type_enum" AS ENUM (
 	'HORAS',
 	'DIAS');
 
+-- DROP TYPE public."price_type_enum";
+
+CREATE TYPE public."price_type_enum" AS ENUM (
+	'individual',
+	'grupo');
+
 -- DROP TYPE public."tour_tag_category_enum";
 
 CREATE TYPE public."tour_tag_category_enum" AS ENUM (
@@ -878,6 +884,7 @@ CREATE TABLE public.tour (
 	created_by int4 NOT NULL,
 	last_modified_by int4 NULL,
 	status varchar(30) NOT NULL,
+	price_type public."price_type_enum" NULL,
 	min_age int4 NULL,
 	rating numeric NULL,
 	duration_type public."duration_type_enum" NULL,
