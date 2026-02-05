@@ -112,6 +112,7 @@ public class TourScheduleConfigGeneralService {
                     price.setMinAge(priceDto.getMinAge());
                     price.setMaxAge(priceDto.getMaxAge());
                     price.setPrice(priceDto.getPrice());
+                    price.setProviderPrice(priceDto.getProviderPrice());
                     prices.add(price);
                 }
                 slot.setPrices(prices);
@@ -258,6 +259,7 @@ public class TourScheduleConfigGeneralService {
                 currentPrice.setMinAge(priceDto.getMinAge());
                 currentPrice.setMaxAge(priceDto.getMaxAge());
                 currentPrice.setPrice(priceDto.getPrice());
+                currentPrice.setProviderPrice(priceDto.getProviderPrice());
             }
         }
     }
@@ -427,6 +429,7 @@ public class TourScheduleConfigGeneralService {
                                 priceDto.setMinAge(price.getMinAge());
                                 priceDto.setMaxAge(price.getMaxAge());
                                 priceDto.setPrice(price.getPrice());
+                                priceDto.setProviderPrice(price.getProviderPrice());
                                 return priceDto;
                             })
                             .collect(Collectors.toSet());
@@ -505,6 +508,7 @@ public class TourScheduleConfigGeneralService {
                                         priceDto.setMinAge(price.getMinAge());
                                         priceDto.setMaxAge(price.getMaxAge());
                                         priceDto.setPrice(price.getPrice());
+                                        priceDto.setProviderPrice(price.getProviderPrice());
                                         return priceDto;
                                     })
                                     .collect(Collectors.toSet());

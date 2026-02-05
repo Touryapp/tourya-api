@@ -12,4 +12,5 @@ public class TourSchedulePriceResponse {
     private Integer minAge;
     private Integer maxAge;
     private BigDecimal price;
+    private BigDecimal providerPrice;
 }

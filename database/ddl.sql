@@ -2,6 +2,8 @@
 
 CREATE SCHEMA public AUTHORIZATION pg_database_owner;
 
+COMMENT ON SCHEMA public IS 'standard public schema';
+
 -- DROP TYPE public."account_payable_status_enum";
 
 CREATE TYPE public."account_payable_status_enum" AS ENUM (
@@ -74,12 +76,6 @@ CREATE TYPE public."tour_duration_type_enum" AS ENUM (
 	'HORAS',
 	'DIAS');
 
--- DROP TYPE public."price_type_enum";
-
-CREATE TYPE public."price_type_enum" AS ENUM (
-	'individual',
-	'grupo');
-
 -- DROP TYPE public."tour_tag_category_enum";
 
 CREATE TYPE public."tour_tag_category_enum" AS ENUM (
@@ -113,6 +109,15 @@ CREATE SEQUENCE public.account_payable_id_seq
 	START 1
 	CACHE 1
 	NO CYCLE;
+-- DROP SEQUENCE public.app_config_id_seq;
+
+CREATE SEQUENCE public.app_config_id_seq
+	INCREMENT BY 1
+	MINVALUE 1
+	MAXVALUE 9223372036854775807
+	START 1
+	CACHE 1
+	NO CYCLE;
 -- DROP SEQUENCE public.category_id_seq;
 
 CREATE SEQUENCE public.category_id_seq
@@ -137,6 +142,24 @@ CREATE SEQUENCE public.country_id_seq
 	INCREMENT BY 1
 	MINVALUE 1
 	MAXVALUE 2147483647
+	START 1
+	CACHE 1
+	NO CYCLE;
+-- DROP SEQUENCE public.credit_id_seq;
+
+CREATE SEQUENCE public.credit_id_seq
+	INCREMENT BY 1
+	MINVALUE 1
+	MAXVALUE 9223372036854775807
+	START 1
+	CACHE 1
+	NO CYCLE;
+-- DROP SEQUENCE public.maritim_activity_report_id_seq;
+
+CREATE SEQUENCE public.maritim_activity_report_id_seq
+	INCREMENT BY 1
+	MINVALUE 1
+	MAXVALUE 9223372036854775807
 	START 1
 	CACHE 1
 	NO CYCLE;
@@ -188,6 +211,42 @@ CREATE SEQUENCE public.request_provider_id_seq
 -- DROP SEQUENCE public.reservation_reservation_id_seq;
 
 CREATE SEQUENCE public.reservation_reservation_id_seq
+	INCREMENT BY 1
+	MINVALUE 1
+	MAXVALUE 9223372036854775807
+	START 1
+	CACHE 1
+	NO CYCLE;
+-- DROP SEQUENCE public.review_answer_answer_id_seq;
+
+CREATE SEQUENCE public.review_answer_answer_id_seq
+	INCREMENT BY 1
+	MINVALUE 1
+	MAXVALUE 9223372036854775807
+	START 1
+	CACHE 1
+	NO CYCLE;
+-- DROP SEQUENCE public.review_answer_attachment_id_seq;
+
+CREATE SEQUENCE public.review_answer_attachment_id_seq
+	INCREMENT BY 1
+	MINVALUE 1
+	MAXVALUE 9223372036854775807
+	START 1
+	CACHE 1
+	NO CYCLE;
+-- DROP SEQUENCE public.review_attachment_id_seq;
+
+CREATE SEQUENCE public.review_attachment_id_seq
+	INCREMENT BY 1
+	MINVALUE 1
+	MAXVALUE 9223372036854775807
+	START 1
+	CACHE 1
+	NO CYCLE;
+-- DROP SEQUENCE public.review_id_seq;
+
+CREATE SEQUENCE public.review_id_seq
 	INCREMENT BY 1
 	MINVALUE 1
 	MAXVALUE 9223372036854775807
@@ -685,6 +744,73 @@ CREATE TABLE public.tour_tag (
 );
 
 
+-- public.app_config definition
+
+-- Drop table
+
+-- DROP TABLE public.app_config;
+
+CREATE TABLE public.app_config (
+	id bigserial NOT NULL,
+	config_key varchar(100) NOT NULL, -- Clave única de la configuración (ej: CANCELLATION_POLICY)
+	config_value jsonb NOT NULL, -- Valor de la configuración en formato JSONB
+	description text NULL, -- Descripción de la configuración
+	created_date timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	last_modified_date timestamp NULL,
+	created_by int4 NOT NULL,
+	last_modified_by int4 NULL,
+	CONSTRAINT app_config_config_key_key UNIQUE (config_key),
+	CONSTRAINT app_config_pkey PRIMARY KEY (id),
+	CONSTRAINT fk_app_config_created_by FOREIGN KEY (created_by) REFERENCES public._user(id),
+	CONSTRAINT fk_app_config_last_modified_by FOREIGN KEY (last_modified_by) REFERENCES public._user(id)
+);
+CREATE INDEX idx_app_config_key ON public.app_config USING btree (config_key);
+COMMENT ON TABLE public.app_config IS 'Tabla de configuración del sistema en formato clave-valor';
+
+-- Column comments
+
+COMMENT ON COLUMN public.app_config.config_key IS 'Clave única de la configuración (ej: CANCELLATION_POLICY)';
+COMMENT ON COLUMN public.app_config.config_value IS 'Valor de la configuración en formato JSONB';
+COMMENT ON COLUMN public.app_config.description IS 'Descripción de la configuración';
+
+
+-- public.maritim_activity_report definition
+
+-- Drop table
+
+-- DROP TABLE public.maritim_activity_report;
+
+CREATE TABLE public.maritim_activity_report (
+	id bigserial NOT NULL,
+	country varchar(100) NOT NULL, -- País donde se realiza la actividad
+	city varchar(100) NOT NULL, -- Ciudad donde se realiza la actividad
+	activity varchar(255) NOT NULL, -- Nombre de la actividad marítima (ej: TOUR BAHIA, KITE SURFING, etc.)
+	flag varchar(20) NOT NULL, -- Bandera de alerta: GREEN, YELLOW, RED
+	report_date date NOT NULL, -- Fecha del reporte (dd/mm/aaaa)
+	created_date timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	last_modified_date timestamp NULL,
+	created_by int4 NOT NULL,
+	last_modified_by int4 NULL,
+	CONSTRAINT maritim_activity_report_flag_check CHECK (((flag)::text = ANY ((ARRAY['GREEN'::character varying, 'YELLOW'::character varying, 'RED'::character varying])::text[]))),
+	CONSTRAINT maritim_activity_report_pkey PRIMARY KEY (id),
+	CONSTRAINT fk_maritim_activity_report_created_by FOREIGN KEY (created_by) REFERENCES public._user(id),
+	CONSTRAINT fk_maritim_activity_report_last_modified_by FOREIGN KEY (last_modified_by) REFERENCES public._user(id)
+);
+CREATE INDEX idx_maritim_activity_report_activity ON public.maritim_activity_report USING btree (activity);
+CREATE INDEX idx_maritim_activity_report_country_city ON public.maritim_activity_report USING btree (country, city);
+CREATE INDEX idx_maritim_activity_report_date ON public.maritim_activity_report USING btree (report_date);
+CREATE INDEX idx_maritim_activity_report_flag ON public.maritim_activity_report USING btree (flag);
+COMMENT ON TABLE public.maritim_activity_report IS 'Reportes de actividades marítimas enviados por DIMAR';
+
+-- Column comments
+
+COMMENT ON COLUMN public.maritim_activity_report.country IS 'País donde se realiza la actividad';
+COMMENT ON COLUMN public.maritim_activity_report.city IS 'Ciudad donde se realiza la actividad';
+COMMENT ON COLUMN public.maritim_activity_report.activity IS 'Nombre de la actividad marítima (ej: TOUR BAHIA, KITE SURFING, etc.)';
+COMMENT ON COLUMN public.maritim_activity_report.flag IS 'Bandera de alerta: GREEN, YELLOW, RED';
+COMMENT ON COLUMN public.maritim_activity_report.report_date IS 'Fecha del reporte (dd/mm/aaaa)';
+
+
 -- public.request_provider_gallery definition
 
 -- Drop table
@@ -884,7 +1010,6 @@ CREATE TABLE public.tour (
 	created_by int4 NOT NULL,
 	last_modified_by int4 NULL,
 	status varchar(30) NOT NULL,
-	price_type public."price_type_enum" NULL,
 	min_age int4 NULL,
 	rating numeric NULL,
 	duration_type public."duration_type_enum" NULL,
@@ -949,6 +1074,7 @@ CREATE TABLE public.tour_cancellation_policy (
 	last_modified_date timestamp NULL,
 	created_by int4 NOT NULL,
 	last_modified_by int4 NULL,
+	CONSTRAINT chk_cancellation_policy_type CHECK (((cancellation_policy_type)::text = ANY ((ARRAY['Flexible'::character varying, 'Standard'::character varying, 'Moderate'::character varying, 'Strict'::character varying, 'Non-refundable'::character varying])::text[]))),
 	CONSTRAINT tour_cancellation_policy_observations_es_required CHECK (((observations IS NULL) OR (((observations ->> 'es'::text) IS NOT NULL) AND ((observations ->> 'es'::text) <> ''::text)))),
 	CONSTRAINT tour_cancellation_policy_pkey PRIMARY KEY (id),
 	CONSTRAINT tour_cancellation_policy_tour_id_fkey FOREIGN KEY (tour_id) REFERENCES public.tour(id)
@@ -1176,6 +1302,8 @@ CREATE TABLE public.tour_schedule_config_slot (
 	config_id int4 NOT NULL,
 	start_time time NOT NULL,
 	end_time time NOT NULL,
+	min_capacity int4 NULL,
+	max_capacity int4 NULL,
 	created_by int4 NOT NULL,
 	last_modified_by int4 NULL,
 	created_date timestamp DEFAULT CURRENT_TIMESTAMP NULL,
@@ -1242,9 +1370,11 @@ CREATE TABLE public.tour_schedule (
 	created_date timestamp DEFAULT CURRENT_TIMESTAMP NULL,
 	last_modified_date timestamp NULL,
 	CONSTRAINT tour_schedule_pkey PRIMARY KEY (id),
+	CONSTRAINT uq_tour_schedule_tour_date UNIQUE (tour_id, schedule_date),
 	CONSTRAINT tour_schedule_config_id_fkey FOREIGN KEY (config_id) REFERENCES public.tour_schedule_config(id),
 	CONSTRAINT tour_schedule_tour_id_fkey FOREIGN KEY (tour_id) REFERENCES public.tour(id)
 );
+CREATE INDEX idx_tour_schedule_tour_date ON public.tour_schedule USING btree (tour_id, schedule_date);
 
 
 -- public.tour_schedule_config_price definition
@@ -1382,6 +1512,43 @@ CREATE TABLE public.account_payable (
 );
 
 
+-- public.credit definition
+
+-- Drop table
+
+-- DROP TABLE public.credit;
+
+CREATE TABLE public.credit (
+	id bigserial NOT NULL,
+	reservation_id int8 NOT NULL, -- ID de la reserva que generó el crédito
+	amount numeric(10, 2) NOT NULL, -- Monto del crédito
+	creation_date date NOT NULL, -- Fecha en que se creó el crédito
+	expiration_date date NOT NULL, -- Fecha de vencimiento del crédito (1 año desde la creación)
+	status varchar(20) DEFAULT 'CREATED'::character varying NOT NULL, -- Estado del crédito: CREATED, CANCELED, DELETED
+	created_date timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	last_modified_date timestamp NULL,
+	created_by int4 NOT NULL,
+	last_modified_by int4 NULL,
+	CONSTRAINT chk_credit_amount_positive CHECK ((amount >= (0)::numeric)),
+	CONSTRAINT chk_credit_expiration_date CHECK ((expiration_date >= creation_date)),
+	CONSTRAINT credit_pkey PRIMARY KEY (id),
+	CONSTRAINT credit_status_check CHECK (((status)::text = ANY ((ARRAY['CREATED'::character varying, 'CANCELED'::character varying, 'DELETED'::character varying])::text[])))
+);
+CREATE INDEX idx_credit_creation_date ON public.credit USING btree (creation_date);
+CREATE INDEX idx_credit_expiration_date ON public.credit USING btree (expiration_date);
+CREATE INDEX idx_credit_reservation_id ON public.credit USING btree (reservation_id);
+CREATE INDEX idx_credit_status ON public.credit USING btree (status);
+COMMENT ON TABLE public.credit IS 'Créditos generados por cancelación o re-agendamiento de reservas';
+
+-- Column comments
+
+COMMENT ON COLUMN public.credit.reservation_id IS 'ID de la reserva que generó el crédito';
+COMMENT ON COLUMN public.credit.amount IS 'Monto del crédito';
+COMMENT ON COLUMN public.credit.creation_date IS 'Fecha en que se creó el crédito';
+COMMENT ON COLUMN public.credit.expiration_date IS 'Fecha de vencimiento del crédito (1 año desde la creación)';
+COMMENT ON COLUMN public.credit.status IS 'Estado del crédito: CREATED, CANCELED, DELETED';
+
+
 -- public.reservation definition
 
 -- Drop table
@@ -1398,10 +1565,14 @@ CREATE TABLE public.reservation (
 	last_modified_date timestamp DEFAULT CURRENT_TIMESTAMP NULL,
 	created_by int4 NOT NULL,
 	last_modified_by int4 NULL,
-	item_id int8 DEFAULT 0 NOT NULL,
-	service_responsible_name varchar(255) NULL,
-	service_responsible_email varchar(255) NULL,
-	service_responsible_phone varchar(20) NULL,
+	item_id int8 DEFAULT 0 NOT NULL, -- ID del item del carrito de compras asociado a esta reserva
+	service_responsible_name varchar(255) NULL, -- Nombre del responsable del servicio
+	service_responsible_email varchar(255) NULL, -- Email del responsable del servicio
+	service_responsible_phone varchar(20) NULL, -- Teléfono del responsable del servicio
+	max_cancellation_date date NULL, -- Fecha máxima permitida para cancelar la reserva según la política del tour
+	max_rescheduling_date date NULL, -- Fecha máxima permitida para re-agendar la reserva (2 días antes del tour)
+	cancellation_reason varchar(20) NULL, -- Motivo de cancelación: CANNOT_ATTEND o RAIN
+	cancellation_date timestamp NULL, -- Fecha y hora en que se canceló la reserva
 	CONSTRAINT reservation_pkey PRIMARY KEY (reservation_id)
 );
 CREATE INDEX idx_reservation_delivery_status ON public.reservation USING btree (delivery_status);
@@ -1409,6 +1580,143 @@ CREATE INDEX idx_reservation_item_id ON public.reservation USING btree (item_id)
 CREATE INDEX idx_reservation_payment_id ON public.reservation USING btree (payment_id);
 CREATE INDEX idx_reservation_qr_url ON public.reservation USING btree (qr_url);
 CREATE INDEX idx_reservation_reservation_date ON public.reservation USING btree (reservation_date);
+
+-- Column comments
+
+COMMENT ON COLUMN public.reservation.item_id IS 'ID del item del carrito de compras asociado a esta reserva';
+COMMENT ON COLUMN public.reservation.service_responsible_name IS 'Nombre del responsable del servicio';
+COMMENT ON COLUMN public.reservation.service_responsible_email IS 'Email del responsable del servicio';
+COMMENT ON COLUMN public.reservation.service_responsible_phone IS 'Teléfono del responsable del servicio';
+COMMENT ON COLUMN public.reservation.max_cancellation_date IS 'Fecha máxima permitida para cancelar la reserva según la política del tour';
+COMMENT ON COLUMN public.reservation.max_rescheduling_date IS 'Fecha máxima permitida para re-agendar la reserva (2 días antes del tour)';
+COMMENT ON COLUMN public.reservation.cancellation_reason IS 'Motivo de cancelación: CANNOT_ATTEND o RAIN';
+COMMENT ON COLUMN public.reservation.cancellation_date IS 'Fecha y hora en que se canceló la reserva';
+
+
+-- public.review definition
+
+-- Drop table
+
+-- DROP TABLE public.review;
+
+CREATE TABLE public.review (
+	id bigserial NOT NULL,
+	reservation_id int8 NOT NULL, -- Reference to the reservation this review is for
+	item_id int8 NOT NULL, -- Reference to the shopping cart item
+	tour_id int4 NOT NULL, -- Reference to the tour being reviewed
+	user_id int4 NOT NULL, -- Reference to the user who wrote the review
+	rating numeric(3, 2) NOT NULL, -- Rating from 1 to 5
+	"comment" jsonb NULL, -- Review comment in multiple languages (JSONB)
+	status varchar(20) DEFAULT 'PENDING'::character varying NOT NULL, -- Status of the review: PENDING, PUBLISHED, CANCELED
+	review_date date NOT NULL,
+	likes int4 DEFAULT 0 NOT NULL,
+	dislikes int4 DEFAULT 0 NOT NULL,
+	hearts int4 DEFAULT 0 NOT NULL,
+	rejection_reason text NULL,
+	created_date timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	last_modified_date timestamp DEFAULT CURRENT_TIMESTAMP NULL,
+	created_by int4 NOT NULL,
+	last_modified_by int4 NULL,
+	CONSTRAINT pk_review_id PRIMARY KEY (id),
+	CONSTRAINT review_rating_check1 CHECK (((rating >= (1)::numeric) AND (rating <= (5)::numeric)))
+);
+CREATE INDEX idx_review_comment_gin ON public.review USING gin (comment);
+CREATE INDEX idx_review_item_id ON public.review USING btree (item_id);
+CREATE INDEX idx_review_rating ON public.review USING btree (rating);
+CREATE INDEX idx_review_reservation_id ON public.review USING btree (reservation_id);
+CREATE INDEX idx_review_review_date ON public.review USING btree (review_date);
+CREATE INDEX idx_review_status ON public.review USING btree (status);
+CREATE INDEX idx_review_tour_id ON public.review USING btree (tour_id);
+CREATE INDEX idx_review_user_id ON public.review USING btree (user_id);
+COMMENT ON TABLE public.review IS 'Table storing reviews/ratings for tours';
+
+-- Column comments
+
+COMMENT ON COLUMN public.review.reservation_id IS 'Reference to the reservation this review is for';
+COMMENT ON COLUMN public.review.item_id IS 'Reference to the shopping cart item';
+COMMENT ON COLUMN public.review.tour_id IS 'Reference to the tour being reviewed';
+COMMENT ON COLUMN public.review.user_id IS 'Reference to the user who wrote the review';
+COMMENT ON COLUMN public.review.rating IS 'Rating from 1 to 5';
+COMMENT ON COLUMN public.review."comment" IS 'Review comment in multiple languages (JSONB)';
+COMMENT ON COLUMN public.review.status IS 'Status of the review: PENDING, PUBLISHED, CANCELED';
+
+
+-- public.review_answer definition
+
+-- Drop table
+
+-- DROP TABLE public.review_answer;
+
+CREATE TABLE public.review_answer (
+	answer_id bigserial NOT NULL,
+	review_id int8 NOT NULL,
+	"comment" jsonb NULL, -- Answer comment in multiple languages (JSONB)
+	provider_name varchar(255) NULL,
+	provider_image varchar(500) NULL,
+	"date" date NULL,
+	likes int4 DEFAULT 0 NOT NULL,
+	dislikes int4 DEFAULT 0 NOT NULL,
+	hearts int4 DEFAULT 0 NOT NULL,
+	created_date timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	last_modified_date timestamp DEFAULT CURRENT_TIMESTAMP NULL,
+	created_by int4 NOT NULL,
+	last_modified_by int4 NULL,
+	CONSTRAINT pk_review_answer_id PRIMARY KEY (answer_id),
+	CONSTRAINT uq_review_answer_review_id UNIQUE (review_id)
+);
+CREATE INDEX idx_review_answer_comment_gin ON public.review_answer USING gin (comment);
+CREATE INDEX idx_review_answer_review_id ON public.review_answer USING btree (review_id);
+COMMENT ON TABLE public.review_answer IS 'Table storing provider answers/responses to reviews';
+
+-- Column comments
+
+COMMENT ON COLUMN public.review_answer."comment" IS 'Answer comment in multiple languages (JSONB)';
+
+
+-- public.review_answer_attachment definition
+
+-- Drop table
+
+-- DROP TABLE public.review_answer_attachment;
+
+CREATE TABLE public.review_answer_attachment (
+	id bigserial NOT NULL,
+	answer_id int8 NOT NULL,
+	file_url varchar(500) NOT NULL,
+	file_name varchar(255) NULL,
+	file_type varchar(50) NULL,
+	file_size int8 NULL,
+	created_date timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	last_modified_date timestamp DEFAULT CURRENT_TIMESTAMP NULL,
+	created_by int4 NOT NULL,
+	last_modified_by int4 NULL,
+	CONSTRAINT pk_review_answer_attachment_id PRIMARY KEY (id)
+);
+CREATE INDEX idx_review_answer_attachment_answer_id ON public.review_answer_attachment USING btree (answer_id);
+COMMENT ON TABLE public.review_answer_attachment IS 'Table storing file attachments (photos) for review answers';
+
+
+-- public.review_attachment definition
+
+-- Drop table
+
+-- DROP TABLE public.review_attachment;
+
+CREATE TABLE public.review_attachment (
+	id bigserial NOT NULL,
+	review_id int8 NOT NULL,
+	file_url varchar(500) NOT NULL,
+	file_name varchar(255) NULL,
+	file_type varchar(50) NULL,
+	file_size int8 NULL,
+	created_date timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	last_modified_date timestamp DEFAULT CURRENT_TIMESTAMP NULL,
+	created_by int4 NOT NULL,
+	last_modified_by int4 NULL,
+	CONSTRAINT pk_review_attachment_id PRIMARY KEY (id)
+);
+CREATE INDEX idx_review_attachment_review_id ON public.review_attachment USING btree (review_id);
+COMMENT ON TABLE public.review_attachment IS 'Table storing file attachments (photos) for reviews';
 
 
 -- public.shopping_cart_item definition
@@ -1447,10 +1755,40 @@ ALTER TABLE public.account_payable ADD CONSTRAINT fk_account_payable_provider FO
 ALTER TABLE public.account_payable ADD CONSTRAINT fk_account_payable_reservation FOREIGN KEY (reservation_id) REFERENCES public.reservation(reservation_id) ON DELETE CASCADE;
 
 
+-- public.credit foreign keys
+
+ALTER TABLE public.credit ADD CONSTRAINT fk_credit_created_by FOREIGN KEY (created_by) REFERENCES public._user(id);
+ALTER TABLE public.credit ADD CONSTRAINT fk_credit_last_modified_by FOREIGN KEY (last_modified_by) REFERENCES public._user(id);
+ALTER TABLE public.credit ADD CONSTRAINT fk_credit_reservation FOREIGN KEY (reservation_id) REFERENCES public.reservation(reservation_id) ON DELETE CASCADE;
+
+
 -- public.reservation foreign keys
 
 ALTER TABLE public.reservation ADD CONSTRAINT fk_reservation_payment FOREIGN KEY (payment_id) REFERENCES public.payment(payment_id) ON DELETE CASCADE;
 ALTER TABLE public.reservation ADD CONSTRAINT fk_reservation_shopping_cart_item FOREIGN KEY (item_id) REFERENCES public.shopping_cart_item(id);
+
+
+-- public.review foreign keys
+
+ALTER TABLE public.review ADD CONSTRAINT fk_review_reservation FOREIGN KEY (reservation_id) REFERENCES public.reservation(reservation_id) ON DELETE CASCADE;
+ALTER TABLE public.review ADD CONSTRAINT fk_review_shopping_cart_item FOREIGN KEY (item_id) REFERENCES public.shopping_cart_item(id) ON DELETE CASCADE;
+ALTER TABLE public.review ADD CONSTRAINT fk_review_tour FOREIGN KEY (tour_id) REFERENCES public.tour(id) ON DELETE CASCADE;
+ALTER TABLE public.review ADD CONSTRAINT fk_review_user FOREIGN KEY (user_id) REFERENCES public._user(id) ON DELETE CASCADE;
+
+
+-- public.review_answer foreign keys
+
+ALTER TABLE public.review_answer ADD CONSTRAINT fk_review_answer_review FOREIGN KEY (review_id) REFERENCES public.review(id) ON DELETE CASCADE;
+
+
+-- public.review_answer_attachment foreign keys
+
+ALTER TABLE public.review_answer_attachment ADD CONSTRAINT fk_review_answer_attachment_answer FOREIGN KEY (answer_id) REFERENCES public.review_answer(answer_id) ON DELETE CASCADE;
+
+
+-- public.review_attachment foreign keys
+
+ALTER TABLE public.review_attachment ADD CONSTRAINT fk_review_attachment_review FOREIGN KEY (review_id) REFERENCES public.review(id) ON DELETE CASCADE;
 
 
 -- public.shopping_cart_item foreign keys
@@ -1617,7 +1955,7 @@ $function$
 -- DROP FUNCTION public.sp_get_provider_reservations(int4, int8, varchar);
 
 CREATE OR REPLACE FUNCTION public.sp_get_provider_reservations(p_provider_id integer DEFAULT NULL::integer, p_reservation_id bigint DEFAULT NULL::bigint, p_delivery_status character varying DEFAULT NULL::character varying)
- RETURNS TABLE(reservationid bigint, reservationdate timestamp without time zone, reservationdeliverystatus character varying, reservationcreateddate timestamp without time zone, paymentid bigint, paymenttransactionid character varying, payername character varying, payeremail character varying, payerphone character varying, payerdocumenttype character varying, payerdocumentnumber character varying, shoppingitemid integer, shoppingtotalprice numeric, shoppingunitprice numeric, shoppingquantity integer, producttype character varying, productid integer, totaltourists bigint, tourid integer, tourname jsonb, tourcategoryid integer, tourproviderid integer, tourscheduleid integer, scheduledate date, slotid integer, slottime_start time without time zone, slottime_end time without time zone, min_capacity integer, max_capacity integer, service_responsible_name character varying, service_responsible_email character varying, service_responsible_phone character varying)
+ RETURNS TABLE(reservationid bigint, reservationdate timestamp without time zone, reservationdeliverystatus character varying, reservationcreateddate timestamp without time zone, paymentid bigint, paymenttransactionid character varying, payername character varying, payeremail character varying, payerphone character varying, payerdocumenttype character varying, payerdocumentnumber character varying, shoppingitemid integer, shoppingtotalprice numeric, shoppingunitprice numeric, shoppingquantity integer, producttype character varying, productid integer, totaltourists bigint, tourid integer, tourname jsonb, tourcategoryid integer, tourproviderid integer, tourscheduleid integer, scheduledate date, slotid integer, slottime_start time without time zone, slottime_end time without time zone, min_capacity integer, max_capacity integer, service_responsible_name character varying, service_responsible_email character varying, service_responsible_phone character varying, max_cancellation_date date, max_rescheduling_date date, cancellation_reason character varying, cancellation_date timestamp without time zone)
  LANGUAGE plpgsql
 AS $function$
 BEGIN
@@ -1667,7 +2005,13 @@ BEGIN
 
         r.service_responsible_name,
         r.service_responsible_email,
-        r.service_responsible_phone
+        r.service_responsible_phone,
+
+        -- Campos de cancelación y re-agendamiento
+        r.max_cancellation_date,
+        r.max_rescheduling_date,
+        r.cancellation_reason,
+        r.cancellation_date
 
     FROM reservation r
     JOIN shopping_cart_item sci ON sci.id = r.item_id

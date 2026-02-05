@@ -60,4 +60,7 @@ public class TourScheduleConfigPrice extends BaseEntity {
 
     @Column(name = "price", nullable = false)
     private BigDecimal price; // Using BigDecimal for numeric type
+
+    @Column(name = "provider_price")
+    private BigDecimal providerPrice; // Price that the provider receives
 }

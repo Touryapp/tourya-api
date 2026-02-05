@@ -21,4 +21,6 @@ public class TourScheduleConfigPriceDto {
     @NotNull(message = "El precio no puede ser nulo")
     @PositiveOrZero(message = "El precio debe ser un número no negativo")
     private BigDecimal price;
+    @PositiveOrZero(message = "El precio del proveedor debe ser un número no negativo")
+    private BigDecimal providerPrice;
 }
