@@ -55,4 +55,10 @@ public class ReservationDetailsResponse {
     private String serviceResponsibleName;
     private String serviceResponsibleEmail;
     private String serviceResponsiblePhone;
+    
+    // --- Campos de cancelación y re-agendamiento ---
+    private java.time.LocalDate maxCancellationDate;
+    private java.time.LocalDate maxReschedulingDate;
+    private String cancellationReason;
+    private java.time.LocalDateTime cancellationDate;
 }

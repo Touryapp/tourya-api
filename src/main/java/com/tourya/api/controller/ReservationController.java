@@ -2,10 +2,14 @@ package com.tourya.api.controller;
 
 import com.tourya.api.common.PageResponse;
 import com.tourya.api.constans.enums.DeliveryStatusEnum;
+import com.tourya.api.models.request.CancelReservationRequest;
+import com.tourya.api.models.request.RescheduleReservationRequest;
 import com.tourya.api.models.responses.ReservationResponse;
 import com.tourya.api.models.responses.ReservationDetailsResponse;
+import com.tourya.api.models.responses.RescheduleValidationResponse;
 import com.tourya.api.services.ReservationService;
 import com.tourya.api.services.ReservationQrService;
+import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -244,6 +248,78 @@ public class ReservationController {
         log.info("Consuming reservation: {}", reservationId);
         
         ReservationResponse response = reservationService.consumeReservation(reservationId);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Cancela una reserva.
+     * 
+     * @param reservationId ID de la reserva a cancelar
+     * @param request Request con el motivo de cancelación
+     * @param authentication Autenticación del usuario
+     * @return ReservationResponse con la reserva cancelada
+     */
+    @PutMapping("/{reservationId}/cancel")
+    @Operation(summary = "Cancelar reserva", description = "Cancela una reserva según el motivo proporcionado (no puede asistir o por lluvia)")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Reserva cancelada exitosamente"),
+            @ApiResponse(responseCode = "404", description = "Reserva no encontrada"),
+            @ApiResponse(responseCode = "400", description = "No se puede cancelar la reserva (validaciones fallidas)")
+    })
+    public ResponseEntity<ReservationResponse> cancelReservation(
+            @Parameter(description = "ID de la reserva a cancelar") @PathVariable Long reservationId,
+            @Valid @RequestBody CancelReservationRequest request,
+            Authentication authentication) {
+        log.info("Canceling reservation {} with reason: {}", reservationId, request.getCancellationReason());
+        
+        ReservationResponse response = reservationService.cancelReservation(reservationId, request, authentication);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Valida si una reserva puede ser re-agendada.
+     * 
+     * @param reservationId ID de la reserva a validar
+     * @param authentication Autenticación del usuario
+     * @return RescheduleValidationResponse con el resultado de la validación
+     */
+    @GetMapping("/{reservationId}/reschedule/validate")
+    @Operation(summary = "Validar re-agendamiento", description = "Valida si una reserva puede ser re-agendada según las políticas")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Validación completada"),
+            @ApiResponse(responseCode = "404", description = "Reserva no encontrada")
+    })
+    public ResponseEntity<RescheduleValidationResponse> validateRescheduleReservation(
+            @Parameter(description = "ID de la reserva a validar") @PathVariable Long reservationId,
+            Authentication authentication) {
+        log.info("Validating reschedule for reservation: {}", reservationId);
+        
+        RescheduleValidationResponse response = reservationService.validateRescheduleReservation(reservationId, authentication);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Re-agenda una reserva.
+     * 
+     * @param reservationId ID de la reserva a re-agendar
+     * @param request Request con la nueva fecha
+     * @param authentication Autenticación del usuario
+     * @return ReservationResponse con la reserva re-agendada
+     */
+    @PutMapping("/{reservationId}/reschedule")
+    @Operation(summary = "Re-agendar reserva", description = "Re-agenda una reserva a una nueva fecha")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Reserva re-agendada exitosamente"),
+            @ApiResponse(responseCode = "404", description = "Reserva no encontrada"),
+            @ApiResponse(responseCode = "400", description = "No se puede re-agendar la reserva (validaciones fallidas)")
+    })
+    public ResponseEntity<ReservationResponse> rescheduleReservation(
+            @Parameter(description = "ID de la reserva a re-agendar") @PathVariable Long reservationId,
+            @Valid @RequestBody RescheduleReservationRequest request,
+            Authentication authentication) {
+        log.info("Rescheduling reservation {} to date: {}", reservationId, request.getNewDate());
+        
+        ReservationResponse response = reservationService.rescheduleReservation(reservationId, request, authentication);
         return ResponseEntity.ok(response);
     }
 

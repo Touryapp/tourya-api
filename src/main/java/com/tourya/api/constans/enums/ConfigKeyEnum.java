@@ -6,11 +6,8 @@ import com.tourya.api.exceptions.UnknownEnumValueException;
 import lombok.AllArgsConstructor;
 
 @AllArgsConstructor
-public enum CancellationPolicyTypeEnum {
-    FLEXIBLE("Flexible"), // hasta 24 horas antes
-    STANDARD("Standard"), // hasta 48 horas antes
-    MODERATE("Moderate"), // hasta 4 días antes
-    STRICT("Strict"); // hasta 7 días antes
+public enum ConfigKeyEnum {
+    CANCELLATION_POLICY("CANCELLATION_POLICY");
 
     private String value;
 
@@ -20,13 +17,14 @@ public enum CancellationPolicyTypeEnum {
     }
 
     @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
-    public static CancellationPolicyTypeEnum of(String value) {
-        for (CancellationPolicyTypeEnum e : values()) {
+    public static ConfigKeyEnum of(String value) {
+        for (ConfigKeyEnum e : values()) {
             if (e.value.equalsIgnoreCase(value)) {
                 return e;
             }
         }
 
-        throw new UnknownEnumValueException("CancellationPolicyTypeEnum: unknown value: " + value);
+        throw new UnknownEnumValueException("ConfigKeyEnum: unknown value: " + value);
     }
 }
+

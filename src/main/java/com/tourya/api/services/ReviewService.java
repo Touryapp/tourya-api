@@ -13,7 +13,6 @@ import com.tourya.api.models.request.CreateReviewRequest;
 import com.tourya.api.models.request.UpdateReviewRequest;
 import com.tourya.api.models.responses.ReservationResponse;
 import com.tourya.api.models.responses.ReviewResponse;
-import com.tourya.api.models.responses.PayerResponse;
 import com.tourya.api.models.mapper.ReservationMapper;
 import com.tourya.api.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -33,7 +32,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -677,20 +675,9 @@ public class ReviewService {
     }
 
     /**
-     * Enriquece un ReservationResponse con información adicional del tour y del pagador
+     * Enriquece un ReservationResponse con información adicional del tour
      */
     private void enrichReservationResponse(ReservationResponse response, Reservation reservation) {
-        // Cargar información del pagador desde Payment
-        Payment payment = paymentRepository.findById(reservation.getPaymentId()).orElse(null);
-        if (payment != null) {
-            PayerResponse payer = PayerResponse.builder()
-                    .name(payment.getPayerName())
-                    .email(payment.getPayerEmail())
-                    .phone(payment.getPayerPhone())
-                    .build();
-            response.setPayer(payer);
-        }
-        
         ShoppingCartItem item = shoppingCartItemRepository.findById(reservation.getItemId()).orElse(null);
         
         if (item == null || item.getTourSchedule() == null) {
@@ -719,9 +706,10 @@ public class ReviewService {
         }
         response.setDuration(tour.getDuration());
         
-        // Fechas
-        if (schedule.getScheduleDate() != null) {
-            response.setCheckInDate(schedule.getScheduleDate().atStartOfDay());
+        // checkInDate = fecha del tour que el usuario seleccionó (scheduleDate del request)
+        // returnDate = checkInDate + duration (número de días del tour)
+        if (item.getScheduleDate() != null) {
+            response.setCheckInDate(item.getScheduleDate().atStartOfDay());
             // Calcular returnDate basado en duration
             if (tour.getDuration() != null && response.getCheckInDate() != null) {
                 try {

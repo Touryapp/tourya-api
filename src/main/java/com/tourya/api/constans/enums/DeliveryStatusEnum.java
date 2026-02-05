@@ -30,7 +30,12 @@ public enum DeliveryStatusEnum {
     /**
      * Entrega cancelada
      */
-    CANCELED
+    CANCELED,
+    
+    /**
+     * Entrega re-agendada
+     */
+    RESCHEDULED
 }
 
 

@@ -2,16 +2,27 @@ package com.tourya.api.services;
 
 import com.tourya.api.common.PageResponse;
 import com.tourya.api.config.security.JwtService;
+import com.tourya.api.constans.enums.AgePriceType;
+import com.tourya.api.constans.enums.CancellationPolicyTypeEnum;
+import com.tourya.api.constans.enums.CancellationReasonEnum;
+import com.tourya.api.constans.enums.CreditStatusEnum;
 import com.tourya.api.constans.enums.DeliveryStatusEnum;
+import com.tourya.api.constans.enums.MaritimeFlagEnum;
 import com.tourya.api.constans.enums.ShoppingCartStatusEnum;
 import com.tourya.api.constans.enums.AccountPayableStatusEnum;
 import com.tourya.api.constans.enums.IncludeExcludeTypeEnum;
+import com.tourya.api.constans.enums.TourScheduleStatusEnum;
+import com.tourya.api.constans.enums.ConfigKeyEnum;
+import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.models.*;
 import com.tourya.api.models.mapper.ReservationMapper;
+import com.tourya.api.models.request.CancelReservationRequest;
+import com.tourya.api.models.request.RescheduleReservationRequest;
 import com.tourya.api.models.responses.ReservationDetailsResponse;
 import com.tourya.api.models.responses.ReservationResponse;
-import com.tourya.api.models.responses.PayerResponse;
+import com.tourya.api.models.responses.CreditResponse;
+import com.tourya.api.models.responses.RescheduleValidationResponse;
 import com.tourya.api.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,9 +31,12 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -51,6 +65,11 @@ public class ReservationService {
     private final TourIncludesExcludesRepository tourIncludesExcludesRepository;
     private final TourAddressRepository tourAddressRepository;
     private final ReservationNativeRepository reservationNativeRepository;
+    private final TourCancellationPolicyRepository tourCancellationPolicyRepository;
+    private final CreditRepository creditRepository;
+    private final MaritimActivityReportRepository maritimActivityReportRepository;
+    private final TourScheduleConfigSlotRepository tourScheduleConfigSlotRepository;
+    private final AppConfigService appConfigService;
     /**
      * Método createReservation removido - las reservas se crean automáticamente con los pagos
      */
@@ -79,17 +98,6 @@ public class ReservationService {
      * Enriquece un ReservationResponse con información adicional del tour y del pagador
      */
     private void enrichReservationResponse(ReservationResponse response, Reservation reservation) {
-        // Cargar información del pagador desde Payment
-        Payment payment = paymentRepository.findById(reservation.getPaymentId()).orElse(null);
-        if (payment != null) {
-            PayerResponse payer = PayerResponse.builder()
-                    .name(payment.getPayerName())
-                    .email(payment.getPayerEmail())
-                    .phone(payment.getPayerPhone())
-                    .build();
-            response.setPayer(payer);
-        }
-        
         ShoppingCartItem item = shoppingCartItemRepository.findById(reservation.getItemId()).orElse(null);
         
         if (item == null || item.getTourSchedule() == null) {
@@ -118,9 +126,10 @@ public class ReservationService {
         }
         response.setDuration(tour.getDuration());
         
-        // Fechas
-        if (schedule.getScheduleDate() != null) {
-            response.setCheckInDate(schedule.getScheduleDate().atStartOfDay());
+        // checkInDate = fecha del tour que el usuario seleccionó (scheduleDate del request)
+        // returnDate = checkInDate + duration (número de días del tour)
+        if (item.getScheduleDate() != null) {
+            response.setCheckInDate(item.getScheduleDate().atStartOfDay());
             // Calcular returnDate basado en duration
             if (tour.getDuration() != null && response.getCheckInDate() != null) {
                 try {
@@ -199,6 +208,9 @@ public class ReservationService {
         if (!extraServices.isEmpty()) {
             response.setExtraServices(extraServices);
         }
+        
+        // maxCancellationDate y maxReschedulingDate vienen directamente de la BD (ya están en el mapper)
+        // No se calculan dinámicamente porque se guardan en la tabla reservation
     }
     
     @Transactional(readOnly = true)
@@ -360,9 +372,12 @@ public class ReservationService {
     public ReservationResponse getReservationByQrUrl(String qrUrl) {
         log.info("Getting reservation by QR URL: {}", qrUrl);
         
-        return reservationRepository.findByQrUrl(qrUrl)
-                .map(reservationMapper::toResponse)
+        Reservation reservation = reservationRepository.findByQrUrl(qrUrl)
                 .orElseThrow(() -> new ResourceNotFoundException("Reservation not found with QR URL: " + qrUrl));
+        
+        ReservationResponse response = reservationMapper.toResponse(reservation);
+        enrichReservationResponse(response, reservation);
+        return response;
     }
 
     /**
@@ -377,7 +392,11 @@ public class ReservationService {
         
         return reservationRepository.findByPaymentId(paymentId)
                 .stream()
-                .map(reservationMapper::toResponse)
+                .map(reservation -> {
+                    ReservationResponse response = reservationMapper.toResponse(reservation);
+                    enrichReservationResponse(response, reservation);
+                    return response;
+                })
                 .collect(Collectors.toList());
     }
 
@@ -500,6 +519,16 @@ public class ReservationService {
         if (reservation.getDeliveryStatus() == DeliveryStatusEnum.DELIVERED) {
             throw new IllegalStateException("Reservation is already consumed (DELIVERED)");
         }
+        
+        // Validar que la reserva no esté cancelada
+        if (reservation.getDeliveryStatus() == DeliveryStatusEnum.CANCELED) {
+            throw new IllegalStateException("Cannot consume a canceled reservation");
+        }
+        
+        // Validar que la reserva no esté re-agendada
+        if (reservation.getDeliveryStatus() == DeliveryStatusEnum.RESCHEDULED) {
+            throw new IllegalStateException("Cannot consume a rescheduled reservation");
+        }
 
         // 2. Obtener el shopping cart item relacionado
         final Long itemId = reservation.getItemId();
@@ -550,8 +579,10 @@ public class ReservationService {
         log.info("Reservation {} consumed successfully. Account payable {} created for provider {} with amount {}", 
                 reservationId, accountPayable.getId(), providerId, cartItem.getTotalPrice());
 
-        // 9. Retornar la respuesta actualizada
-        return reservationMapper.toResponse(reservation);
+        // 9. Retornar la respuesta actualizada con información enriquecida del tour
+        ReservationResponse response = reservationMapper.toResponse(reservation);
+        enrichReservationResponse(response, reservation);
+        return response;
     }
 
     /**
@@ -622,4 +653,556 @@ public class ReservationService {
         );
     }
 
+    /**
+     * Cancela una reserva según el motivo proporcionado.
+     * Valida las condiciones de cancelación según la política del tour.
+     * Crea un crédito si se cumple con las condiciones.
+     * 
+     * @param reservationId ID de la reserva a cancelar
+     * @param request Request con el motivo de cancelación
+     * @param authentication Autenticación del usuario
+     * @return ReservationResponse con la reserva cancelada
+     */
+    @Transactional
+    public ReservationResponse cancelReservation(Long reservationId, CancelReservationRequest request, Authentication authentication) {
+        log.info("Canceling reservation {} with reason: {}", reservationId, request.getCancellationReason());
+        
+        // Obtener usuario autenticado
+        User user = (User) authentication.getPrincipal();
+        
+        // Buscar la reserva
+        Reservation reservation = reservationRepository.findById(reservationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Reservation not found with id: " + reservationId));
+        
+        // Verificar que la reserva pertenece al usuario
+        ShoppingCartItem item = shoppingCartItemRepository.findById(reservation.getItemId())
+                .orElseThrow(() -> new ResourceNotFoundException("Shopping cart item not found"));
+        
+        if (!item.getShoppingCart().getUser().getId().equals(user.getId())) {
+            throw new OperationNotPermittedException("You don't have permission to cancel this reservation");
+        }
+        
+        // Validar que la reserva no esté ya cancelada
+        if (reservation.getDeliveryStatus() == DeliveryStatusEnum.CANCELED) {
+            throw new OperationNotPermittedException("Reservation is already canceled");
+        }
+        
+        // Obtener información del tour para validaciones
+        TourSchedule schedule = item.getTourSchedule();
+        if (schedule == null || schedule.getTourId() == null) {
+            throw new OperationNotPermittedException("Cannot cancel reservation: tour information not found");
+        }
+        
+        Tour tour = tourRepository.findById(schedule.getTourId())
+                .orElseThrow(() -> new ResourceNotFoundException("Tour not found"));
+        
+        List<TourCancellationPolicy> policies = tourCancellationPolicyRepository.findByTourId(tour.getId());
+        if (policies.isEmpty()) {
+            throw new OperationNotPermittedException("Cancellation policy not found for this tour");
+        }
+        
+        TourCancellationPolicy policy = policies.get(0);
+        LocalDate today = LocalDate.now();
+        
+        // Obtener la fecha seleccionada por el usuario desde ShoppingCartItem
+        LocalDate tourDate = (item.getScheduleDate() != null)
+                ? item.getScheduleDate() 
+                : schedule.getScheduleDate(); // Fallback si no hay fecha en ShoppingCartItem
+        
+        // Validar según el motivo de cancelación
+        boolean canCancel = false;
+        
+        if (request.getCancellationReason() == CancellationReasonEnum.CANNOT_ATTEND) {
+            // Validar que hoy <= fecha máxima de cancelación
+            if (reservation.getMaxCancellationDate() != null) {
+                canCancel = !today.isAfter(reservation.getMaxCancellationDate());
+            }
+            
+            if (!canCancel) {
+                throw new OperationNotPermittedException(
+                        "Cannot cancel reservation: maximum cancellation date (" + 
+                        reservation.getMaxCancellationDate() + ") has passed");
+            }
+        } else if (request.getCancellationReason() == CancellationReasonEnum.RAIN) {
+            // Validar: allows_rain_refund = true, fecha del tour es hoy, y hay alerta DIMAR
+            if (!policy.isAllowsRainRefund()) {
+                throw new OperationNotPermittedException("Rain refund is not allowed for this tour");
+            }
+            
+            if (!today.equals(tourDate)) {
+                throw new OperationNotPermittedException("Rain cancellation is only allowed on the tour date");
+            }
+            
+            // Si allowsRainRefund = true, el tour es acuático, buscar reporte DIMAR del día
+            List<MaritimActivityReport> reports = maritimActivityReportRepository.findByReportDate(today);
+            
+            if (reports.isEmpty()) {
+                throw new OperationNotPermittedException(
+                        "Cannot cancel for rain: no DIMAR report found for today");
+            }
+            
+            // Verificar que la bandera sea amarilla o roja
+            boolean hasRainAlert = reports.stream()
+                    .anyMatch(r -> r.getFlag() == MaritimeFlagEnum.YELLOW || 
+                                  r.getFlag() == MaritimeFlagEnum.RED);
+            
+            if (!hasRainAlert) {
+                throw new OperationNotPermittedException(
+                        "Cannot cancel for rain: DIMAR report for today has green flag (normal conditions)");
+            }
+            
+            canCancel = true;
+        }
+        
+        // Si todas las validaciones pasan, cancelar la reserva y crear crédito
+        Credit credit = null;
+        if (canCancel) {
+            reservation.setDeliveryStatus(DeliveryStatusEnum.CANCELED);
+            reservation.setCancellationReason(request.getCancellationReason());
+            reservation.setCancellationDate(LocalDateTime.now());
+            reservation = reservationRepository.save(reservation);
+            
+            // Crear crédito para la reserva cancelada
+            credit = createCreditForReservation(reservation, tour);
+            
+            log.info("Reservation {} canceled successfully", reservationId);
+        }
+        
+        ReservationResponse response = reservationMapper.toResponse(reservation);
+        enrichReservationResponse(response, reservation);
+        
+        // Agregar información del crédito creado si existe
+        if (credit != null) {
+            CreditResponse creditResponse = CreditResponse.builder()
+                    .id(credit.getId())
+                    .reservationId(credit.getReservationId())
+                    .amount(credit.getAmount())
+                    .creationDate(credit.getCreationDate())
+                    .expirationDate(credit.getExpirationDate())
+                    .status(credit.getStatus())
+                    .build();
+            response.setCredit(creditResponse);
+        }
+        
+        return response;
+    }
+    
+    /**
+     * Valida si una reserva puede ser re-agendada según las políticas.
+     * Solo realiza validaciones, no hace cambios.
+     * 
+     * @param reservationId ID de la reserva a validar
+     * @param authentication Autenticación del usuario
+     * @return RescheduleValidationResponse con el resultado de la validación
+     */
+    @Transactional(readOnly = true)
+    public RescheduleValidationResponse validateRescheduleReservation(Long reservationId, Authentication authentication) {
+        log.info("Validating reschedule for reservation: {}", reservationId);
+        
+        // Obtener usuario autenticado
+        User user = (User) authentication.getPrincipal();
+        
+        // Buscar la reserva
+        Reservation reservation = reservationRepository.findById(reservationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Reservation not found with id: " + reservationId));
+        
+        // Verificar que la reserva pertenece al usuario
+        ShoppingCartItem item = shoppingCartItemRepository.findById(reservation.getItemId())
+                .orElseThrow(() -> new ResourceNotFoundException("Shopping cart item not found"));
+        
+        if (!item.getShoppingCart().getUser().getId().equals(user.getId())) {
+            return RescheduleValidationResponse.builder()
+                    .canReschedule(false)
+                    .message("No tienes permiso para reagendar esta reserva. La reserva pertenece a otro usuario.")
+                    .reason("PERMISSION_DENIED")
+                    .build();
+        }
+        
+        // Validar que la reserva no esté cancelada
+        if (reservation.getDeliveryStatus() == DeliveryStatusEnum.CANCELED) {
+            return RescheduleValidationResponse.builder()
+                    .canReschedule(false)
+                    .message("No se puede reagendar una reserva cancelada")
+                    .reason("ALREADY_CANCELED")
+                    .build();
+        }
+        
+        // Obtener información del tour
+        TourSchedule schedule = item.getTourSchedule();
+        if (schedule == null || schedule.getTourId() == null) {
+            return RescheduleValidationResponse.builder()
+                    .canReschedule(false)
+                    .message("No se puede reagendar: información del tour no encontrada")
+                    .reason("TOUR_NOT_FOUND")
+                    .build();
+        }
+        
+        Tour tour = tourRepository.findById(schedule.getTourId())
+                .orElseThrow(() -> new ResourceNotFoundException("Tour not found"));
+        
+        List<TourCancellationPolicy> policies = tourCancellationPolicyRepository.findByTourId(tour.getId());
+        if (policies.isEmpty()) {
+            return RescheduleValidationResponse.builder()
+                    .canReschedule(false)
+                    .message("No se encontró política de cancelación para este tour")
+                    .reason("POLICY_NOT_FOUND")
+                    .build();
+        }
+        
+        TourCancellationPolicy policy = policies.get(0);
+        
+        // Validar que allows_rescheduling = true
+        if (!policy.isAllowsRescheduling()) {
+            return RescheduleValidationResponse.builder()
+                    .canReschedule(false)
+                    .message("El reagendamiento no está permitido para este tour")
+                    .reason("RESCHEDULING_NOT_ALLOWED")
+                    .build();
+        }
+        
+        // Validar que hoy <= fecha máxima de re-agendamiento
+        LocalDate today = LocalDate.now();
+        if (reservation.getMaxReschedulingDate() != null) {
+            if (today.isAfter(reservation.getMaxReschedulingDate())) {
+                return RescheduleValidationResponse.builder()
+                        .canReschedule(false)
+                        .message("No se puede reagendar: la fecha máxima de reagendamiento (" + 
+                                reservation.getMaxReschedulingDate() + ") ya pasó")
+                        .reason("MAX_DATE_PASSED")
+                        .build();
+            }
+        }
+        
+        return RescheduleValidationResponse.builder()
+                .canReschedule(true)
+                .message("La reserva puede ser reagendada")
+                .reason(null)
+                .build();
+    }
+
+    /**
+     * Re-agenda una reserva.
+     * Valida políticas, compara precios y crea crédito si el precio nuevo es menor.
+     * 
+     * @param reservationId ID de la reserva a re-agendar
+     * @param request Request con la nueva fecha
+     * @param authentication Autenticación del usuario
+     * @return ReservationResponse con la reserva actualizada
+     */
+    @Transactional
+    public ReservationResponse rescheduleReservation(Long reservationId, RescheduleReservationRequest request, Authentication authentication) {
+        log.info("Rescheduling reservation {} to date: {}", reservationId, request.getNewDate());
+        
+        // Obtener usuario autenticado
+        User user = (User) authentication.getPrincipal();
+        
+        // Buscar la reserva
+        Reservation reservation = reservationRepository.findById(reservationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Reservation not found with id: " + reservationId));
+        
+        // Verificar que la reserva pertenece al usuario
+        ShoppingCartItem item = shoppingCartItemRepository.findById(reservation.getItemId())
+                .orElseThrow(() -> new ResourceNotFoundException("Shopping cart item not found"));
+        
+        if (!item.getShoppingCart().getUser().getId().equals(user.getId())) {
+            throw new OperationNotPermittedException("You don't have permission to reschedule this reservation");
+        }
+        
+        // Validar que la reserva no esté cancelada
+        if (reservation.getDeliveryStatus() == DeliveryStatusEnum.CANCELED) {
+            throw new OperationNotPermittedException("Cannot reschedule a canceled reservation");
+        }
+        
+        // Obtener información del tour
+        TourSchedule schedule = item.getTourSchedule();
+        if (schedule == null || schedule.getTourId() == null) {
+            throw new OperationNotPermittedException("Cannot reschedule reservation: tour information not found");
+        }
+        
+        Tour tour = tourRepository.findById(schedule.getTourId())
+                .orElseThrow(() -> new ResourceNotFoundException("Tour not found"));
+        
+        List<TourCancellationPolicy> policies = tourCancellationPolicyRepository.findByTourId(tour.getId());
+        if (policies.isEmpty()) {
+            throw new OperationNotPermittedException("Cancellation policy not found for this tour");
+        }
+        
+        TourCancellationPolicy policy = policies.get(0);
+        
+        // Validar que allows_rescheduling = true
+        if (!policy.isAllowsRescheduling()) {
+            throw new OperationNotPermittedException("Rescheduling is not allowed for this tour");
+        }
+        
+        // Validar que hoy <= fecha máxima de re-agendamiento
+        LocalDate today = LocalDate.now();
+        if (reservation.getMaxReschedulingDate() != null) {
+            if (today.isAfter(reservation.getMaxReschedulingDate())) {
+                throw new OperationNotPermittedException(
+                        "Cannot reschedule: maximum rescheduling date (" + 
+                        reservation.getMaxReschedulingDate() + ") has passed");
+            }
+        }
+        
+        // Obtener precio actual del item
+        BigDecimal currentPrice = item.getTotalPrice() != null ? item.getTotalPrice() : BigDecimal.ZERO;
+        
+        // Buscar TourSchedule para la nueva fecha y validar que esté disponible
+        TourSchedule newSchedule = tourScheduleRepository.findByTourIdAndScheduleDate(
+                schedule.getTourId(), request.getNewDate())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Tour schedule not found for tour " + schedule.getTourId() + 
+                        " on date " + request.getNewDate()));
+        
+        // Validar que el schedule esté disponible
+        if (newSchedule.getStatus() != TourScheduleStatusEnum.AVAILABLE) {
+            throw new OperationNotPermittedException(
+                    "The tour schedule for date " + request.getNewDate() + " is not available for rescheduling.");
+        }
+        
+        // Calcular precio nuevo basado en el slot y los details del item actual
+        BigDecimal newPrice = calculatePriceForNewDate(item);
+        
+        // Comparar precios
+        int priceComparison = newPrice.compareTo(currentPrice);
+        
+        Credit credit = null;
+        
+        if (priceComparison > 0) {
+            // Precio nuevo es mayor - rechazar reagendamiento
+            throw new OperationNotPermittedException(
+                    String.format("The price for the new date (%.2f) is higher than the current price (%.2f). " +
+                            "Rescheduling is not allowed when the price increases.", 
+                            newPrice, currentPrice));
+        } else if (priceComparison < 0) {
+            // Precio nuevo es menor - crear crédito SOLO por la diferencia (lo pagado - nuevo precio)
+            BigDecimal priceDifference = currentPrice.subtract(newPrice);
+            credit = Credit.builder()
+                    .reservationId(reservation.getReservationId())
+                    .amount(priceDifference)
+                    .creationDate(LocalDate.now())
+                    .expirationDate(LocalDate.now().plusYears(1))
+                    .status(CreditStatusEnum.CREATED)
+                    .build();
+            credit = creditRepository.save(credit);
+            log.info("Credit created for price difference: reservationId={}, amount={} (currentPrice={} - newPrice={})", 
+                    reservationId, priceDifference, currentPrice, newPrice);
+        }
+        // Si priceComparison == 0 (precios iguales): NO se crea crédito, solo se actualiza la fecha
+        
+        // Recalcular fechas máximas de cancelación y re-agendamiento para la nueva fecha
+        // Reutilizar las políticas ya obtenidas anteriormente (ya están validadas arriba)
+        LocalDate newMaxCancellationDate = calculateMaxCancellationDate(
+                policy.getCancellationPolicyType(), 
+                request.getNewDate()
+        );
+        
+        // Calcular fecha máxima de re-agendamiento (2 días antes del tour)
+        LocalDate newMaxReschedulingDate = request.getNewDate().minusDays(2);
+        
+        log.info("Recalculating dates for reschedule - newDate: {}, maxCancellation: {}, maxRescheduling: {}", 
+                request.getNewDate(), newMaxCancellationDate, newMaxReschedulingDate);
+        
+        // Actualizar la fecha en ShoppingCartItem
+        item.setScheduleDate(request.getNewDate());
+        // Actualizar el precio si cambió
+        if (priceComparison != 0) {
+            item.setTotalPrice(newPrice);
+            // Actualizar los detalles del item con los nuevos precios
+            updateItemDetailsForNewPrice(item);
+        }
+        shoppingCartItemRepository.save(item);
+        
+        // Actualizar reservationDate con la nueva fecha (item.getScheduleDate())
+        reservation.setReservationDate(request.getNewDate().atStartOfDay());
+        
+        // Actualizar las fechas máximas en la reserva ANTES de cambiar el estado
+        reservation.setMaxCancellationDate(newMaxCancellationDate);
+        reservation.setMaxReschedulingDate(newMaxReschedulingDate);
+        reservation.setDeliveryStatus(DeliveryStatusEnum.RESCHEDULED);
+        
+        // Guardar la reserva con todas las actualizaciones
+        reservation = reservationRepository.saveAndFlush(reservation);
+        
+        log.info("After saveAndFlush - Reservation {} dates: maxCancellation={}, maxRescheduling={}", 
+                reservationId, reservation.getMaxCancellationDate(), reservation.getMaxReschedulingDate());
+        
+        // Construir respuesta con la reserva re-agendada
+        ReservationResponse response = reservationMapper.toResponse(reservation);
+        
+        log.info("After mapper - Response dates: maxCancellation={}, maxRescheduling={}", 
+                response.getMaxCancellationDate(), response.getMaxReschedulingDate());
+        enrichReservationResponse(response, reservation);
+        
+        // Agregar información del crédito creado si existe
+        if (credit != null) {
+            CreditResponse creditResponse = CreditResponse.builder()
+                    .id(credit.getId())
+                    .reservationId(credit.getReservationId())
+                    .amount(credit.getAmount())
+                    .creationDate(credit.getCreationDate())
+                    .expirationDate(credit.getExpirationDate())
+                    .status(credit.getStatus())
+                    .build();
+            response.setCredit(creditResponse);
+        }
+        
+        return response;
+    }
+    
+    /**
+     * Crea un crédito para una reserva cancelada o re-agendada.
+     * 
+     * @param reservation Reserva para la cual crear el crédito
+     * @param tour Tour asociado a la reserva
+     * @return El crédito creado
+     */
+    private Credit createCreditForReservation(Reservation reservation, Tour tour) {
+        // Obtener el monto total desde el item del carrito asociado a la reserva
+        ShoppingCartItem cartItem = shoppingCartItemRepository.findById(reservation.getItemId())
+                .orElseThrow(() -> new ResourceNotFoundException("Shopping cart item not found for reservation"));
+        
+        // El monto del crédito es el total del item del carrito (precio de la reserva)
+        BigDecimal creditAmount = cartItem.getTotalPrice() != null ? 
+                cartItem.getTotalPrice() : BigDecimal.ZERO;
+        
+        // Crear crédito con fecha de vencimiento de 1 año desde hoy
+        Credit credit = Credit.builder()
+                .reservationId(reservation.getReservationId())
+                .amount(creditAmount)
+                .creationDate(LocalDate.now())
+                .expirationDate(LocalDate.now().plusYears(1))
+                .status(CreditStatusEnum.CREATED)
+                .build();
+        
+        credit = creditRepository.save(credit);
+        log.info("Credit created for reservation {}: amount={}, expiration={}", 
+                reservation.getReservationId(), creditAmount, credit.getExpirationDate());
+        return credit;
+    }
+    
+    /**
+     * Calcula el precio para una nueva fecha basándose en el slot y los details del item actual.
+     * 
+     * @param item Item del carrito con los details actuales
+     * @return Precio total calculado para la nueva fecha
+     */
+    private BigDecimal calculatePriceForNewDate(ShoppingCartItem item) {
+        if (item.getSlot() == null || item.getDetails() == null || item.getDetails().isEmpty()) {
+            throw new IllegalStateException("Cannot calculate price: item missing slot or details");
+        }
+        
+        // Usar el slot que ya tiene el item (no buscar en el nuevo schedule)
+        TourScheduleConfigSlot slot = item.getSlot();
+        
+        // Calcular precio total usando los details del item actual y los precios del slot
+        BigDecimal totalPrice = BigDecimal.ZERO;
+        
+        for (ShoppingCartItemDetail detail : item.getDetails()) {
+            // Buscar precio en el slot para el mismo ageType
+            BigDecimal unitPrice = slot.getPrices().stream()
+                    .filter(price -> price.getAgeType().equals(detail.getAgeType()))
+                    .findFirst()
+                    .map(TourScheduleConfigPrice::getPrice)
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Price not found for ageType " + detail.getAgeType() + 
+                            " in slot " + slot.getId()));
+            
+            BigDecimal detailTotalPrice = unitPrice.multiply(BigDecimal.valueOf(detail.getQuantity()));
+            totalPrice = totalPrice.add(detailTotalPrice);
+        }
+        
+        return totalPrice;
+    }
+    
+    /**
+     * Actualiza los detalles del item con los nuevos precios para la nueva fecha.
+     * 
+     * @param item Item del carrito a actualizar
+     */
+    private void updateItemDetailsForNewPrice(ShoppingCartItem item) {
+        if (item.getSlot() == null || item.getDetails() == null || item.getDetails().isEmpty()) {
+            return;
+        }
+        
+        // Usar el slot que ya tiene el item
+        TourScheduleConfigSlot slot = item.getSlot();
+        
+        // Actualizar cada detail con el precio del slot
+        for (ShoppingCartItemDetail detail : item.getDetails()) {
+            BigDecimal newUnitPrice = slot.getPrices().stream()
+                    .filter(price -> price.getAgeType().equals(detail.getAgeType()))
+                    .findFirst()
+                    .map(TourScheduleConfigPrice::getPrice)
+                    .orElse(detail.getUnitPrice()); // Mantener precio actual si no se encuentra
+            
+            detail.setUnitPrice(newUnitPrice);
+            detail.setTotalPrice(newUnitPrice.multiply(BigDecimal.valueOf(detail.getQuantity())));
+        }
+    }
+    
+    /**
+     * Calcula la fecha máxima de cancelación según el tipo de política.
+     * Busca la configuración en app_config para obtener los días.
+     * 
+     * @param policyType Tipo de política de cancelación
+     * @param tourDate Fecha del tour
+     * @return Fecha máxima de cancelación
+     */
+    private LocalDate calculateMaxCancellationDate(CancellationPolicyTypeEnum policyType, LocalDate tourDate) {
+        if (policyType == null || tourDate == null) {
+            return null;
+        }
+
+        try {
+            // Buscar la configuración de políticas de cancelación
+            Map<String, Object> config = appConfigService.getConfigValue(ConfigKeyEnum.CANCELLATION_POLICY);
+            
+            // Buscar la política en el JSON (usar español como default)
+            @SuppressWarnings("unchecked")
+            Map<String, Object> esPolicies = (Map<String, Object>) config.get("es");
+            if (esPolicies == null) {
+                // Fallback al método anterior si no hay configuración
+                return getDefaultCancellationDate(policyType, tourDate);
+            }
+            
+            // Mapear el enum al nombre en el JSON
+            String policyKey = switch (policyType) {
+                case FLEXIBLE -> "Flexible";
+                case STANDARD -> "Standard";
+                case MODERATE -> "Moderate";
+                case STRICT -> "Strict";
+            };
+            
+            @SuppressWarnings("unchecked")
+            Map<String, Object> policy = (Map<String, Object>) esPolicies.get(policyKey);
+            if (policy == null) {
+                return getDefaultCancellationDate(policyType, tourDate);
+            }
+            
+            // Obtener los días desde la configuración
+            Object daysObj = policy.get("days");
+            if (daysObj instanceof Number) {
+                int days = ((Number) daysObj).intValue();
+                return tourDate.minusDays(days);
+            }
+        } catch (Exception e) {
+            log.warn("Error getting cancellation policy from config, using default: {}", e.getMessage());
+        }
+        
+        // Fallback al método anterior si hay algún error
+        return getDefaultCancellationDate(policyType, tourDate);
+    }
+    
+    /**
+     * Método de fallback con los valores por defecto
+     */
+    private LocalDate getDefaultCancellationDate(CancellationPolicyTypeEnum policyType, LocalDate tourDate) {
+        return switch (policyType) {
+            case FLEXIBLE -> tourDate.minusDays(1); // hasta 24 horas antes
+            case STANDARD -> tourDate.minusDays(2); // hasta 48 horas antes
+            case MODERATE -> tourDate.minusDays(4); // hasta 4 días antes
+            case STRICT -> tourDate.minusDays(7); // hasta 7 días antes
+        };
+    }
 }
