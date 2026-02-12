@@ -677,6 +677,7 @@ CREATE TABLE public.shopping_cart_item_detail (
 	age_type varchar(20) NOT NULL,
 	quantity int4 NOT NULL,
 	unit_price numeric(10, 2) NOT NULL,
+	provider_unit_price numeric(10, 2) NULL,
 	total_price numeric(10, 2) NOT NULL,
 	created_date timestamp DEFAULT CURRENT_TIMESTAMP NULL,
 	last_modified_date timestamp DEFAULT CURRENT_TIMESTAMP NULL,
