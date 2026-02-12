@@ -566,11 +566,23 @@ public class ReservationService {
         shoppingCartItemRepository.save(cartItem);
 
         // 8. Crear la cuenta por pagar al proveedor
+        // Calcular el monto total del proveedor sumando providerUnitPrice * quantity de todos los details
+        BigDecimal providerTotalAmount = cartItem.getDetails().stream()
+                .filter(detail -> detail.getProviderUnitPrice() != null)
+                .map(detail -> detail.getProviderUnitPrice()
+                        .multiply(BigDecimal.valueOf(detail.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        // Si no hay providerPrice en los details, usar el precio total como fallback
+        if (providerTotalAmount.compareTo(BigDecimal.ZERO) == 0) {
+            providerTotalAmount = cartItem.getTotalPrice();
+        }
+        
         AccountPayable accountPayable = AccountPayable.builder()
                 .reservationId(reservation.getReservationId())
                 .providerId(providerId)
                 .transactionDate(LocalDateTime.now())
-                .amount(cartItem.getTotalPrice()) // Usar el precio total del item
+                .amount(providerTotalAmount) // Usar el precio total del proveedor
                 .deliveryStatus(AccountPayableStatusEnum.PENDING)
                 .build();
 

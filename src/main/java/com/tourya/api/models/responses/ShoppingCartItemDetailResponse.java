@@ -24,6 +24,7 @@ public class ShoppingCartItemDetailResponse {
     private AgePriceType ageType;
     private Integer quantity;
     private BigDecimal unitPrice;
+    private BigDecimal providerUnitPrice; // Precio unitario que recibe el proveedor
     private BigDecimal totalPrice;
 }
 

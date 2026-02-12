@@ -81,8 +81,7 @@ public class SearchTourScheduleFullResponse {
         private Integer slotId;
         private LocalTime startTime;
         private LocalTime endTime;
-        private Integer minCapacity;
-        private Integer maxCapacity;
+        // minCapacity y maxCapacity eliminados - la capacidad ahora se maneja a nivel de TourSchedule
         private List<TourSchedulePriceResponse> prices; // N prices por slot
         private HighestPriceResponse highestPrice;      // price más alto por slot
     }
@@ -94,6 +93,7 @@ public class SearchTourScheduleFullResponse {
         private Integer minAge;
         private Integer maxAge;
         private BigDecimal price;
+        private BigDecimal providerPrice; // Precio que recibe el proveedor
     }
 
     @Data

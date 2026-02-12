@@ -64,8 +64,9 @@ public class ReservationDetailsMapper {
                 .slotTimeStart(rs.getString("slottime_start"))
                 .slotTimeEnd(rs.getString("slottime_end"))
 
-                .minCapacity(rs.getInt("min_capacity"))
-                .maxCapacity(rs.getInt("max_capacity"))
+                // minCapacity y maxCapacity eliminados - la capacidad ahora se maneja a nivel de TourSchedule
+                // .minCapacity(rs.getInt("min_capacity"))
+                // .maxCapacity(rs.getInt("max_capacity"))
 
                 .serviceResponsibleName(rs.getString("service_responsible_name"))
                 .serviceResponsibleEmail(rs.getString("service_responsible_email"))
