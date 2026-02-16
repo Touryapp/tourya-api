@@ -21,7 +21,7 @@ public class SearchTourScheduleFullController {
     private final ObjectMapper objectMapper;
     private final Validator validator;
 
-    @PostMapping("/tours/schedule/search")
+    @PostMapping("/search")
     public ResponseEntity<Page<SearchTourScheduleFullResponse>> search(
             @RequestBody Map<String, Object> filters,
             Pageable pageable) {

@@ -14,6 +14,8 @@ import com.tourya.api.repository.TourAddressRepository;
 import com.tourya.api.repository.TourRepository;
 import com.tourya.api.repository.TourScheduleConfigRepository;
 import com.tourya.api.repository.TourScheduleRepository;
+
+import com.tourya.api.models.AgeRangeConfig;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -34,11 +36,13 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class TourScheduleConfigGeneralService {
+
     private final TourScheduleRepository tourScheduleRepository;
     private final TourScheduleConfigRepository tourScheduleConfigRepository;
     private final TourRepository tourRepository;
     private final ProviderService providerService;
-    private final TourAddressRepository tourAddressRepository; // <-- INYECTAR REPOSITORIO
+    private final TourAddressRepository tourAddressRepository;
+    private final AgeRangeConfigService ageRangeConfigService; // Servicio para obtener rangos de edad
     private static final String NOT_PRIVILEGES = "You have no privileges to perform this action.";
 
     private Tour getTour(Integer tourId, Integer providerId) {
@@ -109,8 +113,7 @@ public class TourScheduleConfigGeneralService {
                     TourScheduleConfigPrice price = new TourScheduleConfigPrice();
                     price.setSlot(slot);
                     price.setAgeType(priceDto.getAgeType());
-                    price.setMinAge(priceDto.getMinAge());
-                    price.setMaxAge(priceDto.getMaxAge());
+                    // minAge y maxAge ya NO se setean aquí, se obtienen desde age_range_config
                     price.setPrice(priceDto.getPrice());
                     price.setProviderPrice(priceDto.getProviderPrice());
                     prices.add(price);
@@ -256,8 +259,7 @@ public class TourScheduleConfigGeneralService {
                     slot.getPrices().add(currentPrice);
                 }
                 currentPrice.setAgeType(priceDto.getAgeType());
-                currentPrice.setMinAge(priceDto.getMinAge());
-                currentPrice.setMaxAge(priceDto.getMaxAge());
+                // minAge y maxAge ya NO se setean aquí, se obtienen desde age_range_config
                 currentPrice.setPrice(priceDto.getPrice());
                 currentPrice.setProviderPrice(priceDto.getProviderPrice());
             }
@@ -269,7 +271,7 @@ public class TourScheduleConfigGeneralService {
             return; // No hay nada que validar
         }
 
-        // 1. Validación de ageType duplicado
+        // Validación de ageType duplicado
         Set<AgePriceType> existingAgeTypes = new HashSet<>();
         for (TourScheduleConfigPriceDto priceDto : prices) {
             if (!existingAgeTypes.add(priceDto.getAgeType())) {
@@ -278,23 +280,9 @@ public class TourScheduleConfigGeneralService {
             }
         }
 
-        // 2. Validación de solapamiento de rangos de edad
-        List<TourScheduleConfigPriceDto> priceList = new ArrayList<>(prices);
-        for (int i = 0; i < priceList.size(); i++) {
-            for (int j = i + 1; j < priceList.size(); j++) {
-                TourScheduleConfigPriceDto priceA = priceList.get(i);
-                TourScheduleConfigPriceDto priceB = priceList.get(j);
-
-                // Fórmula para detectar solapamiento: (InicioA <= FinB) y (FinA >= InicioB)
-                if (priceA.getMinAge() <= priceB.getMaxAge() && priceA.getMaxAge() >= priceB.getMinAge()) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                            "Age ranges overlap between " + priceA.getAgeType() + " (" + priceA.getMinAge() + "-"
-                                    + priceA.getMaxAge() +
-                                    ") and " + priceB.getAgeType() + " (" + priceB.getMinAge() + "-"
-                                    + priceB.getMaxAge() + ").");
-                }
-            }
-        }
+        // NOTA: La validación de solapamiento de rangos de edad se eliminó
+        // porque los rangos ahora están centralizados en age_range_config
+        // y no pueden solaparse por diseño.
     }
 
     @Transactional(readOnly = true)
@@ -407,6 +395,9 @@ public class TourScheduleConfigGeneralService {
      */
 
     private TourScheduleConfigResponse mapToTourScheduleConfigResponse(TourScheduleConfig config) {
+        // Obtener mapa de configuraciones para evitar consultas repetidas
+        Map<AgePriceType, AgeRangeConfig> ageConfigMap = ageRangeConfigService.getAllAsMap();
+
         TourScheduleConfigResponse responseDto = new TourScheduleConfigResponse();
         responseDto.setId(config.getId());
         responseDto.setProviderId(config.getProviderId());
@@ -426,8 +417,17 @@ public class TourScheduleConfigGeneralService {
                                 TourSchedulePriceResponse priceDto = new TourSchedulePriceResponse();
                                 priceDto.setId(price.getId());
                                 priceDto.setAgeType(price.getAgeType());
-                                priceDto.setMinAge(price.getMinAge());
-                                priceDto.setMaxAge(price.getMaxAge());
+
+                                AgeRangeConfig ageConfig = ageConfigMap.get(price.getAgeType());
+                                if (ageConfig != null) {
+                                    priceDto.setMinAge(ageConfig.getMinAge());
+                                    priceDto.setMaxAge(ageConfig.getMaxAge());
+                                } else {
+                                    // Fallback values if config is missing (should not happen in normal operation)
+                                    priceDto.setMinAge(0);
+                                    priceDto.setMaxAge(0);
+                                }
+
                                 priceDto.setPrice(price.getPrice());
                                 priceDto.setProviderPrice(price.getProviderPrice());
                                 return priceDto;
@@ -435,10 +435,10 @@ public class TourScheduleConfigGeneralService {
                             .collect(Collectors.toSet());
                     slotDto.setPrices(priceDtos);
                     return slotDto;
-                })
-                .collect(Collectors.toSet());
+                }).collect(Collectors.toSet());
         responseDto.setSlots(slotDtos);
         return responseDto;
+
     }
 
     public List<TourScheduleResponse> findAllByTourId(Integer tourId, Authentication connectedUser) {
@@ -484,6 +484,9 @@ public class TourScheduleConfigGeneralService {
     }
 
     private TourScheduleConfigResponse convertToTourScheduleConfigResponse(TourScheduleConfig config) {
+        // Obtener mapa de configuraciones
+        Map<AgePriceType, AgeRangeConfig> ageConfigMap = ageRangeConfigService.getAllAsMap();
+
         TourScheduleConfigResponse responseDto = new TourScheduleConfigResponse();
         responseDto.setId(config.getId());
         responseDto.setProviderId(config.getProviderId());
@@ -505,8 +508,16 @@ public class TourScheduleConfigGeneralService {
                                         TourSchedulePriceResponse priceDto = new TourSchedulePriceResponse();
                                         priceDto.setId(price.getId());
                                         priceDto.setAgeType(price.getAgeType());
-                                        priceDto.setMinAge(price.getMinAge());
-                                        priceDto.setMaxAge(price.getMaxAge());
+
+                                        AgeRangeConfig ageConfig = ageConfigMap.get(price.getAgeType());
+                                        if (ageConfig != null) {
+                                            priceDto.setMinAge(ageConfig.getMinAge());
+                                            priceDto.setMaxAge(ageConfig.getMaxAge());
+                                        } else {
+                                            priceDto.setMinAge(0);
+                                            priceDto.setMaxAge(0);
+                                        }
+
                                         priceDto.setPrice(price.getPrice());
                                         priceDto.setProviderPrice(price.getProviderPrice());
                                         return priceDto;
@@ -605,6 +616,9 @@ public class TourScheduleConfigGeneralService {
                     }
 
                     if (schedule.getConfig() != null && schedule.getConfig().getSlots() != null) {
+                        // Obtener mapa de configuraciones
+                        Map<AgePriceType, AgeRangeConfig> ageConfigMap = ageRangeConfigService.getAllAsMap();
+
                         schedule.getConfig().getSlots().stream()
                                 .findFirst()
                                 .ifPresent(matchingSlot -> {
@@ -613,8 +627,16 @@ public class TourScheduleConfigGeneralService {
                                                 TourPriceOptionDto priceDto = new TourPriceOptionDto();
                                                 priceDto.setPriceId(price.getId());
                                                 priceDto.setAgeType(price.getAgeType());
-                                                priceDto.setMinAge(price.getMinAge());
-                                                priceDto.setMaxAge(price.getMaxAge());
+
+                                                AgeRangeConfig ageConfig = ageConfigMap.get(price.getAgeType());
+                                                if (ageConfig != null) {
+                                                    priceDto.setMinAge(ageConfig.getMinAge());
+                                                    priceDto.setMaxAge(ageConfig.getMaxAge());
+                                                } else {
+                                                    priceDto.setMinAge(0);
+                                                    priceDto.setMaxAge(0);
+                                                }
+
                                                 priceDto.setPrice(price.getPrice());
                                                 return priceDto;
                                             })

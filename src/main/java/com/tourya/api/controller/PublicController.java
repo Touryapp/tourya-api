@@ -22,7 +22,7 @@ import java.util.Map;
 @RequestMapping("public")
 @RequiredArgsConstructor
 @Tag(name = "Public")
-public class    PublicController {
+public class PublicController {
     private final CountryService countryService;
     private final StateService stateService;
     private final CityService cityService;
@@ -38,39 +38,37 @@ public class    PublicController {
     private final Validator validator;
 
     @GetMapping("/country/getAllCountryList")
-    public ResponseEntity<List<CountryResponse>> getAllCountryList(){
+    public ResponseEntity<List<CountryResponse>> getAllCountryList() {
         return ResponseEntity.ok(countryService.getAllCountryList());
     }
 
     @GetMapping("/state/getAllStateByCountryIdList/{countryId}")
     public ResponseEntity<List<StateResponse>> getAllStateByCountryIdList(
-            @PathVariable Integer countryId
-            ){
+            @PathVariable Integer countryId) {
         return ResponseEntity.ok(stateService.getAllStateByCountryIdList(countryId));
     }
 
     @GetMapping("/city/getAllCityByStateIdList/{stateId}")
     public ResponseEntity<List<CityResponse>> getAllCityByStateIdList(
-            @PathVariable Integer stateId
-    ){
+            @PathVariable Integer stateId) {
         return ResponseEntity.ok(cityService.getAllCityByStateIdList(stateId));
     }
 
-
     @PostMapping("/tours/schedule/search")
-    public ResponseEntity<Page<SearchTourScheduleFullResponse>> search(
+    public ResponseEntity<PagedResponse<SearchTourScheduleFullResponse>> search(
             @RequestBody Map<String, Object> filters,
             Pageable pageable) {
-        return ResponseEntity.ok(searchTourScheduleFullService.searchTourSchedule(filters, pageable));
+        Page<SearchTourScheduleFullResponse> page = searchTourScheduleFullService.searchTourSchedule(filters, pageable);
+        return ResponseEntity.ok(new PagedResponse<>(page));
     }
 
     @GetMapping("/search/locations")
     public ResponseEntity<List<SearchTourLocationResponse>> getTourLocations() {
-        return  ResponseEntity.ok(SearchTourLocationService.getTourLocations());
+        return ResponseEntity.ok(SearchTourLocationService.getTourLocations());
     }
 
     @GetMapping("/search/categories")
-    public ResponseEntity<List<SearchTourCategoryResponse>>getTourCategories() {
+    public ResponseEntity<List<SearchTourCategoryResponse>> getTourCategories() {
         return ResponseEntity.ok(SearchTourCategoryService.getTourCategories());
     }
 
@@ -88,9 +86,10 @@ public class    PublicController {
     public AgePriceType[] getAgePriceTypes() {
         return AgePriceType.values();
     }
+
     @GetMapping("/consultDataTourById/{tourId}")
-    public ResponseEntity<TourFullDataResponse> consultDataTourById (
-            @PathVariable Integer tourId, Authentication connectedUser){
+    public ResponseEntity<TourFullDataResponse> consultDataTourById(
+            @PathVariable Integer tourId, Authentication connectedUser) {
         return ResponseEntity.ok(tourService.consultDataTourById(tourId, connectedUser));
     }
 
@@ -98,8 +97,7 @@ public class    PublicController {
     @GetMapping("/tour/details/{tourId}")
     public ResponseEntity<TourFullDataResponse> getTourDetails(
             @PathVariable Integer tourId,
-            @Nullable Authentication connectedUser
-    ) {
+            @Nullable Authentication connectedUser) {
         return ResponseEntity.ok(tourService.getTourDetailsById(tourId, connectedUser));
     }
 
