@@ -55,11 +55,10 @@ public class PublicController {
     }
 
     @PostMapping("/tours/schedule/search")
-    public ResponseEntity<PagedResponse<SearchTourScheduleFullResponse>> search(
+    public ResponseEntity<Page<SearchTourScheduleFullResponse>> search(
             @RequestBody Map<String, Object> filters,
             Pageable pageable) {
-        Page<SearchTourScheduleFullResponse> page = searchTourScheduleFullService.searchTourSchedule(filters, pageable);
-        return ResponseEntity.ok(new PagedResponse<>(page));
+        return ResponseEntity.ok(searchTourScheduleFullService.searchTourSchedule(filters, pageable));
     }
 
     @GetMapping("/search/locations")
