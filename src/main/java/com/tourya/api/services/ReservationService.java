@@ -70,6 +70,7 @@ public class ReservationService {
     private final MaritimActivityReportRepository maritimActivityReportRepository;
     private final TourScheduleConfigSlotRepository tourScheduleConfigSlotRepository;
     private final AppConfigService appConfigService;
+    private final AgeRangeConfigService ageRangeConfigService;
     /**
      * Método createReservation removido - las reservas se crean automáticamente con los pagos
      */
@@ -566,11 +567,23 @@ public class ReservationService {
         shoppingCartItemRepository.save(cartItem);
 
         // 8. Crear la cuenta por pagar al proveedor
+        // Calcular el monto total del proveedor sumando providerUnitPrice * quantity de todos los details
+        BigDecimal providerTotalAmount = cartItem.getDetails().stream()
+                .filter(detail -> detail.getProviderUnitPrice() != null)
+                .map(detail -> detail.getProviderUnitPrice()
+                        .multiply(BigDecimal.valueOf(detail.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        // Si no hay providerPrice en los details, usar el precio total como fallback
+        if (providerTotalAmount.compareTo(BigDecimal.ZERO) == 0) {
+            providerTotalAmount = cartItem.getTotalPrice();
+        }
+        
         AccountPayable accountPayable = AccountPayable.builder()
                 .reservationId(reservation.getReservationId())
                 .providerId(providerId)
                 .transactionDate(LocalDateTime.now())
-                .amount(cartItem.getTotalPrice()) // Usar el precio total del item
+                .amount(providerTotalAmount) // Usar el precio total del proveedor
                 .deliveryStatus(AccountPayableStatusEnum.PENDING)
                 .build();
 
@@ -757,6 +770,26 @@ public class ReservationService {
         // Si todas las validaciones pasan, cancelar la reserva y crear crédito
         Credit credit = null;
         if (canCancel) {
+            // Liberar capacidad del schedule antes de cancelar
+            int totalQuantity = 0;
+            if (item.getDetails() != null) {
+                totalQuantity = item.getDetails().stream()
+                        .mapToInt(ShoppingCartItemDetail::getQuantity)
+                        .sum();
+            }
+            
+            if (totalQuantity > 0 && Boolean.FALSE.equals(schedule.getIsUnlimitedCapacity())
+                    && schedule.getReservedCapacity() != null) {
+                int newReserved = schedule.getReservedCapacity() - totalQuantity;
+                if (newReserved < 0) {
+                    newReserved = 0; // por seguridad, nunca negativo
+                }
+                schedule.setReservedCapacity(newReserved);
+                tourScheduleRepository.save(schedule);
+                log.info("Released {} capacity from schedule {} for canceled reservation {}", 
+                        totalQuantity, schedule.getId(), reservationId);
+            }
+            
             reservation.setDeliveryStatus(DeliveryStatusEnum.CANCELED);
             reservation.setCancellationReason(request.getCancellationReason());
             reservation.setCancellationDate(LocalDateTime.now());
@@ -960,6 +993,28 @@ public class ReservationService {
                     "The tour schedule for date " + request.getNewDate() + " is not available for rescheduling.");
         }
         
+        // Calcular cantidad total de turistas del item actual
+        int totalQuantity = 0;
+        if (item.getDetails() != null) {
+            totalQuantity = item.getDetails().stream()
+                    .mapToInt(ShoppingCartItemDetail::getQuantity)
+                    .sum();
+        }
+        
+        // Validar capacidad en el nuevo schedule antes de mover la reserva
+        if (!Boolean.TRUE.equals(newSchedule.getIsUnlimitedCapacity())) {
+            Integer max = newSchedule.getMaxCapacity();
+            Integer reserved = newSchedule.getReservedCapacity() != null ? newSchedule.getReservedCapacity() : 0;
+            if (max != null) {
+                int available = max - reserved;
+                if (totalQuantity > available) {
+                    throw new OperationNotPermittedException(
+                            "No hay capacidad suficiente en el nuevo horario. Disponible: " + available + 
+                            ", solicitado: " + totalQuantity);
+                }
+            }
+        }
+        
         // Calcular precio nuevo basado en el slot y los details del item actual
         BigDecimal newPrice = calculatePriceForNewDate(item);
         
@@ -1002,6 +1057,31 @@ public class ReservationService {
         
         log.info("Recalculating dates for reschedule - newDate: {}, maxCancellation: {}, maxRescheduling: {}", 
                 request.getNewDate(), newMaxCancellationDate, newMaxReschedulingDate);
+        
+        // Liberar capacidad del horario original
+        if (totalQuantity > 0 && Boolean.FALSE.equals(schedule.getIsUnlimitedCapacity())
+                && schedule.getReservedCapacity() != null) {
+            int newReservedOld = schedule.getReservedCapacity() - totalQuantity;
+            if (newReservedOld < 0) {
+                newReservedOld = 0;
+            }
+            schedule.setReservedCapacity(newReservedOld);
+            tourScheduleRepository.save(schedule);
+            log.info("Released {} capacity from old schedule {} for rescheduled reservation {}", 
+                    totalQuantity, schedule.getId(), reservationId);
+        }
+        
+        // Consumir capacidad en el nuevo horario
+        if (totalQuantity > 0 && !Boolean.TRUE.equals(newSchedule.getIsUnlimitedCapacity())) {
+            int reservedNew = newSchedule.getReservedCapacity() != null ? newSchedule.getReservedCapacity() : 0;
+            newSchedule.setReservedCapacity(reservedNew + totalQuantity);
+            tourScheduleRepository.save(newSchedule);
+            log.info("Reserved {} capacity in new schedule {} for rescheduled reservation {}", 
+                    totalQuantity, newSchedule.getId(), reservationId);
+        }
+        
+        // Actualizar el ShoppingCartItem para que apunte al nuevo schedule
+        item.setTourSchedule(newSchedule);
         
         // Actualizar la fecha en ShoppingCartItem
         item.setScheduleDate(request.getNewDate());
@@ -1100,14 +1180,18 @@ public class ReservationService {
         
         for (ShoppingCartItemDetail detail : item.getDetails()) {
             // Buscar precio en el slot para el mismo ageType
-            BigDecimal unitPrice = slot.getPrices().stream()
+            TourScheduleConfigPrice priceConfig = slot.getPrices().stream()
                     .filter(price -> price.getAgeType().equals(detail.getAgeType()))
                     .findFirst()
-                    .map(TourScheduleConfigPrice::getPrice)
                     .orElseThrow(() -> new ResourceNotFoundException(
                             "Price not found for ageType " + detail.getAgeType() + 
                             " in slot " + slot.getId()));
             
+            // Obtener configuración de rango de edad desde age_range_config
+            // Esto permite acceder a minAge y maxAge para validaciones futuras
+            AgeRangeConfig ageRangeConfig = ageRangeConfigService.getByAgeType(detail.getAgeType());
+            
+            BigDecimal unitPrice = priceConfig.getPrice();
             BigDecimal detailTotalPrice = unitPrice.multiply(BigDecimal.valueOf(detail.getQuantity()));
             totalPrice = totalPrice.add(detailTotalPrice);
         }
@@ -1130,14 +1214,19 @@ public class ReservationService {
         
         // Actualizar cada detail con el precio del slot
         for (ShoppingCartItemDetail detail : item.getDetails()) {
-            BigDecimal newUnitPrice = slot.getPrices().stream()
+            TourScheduleConfigPrice priceConfig = slot.getPrices().stream()
                     .filter(price -> price.getAgeType().equals(detail.getAgeType()))
                     .findFirst()
-                    .map(TourScheduleConfigPrice::getPrice)
-                    .orElse(detail.getUnitPrice()); // Mantener precio actual si no se encuentra
+                    .orElse(null);
             
-            detail.setUnitPrice(newUnitPrice);
-            detail.setTotalPrice(newUnitPrice.multiply(BigDecimal.valueOf(detail.getQuantity())));
+            if (priceConfig != null) {
+                // Obtener configuración de rango de edad desde age_range_config
+                AgeRangeConfig ageRangeConfig = ageRangeConfigService.getByAgeType(detail.getAgeType());
+                
+                BigDecimal newUnitPrice = priceConfig.getPrice();
+                detail.setUnitPrice(newUnitPrice);
+                detail.setTotalPrice(newUnitPrice.multiply(BigDecimal.valueOf(detail.getQuantity())));
+            }
         }
     }
     

@@ -44,6 +44,9 @@ public class ShoppingCartItemDetail extends BaseEntity {
     @Column(name = "unit_price", nullable = false, precision = 10, scale = 2)
     private BigDecimal unitPrice;
 
+    @Column(name = "provider_unit_price", precision = 10, scale = 2)
+    private BigDecimal providerUnitPrice; // Precio unitario que recibe el proveedor
+
     @Column(name = "total_price", nullable = false, precision = 10, scale = 2)
     private BigDecimal totalPrice;
 }

@@ -48,8 +48,7 @@ public class ReservationDetailsResponse {
     private String slotTimeStart;
     private String slotTimeEnd;
 
-    private Integer minCapacity;
-    private Integer maxCapacity;
+    // minCapacity y maxCapacity eliminados - la capacidad ahora se maneja a nivel de TourSchedule
 
     // --- Responsible ---
     private String serviceResponsibleName;

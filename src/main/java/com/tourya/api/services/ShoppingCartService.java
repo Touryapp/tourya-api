@@ -43,8 +43,10 @@ public class ShoppingCartService {
     private final ShoppingCartItemRepository shoppingCartItemRepository;
     private final TourScheduleRepository tourScheduleRepository;
     private final TourScheduleConfigSlotRepository tourScheduleConfigSlotRepository;
+    private final TourRepository tourRepository;
     private final ServiceRepository serviceRepository;
     private final TourReservationService tourReservationService;
+    private final AgeRangeConfigService ageRangeConfigService;
 
     /**
      * Crea un nuevo carrito de compras para un usuario.
@@ -163,24 +165,60 @@ public class ShoppingCartService {
             TourScheduleConfigSlot slot = tourScheduleConfigSlotRepository.findById(request.getSlot().getId().intValue())
                     .orElseThrow(() -> new ResourceNotFoundException("Slot no encontrado"));
             
+            // Obtener el Tour para acceder a priceType
+            Tour tour = null;
+            if (request.getTourScheduleId() != null) {
+                TourSchedule schedule = tourScheduleRepository.findById(request.getTourScheduleId()).orElse(null);
+                if (schedule != null && schedule.getTourId() != null) {
+                    tour = tourRepository.findById(schedule.getTourId()).orElse(null);
+                }
+            }
+            
             for (ConfigQuantityRequest configQuantity : request.getSlot().getConfigQuantity()) {
                 // Buscar precio por ageType
                 AgePriceType ageType = AgePriceType.valueOf(configQuantity.getAgeType());
-                BigDecimal unitPrice = slot.getPrices().stream()
+                TourScheduleConfigPrice priceConfig = slot.getPrices().stream()
                         .filter(price -> price.getAgeType().equals(ageType))
-                .findFirst()
-                        .map(TourScheduleConfigPrice::getPrice)
-                        .orElse(BigDecimal.ZERO);
+                        .findFirst()
+                        .orElse(null);
                 
-                BigDecimal detailTotalPrice = unitPrice.multiply(BigDecimal.valueOf(configQuantity.getQuantity()));
+                if (priceConfig == null) {
+                    throw new ResourceNotFoundException("Precio no encontrado para ageType: " + ageType);
+                }
+                
+                // Obtener configuración de rango de edad desde age_range_config
+                AgeRangeConfig ageRangeConfig = ageRangeConfigService.getByAgeType(ageType);
+                
+                BigDecimal unitPrice = priceConfig.getPrice();
+                BigDecimal providerUnitPrice = priceConfig.getProviderPrice() != null 
+                        ? priceConfig.getProviderPrice() 
+                        : BigDecimal.ZERO;
+                
+                // Calcular precio total según priceType del tour
+                BigDecimal detailTotalPrice;
+                BigDecimal providerTotalPrice;
+                Integer quantity = configQuantity.getQuantity();
+                
+                if (tour != null && tour.getPriceType() != null 
+                        && tour.getPriceType().getValue().equals("grupo")) {
+                    // Para tours GRUPO: el precio es fijo independientemente de la cantidad
+                    detailTotalPrice = unitPrice;
+                    providerTotalPrice = providerUnitPrice;
+                } else {
+                    // Para tours INDIVIDUAL: precio por persona
+                    detailTotalPrice = unitPrice.multiply(BigDecimal.valueOf(quantity));
+                    providerTotalPrice = providerUnitPrice.multiply(BigDecimal.valueOf(quantity));
+                }
+                
                 totalPrice = totalPrice.add(detailTotalPrice);
                 
                 // Crear detail
                 ShoppingCartItemDetail detail = ShoppingCartItemDetail.builder()
                         .shoppingCartItem(newItem)
                         .ageType(ageType)
-                        .quantity(configQuantity.getQuantity())
+                        .quantity(quantity)
                         .unitPrice(unitPrice)
+                        .providerUnitPrice(providerUnitPrice)
                         .totalPrice(detailTotalPrice)
                         .build();
                 
@@ -244,19 +282,27 @@ public class ShoppingCartService {
                     .orElseThrow(() -> new ResourceNotFoundException("Servicio no encontrado"));
         }
 
-        // Validar capacidad del slot si se proporciona
-        if (request.getSlot() != null && request.getSlot().getConfigQuantity() != null) {
-            TourScheduleConfigSlot slot = tourScheduleConfigSlotRepository.findById(request.getSlot().getId().intValue())
-                    .orElseThrow(() -> new ResourceNotFoundException("Slot no encontrado"));
+        // Validar capacidad del TourSchedule si se proporciona
+        if (request.getTourScheduleId() != null) {
+            TourSchedule tourSchedule = tourScheduleRepository.findById(request.getTourScheduleId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Horario de tour no encontrado"));
 
-            // Calcular cantidad total
-            int totalQuantity = request.getSlot().getConfigQuantity().stream()
-                    .mapToInt(ConfigQuantityRequest::getQuantity)
-                    .sum();
-
-            // Verificar capacidad
-            if (slot.getMaxCapacity() != null && totalQuantity > slot.getMaxCapacity()) {
-                throw new OperationNotPermittedException("La cantidad solicitada excede la capacidad máxima del slot");
+            if (!tourSchedule.getIsUnlimitedCapacity()) {
+                int availableCapacity = tourSchedule.getMaxCapacity() != null 
+                        ? tourSchedule.getMaxCapacity() - (tourSchedule.getReservedCapacity() != null ? tourSchedule.getReservedCapacity() : 0)
+                        : 0;
+                
+                // Calcular cantidad total desde los details
+                int totalQuantity = 0;
+                if (request.getSlot() != null && request.getSlot().getConfigQuantity() != null) {
+                    totalQuantity = request.getSlot().getConfigQuantity().stream()
+                            .mapToInt(ConfigQuantityRequest::getQuantity)
+                            .sum();
+                }
+                
+                if (totalQuantity > availableCapacity) {
+                    throw new OperationNotPermittedException("No hay suficiente capacidad disponible. Disponible: " + availableCapacity);
+                }
             }
         }
 
@@ -283,26 +329,60 @@ public class ShoppingCartService {
             TourScheduleConfigSlot slot = tourScheduleConfigSlotRepository.findById(request.getSlot().getId().intValue())
                     .orElseThrow(() -> new ResourceNotFoundException("Slot no encontrado"));
 
+            // Obtener el Tour para acceder a priceType
+            Tour tour = null;
+            if (request.getTourScheduleId() != null) {
+                TourSchedule schedule = tourScheduleRepository.findById(request.getTourScheduleId()).orElse(null);
+                if (schedule != null && schedule.getTourId() != null) {
+                    tour = tourRepository.findById(schedule.getTourId()).orElse(null);
+                }
+            }
+            
             for (ConfigQuantityRequest configQuantity : request.getSlot().getConfigQuantity()) {
                 AgePriceType ageType = AgePriceType.valueOf(configQuantity.getAgeType());
                 
                 // Buscar precio en el slot
-                BigDecimal unitPrice = slot.getPrices().stream()
+                TourScheduleConfigPrice priceConfig = slot.getPrices().stream()
                         .filter(price -> price.getAgeType().equals(ageType))
                         .findFirst()
-                        .map(TourScheduleConfigPrice::getPrice)
-                        .orElse(BigDecimal.ZERO);
-
-                BigDecimal detailTotalPrice = unitPrice.multiply(BigDecimal.valueOf(configQuantity.getQuantity()));
+                        .orElse(null);
+                
+                if (priceConfig == null) {
+                    throw new ResourceNotFoundException("Precio no encontrado para ageType: " + ageType);
+                }
+                
+                // Obtener configuración de rango de edad desde age_range_config
+                // Esto permite acceder a minAge y maxAge para validaciones futuras
+                AgeRangeConfig ageRangeConfig = ageRangeConfigService.getByAgeType(ageType);
+                
+                BigDecimal unitPrice = priceConfig.getPrice();
+                BigDecimal providerUnitPrice = priceConfig.getProviderPrice() != null 
+                        ? priceConfig.getProviderPrice() 
+                        : BigDecimal.ZERO;
+                
+                // Calcular precio total según priceType del tour
+                BigDecimal detailTotalPrice;
+                Integer quantity = configQuantity.getQuantity();
+                
+                if (tour != null && tour.getPriceType() != null 
+                        && tour.getPriceType().getValue().equals("grupo")) {
+                    // Para tours GRUPO: el precio es fijo independientemente de la cantidad
+                    detailTotalPrice = unitPrice;
+                } else {
+                    // Para tours INDIVIDUAL: precio por persona
+                    detailTotalPrice = unitPrice.multiply(BigDecimal.valueOf(quantity));
+                }
+                
                 totalPrice = totalPrice.add(detailTotalPrice);
 
                 ShoppingCartItemDetail detail = ShoppingCartItemDetail.builder()
                         .shoppingCartItem(newItem)
                         .ageType(ageType)
-                        .quantity(configQuantity.getQuantity())
-                    .unitPrice(unitPrice)
+                        .quantity(quantity)
+                        .unitPrice(unitPrice)
+                        .providerUnitPrice(providerUnitPrice)
                         .totalPrice(detailTotalPrice)
-                    .build();
+                        .build();
 
                 newItem.getDetails().add(detail);
             }
@@ -547,6 +627,7 @@ public class ShoppingCartService {
                                     .ageType(detail.getAgeType())
                                     .quantity(detail.getQuantity())
                                     .unitPrice(detail.getUnitPrice())
+                                    .providerUnitPrice(detail.getProviderUnitPrice())
                                     .totalPrice(detail.getTotalPrice())
                         .build())
                             .collect(Collectors.toList());

@@ -47,6 +47,7 @@ public class PaymentService {
     private final TourIncludesExcludesRepository tourIncludesExcludesRepository;
     private final TourAddressRepository tourAddressRepository;
     private final ObjectMapper objectMapper;
+    private final AgeRangeConfigService ageRangeConfigService;
 
     /**
      * Crea un pago y automáticamente genera la reserva con sus items.
@@ -166,6 +167,33 @@ public class PaymentService {
             String qrUrl = reservationQrService.generateAndUploadQrCode(reservation.getReservationId());
             reservation.setQrUrl(qrUrl);
             reservation = reservationRepository.save(reservation);
+            
+            // Incrementar reservedCapacity del TourSchedule al crear la reserva
+            if (cartItem.getTourSchedule() != null) {
+                TourSchedule schedule = tourScheduleRepository.findById(cartItem.getTourSchedule().getId())
+                        .orElse(null);
+                
+                if (schedule != null) {
+                    // Calcular cantidad total de turistas del item
+                    int totalQuantity = 0;
+                    if (cartItem.getDetails() != null) {
+                        totalQuantity = cartItem.getDetails().stream()
+                                .mapToInt(ShoppingCartItemDetail::getQuantity)
+                                .sum();
+                    }
+                    
+                    // Incrementar capacidad reservada si no es ilimitada
+                    if (totalQuantity > 0 && Boolean.FALSE.equals(schedule.getIsUnlimitedCapacity())) {
+                        int currentReserved = schedule.getReservedCapacity() != null 
+                                ? schedule.getReservedCapacity() 
+                                : 0;
+                        schedule.setReservedCapacity(currentReserved + totalQuantity);
+                        tourScheduleRepository.save(schedule);
+                        log.info("Reserved {} capacity in schedule {} for reservation {}", 
+                                totalQuantity, schedule.getId(), reservation.getReservationId());
+                    }
+                }
+            }
             
             reservations.add(reservation);
             
