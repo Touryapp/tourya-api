@@ -46,6 +46,7 @@ public class ShoppingCartService {
     private final TourRepository tourRepository;
     private final ServiceRepository serviceRepository;
     private final TourReservationService tourReservationService;
+    private final AgeRangeConfigService ageRangeConfigService;
 
     /**
      * Crea un nuevo carrito de compras para un usuario.
@@ -185,6 +186,9 @@ public class ShoppingCartService {
                     throw new ResourceNotFoundException("Precio no encontrado para ageType: " + ageType);
                 }
                 
+                // Obtener configuración de rango de edad desde age_range_config
+                AgeRangeConfig ageRangeConfig = ageRangeConfigService.getByAgeType(ageType);
+                
                 BigDecimal unitPrice = priceConfig.getPrice();
                 BigDecimal providerUnitPrice = priceConfig.getProviderPrice() != null 
                         ? priceConfig.getProviderPrice() 
@@ -278,18 +282,28 @@ public class ShoppingCartService {
                     .orElseThrow(() -> new ResourceNotFoundException("Servicio no encontrado"));
         }
 
-        // Validar capacidad del slot si se proporciona
-        if (request.getSlot() != null && request.getSlot().getConfigQuantity() != null) {
-            TourScheduleConfigSlot slot = tourScheduleConfigSlotRepository.findById(request.getSlot().getId().intValue())
-                    .orElseThrow(() -> new ResourceNotFoundException("Slot no encontrado"));
+        // Validar capacidad del TourSchedule si se proporciona
+        if (request.getTourScheduleId() != null) {
+            TourSchedule tourSchedule = tourScheduleRepository.findById(request.getTourScheduleId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Horario de tour no encontrado"));
 
-            // Calcular cantidad total
-            int totalQuantity = request.getSlot().getConfigQuantity().stream()
-                    .mapToInt(ConfigQuantityRequest::getQuantity)
-                    .sum();
-
-            // La capacidad ahora se valida a nivel de TourSchedule, no del slot
-            // Los slots ya no tienen minCapacity ni maxCapacity
+            if (!tourSchedule.getIsUnlimitedCapacity()) {
+                int availableCapacity = tourSchedule.getMaxCapacity() != null 
+                        ? tourSchedule.getMaxCapacity() - (tourSchedule.getReservedCapacity() != null ? tourSchedule.getReservedCapacity() : 0)
+                        : 0;
+                
+                // Calcular cantidad total desde los details
+                int totalQuantity = 0;
+                if (request.getSlot() != null && request.getSlot().getConfigQuantity() != null) {
+                    totalQuantity = request.getSlot().getConfigQuantity().stream()
+                            .mapToInt(ConfigQuantityRequest::getQuantity)
+                            .sum();
+                }
+                
+                if (totalQuantity > availableCapacity) {
+                    throw new OperationNotPermittedException("No hay suficiente capacidad disponible. Disponible: " + availableCapacity);
+                }
+            }
         }
 
         // Calcular total price desde los details
@@ -336,6 +350,10 @@ public class ShoppingCartService {
                 if (priceConfig == null) {
                     throw new ResourceNotFoundException("Precio no encontrado para ageType: " + ageType);
                 }
+                
+                // Obtener configuración de rango de edad desde age_range_config
+                // Esto permite acceder a minAge y maxAge para validaciones futuras
+                AgeRangeConfig ageRangeConfig = ageRangeConfigService.getByAgeType(ageType);
                 
                 BigDecimal unitPrice = priceConfig.getPrice();
                 BigDecimal providerUnitPrice = priceConfig.getProviderPrice() != null 
