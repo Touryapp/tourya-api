@@ -69,6 +69,7 @@ public class ReservationService {
     private final CreditRepository creditRepository;
     private final MaritimActivityReportRepository maritimActivityReportRepository;
     private final TourScheduleConfigSlotRepository tourScheduleConfigSlotRepository;
+    private final TourScheduleConfigRepository tourScheduleConfigRepository;
     private final AppConfigService appConfigService;
     private final AgeRangeConfigService ageRangeConfigService;
     /**
@@ -1015,8 +1016,8 @@ public class ReservationService {
             }
         }
         
-        // Calcular precio nuevo basado en el slot y los details del item actual
-        BigDecimal newPrice = calculatePriceForNewDate(item);
+        // Calcular precio nuevo basado en el nuevo schedule y los details del item actual
+        BigDecimal newPrice = calculatePriceForNewDate(item, newSchedule);
         
         // Comparar precios
         int priceComparison = newPrice.compareTo(currentPrice);
@@ -1088,8 +1089,8 @@ public class ReservationService {
         // Actualizar el precio si cambió
         if (priceComparison != 0) {
             item.setTotalPrice(newPrice);
-            // Actualizar los detalles del item con los nuevos precios
-            updateItemDetailsForNewPrice(item);
+            // Actualizar los detalles del item con los nuevos precios del nuevo schedule
+            updateItemDetailsForNewPrice(item, newSchedule);
         }
         shoppingCartItemRepository.save(item);
         
@@ -1162,37 +1163,62 @@ public class ReservationService {
     }
     
     /**
-     * Calcula el precio para una nueva fecha basándose en el slot y los details del item actual.
+     * Calcula el precio para una nueva fecha usando los precios del nuevo schedule.
      * 
-     * @param item Item del carrito con los details actuales
+     * @param item Item del carrito con los details actuales (cantidades por ageType)
+     * @param newSchedule Nuevo schedule para el cual calcular el precio
      * @return Precio total calculado para la nueva fecha
      */
-    private BigDecimal calculatePriceForNewDate(ShoppingCartItem item) {
-        if (item.getSlot() == null || item.getDetails() == null || item.getDetails().isEmpty()) {
-            throw new IllegalStateException("Cannot calculate price: item missing slot or details");
+    private BigDecimal calculatePriceForNewDate(ShoppingCartItem item, TourSchedule newSchedule) {
+        if (item.getDetails() == null || item.getDetails().isEmpty()) {
+            throw new IllegalStateException("Cannot calculate price: item missing details");
         }
         
-        // Usar el slot que ya tiene el item (no buscar en el nuevo schedule)
-        TourScheduleConfigSlot slot = item.getSlot();
+        if (newSchedule.getConfigId() == null) {
+            throw new IllegalStateException("Cannot calculate price: new schedule missing configId");
+        }
         
-        // Calcular precio total usando los details del item actual y los precios del slot
+        // Obtener la configuración del nuevo schedule con sus slots y precios
+        TourScheduleConfig newConfig = tourScheduleConfigRepository.findByIdWithSlots(newSchedule.getConfigId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Tour schedule config not found for schedule " + newSchedule.getId()));
+        
+        if (newConfig.getSlots() == null || newConfig.getSlots().isEmpty()) {
+            throw new ResourceNotFoundException(
+                    "No slots found in config " + newConfig.getId() + " for new schedule");
+        }
+        
+        // Usar el primer slot del nuevo config (todos los slots de una config tienen los mismos precios)
+        TourScheduleConfigSlot slot = newConfig.getSlots().iterator().next();
+        
+        // Obtener el Tour para acceder a priceType
+        Tour tour = tourRepository.findById(newSchedule.getTourId())
+                .orElseThrow(() -> new ResourceNotFoundException("Tour not found"));
+        
+        // Calcular precio total usando las cantidades del item actual y los precios del nuevo schedule
         BigDecimal totalPrice = BigDecimal.ZERO;
         
         for (ShoppingCartItemDetail detail : item.getDetails()) {
-            // Buscar precio en el slot para el mismo ageType
+            // Buscar precio en el slot del nuevo schedule para el mismo ageType
             TourScheduleConfigPrice priceConfig = slot.getPrices().stream()
                     .filter(price -> price.getAgeType().equals(detail.getAgeType()))
                     .findFirst()
                     .orElseThrow(() -> new ResourceNotFoundException(
                             "Price not found for ageType " + detail.getAgeType() + 
-                            " in slot " + slot.getId()));
-            
-            // Obtener configuración de rango de edad desde age_range_config
-            // Esto permite acceder a minAge y maxAge para validaciones futuras
-            AgeRangeConfig ageRangeConfig = ageRangeConfigService.getByAgeType(detail.getAgeType());
+                            " in new schedule config"));
             
             BigDecimal unitPrice = priceConfig.getPrice();
-            BigDecimal detailTotalPrice = unitPrice.multiply(BigDecimal.valueOf(detail.getQuantity()));
+            
+            // Calcular precio según priceType del tour
+            BigDecimal detailTotalPrice;
+            if (tour.getPriceType() != null && tour.getPriceType().getValue().equals("grupo")) {
+                // Para tours GRUPO: el precio es fijo independientemente de la cantidad
+                detailTotalPrice = unitPrice;
+            } else {
+                // Para tours INDIVIDUAL: precio por persona
+                detailTotalPrice = unitPrice.multiply(BigDecimal.valueOf(detail.getQuantity()));
+            }
+            
             totalPrice = totalPrice.add(detailTotalPrice);
         }
         
@@ -1200,19 +1226,41 @@ public class ReservationService {
     }
     
     /**
-     * Actualiza los detalles del item con los nuevos precios para la nueva fecha.
+     * Actualiza los detalles del item con los nuevos precios del nuevo schedule.
      * 
      * @param item Item del carrito a actualizar
+     * @param newSchedule Nuevo schedule del cual obtener los precios
      */
-    private void updateItemDetailsForNewPrice(ShoppingCartItem item) {
-        if (item.getSlot() == null || item.getDetails() == null || item.getDetails().isEmpty()) {
+    private void updateItemDetailsForNewPrice(ShoppingCartItem item, TourSchedule newSchedule) {
+        if (item.getDetails() == null || item.getDetails().isEmpty()) {
             return;
         }
         
-        // Usar el slot que ya tiene el item
-        TourScheduleConfigSlot slot = item.getSlot();
+        if (newSchedule.getConfigId() == null) {
+            log.warn("Cannot update item details: new schedule missing configId");
+            return;
+        }
         
-        // Actualizar cada detail con el precio del slot
+        // Obtener la configuración del nuevo schedule con sus slots y precios
+        TourScheduleConfig newConfig = tourScheduleConfigRepository.findByIdWithSlots(newSchedule.getConfigId())
+                .orElse(null);
+        
+        if (newConfig == null || newConfig.getSlots() == null || newConfig.getSlots().isEmpty()) {
+            log.warn("Cannot update item details: no slots found in new config");
+            return;
+        }
+        
+        // Usar el primer slot del nuevo config (todos los slots de una config tienen los mismos precios)
+        TourScheduleConfigSlot slot = newConfig.getSlots().iterator().next();
+        
+        // Actualizar el slot del item al slot del nuevo schedule
+        item.setSlot(slot);
+        
+        // Obtener el Tour para acceder a priceType
+        Tour tour = tourRepository.findById(newSchedule.getTourId())
+                .orElse(null);
+        
+        // Actualizar cada detail con el precio del nuevo schedule
         for (ShoppingCartItemDetail detail : item.getDetails()) {
             TourScheduleConfigPrice priceConfig = slot.getPrices().stream()
                     .filter(price -> price.getAgeType().equals(detail.getAgeType()))
@@ -1220,12 +1268,23 @@ public class ReservationService {
                     .orElse(null);
             
             if (priceConfig != null) {
-                // Obtener configuración de rango de edad desde age_range_config
-                AgeRangeConfig ageRangeConfig = ageRangeConfigService.getByAgeType(detail.getAgeType());
-                
                 BigDecimal newUnitPrice = priceConfig.getPrice();
+                BigDecimal newProviderUnitPrice = priceConfig.getProviderPrice() != null 
+                        ? priceConfig.getProviderPrice() 
+                        : BigDecimal.ZERO;
+                
                 detail.setUnitPrice(newUnitPrice);
-                detail.setTotalPrice(newUnitPrice.multiply(BigDecimal.valueOf(detail.getQuantity())));
+                detail.setProviderUnitPrice(newProviderUnitPrice);
+                
+                // Calcular precio total según priceType del tour
+                if (tour != null && tour.getPriceType() != null 
+                        && tour.getPriceType().getValue().equals("grupo")) {
+                    // Para tours GRUPO: el precio es fijo independientemente de la cantidad
+                    detail.setTotalPrice(newUnitPrice);
+                } else {
+                    // Para tours INDIVIDUAL: precio por persona
+                    detail.setTotalPrice(newUnitPrice.multiply(BigDecimal.valueOf(detail.getQuantity())));
+                }
             }
         }
     }

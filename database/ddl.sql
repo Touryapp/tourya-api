@@ -1797,7 +1797,9 @@ ALTER TABLE public.review_attachment ADD CONSTRAINT fk_review_attachment_review 
 ALTER TABLE public.shopping_cart_item ADD CONSTRAINT fk_shopping_cart_item_cart FOREIGN KEY (shopping_cart_id) REFERENCES public.shopping_cart(id) ON DELETE CASCADE;
 ALTER TABLE public.shopping_cart_item ADD CONSTRAINT fk_shopping_cart_item_reservation FOREIGN KEY (reservation_id) REFERENCES public.reservation(reservation_id) ON DELETE SET NULL;
 ALTER TABLE public.shopping_cart_item ADD CONSTRAINT fk_shopping_cart_item_service FOREIGN KEY (service_id) REFERENCES public.service(id);
-ALTER TABLE public.shopping_cart_item ADD CONSTRAINT fk_shopping_cart_item_slot FOREIGN KEY (slot_id) REFERENCES public.tour_schedule_config_slot(id);
+-- Foreign key constraint for slot_id removed - not needed for business logic
+-- Prices are stored in shopping_cart_item_detail and rescheduling uses new schedule prices
+-- slot_id remains as a simple integer column for display purposes only
 ALTER TABLE public.shopping_cart_item ADD CONSTRAINT fk_shopping_cart_item_tour_schedule FOREIGN KEY (tour_schedule_id) REFERENCES public.tour_schedule(id);
 ALTER TABLE public.shopping_cart_item ADD CONSTRAINT shopping_cart_item_service_type_id_fkey FOREIGN KEY (service_type_id) REFERENCES public.service_type(id);
 ALTER TABLE public.shopping_cart_item ADD CONSTRAINT shopping_cart_item_tour_schedule_id_fkey FOREIGN KEY (tour_schedule_id) REFERENCES public.tour_schedule(id);
