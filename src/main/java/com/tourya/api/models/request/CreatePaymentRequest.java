@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -36,6 +37,27 @@ public class CreatePaymentRequest {
     @Valid
     @NotNull(message = "Los datos del pagador son obligatorios")
     private PayerRequest payer;
+    
+    /**
+     * Tipo de pago: CREDIT, PLATFORM, CREDIT_AND_PLATFORM
+     */
+    private String paymentType; // CREDIT, PLATFORM, CREDIT_AND_PLATFORM
+    
+    /**
+     * Monto a pagar con crédito (opcional, requerido si paymentType incluye CREDIT)
+     */
+    private BigDecimal amountCredit;
+    
+    /**
+     * Monto a pagar con plataforma (opcional, requerido si paymentType incluye PLATFORM)
+     */
+    private BigDecimal amountPlatform;
+    
+    /**
+     * Datos del crédito a consumir (requerido si paymentType incluye CREDIT)
+     */
+    @Valid
+    private CreditDataRequest creditData;
 
     @Getter
     @Setter
@@ -101,5 +123,22 @@ public class CreatePaymentRequest {
 
         @Size(max = 50, message = "El número de documento del pagador no puede exceder 50 caracteres")
         private String documentNumber;
+    }
+    
+    @Getter
+    @Setter
+    @SuperBuilder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class CreditDataRequest {
+        
+        /**
+         * Lista de IDs de créditos a consumir (ordenados de mayor a menor valor)
+         * Se consumirán en orden: primero el de mayor valor en su totalidad,
+         * luego el siguiente si sobra dinero
+         */
+        @NotEmpty(message = "Debe incluir al menos un crédito")
+        @Valid
+        private List<@Positive(message = "El ID del crédito debe ser positivo") Long> creditIds;
     }
 }
