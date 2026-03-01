@@ -19,4 +19,8 @@ public interface ReservationNativeRepository {
             Long reservationId,
             String deliveryStatus
     );
+
+    void deleteShoppingCartItemDirectly(Long itemId);
+    
+    void updateReservationItemIdToNull(Long reservationId);
 }

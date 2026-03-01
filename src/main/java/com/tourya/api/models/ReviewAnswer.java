@@ -4,6 +4,7 @@ import com.tourya.api.common.BaseEntity;
 import com.tourya.api.config.TranslatedFieldConverter;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -52,12 +53,15 @@ public class ReviewAnswer extends BaseEntity {
     private LocalDate date;
 
     @Column(name = "likes", nullable = false)
+    @Builder.Default
     private Integer likes = 0;
 
     @Column(name = "dislikes", nullable = false)
+    @Builder.Default
     private Integer dislikes = 0;
 
     @Column(name = "hearts", nullable = false)
+    @Builder.Default
     private Integer hearts = 0;
 
     // Relación con Review
@@ -66,6 +70,7 @@ public class ReviewAnswer extends BaseEntity {
     private Review review;
 
     @OneToMany(mappedBy = "answer", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private List<ReviewAnswerAttachment> attachments = new ArrayList<>();
 }
 

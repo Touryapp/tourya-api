@@ -17,12 +17,17 @@ import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.models.*;
 import com.tourya.api.models.mapper.ReservationMapper;
+import com.tourya.api._utils.Utils;
 import com.tourya.api.models.request.CancelReservationRequest;
 import com.tourya.api.models.request.RescheduleReservationRequest;
 import com.tourya.api.models.responses.ReservationDetailsResponse;
 import com.tourya.api.models.responses.ReservationResponse;
 import com.tourya.api.models.responses.CreditResponse;
 import com.tourya.api.models.responses.RescheduleValidationResponse;
+import com.tourya.api.models.responses.RescheduleResponse;
+import com.tourya.api.models.responses.ShoppingCartResponse;
+import com.tourya.api.models.request.AddItemToCartRequest;
+import com.tourya.api.models.request.SlotRequest;
 import com.tourya.api.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -72,6 +77,8 @@ public class ReservationService {
     private final TourScheduleConfigRepository tourScheduleConfigRepository;
     private final AppConfigService appConfigService;
     private final AgeRangeConfigService ageRangeConfigService;
+    private final ShoppingCartService shoppingCartService;
+    private final ShoppingCartRepository shoppingCartRepository;
     /**
      * Método createReservation removido - las reservas se crean automáticamente con los pagos
      */
@@ -646,6 +653,19 @@ public class ReservationService {
                         size
                 );
 
+        // Agregar canReschedule a cada reserva
+        for (ReservationDetailsResponse reservation : content) {
+            try {
+                RescheduleValidationResponse validation = validateRescheduleReservation(
+                        reservation.getReservationId(), connectedUser);
+                reservation.setCanReschedule(validation.getCanReschedule());
+            } catch (Exception e) {
+                log.warn("Error validating reschedule for reservation {}: {}", 
+                        reservation.getReservationId(), e.getMessage());
+                reservation.setCanReschedule(false);
+            }
+        }
+
         Long total =
                 reservationNativeRepository.countProviderReservations(
                         finalProviderId,
@@ -915,16 +935,18 @@ public class ReservationService {
     }
 
     /**
-     * Re-agenda una reserva.
-     * Valida políticas, compara precios y crea crédito si el precio nuevo es menor.
+     * Re-agenda una reserva con nueva fecha y configuración.
+     * Valida políticas, compara precios y maneja 3 casos:
+     * - Precio igual/menor: actualiza reserva + crea crédito si menor
+     * - Precio mayor: cancela reserva + crea crédito + limpia carrito + agrega nuevo item
      * 
      * @param reservationId ID de la reserva a re-agendar
-     * @param request Request con la nueva fecha
+     * @param request Request con nueva fecha, configuración de ageType y cantidad
      * @param authentication Autenticación del usuario
-     * @return ReservationResponse con la reserva actualizada
+     * @return RescheduleResponse con estado de transacción, validación de precio y datos
      */
     @Transactional
-    public ReservationResponse rescheduleReservation(Long reservationId, RescheduleReservationRequest request, Authentication authentication) {
+    public RescheduleResponse rescheduleReservation(Long reservationId, RescheduleReservationRequest request, Authentication authentication) {
         log.info("Rescheduling reservation {} to date: {}", reservationId, request.getNewDate());
         
         // Obtener usuario autenticado
@@ -934,17 +956,25 @@ public class ReservationService {
         Reservation reservation = reservationRepository.findById(reservationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Reservation not found with id: " + reservationId));
         
-        // Verificar que la reserva pertenece al usuario
-        ShoppingCartItem item = shoppingCartItemRepository.findById(reservation.getItemId())
-                .orElseThrow(() -> new ResourceNotFoundException("Shopping cart item not found"));
-        
-        if (!item.getShoppingCart().getUser().getId().equals(user.getId())) {
-            throw new OperationNotPermittedException("You don't have permission to reschedule this reservation");
-        }
-        
         // Validar que la reserva no esté cancelada
         if (reservation.getDeliveryStatus() == DeliveryStatusEnum.CANCELED) {
             throw new OperationNotPermittedException("Cannot reschedule a canceled reservation");
+        }
+        
+        // Verificar que la reserva tenga un item_id (necesario para re-agendar)
+        if (reservation.getItemId() == null) {
+            throw new OperationNotPermittedException(
+                    "Cannot reschedule reservation: the reservation's shopping cart item is no longer available. " +
+                    "This may happen if the reservation was already rescheduled or the cart was cleared.");
+        }
+        
+        // Verificar que la reserva pertenece al usuario
+        ShoppingCartItem item = shoppingCartItemRepository.findById(reservation.getItemId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Shopping cart item not found. The item may have been deleted from the cart."));
+        
+        if (!item.getShoppingCart().getUser().getId().equals(user.getId())) {
+            throw new OperationNotPermittedException("You don't have permission to reschedule this reservation");
         }
         
         // Obtener información del tour
@@ -981,7 +1011,17 @@ public class ReservationService {
         // Obtener precio actual del item
         BigDecimal currentPrice = item.getTotalPrice() != null ? item.getTotalPrice() : BigDecimal.ZERO;
         
-        // Buscar TourSchedule para la nueva fecha y validar que esté disponible
+        // Obtener productId, productType del item actual
+        Integer productId = item.getProductId();
+        String productType = item.getProductType();
+        
+        // Obtener slotId del item actual (para referencia)
+        TourScheduleConfigSlot currentSlot = item.getSlot();
+        if (currentSlot == null) {
+            throw new OperationNotPermittedException("Cannot reschedule: item missing slot information");
+        }
+        
+        // Buscar TourSchedule para la nueva fecha del mismo tour
         TourSchedule newSchedule = tourScheduleRepository.findByTourIdAndScheduleDate(
                 schedule.getTourId(), request.getNewDate())
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -994,141 +1034,143 @@ public class ReservationService {
                     "The tour schedule for date " + request.getNewDate() + " is not available for rescheduling.");
         }
         
-        // Calcular cantidad total de turistas del item actual
-        int totalQuantity = 0;
-        if (item.getDetails() != null) {
-            totalQuantity = item.getDetails().stream()
-                    .mapToInt(ShoppingCartItemDetail::getQuantity)
+        // Calcular cantidad total de la nueva configuración
+        int newTotalQuantity = 0;
+        if (request.getConfigQuantity() != null) {
+            newTotalQuantity = request.getConfigQuantity().stream()
+                    .mapToInt(com.tourya.api.models.request.ConfigQuantityRequest::getQuantity)
                     .sum();
         }
         
-        // Validar capacidad en el nuevo schedule antes de mover la reserva
+        // Validar capacidad en el nuevo schedule
+        log.info("Validating capacity for reschedule - scheduleId: {}, isUnlimitedCapacity: {}, maxCapacity: {}, reservedCapacity: {}, requestedQuantity: {}", 
+                newSchedule.getId(), newSchedule.getIsUnlimitedCapacity(), newSchedule.getMaxCapacity(), 
+                newSchedule.getReservedCapacity(), newTotalQuantity);
+        
         if (!Boolean.TRUE.equals(newSchedule.getIsUnlimitedCapacity())) {
             Integer max = newSchedule.getMaxCapacity();
             Integer reserved = newSchedule.getReservedCapacity() != null ? newSchedule.getReservedCapacity() : 0;
-            if (max != null) {
+            if (max != null && max > 0) {
                 int available = max - reserved;
-                if (totalQuantity > available) {
+                if (newTotalQuantity > available) {
                     throw new OperationNotPermittedException(
                             "No hay capacidad suficiente en el nuevo horario. Disponible: " + available + 
-                            ", solicitado: " + totalQuantity);
+                            ", solicitado: " + newTotalQuantity);
                 }
+            } else if (max == null || max == 0) {
+                throw new OperationNotPermittedException(
+                        "El horario seleccionado no tiene capacidad configurada (max_capacity = " + max + 
+                        "). Por favor, configura la capacidad del horario o habilita capacidad ilimitada.");
+            }
+        } else {
+            log.info("Skipping capacity validation - schedule {} has unlimited capacity", newSchedule.getId());
+        }
+        
+        // IMPORTANTE: En un re-agendamiento, el usuario SOLO puede cambiar:
+        // - La fecha (newDate)
+        // - La cantidad de personas (configQuantity)
+        // NO puede cambiar: tour, slot, horario desde el frontend.
+        // 
+        // NOTA: La configuración y los precios pueden ser diferentes para diferentes fechas
+        // (ej: temporada alta vs baja), pero el usuario NO cambia la configuración desde el frontend.
+        // El backend simplemente usa la configuración que ya existe para la nueva fecha.
+        // El mismo tour debería mantener el mismo HORARIO, aunque el slotId pueda ser diferente.
+        
+        // Obtener la configuración del nuevo schedule
+        if (newSchedule.getConfigId() == null) {
+            throw new IllegalStateException("Cannot reschedule: new schedule missing configId");
+        }
+        
+        TourScheduleConfig newConfig = tourScheduleConfigRepository.findByIdWithSlots(newSchedule.getConfigId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Tour schedule config not found for schedule " + newSchedule.getId()));
+        
+        if (newConfig.getSlots() == null || newConfig.getSlots().isEmpty()) {
+            throw new ResourceNotFoundException(
+                    "No slots found in config " + newConfig.getId() + " for new schedule");
+        }
+        
+        // Determinar el slot a usar:
+        // Estrategia: Buscar por horario (start_time, end_time) para mantener el mismo horario
+        // aunque el slotId sea diferente (diferentes configuraciones pueden tener diferentes IDs)
+        TourScheduleConfigSlot slotToUse = null;
+        
+        if (request.getSlotId() != null) {
+            // Si el frontend envía slotId, intentar usarlo primero
+            slotToUse = newConfig.getSlots().stream()
+                    .filter(s -> s.getId().equals(request.getSlotId().intValue()))
+                    .findFirst()
+                    .orElse(null);
+            
+            if (slotToUse != null) {
+                log.info("Using slot {} provided by frontend", request.getSlotId());
+            } else {
+                log.warn("Slot {} from frontend not found in new config. Searching by time range.", request.getSlotId());
             }
         }
         
-        // Calcular precio nuevo basado en el nuevo schedule y los details del item actual
-        BigDecimal newPrice = calculatePriceForNewDate(item, newSchedule);
+        // Si no se encontró por slotId, buscar por horario (comportamiento principal)
+        if (slotToUse == null) {
+            slotToUse = newConfig.getSlots().stream()
+                    .filter(s -> s.getStartTime().equals(currentSlot.getStartTime()) 
+                            && s.getEndTime().equals(currentSlot.getEndTime()))
+                    .findFirst()
+                    .orElse(null);
+            
+            if (slotToUse != null) {
+                log.info("Found slot {} with matching time range ({}-{}) for reschedule", 
+                        slotToUse.getId(), slotToUse.getStartTime(), slotToUse.getEndTime());
+            }
+        }
+        
+        // Si aún no se encuentra, intentar por ID (por si acaso es la misma config)
+        if (slotToUse == null) {
+            slotToUse = newConfig.getSlots().stream()
+                    .filter(s -> s.getId().equals(currentSlot.getId()))
+                    .findFirst()
+                    .orElse(null);
+            
+            if (slotToUse != null) {
+                log.info("Found slot {} by ID (same config)", slotToUse.getId());
+            }
+        }
+        
+        // Si no se encuentra nada, lanzar error con información útil
+        if (slotToUse == null) {
+            throw new ResourceNotFoundException(
+                    String.format("No slot found in new schedule config %d with time range %s-%s (original slotId: %d). " +
+                            "Available slots: %s", 
+                            newConfig.getId(), 
+                            currentSlot.getStartTime(), 
+                            currentSlot.getEndTime(),
+                            currentSlot.getId(),
+                            newConfig.getSlots().stream()
+                                    .map(s -> String.format("id=%d (%s-%s)", s.getId(), s.getStartTime(), s.getEndTime()))
+                                    .collect(java.util.stream.Collectors.joining(", "))));
+        }
+        
+        // Crear SlotRequest temporal con el slotId y la nueva configQuantity
+        SlotRequest slotRequest = SlotRequest.builder()
+                .id(slotToUse.getId().longValue())
+                .configQuantity(request.getConfigQuantity())
+                .build();
+        
+        // Calcular precio nuevo basado en la nueva configuración (mismo slot, nuevas cantidades)
+        BigDecimal newPrice = calculatePriceForNewConfiguration(newSchedule, slotRequest);
         
         // Comparar precios
         int priceComparison = newPrice.compareTo(currentPrice);
         
-        Credit credit = null;
-        
-        if (priceComparison > 0) {
-            // Precio nuevo es mayor - rechazar reagendamiento
-            throw new OperationNotPermittedException(
-                    String.format("The price for the new date (%.2f) is higher than the current price (%.2f). " +
-                            "Rescheduling is not allowed when the price increases.", 
-                            newPrice, currentPrice));
-        } else if (priceComparison < 0) {
-            // Precio nuevo es menor - crear crédito SOLO por la diferencia (lo pagado - nuevo precio)
-            BigDecimal priceDifference = currentPrice.subtract(newPrice);
-            credit = Credit.builder()
-                    .reservationId(reservation.getReservationId())
-                    .amount(priceDifference)
-                    .creationDate(LocalDate.now())
-                    .expirationDate(LocalDate.now().plusYears(1))
-                    .status(CreditStatusEnum.CREATED)
-                    .build();
-            credit = creditRepository.save(credit);
-            log.info("Credit created for price difference: reservationId={}, amount={} (currentPrice={} - newPrice={})", 
-                    reservationId, priceDifference, currentPrice, newPrice);
+        // CASO 1: Precio igual o menor - Actualizar reserva
+        if (priceComparison <= 0) {
+            return handleRescheduleEqualOrLower(reservation, item, schedule, newSchedule, 
+                    request, policy, currentPrice, newPrice, priceComparison, newTotalQuantity);
+        } 
+        // CASO 2: Precio mayor - Cancelar reserva, crear crédito, limpiar carrito, agregar nuevo item
+        else {
+            return handleRescheduleHigher(reservation, item, schedule, newSchedule, 
+                    request, policy, currentPrice, newPrice, newTotalQuantity, user, slotToUse);
         }
-        // Si priceComparison == 0 (precios iguales): NO se crea crédito, solo se actualiza la fecha
-        
-        // Recalcular fechas máximas de cancelación y re-agendamiento para la nueva fecha
-        // Reutilizar las políticas ya obtenidas anteriormente (ya están validadas arriba)
-        LocalDate newMaxCancellationDate = calculateMaxCancellationDate(
-                policy.getCancellationPolicyType(), 
-                request.getNewDate()
-        );
-        
-        // Calcular fecha máxima de re-agendamiento (2 días antes del tour)
-        LocalDate newMaxReschedulingDate = request.getNewDate().minusDays(2);
-        
-        log.info("Recalculating dates for reschedule - newDate: {}, maxCancellation: {}, maxRescheduling: {}", 
-                request.getNewDate(), newMaxCancellationDate, newMaxReschedulingDate);
-        
-        // Liberar capacidad del horario original
-        if (totalQuantity > 0 && Boolean.FALSE.equals(schedule.getIsUnlimitedCapacity())
-                && schedule.getReservedCapacity() != null) {
-            int newReservedOld = schedule.getReservedCapacity() - totalQuantity;
-            if (newReservedOld < 0) {
-                newReservedOld = 0;
-            }
-            schedule.setReservedCapacity(newReservedOld);
-            tourScheduleRepository.save(schedule);
-            log.info("Released {} capacity from old schedule {} for rescheduled reservation {}", 
-                    totalQuantity, schedule.getId(), reservationId);
-        }
-        
-        // Consumir capacidad en el nuevo horario
-        if (totalQuantity > 0 && !Boolean.TRUE.equals(newSchedule.getIsUnlimitedCapacity())) {
-            int reservedNew = newSchedule.getReservedCapacity() != null ? newSchedule.getReservedCapacity() : 0;
-            newSchedule.setReservedCapacity(reservedNew + totalQuantity);
-            tourScheduleRepository.save(newSchedule);
-            log.info("Reserved {} capacity in new schedule {} for rescheduled reservation {}", 
-                    totalQuantity, newSchedule.getId(), reservationId);
-        }
-        
-        // Actualizar el ShoppingCartItem para que apunte al nuevo schedule
-        item.setTourSchedule(newSchedule);
-        
-        // Actualizar la fecha en ShoppingCartItem
-        item.setScheduleDate(request.getNewDate());
-        // Actualizar el precio si cambió
-        if (priceComparison != 0) {
-            item.setTotalPrice(newPrice);
-            // Actualizar los detalles del item con los nuevos precios del nuevo schedule
-            updateItemDetailsForNewPrice(item, newSchedule);
-        }
-        shoppingCartItemRepository.save(item);
-        
-        // Actualizar reservationDate con la nueva fecha (item.getScheduleDate())
-        reservation.setReservationDate(request.getNewDate().atStartOfDay());
-        
-        // Actualizar las fechas máximas en la reserva ANTES de cambiar el estado
-        reservation.setMaxCancellationDate(newMaxCancellationDate);
-        reservation.setMaxReschedulingDate(newMaxReschedulingDate);
-        reservation.setDeliveryStatus(DeliveryStatusEnum.RESCHEDULED);
-        
-        // Guardar la reserva con todas las actualizaciones
-        reservation = reservationRepository.saveAndFlush(reservation);
-        
-        log.info("After saveAndFlush - Reservation {} dates: maxCancellation={}, maxRescheduling={}", 
-                reservationId, reservation.getMaxCancellationDate(), reservation.getMaxReschedulingDate());
-        
-        // Construir respuesta con la reserva re-agendada
-        ReservationResponse response = reservationMapper.toResponse(reservation);
-        
-        log.info("After mapper - Response dates: maxCancellation={}, maxRescheduling={}", 
-                response.getMaxCancellationDate(), response.getMaxReschedulingDate());
-        enrichReservationResponse(response, reservation);
-        
-        // Agregar información del crédito creado si existe
-        if (credit != null) {
-            CreditResponse creditResponse = CreditResponse.builder()
-                    .id(credit.getId())
-                    .reservationId(credit.getReservationId())
-                    .amount(credit.getAmount())
-                    .creationDate(credit.getCreationDate())
-                    .expirationDate(credit.getExpirationDate())
-                    .status(credit.getStatus())
-                    .build();
-            response.setCredit(creditResponse);
-        }
-        
-        return response;
     }
     
     /**
@@ -1352,5 +1394,394 @@ public class ReservationService {
             case MODERATE -> tourDate.minusDays(4); // hasta 4 días antes
             case STRICT -> tourDate.minusDays(7); // hasta 7 días antes
         };
+    }
+    
+    /**
+     * Maneja el reagendamiento cuando el precio nuevo es igual o menor al anterior.
+     * Actualiza la reserva, maneja capacidad y crea crédito si el precio es menor.
+     */
+    private RescheduleResponse handleRescheduleEqualOrLower(
+            Reservation reservation, ShoppingCartItem item, TourSchedule oldSchedule, 
+            TourSchedule newSchedule, RescheduleReservationRequest request,
+            TourCancellationPolicy policy, BigDecimal currentPrice, BigDecimal newPrice,
+            int priceComparison, int newTotalQuantity) {
+        
+        Credit credit = null;
+        
+        // Si el precio es menor, crear crédito por la diferencia
+        if (priceComparison < 0) {
+            BigDecimal priceDifference = currentPrice.subtract(newPrice);
+            credit = Credit.builder()
+                    .reservationId(reservation.getReservationId())
+                    .amount(priceDifference)
+                    .creationDate(LocalDate.now())
+                    .expirationDate(LocalDate.now().plusYears(1))
+                    .status(CreditStatusEnum.CREATED)
+                    .build();
+            credit = creditRepository.save(credit);
+            log.info("Credit created for price difference: reservationId={}, amount={} (currentPrice={} - newPrice={})", 
+                    reservation.getReservationId(), priceDifference, currentPrice, newPrice);
+        }
+        
+        // Calcular cantidad total del item actual para liberar capacidad
+        int oldTotalQuantity = 0;
+        if (item.getDetails() != null) {
+            oldTotalQuantity = item.getDetails().stream()
+                    .mapToInt(ShoppingCartItemDetail::getQuantity)
+                    .sum();
+        }
+        
+        // Liberar capacidad del horario original
+        if (oldTotalQuantity > 0 && Boolean.FALSE.equals(oldSchedule.getIsUnlimitedCapacity())
+                && oldSchedule.getReservedCapacity() != null) {
+            int newReservedOld = oldSchedule.getReservedCapacity() - oldTotalQuantity;
+            if (newReservedOld < 0) {
+                newReservedOld = 0;
+            }
+            oldSchedule.setReservedCapacity(newReservedOld);
+            tourScheduleRepository.save(oldSchedule);
+            log.info("Released {} capacity from old schedule {} for rescheduled reservation {}", 
+                    oldTotalQuantity, oldSchedule.getId(), reservation.getReservationId());
+        }
+        
+        // Consumir capacidad en el nuevo horario
+        if (newTotalQuantity > 0 && !Boolean.TRUE.equals(newSchedule.getIsUnlimitedCapacity())) {
+            int reservedNew = newSchedule.getReservedCapacity() != null ? newSchedule.getReservedCapacity() : 0;
+            newSchedule.setReservedCapacity(reservedNew + newTotalQuantity);
+            tourScheduleRepository.save(newSchedule);
+            log.info("Reserved {} capacity in new schedule {} for rescheduled reservation {}", 
+                    newTotalQuantity, newSchedule.getId(), reservation.getReservationId());
+        }
+        
+        // Actualizar el ShoppingCartItem con la nueva configuración
+        updateItemWithNewConfiguration(item, newSchedule, request, newPrice);
+        shoppingCartItemRepository.save(item);
+        
+        // Recalcular fechas máximas
+        LocalDate newMaxCancellationDate = calculateMaxCancellationDate(
+                policy.getCancellationPolicyType(), request.getNewDate());
+        LocalDate newMaxReschedulingDate = request.getNewDate().minusDays(2);
+        
+        // Actualizar reserva
+        reservation.setReservationDate(request.getNewDate().atStartOfDay());
+        reservation.setMaxCancellationDate(newMaxCancellationDate);
+        reservation.setMaxReschedulingDate(newMaxReschedulingDate);
+        reservation.setDeliveryStatus(DeliveryStatusEnum.RESCHEDULED);
+        reservation = reservationRepository.save(reservation);
+        
+        // Construir respuesta
+        ReservationResponse reservationResponse = reservationMapper.toResponse(reservation);
+        enrichReservationResponse(reservationResponse, reservation);
+        
+        CreditResponse creditResponse = null;
+        if (credit != null) {
+            creditResponse = CreditResponse.builder()
+                    .id(credit.getId())
+                    .reservationId(credit.getReservationId())
+                    .amount(credit.getAmount())
+                    .creationDate(credit.getCreationDate())
+                    .expirationDate(credit.getExpirationDate())
+                    .status(credit.getStatus())
+                    .build();
+        }
+        
+        return RescheduleResponse.builder()
+                .transactionStatus("SUCCESS")
+                .priceComparison(priceComparison < 0 ? "LOWER" : "EQUAL")
+                .message(priceComparison < 0 
+                        ? "Reserva reagendada exitosamente. Se creó un crédito por la diferencia de precio."
+                        : "Reserva reagendada exitosamente. El precio se mantiene igual.")
+                .reservation(reservationResponse)
+                .credit(creditResponse)
+                .build();
+    }
+    
+    /**
+     * Maneja el reagendamiento cuando el precio nuevo es mayor al anterior.
+     * Cancela la reserva anterior, crea crédito, limpia el carrito y agrega el nuevo item.
+     */
+    private RescheduleResponse handleRescheduleHigher(
+            Reservation reservation, ShoppingCartItem item, TourSchedule oldSchedule,
+            TourSchedule newSchedule, RescheduleReservationRequest request,
+            TourCancellationPolicy policy, BigDecimal currentPrice, BigDecimal newPrice,
+            int newTotalQuantity, User user, TourScheduleConfigSlot slotToUse) {
+        
+        // 1. Cancelar la reserva anterior (sin motivo específico, es por reagendamiento con precio mayor)
+        CancelReservationRequest cancelRequest = new CancelReservationRequest();
+        cancelRequest.setCancellationReason(CancellationReasonEnum.CANNOT_ATTEND);
+        cancelReservation(reservation.getReservationId(), cancelRequest, 
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(user, null, user.getAuthorities()));
+        
+        // 2. Crear crédito con el valor de la reserva anterior
+        Credit credit = Credit.builder()
+                .reservationId(reservation.getReservationId())
+                .amount(currentPrice)
+                .creationDate(LocalDate.now())
+                .expirationDate(LocalDate.now().plusYears(1))
+                .status(CreditStatusEnum.CREATED)
+                .build();
+        credit = creditRepository.save(credit);
+        log.info("Credit created for canceled reservation: reservationId={}, amount={}", 
+                reservation.getReservationId(), currentPrice);
+        
+        // 3. Actualizar la reserva cancelada para que item_id = NULL (libera la foreign key constraint)
+        // Esto permite limpiar el carrito normalmente sin violar la constraint
+        reservationNativeRepository.updateReservationItemIdToNull(reservation.getReservationId());
+        log.info("Updated reservation {} to set item_id = NULL", reservation.getReservationId());
+        
+        // 4. Limpiar TODO el carrito normalmente
+        ShoppingCart currentCart = item.getShoppingCart();
+        if (currentCart == null || currentCart.getId() == null) {
+            throw new IllegalStateException("Cannot reschedule: item missing shopping cart information");
+        }
+        
+        // Limpiar todo el carrito usando el método normal
+        shoppingCartService.clearShoppingCart(currentCart.getId());
+        log.info("Cleared entire cart {} for reschedule", currentCart.getId());
+        
+        // 5. Agregar el nuevo item al carrito con la nueva fecha
+        // Obtener productId, productType del item actual
+        Integer productId = item.getProductId();
+        String productType = item.getProductType();
+        Integer tourScheduleId = newSchedule.getId();
+        
+        // Usar el slot determinado para la nueva fecha (puede ser diferente al original)
+        Long slotId = slotToUse != null ? slotToUse.getId().longValue() : null;
+        if (slotId == null) {
+            throw new OperationNotPermittedException("Cannot reschedule: slot not found for new schedule");
+        }
+        
+        // Crear SlotRequest con el slotId de la nueva fecha y la nueva configQuantity
+        SlotRequest slotRequest = SlotRequest.builder()
+                .id(slotId)
+                .configQuantity(request.getConfigQuantity())
+                .build();
+        
+        AddItemToCartRequest addItemRequest = AddItemToCartRequest.builder()
+                .productId(productId)
+                .productType(productType)
+                .scheduleDate(request.getNewDate())
+                .tourScheduleId(tourScheduleId)
+                .slot(slotRequest)
+                .build();
+        
+        ShoppingCartResponse shoppingCartResponse = shoppingCartService.addItemToCart(
+                addItemRequest, 
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(user, null, user.getAuthorities()));
+        
+        log.info("Added new item to cart for rescheduled reservation. Cart ID: {}", 
+                shoppingCartResponse.getId());
+        
+        CreditResponse creditResponse = CreditResponse.builder()
+                .id(credit.getId())
+                .reservationId(credit.getReservationId())
+                .amount(credit.getAmount())
+                .creationDate(credit.getCreationDate())
+                .expirationDate(credit.getExpirationDate())
+                .status(credit.getStatus())
+                .build();
+        
+        return RescheduleResponse.builder()
+                .transactionStatus("CANCELLED_AND_ADDED_TO_CART")
+                .priceComparison("HIGHER")
+                .message("El precio de la nueva fecha es mayor. La reserva anterior fue cancelada, " +
+                        "se creó un crédito con el valor pagado y el nuevo tour fue agregado al carrito.")
+                .shoppingCart(shoppingCartResponse)
+                .credit(creditResponse)
+                .build();
+    }
+    
+    /**
+     * Actualiza el item del carrito con la nueva configuración (mismo slot, nuevas cantidades, precios).
+     */
+    private void updateItemWithNewConfiguration(ShoppingCartItem item, TourSchedule newSchedule,
+            RescheduleReservationRequest request, BigDecimal newPrice) {
+        
+        // Actualizar schedule y fecha
+        item.setTourSchedule(newSchedule);
+        item.setScheduleDate(request.getNewDate());
+        item.setTotalPrice(newPrice);
+        
+        // Obtener el slot del nuevo schedule
+        if (newSchedule.getConfigId() == null) {
+            throw new IllegalStateException("Cannot update item: new schedule missing configId");
+        }
+        
+        TourScheduleConfig newConfig = tourScheduleConfigRepository.findByIdWithSlots(newSchedule.getConfigId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Tour schedule config not found for schedule " + newSchedule.getId()));
+        
+        if (newConfig.getSlots() == null || newConfig.getSlots().isEmpty()) {
+            throw new ResourceNotFoundException(
+                    "No slots found in config " + newConfig.getId() + " for new schedule");
+        }
+        
+        // El slot ya fue determinado en rescheduleReservation (del request o automáticamente)
+        // Aquí lo obtenemos de la nueva config usando el slotId del request o el actual
+        TourScheduleConfigSlot slot;
+        
+        if (request.getSlotId() != null) {
+            // El frontend envió un slotId específico - usarlo
+            slot = newConfig.getSlots().stream()
+                    .filter(s -> s.getId().equals(request.getSlotId().intValue()))
+                    .findFirst()
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Slot " + request.getSlotId() + " not found in new schedule config " + newConfig.getId()));
+        } else {
+            // Buscar automáticamente por horario (fallback)
+            TourScheduleConfigSlot currentSlot = item.getSlot();
+            if (currentSlot == null) {
+                throw new IllegalStateException("Cannot update item: item missing slot information");
+            }
+            
+            slot = newConfig.getSlots().stream()
+                    .filter(s -> s.getId().equals(currentSlot.getId()))
+                    .findFirst()
+                    .orElse(null);
+            
+            if (slot == null) {
+                slot = newConfig.getSlots().stream()
+                        .filter(s -> s.getStartTime().equals(currentSlot.getStartTime()) 
+                                && s.getEndTime().equals(currentSlot.getEndTime()))
+                        .findFirst()
+                        .orElse(null);
+            }
+            
+            if (slot == null) {
+                log.warn("Slot with ID {} or time range ({}-{}) not found in new config {}. Using first available slot.",
+                        currentSlot.getId(), currentSlot.getStartTime(), currentSlot.getEndTime(), newConfig.getId());
+                slot = newConfig.getSlots().iterator().next();
+            }
+        }
+        
+        // Actualizar el slot del item al slot del nuevo schedule
+        item.setSlot(slot);
+        
+        // Limpiar detalles existentes y crear nuevos con la nueva configuración
+        item.getDetails().clear();
+        
+        Tour tour = tourRepository.findById(newSchedule.getTourId())
+                .orElseThrow(() -> new ResourceNotFoundException("Tour not found"));
+        
+        // Crear nuevos details basados en la nueva configuración
+        // Guardar el ID del slot en una variable final para usar en la lambda
+        final Integer slotId = slot.getId();
+        for (com.tourya.api.models.request.ConfigQuantityRequest configQuantity : request.getConfigQuantity()) {
+            AgePriceType ageType = AgePriceType.valueOf(configQuantity.getAgeType());
+            Integer quantity = configQuantity.getQuantity();
+            
+            TourScheduleConfigPrice priceConfig = slot.getPrices().stream()
+                    .filter(price -> price.getAgeType().equals(ageType))
+                    .findFirst()
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Price not found for ageType " + ageType + " in slot " + slotId));
+            
+            BigDecimal unitPrice = priceConfig.getPrice();
+            BigDecimal providerUnitPrice = priceConfig.getProviderPrice() != null 
+                    ? priceConfig.getProviderPrice() 
+                    : BigDecimal.ZERO;
+            
+            BigDecimal detailTotalPrice;
+            if (tour.getPriceType() != null && tour.getPriceType().getValue().equals("grupo")) {
+                detailTotalPrice = unitPrice;
+            } else {
+                detailTotalPrice = unitPrice.multiply(BigDecimal.valueOf(quantity));
+            }
+            
+            ShoppingCartItemDetail detail = ShoppingCartItemDetail.builder()
+                    .shoppingCartItem(item)
+                    .ageType(ageType)
+                    .quantity(quantity)
+                    .unitPrice(unitPrice)
+                    .providerUnitPrice(providerUnitPrice)
+                    .totalPrice(detailTotalPrice)
+                    .build();
+            
+            item.getDetails().add(detail);
+        }
+    }
+    
+    /**
+     * Calcula el precio para una nueva configuración (slot y configQuantity) en un schedule.
+     * 
+     * @param newSchedule Nuevo schedule
+     * @param slotRequest Slot con configQuantity (nueva configuración de ageType y cantidad)
+     * @return Precio total calculado
+     */
+    private BigDecimal calculatePriceForNewConfiguration(TourSchedule newSchedule, SlotRequest slotRequest) {
+        if (newSchedule.getConfigId() == null) {
+            throw new IllegalStateException("Cannot calculate price: new schedule missing configId");
+        }
+        
+        if (slotRequest == null || slotRequest.getConfigQuantity() == null || slotRequest.getConfigQuantity().isEmpty()) {
+            throw new IllegalStateException("Cannot calculate price: slot configuration is required");
+        }
+        
+        // Obtener la configuración del nuevo schedule con sus slots y precios
+        TourScheduleConfig newConfig = tourScheduleConfigRepository.findByIdWithSlots(newSchedule.getConfigId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Tour schedule config not found for schedule " + newSchedule.getId()));
+        
+        if (newConfig.getSlots() == null || newConfig.getSlots().isEmpty()) {
+            throw new ResourceNotFoundException(
+                    "No slots found in config " + newConfig.getId() + " for new schedule");
+        }
+        
+        // Buscar el slot específico por ID o por horario
+        // Primero intentar por ID
+        TourScheduleConfigSlot slot = newConfig.getSlots().stream()
+                .filter(s -> s.getId().equals(slotRequest.getId().intValue()))
+                .findFirst()
+                .orElse(null);
+        
+        // Si no se encuentra por ID, buscar por horario (necesitamos obtener el slot original)
+        // Nota: En este punto no tenemos acceso al slot original, así que usamos el primer slot disponible
+        // si el ID no coincide. Esto es una limitación del diseño actual.
+        if (slot == null) {
+            log.warn("Slot with ID {} not found in config {}. Using first available slot for price calculation.",
+                    slotRequest.getId(), newConfig.getId());
+            if (newConfig.getSlots().isEmpty()) {
+                throw new ResourceNotFoundException(
+                        "No slots found in config " + newConfig.getId());
+            }
+            slot = newConfig.getSlots().iterator().next();
+        }
+        
+        // Obtener el Tour para acceder a priceType
+        Tour tour = tourRepository.findById(newSchedule.getTourId())
+                .orElseThrow(() -> new ResourceNotFoundException("Tour not found"));
+        
+        // Calcular precio total usando la nueva configuración (configQuantity)
+        // Guardar el ID del slot en una variable final para usar en la lambda
+        final Integer slotId = slot.getId();
+        BigDecimal totalPrice = BigDecimal.ZERO;
+        
+        for (com.tourya.api.models.request.ConfigQuantityRequest configQuantity : slotRequest.getConfigQuantity()) {
+            AgePriceType ageType = AgePriceType.valueOf(configQuantity.getAgeType());
+            Integer quantity = configQuantity.getQuantity();
+            
+            // Buscar precio en el slot para el ageType
+            TourScheduleConfigPrice priceConfig = slot.getPrices().stream()
+                    .filter(price -> price.getAgeType().equals(ageType))
+                    .findFirst()
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Price not found for ageType " + ageType + " in slot " + slotId));
+            
+            BigDecimal unitPrice = priceConfig.getPrice();
+            
+            // Calcular precio según priceType del tour
+            BigDecimal detailTotalPrice;
+            if (tour.getPriceType() != null && tour.getPriceType().getValue().equals("grupo")) {
+                // Para tours GRUPO: el precio es fijo independientemente de la cantidad
+                detailTotalPrice = unitPrice;
+            } else {
+                // Para tours INDIVIDUAL: precio por persona
+                detailTotalPrice = unitPrice.multiply(BigDecimal.valueOf(quantity));
+            }
+            
+            totalPrice = totalPrice.add(detailTotalPrice);
+        }
+        
+        return totalPrice;
     }
 }

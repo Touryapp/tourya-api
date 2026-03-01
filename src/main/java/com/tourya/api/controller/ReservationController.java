@@ -7,6 +7,7 @@ import com.tourya.api.models.request.RescheduleReservationRequest;
 import com.tourya.api.models.responses.ReservationResponse;
 import com.tourya.api.models.responses.ReservationDetailsResponse;
 import com.tourya.api.models.responses.RescheduleValidationResponse;
+import com.tourya.api.models.responses.RescheduleResponse;
 import com.tourya.api.services.ReservationService;
 import com.tourya.api.services.ReservationQrService;
 import jakarta.validation.Valid;
@@ -299,27 +300,27 @@ public class ReservationController {
     }
 
     /**
-     * Re-agenda una reserva.
+     * Re-agenda una reserva con nueva fecha y configuración.
      * 
      * @param reservationId ID de la reserva a re-agendar
-     * @param request Request con la nueva fecha
+     * @param request Request con nueva fecha, configuración de ageType y cantidad
      * @param authentication Autenticación del usuario
-     * @return ReservationResponse con la reserva re-agendada
+     * @return RescheduleResponse con estado de transacción, validación de precio y datos
      */
     @PutMapping("/{reservationId}/reschedule")
-    @Operation(summary = "Re-agendar reserva", description = "Re-agenda una reserva a una nueva fecha")
+    @Operation(summary = "Re-agendar reserva", description = "Re-agenda una reserva con nueva fecha y configuración. Maneja 3 casos: precio igual/menor (actualiza) o mayor (cancela y agrega al carrito)")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Reserva re-agendada exitosamente"),
             @ApiResponse(responseCode = "404", description = "Reserva no encontrada"),
             @ApiResponse(responseCode = "400", description = "No se puede re-agendar la reserva (validaciones fallidas)")
     })
-    public ResponseEntity<ReservationResponse> rescheduleReservation(
+    public ResponseEntity<RescheduleResponse> rescheduleReservation(
             @Parameter(description = "ID de la reserva a re-agendar") @PathVariable Long reservationId,
             @Valid @RequestBody RescheduleReservationRequest request,
             Authentication authentication) {
-        log.info("Rescheduling reservation {} to date: {}", reservationId, request.getNewDate());
+        log.info("Rescheduling reservation {} to date: {} with new configuration", reservationId, request.getNewDate());
         
-        ReservationResponse response = reservationService.rescheduleReservation(reservationId, request, authentication);
+        RescheduleResponse response = reservationService.rescheduleReservation(reservationId, request, authentication);
         return ResponseEntity.ok(response);
     }
 

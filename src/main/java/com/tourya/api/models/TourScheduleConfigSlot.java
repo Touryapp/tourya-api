@@ -13,6 +13,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -55,5 +56,6 @@ public class TourScheduleConfigSlot extends BaseEntity {
     // orphanRemoval = true: Si un precio se elimina de esta lista, se borra de la
     // DB
     @OneToMany(mappedBy = "slot", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private Set<TourScheduleConfigPrice> prices = new HashSet<>(); // CAMBIO: De List a Set, inicialización
 }

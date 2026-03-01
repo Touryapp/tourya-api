@@ -5,6 +5,7 @@ import com.tourya.api.constans.enums.ReviewStatusEnum;
 import com.tourya.api.config.TranslatedFieldConverter;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -64,12 +65,15 @@ public class Review extends BaseEntity {
     private LocalDate reviewDate;
 
     @Column(name = "likes", nullable = false)
+    @Builder.Default
     private Integer likes = 0;
 
     @Column(name = "dislikes", nullable = false)
+    @Builder.Default
     private Integer dislikes = 0;
 
     @Column(name = "hearts", nullable = false)
+    @Builder.Default
     private Integer hearts = 0;
 
     @Column(name = "rejection_reason", columnDefinition = "TEXT")
@@ -93,6 +97,7 @@ public class Review extends BaseEntity {
     private User user;
 
     @OneToMany(mappedBy = "review", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private List<ReviewAttachment> attachments = new ArrayList<>();
 
     @OneToOne(mappedBy = "review", cascade = CascadeType.ALL, orphanRemoval = true)
