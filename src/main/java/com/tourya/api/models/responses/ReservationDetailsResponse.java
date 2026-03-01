@@ -60,4 +60,7 @@ public class ReservationDetailsResponse {
     private java.time.LocalDate maxReschedulingDate;
     private String cancellationReason;
     private java.time.LocalDateTime cancellationDate;
+    
+    // --- Validación de reagendamiento ---
+    private Boolean canReschedule;
 }

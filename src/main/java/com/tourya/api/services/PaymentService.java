@@ -12,6 +12,7 @@ import com.tourya.api.constans.enums.IncludeExcludeTypeEnum;
 import com.tourya.api.constans.enums.CancellationPolicyTypeEnum;
 import com.tourya.api.constans.enums.DeliveryStatusEnum;
 import com.tourya.api.constans.enums.ShoppingCartStatusEnum;
+import com.tourya.api.constans.enums.CreditStatusEnum;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -48,6 +49,7 @@ public class PaymentService {
     private final TourAddressRepository tourAddressRepository;
     private final ObjectMapper objectMapper;
     private final AgeRangeConfigService ageRangeConfigService;
+    private final CreditRepository creditRepository;
 
     /**
      * Crea un pago y automáticamente genera la reserva con sus items.
@@ -68,6 +70,66 @@ public class PaymentService {
         List<ShoppingCartItem> items = shoppingCartItemRepository.findAllById(itemIds);
         if (items.size() != itemIds.size()) {
             throw new IllegalArgumentException("Some shopping cart items were not found");
+        }
+
+        // Calcular precio total del carrito
+        java.math.BigDecimal totalPrice = items.stream()
+                .map(item -> item.getTotalPrice() != null ? item.getTotalPrice() : java.math.BigDecimal.ZERO)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+
+        // Validar y manejar consumo de crédito si aplica
+        if (request.getPaymentType() != null && 
+                (request.getPaymentType().equals("CREDIT") || request.getPaymentType().equals("CREDIT_AND_PLATFORM"))) {
+            
+            // Validar que creditData esté presente
+            if (request.getCreditData() == null || request.getCreditData().getCreditIds() == null 
+                    || request.getCreditData().getCreditIds().isEmpty()) {
+                throw new IllegalArgumentException("Credit data with creditIds is required when payment type includes CREDIT");
+            }
+            
+            // Validar que amountCredit esté presente si se usa crédito
+            if (request.getAmountCredit() == null) {
+                throw new IllegalArgumentException("amountCredit is required when payment type includes CREDIT");
+            }
+            
+            // Validar que la suma de amountCredit + amountPlatform = totalPrice
+            java.math.BigDecimal amountCredit = request.getAmountCredit();
+            java.math.BigDecimal amountPlatform = request.getAmountPlatform() != null 
+                    ? request.getAmountPlatform() 
+                    : java.math.BigDecimal.ZERO;
+            
+            java.math.BigDecimal sum = amountCredit.add(amountPlatform);
+            if (sum.compareTo(totalPrice) != 0) {
+                throw new IllegalArgumentException(
+                        String.format("La suma de amountCredit (%.2f) + amountPlatform (%.2f) = %.2f " +
+                                "debe ser igual al totalPrice (%.2f)", 
+                                amountCredit, amountPlatform, sum, totalPrice));
+            }
+            
+            // Validar amountPlatform según el tipo de pago
+            if (request.getPaymentType().equals("CREDIT")) {
+                if (amountPlatform.compareTo(java.math.BigDecimal.ZERO) != 0) {
+                    throw new IllegalArgumentException("amountPlatform must be 0 or null when paymentType is CREDIT");
+                }
+            } else if (request.getPaymentType().equals("CREDIT_AND_PLATFORM")) {
+                if (amountPlatform == null || amountPlatform.compareTo(java.math.BigDecimal.ZERO) <= 0) {
+                    throw new IllegalArgumentException("amountPlatform is required and must be greater than 0 when paymentType is CREDIT_AND_PLATFORM");
+                }
+            }
+            
+            // Consumir créditos (si falla, el @Transactional hará rollback de todo)
+            consumeCredits(request.getCreditData().getCreditIds(), amountCredit);
+        } else if (request.getPaymentType() != null && request.getPaymentType().equals("PLATFORM")) {
+            // Validar que amountPlatform = totalPrice para pago solo con plataforma
+            java.math.BigDecimal amountPlatform = request.getAmountPlatform() != null 
+                    ? request.getAmountPlatform() 
+                    : java.math.BigDecimal.ZERO;
+            
+            if (amountPlatform.compareTo(totalPrice) != 0) {
+                throw new IllegalArgumentException(
+                        String.format("amountPlatform (%.2f) must be equal to totalPrice (%.2f) when paymentType is PLATFORM",
+                                amountPlatform, totalPrice));
+            }
         }
 
         // Crear el pago
@@ -513,5 +575,93 @@ public class PaymentService {
             case MODERATE -> tourDate.minusDays(4); // hasta 4 días antes
             case STRICT -> tourDate.minusDays(7); // hasta 7 días antes
         };
+    }
+    
+    /**
+     * Consume múltiples créditos para un pago.
+     * Consume primero el crédito de mayor valor en su totalidad.
+     * Si sobra dinero, consume el siguiente crédito y actualiza su monto.
+     * Si falla cualquier validación o consumo, lanza excepción para hacer rollback.
+     * 
+     * @param creditIds Lista de IDs de créditos a consumir (deben estar ordenados de mayor a menor valor)
+     * @param totalAmountToConsume Monto total a consumir de los créditos
+     */
+    private void consumeCredits(List<Long> creditIds, java.math.BigDecimal totalAmountToConsume) {
+        if (creditIds == null || creditIds.isEmpty()) {
+            throw new IllegalArgumentException("Credit IDs list cannot be empty");
+        }
+        
+        if (totalAmountToConsume == null || totalAmountToConsume.compareTo(java.math.BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Total amount to consume must be greater than 0");
+        }
+        
+        // Obtener todos los créditos y validarlos
+        List<Credit> credits = creditRepository.findAllById(creditIds);
+        
+        if (credits.size() != creditIds.size()) {
+            throw new IllegalArgumentException("Some credits were not found");
+        }
+        
+        // Validar que todos los créditos estén disponibles
+        LocalDate today = LocalDate.now();
+        for (Credit credit : credits) {
+            if (credit.getStatus() != CreditStatusEnum.CREATED) {
+                throw new IllegalArgumentException(
+                        "Credit " + credit.getId() + " is not available for consumption. Status: " + credit.getStatus());
+            }
+            if (credit.getExpirationDate().isBefore(today)) {
+                throw new IllegalArgumentException("Credit " + credit.getId() + " has expired");
+            }
+        }
+        
+        // Ordenar créditos por monto descendente (mayor a menor)
+        credits.sort((c1, c2) -> c2.getAmount().compareTo(c1.getAmount()));
+        
+        // Calcular monto total disponible en los créditos
+        java.math.BigDecimal totalAvailable = credits.stream()
+                .map(Credit::getAmount)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        
+        if (totalAvailable.compareTo(totalAmountToConsume) < 0) {
+            throw new IllegalArgumentException(
+                    String.format("Insufficient credit amount. Available: %.2f, Required: %.2f",
+                            totalAvailable, totalAmountToConsume));
+        }
+        
+        // Consumir créditos en orden (mayor a menor)
+        java.math.BigDecimal remainingToConsume = totalAmountToConsume;
+        
+        for (Credit credit : credits) {
+            if (remainingToConsume.compareTo(java.math.BigDecimal.ZERO) <= 0) {
+                break; // Ya se consumió todo lo necesario
+            }
+            
+            java.math.BigDecimal creditAmount = credit.getAmount();
+            
+            if (remainingToConsume.compareTo(creditAmount) >= 0) {
+                // Consumir crédito completo
+                credit.setStatus(CreditStatusEnum.CANCELED);
+                credit.setAmount(java.math.BigDecimal.ZERO);
+                remainingToConsume = remainingToConsume.subtract(creditAmount);
+                log.info("Credit {} fully consumed. Amount: {}, Remaining to consume: {}", 
+                        credit.getId(), creditAmount, remainingToConsume);
+            } else {
+                // Consumir parcialmente y actualizar el crédito
+                java.math.BigDecimal remainingAmount = creditAmount.subtract(remainingToConsume);
+                credit.setAmount(remainingAmount);
+                log.info("Credit {} partially consumed. Amount before: {}, Consumed: {}, Amount after: {}", 
+                        credit.getId(), creditAmount, remainingToConsume, remainingAmount);
+                remainingToConsume = java.math.BigDecimal.ZERO;
+            }
+            
+            creditRepository.save(credit);
+        }
+        
+        if (remainingToConsume.compareTo(java.math.BigDecimal.ZERO) > 0) {
+            throw new IllegalStateException(
+                    "Error: There is still remaining amount to consume after processing all credits: " + remainingToConsume);
+        }
+        
+        log.info("Successfully consumed {} credits for total amount: {}", creditIds.size(), totalAmountToConsume);
     }
 }
