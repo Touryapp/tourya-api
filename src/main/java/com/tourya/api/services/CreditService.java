@@ -6,8 +6,6 @@ import com.tourya.api.models.Role;
 import com.tourya.api.models.User;
 import com.tourya.api.models.responses.CreditResponse;
 import com.tourya.api.repository.CreditRepository;
-import com.tourya.api.repository.ReservationRepository;
-import com.tourya.api.repository.ShoppingCartItemRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
@@ -30,8 +28,6 @@ import java.util.stream.Collectors;
 public class CreditService {
 
     private final CreditRepository creditRepository;
-    private final ReservationRepository reservationRepository;
-    private final ShoppingCartItemRepository shoppingCartItemRepository;
 
     /**
      * Obtiene todos los créditos según el rol del usuario.
@@ -54,31 +50,9 @@ public class CreditService {
             log.info("Back office user {} retrieving all credits", user.getId());
         } else {
             // Usuario normal: solo créditos de sus reservas
-            // Obtener IDs de reservas del usuario
-            List<Long> userReservationIds = reservationRepository.findAll().stream()
-                    .filter(reservation -> {
-                        try {
-                            var item = shoppingCartItemRepository.findById(reservation.getItemId()).orElse(null);
-                            if (item != null && item.getShoppingCart() != null 
-                                    && item.getShoppingCart().getUser() != null) {
-                                return item.getShoppingCart().getUser().getId().equals(user.getId());
-                            }
-                            return false;
-                        } catch (Exception e) {
-                            log.warn("Error checking reservation ownership: {}", e.getMessage());
-                            return false;
-                        }
-                    })
-                    .map(reservation -> reservation.getReservationId())
-                    .collect(Collectors.toList());
-
-            // Obtener créditos de esas reservas
-            credits = creditRepository.findAll().stream()
-                    .filter(credit -> userReservationIds.contains(credit.getReservationId()))
-                    .collect(Collectors.toList());
-
-            log.info("User {} retrieving {} credits from {} reservations", 
-                    user.getId(), credits.size(), userReservationIds.size());
+            // Usa consulta optimizada que hace JOIN directamente
+            credits = creditRepository.findByUserId(user.getId());
+            log.info("User {} retrieving {} credits", user.getId(), credits.size());
         }
 
         return credits.stream()

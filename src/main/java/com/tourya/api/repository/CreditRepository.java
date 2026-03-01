@@ -45,5 +45,20 @@ public interface CreditRepository extends JpaRepository<Credit, Long> {
      */
     @Query("SELECT c FROM Credit c WHERE c.status = 'CREATED' AND c.expirationDate >= :date")
     List<Credit> findActiveCreditsNotExpired(@Param("date") LocalDate date);
+
+    /**
+     * Busca créditos de un usuario específico.
+     * Filtra por el userId del ShoppingCart asociado al ShoppingCartItem de la reserva.
+     * Solo incluye reservas que tienen item_id no null.
+     */
+    @Query("""
+        SELECT c FROM Credit c
+        JOIN Reservation r ON c.reservationId = r.reservationId
+        JOIN r.shoppingCartItem item
+        JOIN item.shoppingCart cart
+        WHERE r.itemId IS NOT NULL
+        AND cart.user.id = :userId
+        """)
+    List<Credit> findByUserId(@Param("userId") Integer userId);
 }
 
