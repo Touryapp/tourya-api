@@ -4,13 +4,18 @@
 
 ```bash
 # PUT /api/v1/reservations/{reservationId}/reschedule
-# Solo permite cambiar fecha y cantidades (no productId, productType, tourScheduleId, slotId)
+# Solo permite cambiar fecha y cantidades.
+# El front puede enviar slotId (opcional) y/o startTime/endTime (opcional) para ayudar al backend a
+# resolver el slot equivalente en la nueva fecha cuando cambian los IDs.
 
 curl --location 'http://localhost:8088/api/v1/reservations/123/reschedule' \
 --header 'Content-Type: application/json' \
 --header 'Authorization: Bearer YOUR_TOKEN_HERE' \
 --data '{
   "newDate": "2026-02-20",
+  "slotId": 449,
+  "startTime": "09:00:00",
+  "endTime": "16:00:00",
   "configQuantity": [
     {
       "ageType": "ADULT",
