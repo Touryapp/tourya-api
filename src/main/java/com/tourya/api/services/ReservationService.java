@@ -1091,63 +1091,12 @@ public class ReservationService {
         }
         
         // Determinar el slot a usar:
-        // Estrategia: Buscar por horario (start_time, end_time) para mantener el mismo horario
-        // aunque el slotId sea diferente (diferentes configuraciones pueden tener diferentes IDs)
-        TourScheduleConfigSlot slotToUse = null;
-        
-        if (request.getSlotId() != null) {
-            // Si el frontend envía slotId, intentar usarlo primero
-            slotToUse = newConfig.getSlots().stream()
-                    .filter(s -> s.getId().equals(request.getSlotId().intValue()))
-                    .findFirst()
-                    .orElse(null);
-            
-            if (slotToUse != null) {
-                log.info("Using slot {} provided by frontend", request.getSlotId());
-            } else {
-                log.warn("Slot {} from frontend not found in new config. Searching by time range.", request.getSlotId());
-            }
-        }
-        
-        // Si no se encontró por slotId, buscar por horario (comportamiento principal)
-        if (slotToUse == null) {
-            slotToUse = newConfig.getSlots().stream()
-                    .filter(s -> s.getStartTime().equals(currentSlot.getStartTime()) 
-                            && s.getEndTime().equals(currentSlot.getEndTime()))
-                    .findFirst()
-                    .orElse(null);
-            
-            if (slotToUse != null) {
-                log.info("Found slot {} with matching time range ({}-{}) for reschedule", 
-                        slotToUse.getId(), slotToUse.getStartTime(), slotToUse.getEndTime());
-            }
-        }
-        
-        // Si aún no se encuentra, intentar por ID (por si acaso es la misma config)
-        if (slotToUse == null) {
-            slotToUse = newConfig.getSlots().stream()
-                    .filter(s -> s.getId().equals(currentSlot.getId()))
-                    .findFirst()
-                    .orElse(null);
-            
-            if (slotToUse != null) {
-                log.info("Found slot {} by ID (same config)", slotToUse.getId());
-            }
-        }
-        
-        // Si no se encuentra nada, lanzar error con información útil
-        if (slotToUse == null) {
-            throw new ResourceNotFoundException(
-                    String.format("No slot found in new schedule config %d with time range %s-%s (original slotId: %d). " +
-                            "Available slots: %s", 
-                            newConfig.getId(), 
-                            currentSlot.getStartTime(), 
-                            currentSlot.getEndTime(),
-                            currentSlot.getId(),
-                            newConfig.getSlots().stream()
-                                    .map(s -> String.format("id=%d (%s-%s)", s.getId(), s.getStartTime(), s.getEndTime()))
-                                    .collect(java.util.stream.Collectors.joining(", "))));
-        }
+        // Prioridad:
+        // 1) slotId enviado por frontend (si existe en la nueva config)
+        // 2) startTime/endTime enviados por frontend (fallback)
+        // 3) startTime/endTime del slot actual (fallback)
+        // 4) ID del slot actual (si es la misma config)
+        TourScheduleConfigSlot slotToUse = resolveSlotForReschedule(newConfig, currentSlot, request);
         
         // Crear SlotRequest temporal con el slotId y la nueva configQuantity
         SlotRequest slotRequest = SlotRequest.builder()
@@ -1163,8 +1112,8 @@ public class ReservationService {
         
         // CASO 1: Precio igual o menor - Actualizar reserva
         if (priceComparison <= 0) {
-            return handleRescheduleEqualOrLower(reservation, item, schedule, newSchedule, 
-                    request, policy, currentPrice, newPrice, priceComparison, newTotalQuantity);
+            return handleRescheduleEqualOrLower(reservation, item, schedule, newSchedule,
+                    request, policy, currentPrice, newPrice, priceComparison, newTotalQuantity, slotToUse);
         } 
         // CASO 2: Precio mayor - Cancelar reserva, crear crédito, limpiar carrito, agregar nuevo item
         else {
@@ -1404,7 +1353,7 @@ public class ReservationService {
             Reservation reservation, ShoppingCartItem item, TourSchedule oldSchedule, 
             TourSchedule newSchedule, RescheduleReservationRequest request,
             TourCancellationPolicy policy, BigDecimal currentPrice, BigDecimal newPrice,
-            int priceComparison, int newTotalQuantity) {
+            int priceComparison, int newTotalQuantity, TourScheduleConfigSlot slotToUse) {
         
         Credit credit = null;
         
@@ -1453,8 +1402,8 @@ public class ReservationService {
                     newTotalQuantity, newSchedule.getId(), reservation.getReservationId());
         }
         
-        // Actualizar el ShoppingCartItem con la nueva configuración
-        updateItemWithNewConfiguration(item, newSchedule, request, newPrice);
+        // Actualizar el ShoppingCartItem con la nueva configuración (slot ya resuelto)
+        updateItemWithNewConfiguration(item, newSchedule, request, newPrice, slotToUse);
         shoppingCartItemRepository.save(item);
         
         // Recalcular fechas máximas
@@ -1595,67 +1544,19 @@ public class ReservationService {
      * Actualiza el item del carrito con la nueva configuración (mismo slot, nuevas cantidades, precios).
      */
     private void updateItemWithNewConfiguration(ShoppingCartItem item, TourSchedule newSchedule,
-            RescheduleReservationRequest request, BigDecimal newPrice) {
+            RescheduleReservationRequest request, BigDecimal newPrice, TourScheduleConfigSlot slotToUse) {
         
         // Actualizar schedule y fecha
         item.setTourSchedule(newSchedule);
         item.setScheduleDate(request.getNewDate());
         item.setTotalPrice(newPrice);
         
-        // Obtener el slot del nuevo schedule
-        if (newSchedule.getConfigId() == null) {
-            throw new IllegalStateException("Cannot update item: new schedule missing configId");
+        if (slotToUse == null) {
+            throw new ResourceNotFoundException("Cannot update item: slot not resolved for new schedule");
         }
-        
-        TourScheduleConfig newConfig = tourScheduleConfigRepository.findByIdWithSlots(newSchedule.getConfigId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Tour schedule config not found for schedule " + newSchedule.getId()));
-        
-        if (newConfig.getSlots() == null || newConfig.getSlots().isEmpty()) {
-            throw new ResourceNotFoundException(
-                    "No slots found in config " + newConfig.getId() + " for new schedule");
-        }
-        
-        // El slot ya fue determinado en rescheduleReservation (del request o automáticamente)
-        // Aquí lo obtenemos de la nueva config usando el slotId del request o el actual
-        TourScheduleConfigSlot slot;
-        
-        if (request.getSlotId() != null) {
-            // El frontend envió un slotId específico - usarlo
-            slot = newConfig.getSlots().stream()
-                    .filter(s -> s.getId().equals(request.getSlotId().intValue()))
-                    .findFirst()
-                    .orElseThrow(() -> new ResourceNotFoundException(
-                            "Slot " + request.getSlotId() + " not found in new schedule config " + newConfig.getId()));
-        } else {
-            // Buscar automáticamente por horario (fallback)
-            TourScheduleConfigSlot currentSlot = item.getSlot();
-            if (currentSlot == null) {
-                throw new IllegalStateException("Cannot update item: item missing slot information");
-            }
-            
-            slot = newConfig.getSlots().stream()
-                    .filter(s -> s.getId().equals(currentSlot.getId()))
-                    .findFirst()
-                    .orElse(null);
-            
-            if (slot == null) {
-                slot = newConfig.getSlots().stream()
-                        .filter(s -> s.getStartTime().equals(currentSlot.getStartTime()) 
-                                && s.getEndTime().equals(currentSlot.getEndTime()))
-                        .findFirst()
-                        .orElse(null);
-            }
-            
-            if (slot == null) {
-                log.warn("Slot with ID {} or time range ({}-{}) not found in new config {}. Using first available slot.",
-                        currentSlot.getId(), currentSlot.getStartTime(), currentSlot.getEndTime(), newConfig.getId());
-                slot = newConfig.getSlots().iterator().next();
-            }
-        }
-        
-        // Actualizar el slot del item al slot del nuevo schedule
-        item.setSlot(slot);
+
+        // Actualizar el slot del item al slot del nuevo schedule (ya validado/resuelto)
+        item.setSlot(slotToUse);
         
         // Limpiar detalles existentes y crear nuevos con la nueva configuración
         item.getDetails().clear();
@@ -1665,12 +1566,12 @@ public class ReservationService {
         
         // Crear nuevos details basados en la nueva configuración
         // Guardar el ID del slot en una variable final para usar en la lambda
-        final Integer slotId = slot.getId();
+        final Integer slotId = slotToUse.getId();
         for (com.tourya.api.models.request.ConfigQuantityRequest configQuantity : request.getConfigQuantity()) {
             AgePriceType ageType = AgePriceType.valueOf(configQuantity.getAgeType());
             Integer quantity = configQuantity.getQuantity();
             
-            TourScheduleConfigPrice priceConfig = slot.getPrices().stream()
+            TourScheduleConfigPrice priceConfig = slotToUse.getPrices().stream()
                     .filter(price -> price.getAgeType().equals(ageType))
                     .findFirst()
                     .orElseThrow(() -> new ResourceNotFoundException(
@@ -1699,6 +1600,83 @@ public class ReservationService {
             
             item.getDetails().add(detail);
         }
+    }
+
+    private TourScheduleConfigSlot resolveSlotForReschedule(
+            TourScheduleConfig newConfig,
+            TourScheduleConfigSlot currentSlot,
+            RescheduleReservationRequest request
+    ) {
+        if (currentSlot == null) {
+            throw new OperationNotPermittedException("Cannot reschedule: item missing slot information");
+        }
+        if ((request.getStartTime() == null) ^ (request.getEndTime() == null)) {
+            throw new OperationNotPermittedException("startTime y endTime deben enviarse juntos");
+        }
+
+        TourScheduleConfigSlot slotToUse = null;
+
+        // 1) slotId enviado por frontend
+        if (request.getSlotId() != null) {
+            slotToUse = newConfig.getSlots().stream()
+                    .filter(s -> s.getId().equals(request.getSlotId().intValue()))
+                    .findFirst()
+                    .orElse(null);
+
+            if (slotToUse != null) {
+                // Si también vienen horas, solo validamos consistencia (sin bloquear el flujo)
+                if (request.getStartTime() != null && request.getEndTime() != null) {
+                    if (!slotToUse.getStartTime().equals(request.getStartTime())
+                            || !slotToUse.getEndTime().equals(request.getEndTime())) {
+                        log.warn("Frontend sent slotId {} with times {}-{}, but slot has times {}-{}. Using slotId.",
+                                request.getSlotId(), request.getStartTime(), request.getEndTime(),
+                                slotToUse.getStartTime(), slotToUse.getEndTime());
+                    }
+                }
+                log.info("Using slot {} provided by frontend", request.getSlotId());
+                return slotToUse;
+            }
+
+            log.warn("Slot {} from frontend not found in new config {}. Falling back to time matching.",
+                    request.getSlotId(), newConfig.getId());
+        }
+
+        // 2) startTime/endTime enviado por frontend (o 3) del slot actual
+        java.time.LocalTime desiredStart = request.getStartTime() != null ? request.getStartTime() : currentSlot.getStartTime();
+        java.time.LocalTime desiredEnd = request.getEndTime() != null ? request.getEndTime() : currentSlot.getEndTime();
+
+        slotToUse = newConfig.getSlots().stream()
+                .filter(s -> s.getStartTime().equals(desiredStart) && s.getEndTime().equals(desiredEnd))
+                .findFirst()
+                .orElse(null);
+
+        if (slotToUse != null) {
+            log.info("Found slot {} with matching time range ({}-{}) for reschedule",
+                    slotToUse.getId(), slotToUse.getStartTime(), slotToUse.getEndTime());
+            return slotToUse;
+        }
+
+        // 4) fallback por ID del slot actual (si es la misma config)
+        slotToUse = newConfig.getSlots().stream()
+                .filter(s -> s.getId().equals(currentSlot.getId()))
+                .findFirst()
+                .orElse(null);
+
+        if (slotToUse != null) {
+            log.info("Found slot {} by ID (same config)", slotToUse.getId());
+            return slotToUse;
+        }
+
+        throw new ResourceNotFoundException(
+                String.format("No slot found in new schedule config %d for desired time range %s-%s (requestSlotId=%s, originalSlotId=%d). Available slots: %s",
+                        newConfig.getId(),
+                        desiredStart, desiredEnd,
+                        request.getSlotId(),
+                        currentSlot.getId(),
+                        newConfig.getSlots().stream()
+                                .map(s -> String.format("id=%d (%s-%s)", s.getId(), s.getStartTime(), s.getEndTime()))
+                                .collect(java.util.stream.Collectors.joining(", ")))
+        );
     }
     
     /**
