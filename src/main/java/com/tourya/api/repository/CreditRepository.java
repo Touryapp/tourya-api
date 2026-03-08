@@ -48,17 +48,18 @@ public interface CreditRepository extends JpaRepository<Credit, Long> {
 
     /**
      * Busca créditos de un usuario específico.
-     * Filtra por el userId del ShoppingCart asociado al ShoppingCartItem de la reserva.
-     * Solo incluye reservas que tienen item_id no null.
+     * Usa directamente el campo userId del crédito.
+     * Opcionalmente puede filtrar por status del crédito.
+     * 
+     * @param userId ID del usuario
+     * @param status Estado del crédito (opcional, si es null retorna todos)
+     * @return Lista de créditos del usuario
      */
     @Query("""
         SELECT c FROM Credit c
-        JOIN Reservation r ON c.reservationId = r.reservationId
-        JOIN r.shoppingCartItem item
-        JOIN item.shoppingCart cart
-        WHERE r.itemId IS NOT NULL
-        AND cart.user.id = :userId
+        WHERE c.userId = :userId
+        AND (:status IS NULL OR c.status = :status)
         """)
-    List<Credit> findByUserId(@Param("userId") Integer userId);
+    List<Credit> findByUserId(@Param("userId") Integer userId, @Param("status") CreditStatusEnum status);
 }
 
