@@ -1,6 +1,7 @@
 package com.tourya.api.services;
 
 import com.tourya.api._utils.Utils;
+import com.tourya.api.constans.enums.CreditStatusEnum;
 import com.tourya.api.models.Credit;
 import com.tourya.api.models.Role;
 import com.tourya.api.models.User;
@@ -31,14 +32,15 @@ public class CreditService {
 
     /**
      * Obtiene todos los créditos según el rol del usuario.
-     * - Back office: retorna todos los créditos
-     * - Usuario normal: retorna solo los créditos de sus reservas
+     * - Back office: retorna todos los créditos (opcionalmente filtrados por status)
+     * - Usuario normal: retorna solo los créditos de sus reservas (opcionalmente filtrados por status)
      * 
      * @param authentication Autenticación del usuario
+     * @param status Estado del crédito para filtrar (opcional, si es null retorna todos)
      * @return Lista de CreditResponse
      */
     @Transactional(readOnly = true)
-    public List<CreditResponse> getAllCredits(Authentication authentication) {
+    public List<CreditResponse> getAllCredits(Authentication authentication, CreditStatusEnum status) {
         User user = (User) authentication.getPrincipal();
         List<Role> roles = user.getRoles();
 
@@ -46,13 +48,18 @@ public class CreditService {
 
         if (Utils.isAdmin(roles)) {
             // Back office: todos los créditos
-            credits = creditRepository.findAll();
-            log.info("Back office user {} retrieving all credits", user.getId());
+            if (status != null) {
+                credits = creditRepository.findByStatus(status);
+            } else {
+                credits = creditRepository.findAll();
+            }
+            log.info("Back office user {} retrieving {} credits with status filter: {}", 
+                    user.getId(), credits.size(), status);
         } else {
             // Usuario normal: solo créditos de sus reservas
-            // Usa consulta optimizada que hace JOIN directamente
-            credits = creditRepository.findByUserId(user.getId());
-            log.info("User {} retrieving {} credits", user.getId(), credits.size());
+            credits = creditRepository.findByUserId(user.getId(), status);
+            log.info("User {} retrieving {} credits with status filter: {}", 
+                    user.getId(), credits.size(), status);
         }
 
         return credits.stream()

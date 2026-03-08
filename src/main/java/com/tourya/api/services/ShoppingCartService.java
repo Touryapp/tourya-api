@@ -18,6 +18,8 @@ import com.tourya.api.models.request.ReservationRequest;
 import com.tourya.api.models.request.UpdateItemStatusRequest;
 import com.tourya.api.repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import jakarta.persistence.EntityManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
@@ -25,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -35,12 +38,14 @@ import java.util.stream.Collectors;
  * @author Tourya API Team
  * @version 1.0
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ShoppingCartService {
 
     private final ShoppingCartRepository shoppingCartRepository;
     private final ShoppingCartItemRepository shoppingCartItemRepository;
+    private final EntityManager entityManager;
     private final TourScheduleRepository tourScheduleRepository;
     private final TourScheduleConfigSlotRepository tourScheduleConfigSlotRepository;
     private final TourRepository tourRepository;
@@ -111,6 +116,11 @@ public class ShoppingCartService {
     @Transactional
     public ShoppingCartResponse addItemToCart(AddItemToCartRequest request, Authentication connectedUser) {
         User user = (User) connectedUser.getPrincipal();
+        
+        // Validar que la fecha del schedule no sea anterior a la fecha actual
+        if (request.getScheduleDate() != null && request.getScheduleDate().isBefore(LocalDate.now())) {
+            throw new OperationNotPermittedException("No se puede agregar un item al carrito con una fecha anterior a la fecha actual");
+        }
         
         // Verificar que el servicio existe (solo si se proporciona serviceId)
         TouryaService service = null;
@@ -276,6 +286,11 @@ public class ShoppingCartService {
      * @param cart carrito existente
      */
     private void addItemToExistingCart(AddItemToCartRequest request, ShoppingCart cart) {
+        // Validar que la fecha del schedule no sea anterior a la fecha actual
+        if (request.getScheduleDate() != null && request.getScheduleDate().isBefore(LocalDate.now())) {
+            throw new OperationNotPermittedException("No se puede agregar un item al carrito con una fecha anterior a la fecha actual");
+        }
+        
         // Validar que el servicio existe si se proporciona
         if (request.getServiceId() != null) {
             TouryaService service = serviceRepository.findById(request.getServiceId())
@@ -618,7 +633,19 @@ public class ShoppingCartService {
      * @return ShoppingCartResponse
      */
     private ShoppingCartResponse buildShoppingCartResponse(ShoppingCart cart) {
+        return buildShoppingCartResponse(cart, null);
+    }
+
+    /**
+     * Construye la respuesta del carrito de compras, opcionalmente filtrando por status.
+     * 
+     * @param cart carrito de compras
+     * @param statusFilter status para filtrar items (null = sin filtro)
+     * @return ShoppingCartResponse
+     */
+    private ShoppingCartResponse buildShoppingCartResponse(ShoppingCart cart, ShoppingCartStatusEnum statusFilter) {
         List<ShoppingCartItemResponse> itemResponses = cart.getItems().stream()
+                .filter(item -> statusFilter == null || item.getStatus() == statusFilter)
                 .map(item -> {
                     // Mapear detalles del item
                     List<ShoppingCartItemDetailResponse> detailResponses = item.getDetails().stream()
@@ -691,5 +718,50 @@ public class ShoppingCartService {
     public ClearCartResponse clearShoppingCart(Long cartId) {
         Integer deletedCount = shoppingCartRepository.clearCart(cartId);
         return new ClearCartResponse(deletedCount != null ? deletedCount : 0);
+    }
+
+    /**
+     * Elimina FÍSICAMENTE todos los items ACTIVE del carrito activo del usuario.
+     * Cambia el estado del carrito a COMPLETED para que se pueda crear un nuevo carrito ACTIVE.
+     * 
+     * @param user usuario cuyo carrito activo se debe limpiar
+     * @return número de items ACTIVE eliminados
+     */
+    @Transactional
+    public int removeActiveItemsFromUserCart(User user) {
+        List<ShoppingCart> activeCarts = shoppingCartRepository.findByUserAndStatus(user, ShoppingCartStatusEnum.ACTIVE);
+        int totalDeleted = 0;
+        
+        for (ShoppingCart cart : activeCarts) {
+            Long cartId = cart.getId();
+            
+            log.info("Removing ACTIVE items from cart {} for user {}", cartId, user.getId());
+            
+            // 1. DELETE DIRECTO de los detalles de items ACTIVE
+            shoppingCartItemRepository.deleteActiveItemDetailsByCartId(cartId);
+            
+            // 2. DELETE DIRECTO de todos los items ACTIVE
+            int deleted = shoppingCartItemRepository.deleteActiveItemsByCartId(cartId);
+            totalDeleted += deleted;
+            
+            log.info("Deleted {} ACTIVE items from cart {}", deleted, cartId);
+            
+            // 3. CAMBIAR el estado del carrito a COMPLETED
+            // Usar update directo para asegurar que se aplique
+            shoppingCartRepository.findById(cartId).ifPresent(cartToUpdate -> {
+                cartToUpdate.setStatus(ShoppingCartStatusEnum.COMPLETED);
+                shoppingCartRepository.saveAndFlush(cartToUpdate);
+                log.info("Changed cart {} status to COMPLETED", cartId);
+            });
+        }
+        
+        // Forzar flush para que los cambios se reflejen inmediatamente
+        entityManager.flush();
+        entityManager.clear();
+        
+        log.info("Removed {} ACTIVE items from active carts for user {} and changed {} carts to COMPLETED", 
+                totalDeleted, user.getId(), activeCarts.size());
+        
+        return totalDeleted;
     }
 }
