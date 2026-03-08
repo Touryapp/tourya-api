@@ -35,6 +35,9 @@ public class Credit extends BaseEntity {
     @Column(name = "reservation_id", nullable = false)
     private Long reservationId;
 
+    @Column(name = "user_id", nullable = false)
+    private Integer userId;
+
     @Column(name = "amount", nullable = false, precision = 10, scale = 2)
     private BigDecimal amount;
 

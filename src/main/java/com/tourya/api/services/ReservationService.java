@@ -1138,9 +1138,13 @@ public class ReservationService {
         BigDecimal creditAmount = cartItem.getTotalPrice() != null ? 
                 cartItem.getTotalPrice() : BigDecimal.ZERO;
         
+        // Obtener userId del usuario que tiene el carrito
+        Integer userId = cartItem.getShoppingCart().getUser().getId();
+        
         // Crear crédito con fecha de vencimiento de 1 año desde hoy
         Credit credit = Credit.builder()
                 .reservationId(reservation.getReservationId())
+                .userId(userId)
                 .amount(creditAmount)
                 .creationDate(LocalDate.now())
                 .expirationDate(LocalDate.now().plusYears(1))
@@ -1360,8 +1364,10 @@ public class ReservationService {
         // Si el precio es menor, crear crédito por la diferencia
         if (priceComparison < 0) {
             BigDecimal priceDifference = currentPrice.subtract(newPrice);
+            Integer userId = item.getShoppingCart().getUser().getId();
             credit = Credit.builder()
                     .reservationId(reservation.getReservationId())
+                    .userId(userId)
                     .amount(priceDifference)
                     .creationDate(LocalDate.now())
                     .expirationDate(LocalDate.now().plusYears(1))
@@ -1462,31 +1468,24 @@ public class ReservationService {
                 new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(user, null, user.getAuthorities()));
         
         // 2. Crear crédito con el valor de la reserva anterior
+        Integer userId = item.getShoppingCart().getUser().getId();
         Credit credit = Credit.builder()
                 .reservationId(reservation.getReservationId())
+                .userId(userId)
                 .amount(currentPrice)
                 .creationDate(LocalDate.now())
                 .expirationDate(LocalDate.now().plusYears(1))
                 .status(CreditStatusEnum.CREATED)
                 .build();
         credit = creditRepository.save(credit);
-        log.info("Credit created for canceled reservation: reservationId={}, amount={}", 
-                reservation.getReservationId(), currentPrice);
+        log.info("Credit created for canceled reservation: reservationId={}, userId={}, amount={}", 
+                reservation.getReservationId(), userId, currentPrice);
         
-        // 3. Actualizar la reserva cancelada para que item_id = NULL (libera la foreign key constraint)
-        // Esto permite limpiar el carrito normalmente sin violar la constraint
-        reservationNativeRepository.updateReservationItemIdToNull(reservation.getReservationId());
-        log.info("Updated reservation {} to set item_id = NULL", reservation.getReservationId());
-        
-        // 4. Limpiar TODO el carrito normalmente
-        ShoppingCart currentCart = item.getShoppingCart();
-        if (currentCart == null || currentCart.getId() == null) {
-            throw new IllegalStateException("Cannot reschedule: item missing shopping cart information");
-        }
-        
-        // Limpiar todo el carrito usando el método normal
-        shoppingCartService.clearShoppingCart(currentCart.getId());
-        log.info("Cleared entire cart {} for reschedule", currentCart.getId());
+        // 3. Eliminar solo los items ACTIVE del carrito activo del usuario
+        // Esto asegura que no queden items previos cuando se agregue el nuevo item
+        int deletedItems = shoppingCartService.removeActiveItemsFromUserCart(user);
+        log.info("Removed {} ACTIVE items from active carts for user {} during reschedule", 
+                user.getId(), deletedItems);
         
         // 5. Agregar el nuevo item al carrito con la nueva fecha
         // Obtener productId, productType del item actual
