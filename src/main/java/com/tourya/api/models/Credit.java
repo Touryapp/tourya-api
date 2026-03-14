@@ -51,6 +51,18 @@ public class Credit extends BaseEntity {
     @Column(name = "status", nullable = false, length = 20)
     private CreditStatusEnum status;
 
+    /**
+     * Monto reservado para un item del carrito. Al consumir se deduce de amount.
+     */
+    @Column(name = "reserved_amount", nullable = false, precision = 10, scale = 2)
+    private java.math.BigDecimal reservedAmount;
+
+    /**
+     * Item del carrito al que está asociada la reserva. NULL cuando no está reservado.
+     */
+    @Column(name = "shopping_cart_item_id")
+    private Long shoppingCartItemId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reservation_id", insertable = false, updatable = false)
     private Reservation reservation;

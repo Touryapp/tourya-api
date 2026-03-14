@@ -19,6 +19,8 @@ public class CreditResponse {
     private Long id;
     private Long reservationId;
     private BigDecimal amount;
+    private BigDecimal reservedAmount;
+    private Long shoppingCartItemId;
     private LocalDate creationDate;
     private LocalDate expirationDate;
     private CreditStatusEnum status;

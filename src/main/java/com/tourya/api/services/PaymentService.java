@@ -3,6 +3,7 @@ package com.tourya.api.services;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tourya.api.models.*;
 import com.tourya.api.models.request.CreatePaymentRequest;
+import com.tourya.api.models.responses.PaymentCreditItemResponse;
 import com.tourya.api.models.responses.PaymentResponse;
 import com.tourya.api.models.responses.ReservationResponse;
 import com.tourya.api.models.responses.ServiceResponsibleResponse;
@@ -15,12 +16,15 @@ import com.tourya.api.constans.enums.ShoppingCartStatusEnum;
 import com.tourya.api.constans.enums.CreditStatusEnum;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -50,12 +54,14 @@ public class PaymentService {
     private final ObjectMapper objectMapper;
     private final AgeRangeConfigService ageRangeConfigService;
     private final CreditRepository creditRepository;
+    private final PaymentCreditRepository paymentCreditRepository;
 
     /**
      * Crea un pago y automáticamente genera la reserva con sus items.
+     * Cuando el pago incluye créditos, authentication es obligatorio: los créditos se validan contra el usuario del token (dueño del carrito); el pagador puede ser un tercero.
      */
     @Transactional
-    public PaymentResponse createPayment(CreatePaymentRequest request) {
+    public PaymentResponse createPayment(CreatePaymentRequest request, Authentication authentication) {
         log.info("Creating payment for transaction: {}", request.getTransactionId());
         
         if (request == null) {
@@ -76,6 +82,23 @@ public class PaymentService {
         java.math.BigDecimal totalPrice = items.stream()
                 .map(item -> item.getTotalPrice() != null ? item.getTotalPrice() : java.math.BigDecimal.ZERO)
                 .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+
+        Integer cartOwnerUserId = null;
+        if (request.getPaymentType() != null && 
+                (request.getPaymentType().equals("CREDIT") || request.getPaymentType().equals("CREDIT_AND_PLATFORM"))) {
+            if (authentication == null || !(authentication.getPrincipal() instanceof User)) {
+                throw new IllegalArgumentException("Para pagos con crédito es necesario estar autenticado (usuario del token = dueño del carrito)");
+            }
+            User tokenUser = (User) authentication.getPrincipal();
+            cartOwnerUserId = tokenUser.getId();
+            final Integer cartOwnerId = cartOwnerUserId;
+            // Los items deben ser del carrito del usuario del token
+            boolean allItemsBelongToTokenUser = items.stream()
+                    .allMatch(item -> item.getShoppingCart().getUser().getId().equals(cartOwnerId));
+            if (!allItemsBelongToTokenUser) {
+                throw new IllegalArgumentException("Los items del carrito deben corresponder al usuario autenticado (token)");
+            }
+        }
 
         // Validar y manejar consumo de crédito si aplica
         if (request.getPaymentType() != null && 
@@ -116,9 +139,6 @@ public class PaymentService {
                     throw new IllegalArgumentException("amountPlatform is required and must be greater than 0 when paymentType is CREDIT_AND_PLATFORM");
                 }
             }
-            
-            // Consumir créditos (si falla, el @Transactional hará rollback de todo)
-            consumeCredits(request.getCreditData().getCreditIds(), amountCredit);
         } else if (request.getPaymentType() != null && request.getPaymentType().equals("PLATFORM")) {
             // Validar que amountPlatform = totalPrice para pago solo con plataforma
             java.math.BigDecimal amountPlatform = request.getAmountPlatform() != null 
@@ -132,7 +152,11 @@ public class PaymentService {
             }
         }
 
-        // Crear el pago
+        // Crear el pago (guardar amount_credit cuando se paga con créditos)
+        java.math.BigDecimal paymentAmountCredit = (request.getPaymentType() != null
+                && (request.getPaymentType().equals("CREDIT") || request.getPaymentType().equals("CREDIT_AND_PLATFORM")))
+                ? request.getAmountCredit()
+                : null;
         Payment payment = Payment.builder()
                 .transactionId(request.getTransactionId())
                 .transactionData(request.getTransactionData())
@@ -142,9 +166,23 @@ public class PaymentService {
                 .payerPhone(request.getPayer().getPhone())
                 .payerDocumentType(request.getPayer().getDocumentType())
                 .payerDocumentNumber(request.getPayer().getDocumentNumber())
+                .amountCredit(paymentAmountCredit)
                 .build();
 
         Payment savedPayment = paymentRepository.save(payment);
+
+        // Si es pago con crédito: validar reservas, consumir créditos y guardar detalle (ids + monto por crédito)
+        if (request.getPaymentType() != null
+                && (request.getPaymentType().equals("CREDIT") || request.getPaymentType().equals("CREDIT_AND_PLATFORM"))) {
+            validateAndConsumeReservedCredits(
+                    request.getItems().stream()
+                            .map(CreatePaymentRequest.PaymentItemRequest::getShoppingCartItemId)
+                            .collect(Collectors.toSet()),
+                    request.getCreditData().getCreditIds(),
+                    request.getAmountCredit(),
+                    cartOwnerUserId,
+                    savedPayment.getPaymentId());
+        }
 
         // Crear una reserva por cada item del pago
         List<Reservation> reservations = createReservationsForItems(savedPayment, request.getItems(), items);
@@ -331,11 +369,24 @@ public class PaymentService {
                         .documentNumber(payment.getPayerDocumentNumber())
                         .build();
 
+        // Detalle de créditos usados (si aplica)
+        List<PaymentCreditItemResponse> creditsUsed = null;
+        if (payment.getAmountCredit() != null && payment.getAmountCredit().compareTo(java.math.BigDecimal.ZERO) > 0) {
+            creditsUsed = paymentCreditRepository.findByPaymentId(payment.getPaymentId()).stream()
+                    .map(pc -> PaymentCreditItemResponse.builder()
+                            .creditId(pc.getCreditId())
+                            .amountUsed(pc.getAmountUsed())
+                            .build())
+                    .collect(Collectors.toList());
+        }
+
         // Construir respuesta del pago
         return PaymentResponse.builder()
                 .paymentId(payment.getPaymentId())
                 .transactionId(payment.getTransactionId())
                 .transactionData(payment.getTransactionData())
+                .amountCredit(payment.getAmountCredit())
+                .creditsUsed(creditsUsed)
                 .reservations(reservationResponses)
                 .payer(payerResponse)
                 .createdDate(payment.getCreatedDate())
@@ -578,90 +629,97 @@ public class PaymentService {
     }
     
     /**
-     * Consume múltiples créditos para un pago.
-     * Consume primero el crédito de mayor valor en su totalidad.
-     * Si sobra dinero, consume el siguiente crédito y actualiza su monto.
-     * Si falla cualquier validación o consumo, lanza excepción para hacer rollback.
-     * 
-     * @param creditIds Lista de IDs de créditos a consumir (deben estar ordenados de mayor a menor valor)
-     * @param totalAmountToConsume Monto total a consumir de los créditos
+     * Valida que los IDs de créditos enviados sean exactamente los reservados para los items del pago,
+     * que la suma de montos reservados coincida con amountCredit, y luego consume lo reservado.
+     * Cada crédito: amount = amount - reserved_amount; reserved_amount = 0; shopping_cart_item_id = null;
+     * status = amount > 0 ? CREATED : CONSUMED.
+     *
+     * @param paymentItemIds IDs de los items del carrito que se están pagando
+     * @param creditIds       IDs de créditos enviados en el pago (deben ser todos los reservados para esos items)
+     * @param amountCredit    Monto a pagar con crédito (debe coincidir con la suma de reserved_amount)
+     * @param cartOwnerUserId ID del usuario del token (dueño del carrito); los créditos deben ser de este usuario. El pagador puede ser un tercero.
+     * @param paymentId       ID del pago ya guardado; se usa para persistir el detalle de créditos usados en payment_credit.
      */
-    private void consumeCredits(List<Long> creditIds, java.math.BigDecimal totalAmountToConsume) {
+    private void validateAndConsumeReservedCredits(Set<Long> paymentItemIds, List<Long> creditIds,
+                                                   java.math.BigDecimal amountCredit, Integer cartOwnerUserId, Long paymentId) {
         if (creditIds == null || creditIds.isEmpty()) {
-            throw new IllegalArgumentException("Credit IDs list cannot be empty");
+            throw new IllegalArgumentException("La lista de IDs de créditos no puede estar vacía");
         }
-        
-        if (totalAmountToConsume == null || totalAmountToConsume.compareTo(java.math.BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("Total amount to consume must be greater than 0");
+        if (amountCredit == null || amountCredit.compareTo(java.math.BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("El monto a pagar con crédito debe ser mayor a 0");
         }
-        
-        // Obtener todos los créditos y validarlos
-        List<Credit> credits = creditRepository.findAllById(creditIds);
-        
-        if (credits.size() != creditIds.size()) {
-            throw new IllegalArgumentException("Some credits were not found");
+        if (paymentItemIds == null || paymentItemIds.isEmpty()) {
+            throw new IllegalArgumentException("Debe indicar al menos un item del carrito en el pago");
         }
-        
-        // Validar que todos los créditos estén disponibles
-        LocalDate today = LocalDate.now();
-        for (Credit credit : credits) {
-            if (credit.getStatus() != CreditStatusEnum.CREATED) {
+
+        List<Credit> requestedCredits = creditRepository.findAllById(creditIds);
+        if (requestedCredits.size() != creditIds.size()) {
+            throw new IllegalArgumentException("Algunos créditos no fueron encontrados");
+        }
+
+        // Todos deben estar RESERVED y asociados a uno de los items del pago y ser del pagador
+        for (Credit c : requestedCredits) {
+            if (c.getStatus() != CreditStatusEnum.RESERVED) {
                 throw new IllegalArgumentException(
-                        "Credit " + credit.getId() + " is not available for consumption. Status: " + credit.getStatus());
+                        "Crédito " + c.getId() + " no está reservado para este pago. Estado: " + c.getStatus());
             }
-            if (credit.getExpirationDate().isBefore(today)) {
-                throw new IllegalArgumentException("Credit " + credit.getId() + " has expired");
+            if (c.getShoppingCartItemId() == null || !paymentItemIds.contains(c.getShoppingCartItemId())) {
+                throw new IllegalArgumentException(
+                        "Crédito " + c.getId() + " no está reservado para ninguno de los items de este pago");
+            }
+            if (!c.getUserId().equals(cartOwnerUserId)) {
+                throw new IllegalArgumentException("Crédito " + c.getId() + " no pertenece al usuario del carrito (usuario del token)");
             }
         }
-        
-        // Ordenar créditos por monto descendente (mayor a menor)
-        credits.sort((c1, c2) -> c2.getAmount().compareTo(c1.getAmount()));
-        
-        // Calcular monto total disponible en los créditos
-        java.math.BigDecimal totalAvailable = credits.stream()
-                .map(Credit::getAmount)
-                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
-        
-        if (totalAvailable.compareTo(totalAmountToConsume) < 0) {
+
+        // Créditos reservados para (algún) item del pago: debe ser exactamente el mismo conjunto que creditIds
+        List<Credit> reservedForItems = creditRepository.findByShoppingCartItemIdInAndStatusReserved(paymentItemIds);
+        Set<Long> reservedIds = reservedForItems.stream().map(Credit::getId).collect(Collectors.toSet());
+        Set<Long> requestedIds = new HashSet<>(creditIds);
+        if (!reservedIds.equals(requestedIds)) {
+            if (!requestedIds.containsAll(reservedIds)) {
+                throw new IllegalArgumentException(
+                        "Faltan IDs de créditos reservados para los items del pago. " +
+                                "Debe enviar todos los créditos reservados para los items que está pagando.");
+            }
             throw new IllegalArgumentException(
-                    String.format("Insufficient credit amount. Available: %.2f, Required: %.2f",
-                            totalAvailable, totalAmountToConsume));
+                    "Se envió un ID de crédito que no está reservado para ninguno de los items de este pago");
         }
-        
-        // Consumir créditos en orden (mayor a menor)
-        java.math.BigDecimal remainingToConsume = totalAmountToConsume;
-        
-        for (Credit credit : credits) {
-            if (remainingToConsume.compareTo(java.math.BigDecimal.ZERO) <= 0) {
-                break; // Ya se consumió todo lo necesario
-            }
-            
-            java.math.BigDecimal creditAmount = credit.getAmount();
-            
-            if (remainingToConsume.compareTo(creditAmount) >= 0) {
-                // Consumir crédito completo
-                credit.setStatus(CreditStatusEnum.CANCELED);
-                credit.setAmount(java.math.BigDecimal.ZERO);
-                remainingToConsume = remainingToConsume.subtract(creditAmount);
-                log.info("Credit {} fully consumed. Amount: {}, Remaining to consume: {}", 
-                        credit.getId(), creditAmount, remainingToConsume);
-            } else {
-                // Consumir parcialmente y actualizar el crédito
-                java.math.BigDecimal remainingAmount = creditAmount.subtract(remainingToConsume);
-                credit.setAmount(remainingAmount);
-                log.info("Credit {} partially consumed. Amount before: {}, Consumed: {}, Amount after: {}", 
-                        credit.getId(), creditAmount, remainingToConsume, remainingAmount);
-                remainingToConsume = java.math.BigDecimal.ZERO;
-            }
-            
+
+        java.math.BigDecimal sumReserved = reservedForItems.stream()
+                .map(c -> c.getReservedAmount() != null ? c.getReservedAmount() : java.math.BigDecimal.ZERO)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        if (sumReserved.compareTo(amountCredit) != 0) {
+            throw new IllegalArgumentException(
+                    String.format("La suma de créditos reservados (%.2f) no coincide con el monto a pagar con crédito (%.2f)",
+                            sumReserved, amountCredit));
+        }
+
+        // Consumir: amount = amount - reserved_amount; reserved_amount = 0; item = null; status = CONSUMED o CREATED
+        // y guardar detalle en payment_credit (id del crédito y monto usado)
+        for (Credit credit : reservedForItems) {
+            java.math.BigDecimal reserved = credit.getReservedAmount() != null
+                    ? credit.getReservedAmount()
+                    : java.math.BigDecimal.ZERO;
+            java.math.BigDecimal newAmount = credit.getAmount().subtract(reserved);
+            credit.setAmount(newAmount);
+            credit.setReservedAmount(java.math.BigDecimal.ZERO);
+            credit.setShoppingCartItemId(null);
+            credit.setStatus(newAmount.compareTo(java.math.BigDecimal.ZERO) > 0
+                    ? CreditStatusEnum.CREATED
+                    : CreditStatusEnum.CONSUMED);
             creditRepository.save(credit);
+            if (paymentId != null) {
+                PaymentCredit paymentCredit = PaymentCredit.builder()
+                        .paymentId(paymentId)
+                        .creditId(credit.getId())
+                        .amountUsed(reserved)
+                        .build();
+                paymentCreditRepository.save(paymentCredit);
+            }
+            log.info("Credit {} consumed reserved {}; new amount={}, status={}",
+                    credit.getId(), reserved, newAmount, credit.getStatus());
         }
-        
-        if (remainingToConsume.compareTo(java.math.BigDecimal.ZERO) > 0) {
-            throw new IllegalStateException(
-                    "Error: There is still remaining amount to consume after processing all credits: " + remainingToConsume);
-        }
-        
-        log.info("Successfully consumed {} credits for total amount: {}", creditIds.size(), totalAmountToConsume);
+        log.info("Successfully consumed {} reserved credits for total amount: {}", reservedForItems.size(), amountCredit);
     }
 }
