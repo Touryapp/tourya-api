@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -52,6 +53,12 @@ public class Payment extends BaseEntity {
 
     @Column(name = "payer_document_number", length = 50)
     private String payerDocumentNumber;
+
+    /**
+     * Monto total pagado con créditos en este pago; null si no se usaron créditos.
+     */
+    @Column(name = "amount_credit", precision = 10, scale = 2)
+    private BigDecimal amountCredit;
 
     @OneToMany(fetch = FetchType.LAZY)
     @JoinColumn(name = "payment_id", insertable = false, updatable = false)
