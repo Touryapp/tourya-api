@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -37,9 +38,11 @@ public class PaymentController {
             @ApiResponse(responseCode = "400", description = "Datos de entrada inválidos"),
             @ApiResponse(responseCode = "404", description = "Items del carrito no encontrados")
     })
-    public ResponseEntity<PaymentResponse> createPayment(@Valid @RequestBody CreatePaymentRequest request) {
+    public ResponseEntity<PaymentResponse> createPayment(
+            @Valid @RequestBody CreatePaymentRequest request,
+            Authentication authentication) {
         log.info("Creating payment for transaction: {}", request.getTransactionId());
-        PaymentResponse response = paymentService.createPayment(request);
+        PaymentResponse response = paymentService.createPayment(request, authentication);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Repositorio para la entidad Credit.
@@ -61,5 +62,17 @@ public interface CreditRepository extends JpaRepository<Credit, Long> {
         AND (:status IS NULL OR c.status = :status)
         """)
     List<Credit> findByUserId(@Param("userId") Integer userId, @Param("status") CreditStatusEnum status);
+
+    /**
+     * Busca créditos por IDs y usuario (para validar que los créditos pertenecen al usuario).
+     */
+    @Query("SELECT c FROM Credit c WHERE c.id IN :ids AND c.userId = :userId")
+    List<Credit> findByIdInAndUserId(@Param("ids") Set<Long> ids, @Param("userId") Integer userId);
+
+    /**
+     * Busca créditos reservados para alguno de los items indicados.
+     */
+    @Query("SELECT c FROM Credit c WHERE c.shoppingCartItemId IN :itemIds AND c.status = 'RESERVED'")
+    List<Credit> findByShoppingCartItemIdInAndStatusReserved(@Param("itemIds") Set<Long> itemIds);
 }
 
