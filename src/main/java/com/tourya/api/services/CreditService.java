@@ -75,6 +75,8 @@ public class CreditService {
                 .id(credit.getId())
                 .reservationId(credit.getReservationId())
                 .amount(credit.getAmount())
+                .reservedAmount(credit.getReservedAmount() != null ? credit.getReservedAmount() : java.math.BigDecimal.ZERO)
+                .shoppingCartItemId(credit.getShoppingCartItemId())
                 .creationDate(credit.getCreationDate())
                 .expirationDate(credit.getExpirationDate())
                 .status(credit.getStatus())
