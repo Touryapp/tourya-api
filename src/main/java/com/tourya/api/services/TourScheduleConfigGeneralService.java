@@ -106,6 +106,11 @@ public class TourScheduleConfigGeneralService {
             slot.setConfig(config);
             slot.setStartTime(slotDto.getStartTime());
             slot.setEndTime(slotDto.getEndTime());
+            slot.setCapacity(slotDto.getCapacity());
+            slot.setBookings(0);
+            slot.setAvailability(0);
+            slot.setMinCapacityCalc(null);
+            slot.setCheckAvailability(false);
 
             if (slotDto.getPrices() != null) {
                 Set<TourScheduleConfigPrice> prices = new HashSet<>();
@@ -212,6 +217,7 @@ public class TourScheduleConfigGeneralService {
                 }
                 currentSlot.setStartTime(slotDto.getStartTime());
                 currentSlot.setEndTime(slotDto.getEndTime());
+                currentSlot.setCapacity(slotDto.getCapacity());
 
                 updateSlotPrices(currentSlot, new HashSet<>(slotDto.getPrices()));
                 newOrUpdatedSlots.add(currentSlot);
@@ -411,6 +417,11 @@ public class TourScheduleConfigGeneralService {
                     slotDto.setId(slot.getId());
                     slotDto.setStartTime(slot.getStartTime());
                     slotDto.setEndTime(slot.getEndTime());
+                    slotDto.setCapacity(slot.getCapacity());
+                    slotDto.setBookings(slot.getBookings());
+                    slotDto.setAvailability(slot.getAvailability());
+                    slotDto.setMinCapacityCalc(slot.getMinCapacityCalc());
+                    slotDto.setCheckAvailability(slot.getCheckAvailability());
 
                     Set<TourSchedulePriceResponse> priceDtos = slot.getPrices().stream()
                             .map(price -> {
@@ -499,6 +510,11 @@ public class TourScheduleConfigGeneralService {
                         slotDto.setId(slot.getId());
                         slotDto.setStartTime(slot.getStartTime());
                         slotDto.setEndTime(slot.getEndTime());
+                        slotDto.setCapacity(slot.getCapacity());
+                        slotDto.setBookings(slot.getBookings());
+                        slotDto.setAvailability(slot.getAvailability());
+                        slotDto.setMinCapacityCalc(slot.getMinCapacityCalc());
+                        slotDto.setCheckAvailability(slot.getCheckAvailability());
 
                         if (slot.getPrices() != null) {
                             Set<TourSchedulePriceResponse> priceDtos = slot.getPrices().stream()

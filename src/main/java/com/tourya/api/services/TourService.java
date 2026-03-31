@@ -222,6 +222,17 @@ public class TourService {
             tour.setDescription(tourFullDataRequest.getDescription());
             tour.setDuration(tourFullDataRequest.getDuration());
             tour.setMaxPeople(tourFullDataRequest.getMaxPeople());
+            tour.setPriceType(tourFullDataRequest.getPriceType());
+            tour.setIsUnlimitedCapacity(tourFullDataRequest.getIsUnlimitedCapacity());
+            tour.setSubCategory(tourFullDataRequest.getSubCategory());
+            tour.setDurationEnum(tourFullDataRequest.getDurationEnum());
+            tour.setTimeOfDay(
+                    tourFullDataRequest.getTimeOfDay() != null
+                            ? tourFullDataRequest.getTimeOfDay().stream()
+                                    .map(com.tourya.api.constans.enums.TourTimeOfDayEnum::getValue)
+                                    .toArray(String[]::new)
+                            : null
+            );
             tour.setHighlight(tourFullDataRequest.getHighlight());
             //update Tour
             Tour tourUpdate = tourRepository.save(tour);

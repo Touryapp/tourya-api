@@ -69,18 +69,21 @@ public class PaymentService {
         }
 
         // Validar que todos los items del carrito existen
-        List<Long> itemIds = request.getItems().stream()
-                .map(CreatePaymentRequest.PaymentItemRequest::getShoppingCartItemId)
-                .collect(Collectors.toList());
-        
-        List<ShoppingCartItem> items = shoppingCartItemRepository.findAllById(itemIds);
-        if (items.size() != itemIds.size()) {
-            throw new IllegalArgumentException("Some shopping cart items were not found");
+        List<Long> reservationIds = request.getReservationIds();
+        List<Reservation> reservationsToPay = reservationRepository.findAllByReservationIdIn(reservationIds);
+        if (reservationsToPay.size() != reservationIds.size()) {
+            throw new IllegalArgumentException("Algunas reservas no fueron encontradas");
         }
 
-        // Calcular precio total del carrito
-        java.math.BigDecimal totalPrice = items.stream()
-                .map(item -> item.getTotalPrice() != null ? item.getTotalPrice() : java.math.BigDecimal.ZERO)
+        List<Long> itemIds = reservationsToPay.stream().map(Reservation::getItemId).toList();
+        List<ShoppingCartItem> items = shoppingCartItemRepository.findAllById(itemIds);
+        if (items.size() != itemIds.size()) {
+            throw new IllegalArgumentException("Algunos items del carrito asociados a las reservas no fueron encontrados");
+        }
+
+        // Calcular precio total desde las RESERVAS (total_amount) y validar consistencia
+        java.math.BigDecimal totalPrice = reservationsToPay.stream()
+                .map(r -> r.getTotalAmount() != null ? r.getTotalAmount() : java.math.BigDecimal.ZERO)
                 .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
 
         Integer cartOwnerUserId = null;
@@ -175,134 +178,67 @@ public class PaymentService {
         if (request.getPaymentType() != null
                 && (request.getPaymentType().equals("CREDIT") || request.getPaymentType().equals("CREDIT_AND_PLATFORM"))) {
             validateAndConsumeReservedCredits(
-                    request.getItems().stream()
-                            .map(CreatePaymentRequest.PaymentItemRequest::getShoppingCartItemId)
-                            .collect(Collectors.toSet()),
+                    new java.util.HashSet<>(itemIds),
                     request.getCreditData().getCreditIds(),
                     request.getAmountCredit(),
                     cartOwnerUserId,
                     savedPayment.getPaymentId());
         }
 
-        // Crear una reserva por cada item del pago
-        List<Reservation> reservations = createReservationsForItems(savedPayment, request.getItems(), items);
+        // Confirmar reservas TEMPORAL existentes (en vez de crear reservas aquí)
+        List<Reservation> reservations = confirmTemporalReservations(savedPayment, reservationsToPay);
 
-        // Actualizar el estado de los items del carrito a PAGADO
+        // Actualizar el estado de los items del carrito a PAGADO y asigna reservationId (si no estaba)
         updateShoppingCartItemsStatus(items, reservations);
 
         // Verificar si el carrito debe pasar a inactivo
         checkAndDeactivateCart(items);
 
-        log.info("Payment and {} reservations created successfully. Payment ID: {}", 
+        log.info("Payment and {} reservations confirmed successfully. Payment ID: {}",
                 reservations.size(), savedPayment.getPaymentId());
 
         return buildPaymentResponse(savedPayment, reservations);
     }
 
     /**
-     * Crea una reserva por cada item del pago, cada una con su propio QR.
+     * Confirma reservas TEMPORAL asociadas a los items del pago.
+     * Reglas:
+     * - Deben existir reservas TEMPORAL para cada item del request.
+     * - No pueden estar expiradas (expiresAt > now()).
+     * - Se actualizan a PENDING, se asigna paymentId, y se asegura QR.
      */
-    private List<Reservation> createReservationsForItems(Payment payment,
-                                                        List<CreatePaymentRequest.PaymentItemRequest> requestItems,
-                                                        List<ShoppingCartItem> cartItems) {
-        List<Reservation> reservations = new java.util.ArrayList<>();
-        
-        for (CreatePaymentRequest.PaymentItemRequest requestItem : requestItems) {
-            ShoppingCartItem cartItem = cartItems.stream()
-                    .filter(item -> item.getId().equals(requestItem.getShoppingCartItemId()))
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalArgumentException("Cart item not found"));
+    private List<Reservation> confirmTemporalReservations(Payment payment,
+                                                         List<Reservation> reservationsToPay) {
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        List<Reservation> confirmed = new java.util.ArrayList<>();
 
-            // Calcular fechas máximas de cancelación y re-agendamiento
-            LocalDate maxCancellationDate = null;
-            LocalDate maxReschedulingDate = null;
-
-            LocalDate selectedTourDate = cartItem.getScheduleDate();
-            
-            if (selectedTourDate != null && cartItem.getTourSchedule() != null) {
-                TourSchedule schedule = tourScheduleRepository.findById(cartItem.getTourSchedule().getId())
-                        .orElse(null);
-                
-                if (schedule != null && schedule.getTourId() != null) {
-                    Tour tour = tourRepository.findById(schedule.getTourId()).orElse(null);
-                    
-                    if (tour != null) {
-                        // Obtener política de cancelación del tour
-                        List<TourCancellationPolicy> policies = tourCancellationPolicyRepository.findByTourId(tour.getId());
-                        
-                        if (!policies.isEmpty()) {
-                            TourCancellationPolicy policy = policies.get(0); // Tomar la primera política
-                            
-                            // Calcular fecha máxima de cancelación según el tipo de política
-                            maxCancellationDate = calculateMaxCancellationDate(
-                                    policy.getCancellationPolicyType(), 
-                                    selectedTourDate
-                            );
-                            
-                            // Calcular fecha máxima de re-agendamiento (2 días antes del tour)
-                            // Se calcula siempre, pero solo se permite re-agendar si allowsRescheduling es true
-                            maxReschedulingDate = selectedTourDate.minusDays(2);
-                        }
-                    }
-                }
+        for (Reservation reservation : reservationsToPay) {
+            if (reservation.getDeliveryStatus() != DeliveryStatusEnum.TEMPORAL) {
+                throw new IllegalArgumentException("La reserva " + reservation.getReservationId() + " no está en estado TEMPORAL");
+            }
+            if (reservation.getExpiresAt() != null && !reservation.getExpiresAt().isAfter(now)) {
+                throw new IllegalArgumentException("La reserva temporal " + reservation.getReservationId() + " está expirada");
             }
 
-            // Crear reserva para este item
-            Reservation reservation = Reservation.builder()
-                    .paymentId(payment.getPaymentId())
-                    .itemId(cartItem.getId())
-                    .qrUrl(null) // Se generará y subirá después
-                    .reservationDate(LocalDateTime.now().plusDays(1)) // Fecha por defecto
-                    .deliveryStatus(DeliveryStatusEnum.PENDING)
-                    .serviceResponsibleName(requestItem.getServiceResponsible().getName())
-                    .serviceResponsibleEmail(requestItem.getServiceResponsible().getEmail())
-                    .serviceResponsiblePhone(requestItem.getServiceResponsible().getPhone())
-                    .maxCancellationDate(maxCancellationDate)
-                    .maxReschedulingDate(maxReschedulingDate)
-                    .build();
+            reservation.setPaymentId(payment.getPaymentId());
+            reservation.setDeliveryStatus(DeliveryStatusEnum.PENDING);
+            reservation.setExpiresAt(null);
 
             reservation = reservationRepository.save(reservation);
-            
-            // Generar y subir QR code a S3 para esta reserva
-            String qrUrl = reservationQrService.generateAndUploadQrCode(reservation.getReservationId());
-            reservation.setQrUrl(qrUrl);
-            reservation = reservationRepository.save(reservation);
-            
-            // Incrementar reservedCapacity del TourSchedule al crear la reserva
-            if (cartItem.getTourSchedule() != null) {
-                TourSchedule schedule = tourScheduleRepository.findById(cartItem.getTourSchedule().getId())
-                        .orElse(null);
-                
-                if (schedule != null) {
-                    // Calcular cantidad total de turistas del item
-                    int totalQuantity = 0;
-                    if (cartItem.getDetails() != null) {
-                        totalQuantity = cartItem.getDetails().stream()
-                                .mapToInt(ShoppingCartItemDetail::getQuantity)
-                                .sum();
-                    }
-                    
-                    // Incrementar capacidad reservada si no es ilimitada
-                    if (totalQuantity > 0 && Boolean.FALSE.equals(schedule.getIsUnlimitedCapacity())) {
-                        int currentReserved = schedule.getReservedCapacity() != null 
-                                ? schedule.getReservedCapacity() 
-                                : 0;
-                        schedule.setReservedCapacity(currentReserved + totalQuantity);
-                        tourScheduleRepository.save(schedule);
-                        log.info("Reserved {} capacity in schedule {} for reservation {}", 
-                                totalQuantity, schedule.getId(), reservation.getReservationId());
-                    }
-                }
+
+            if (reservation.getQrUrl() == null) {
+                String qrUrl = reservationQrService.generateAndUploadQrCode(reservation.getReservationId());
+                reservation.setQrUrl(qrUrl);
+                reservation = reservationRepository.save(reservation);
             }
-            
-            reservations.add(reservation);
-            
-            log.debug("Created reservation {} for item {} in payment {}", 
-                    reservation.getReservationId(), cartItem.getId(), payment.getPaymentId());
+
+            confirmed.add(reservation);
         }
-        
-        return reservations;
+
+        return confirmed;
     }
+
+    // createReservationsForItems removido: ahora payment confirma reservas temporales existentes.
 
     /**
      * Actualiza el estado de los items del carrito a PAGADO y asigna reservationId.
