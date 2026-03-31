@@ -24,6 +24,12 @@ public class SearchTourScheduleFullResponse {
         private String durationType;             // Si tienes enum en Java, cámbialo al enum correspondiente
         private Double rating;
         private String status;                   // accepted, etc.
+        private String priceType;
+        private Integer maxPeople;
+        private Boolean isUnlimitedCapacity;
+        private String subCategory;
+        private String durationEnum;
+        private List<String> timeOfDay;
         private List<TagResponse> tags;          // Tags del tour
         private AddressResponse address;         // Dirección del tour
         private List<GalleryItemResponse> gallery; // Imágenes del tour
@@ -81,7 +87,11 @@ public class SearchTourScheduleFullResponse {
         private Integer slotId;
         private LocalTime startTime;
         private LocalTime endTime;
-        // minCapacity y maxCapacity eliminados - la capacidad ahora se maneja a nivel de TourSchedule
+        private Integer capacity;
+        private Integer bookings;
+        private Integer availability;
+        private Integer minCapacityCalc;
+        private Boolean checkAvailability;
         private List<TourSchedulePriceResponse> prices; // N prices por slot
         private HighestPriceResponse highestPrice;      // price más alto por slot
     }

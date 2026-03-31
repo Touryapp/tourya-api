@@ -5,6 +5,7 @@ import com.tourya.api.constans.enums.AgePriceType;
 import com.tourya.api.models.responses.*;
 import com.tourya.api.services.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -55,6 +56,10 @@ public class PublicController {
     }
 
     @PostMapping("/tours/schedule/search")
+    @Operation(
+            summary = "Búsqueda pública de tours/schedules",
+            description = "Ejecuta búsqueda vía stored procedure `sp_get_tour_schedule_json`. Soporta filtros: categoryId, subCategory, durationEnum, timeOfDay, rango de precio, tags y rango de fechas."
+    )
     public ResponseEntity<Page<SearchTourScheduleFullResponse>> search(
             @RequestBody Map<String, Object> filters,
             Pageable pageable) {

@@ -31,8 +31,8 @@ public class CreatePaymentRequest {
     private String transactionData; // JSON string
 
     @Valid
-    @NotEmpty(message = "Debe incluir al menos un item")
-    private List<PaymentItemRequest> items;
+    @NotEmpty(message = "Debe incluir al menos una reserva")
+    private List<@Positive(message = "El ID de la reserva debe ser positivo") Long> reservationIds;
 
     @Valid
     @NotNull(message = "Los datos del pagador son obligatorios")
@@ -58,42 +58,6 @@ public class CreatePaymentRequest {
      */
     @Valid
     private CreditDataRequest creditData;
-
-    @Getter
-    @Setter
-    @SuperBuilder
-    @AllArgsConstructor
-    @NoArgsConstructor
-    public static class PaymentItemRequest {
-        
-        @NotNull(message = "El ID del item del carrito es obligatorio")
-        @Positive(message = "El ID del item del carrito debe ser positivo")
-        private Long shoppingCartItemId;
-
-        @Valid
-        @NotNull(message = "Los datos del responsable del servicio son obligatorios")
-        private ServiceResponsibleRequest serviceResponsible;
-    }
-
-    @Getter
-    @Setter
-    @SuperBuilder
-    @AllArgsConstructor
-    @NoArgsConstructor
-    public static class ServiceResponsibleRequest {
-        
-        @NotBlank(message = "El nombre del responsable es obligatorio")
-        @Size(max = 255, message = "El nombre del responsable no puede exceder 255 caracteres")
-        private String name;
-
-        @NotBlank(message = "El email del responsable es obligatorio")
-        @Email(message = "El email del responsable debe tener un formato válido")
-        @Size(max = 255, message = "El email del responsable no puede exceder 255 caracteres")
-        private String email;
-
-        @Size(max = 20, message = "El teléfono del responsable no puede exceder 20 caracteres")
-        private String phone;
-    }
 
     @Getter
     @Setter

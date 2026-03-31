@@ -3,6 +3,12 @@ package com.tourya.api.models;
 import com.tourya.api.common.BaseEntity;
 import com.tourya.api.constans.enums.PriceTypeEnum;
 import com.tourya.api.constans.enums.PriceTypeEnumConverter;
+import com.tourya.api.constans.enums.TourDurationEnum;
+import com.tourya.api.constans.enums.TourDurationEnumConverter;
+import com.tourya.api.constans.enums.TourSubCategoryEnum;
+import com.tourya.api.constans.enums.TourSubCategoryEnumConverter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import com.tourya.api.constans.enums.TourStatusEnum;
 import com.tourya.api.constans.enums.TourStatusEnumConverter;
 import jakarta.persistence.Column;
@@ -22,6 +28,7 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Getter
 @Setter
@@ -56,6 +63,21 @@ public class Tour extends BaseEntity {
 
     @Column(name = "max_people")
     private Integer maxPeople;
+
+    @Convert(converter = TourSubCategoryEnumConverter.class)
+    @Column(name = "sub_category")
+    private TourSubCategoryEnum subCategory;
+
+    @Convert(converter = TourDurationEnumConverter.class)
+    @Column(name = "duration_enum")
+    private TourDurationEnum durationEnum;
+
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "time_of_day", columnDefinition = "text[]")
+    private String[] timeOfDay;
+
+    @Column(name = "is_unlimited_capacity")
+    private Boolean isUnlimitedCapacity;
 
     @Column(name = "highlight")
     private Integer highlight;
