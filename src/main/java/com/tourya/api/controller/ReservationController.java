@@ -3,7 +3,9 @@ package com.tourya.api.controller;
 import com.tourya.api.common.PageResponse;
 import com.tourya.api.constans.enums.DeliveryStatusEnum;
 import com.tourya.api.models.request.CancelReservationRequest;
+import com.tourya.api.models.request.CreateTemporalReservationHoldRequest;
 import com.tourya.api.models.request.RescheduleReservationRequest;
+import com.tourya.api.models.responses.CreateTemporalReservationHoldResponse;
 import com.tourya.api.models.responses.ReservationResponse;
 import com.tourya.api.models.responses.ReservationDetailsResponse;
 import com.tourya.api.models.responses.RescheduleValidationResponse;
@@ -67,6 +69,21 @@ public class ReservationController {
 
 
     // --- OTROS MÉTODOS ---
+
+    @PostMapping
+    @Operation(
+            summary = "Crear reservas temporales (hold)",
+            description = "Crea reservas en estado TEMPORAL asociadas a `shoppingCartItemIds` y asigna `expiresAt` " +
+                    "(duración configurable por variable de entorno `tourya.reservations.holdMinutes`, default 15). " +
+                    "Retorna los `reservationIds` creados. Estas reservas deben confirmarse por `POST /payment` " +
+                    "enviando `reservationIds` antes de expirar."
+    )
+    public ResponseEntity<CreateTemporalReservationHoldResponse> createTemporalHoldOnRoot(
+            @Valid @RequestBody CreateTemporalReservationHoldRequest request,
+            Authentication connectedUser
+    ) {
+        return ResponseEntity.ok(reservationService.createTemporalReservationHolds(request, connectedUser));
+    }
 
     /**
      * Obtiene una reserva por su ID.

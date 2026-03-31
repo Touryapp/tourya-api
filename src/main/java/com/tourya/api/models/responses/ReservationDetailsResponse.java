@@ -63,4 +63,7 @@ public class ReservationDetailsResponse {
     
     // --- Validación de reagendamiento ---
     private Boolean canReschedule;
+
+    // --- Validación de cancelación ---
+    private Boolean canCancel;
 }

@@ -32,11 +32,11 @@ public class PaymentController {
     private final PaymentService paymentService;
 
     @PostMapping
-    @Operation(summary = "Crear pago", description = "Crea un nuevo pago y automáticamente genera la reserva con sus items")
+    @Operation(summary = "Crear pago", description = "Crea un nuevo pago y confirma reservas TEMPORAL existentes (reservationIds).")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Pago y reserva creados exitosamente"),
+            @ApiResponse(responseCode = "201", description = "Pago creado y reservas confirmadas exitosamente"),
             @ApiResponse(responseCode = "400", description = "Datos de entrada inválidos"),
-            @ApiResponse(responseCode = "404", description = "Items del carrito no encontrados")
+            @ApiResponse(responseCode = "404", description = "Reservas no encontradas")
     })
     public ResponseEntity<PaymentResponse> createPayment(
             @Valid @RequestBody CreatePaymentRequest request,

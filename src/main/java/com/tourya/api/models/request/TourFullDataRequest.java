@@ -1,6 +1,10 @@
 package com.tourya.api.models.request;
 
 import com.tourya.api.models.TranslatedField;
+import com.tourya.api.constans.enums.PriceTypeEnum;
+import com.tourya.api.constans.enums.TourDurationEnum;
+import com.tourya.api.constans.enums.TourSubCategoryEnum;
+import com.tourya.api.constans.enums.TourTimeOfDayEnum;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -31,6 +35,21 @@ public class TourFullDataRequest {
     private String duration;
 
     private Integer maxPeople = 0; // Valor por defecto 0
+
+    @NotNull(message = "priceType is mandatory")
+    private PriceTypeEnum priceType;
+
+    @NotNull(message = "isUnlimitedCapacity is mandatory")
+    private Boolean isUnlimitedCapacity;
+
+    @NotNull(message = "subCategory is mandatory")
+    private TourSubCategoryEnum subCategory;
+
+    @NotNull(message = "durationEnum is mandatory")
+    private TourDurationEnum durationEnum;
+
+    @NotEmpty(message = "timeOfDay is mandatory")
+    private List<TourTimeOfDayEnum> timeOfDay;
 
     private Integer highlight = 0; // Valor por defecto 0
 

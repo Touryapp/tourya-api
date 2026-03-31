@@ -35,7 +35,12 @@ public enum DeliveryStatusEnum {
     /**
      * Entrega re-agendada
      */
-    RESCHEDULED
+    RESCHEDULED,
+
+    /**
+     * Reserva temporal (hold) pendiente de pago/confirmación (15 min)
+     */
+    TEMPORAL
 }
 
 
