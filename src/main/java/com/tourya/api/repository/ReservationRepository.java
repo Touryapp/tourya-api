@@ -103,6 +103,20 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
             Pageable pageable
     );
 
+    @Query("""
+        SELECT r FROM Reservation r
+        WHERE r.deliveryStatus = 'TEMPORAL'
+          AND r.expiresAt IS NOT NULL
+          AND r.expiresAt <= :now
+        """)
+    List<Reservation> findExpiredTemporalReservations(@Param("now") LocalDateTime now);
+
+    @Query("""
+        SELECT r FROM Reservation r
+        WHERE r.reservationId IN :ids
+        """)
+    List<Reservation> findAllByReservationIdIn(@Param("ids") List<Long> ids);
+
     /**
      * Busca reservas general
      */

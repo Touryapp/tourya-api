@@ -43,6 +43,21 @@ public class TourScheduleConfigSlot extends BaseEntity {
     @Column(name = "end_time", nullable = false)
     private LocalTime endTime; // Maps to SQL TIME
 
+    @Column(name = "capacity")
+    private Integer capacity;
+
+    @Column(name = "bookings", nullable = false)
+    private Integer bookings;
+
+    @Column(name = "availability", nullable = false)
+    private Integer availability;
+
+    @Column(name = "min_capacity_calc")
+    private Integer minCapacityCalc;
+
+    @Column(name = "check_availability", nullable = false)
+    private Boolean checkAvailability;
+
     @Column(name = "config_id", nullable = false, insertable = false, updatable = false) // MODIFICACIÓN
     private Integer configId;
 

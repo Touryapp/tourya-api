@@ -19,10 +19,12 @@ import com.tourya.api.models.*;
 import com.tourya.api.models.mapper.ReservationMapper;
 import com.tourya.api._utils.Utils;
 import com.tourya.api.models.request.CancelReservationRequest;
+import com.tourya.api.models.request.CreateTemporalReservationHoldRequest;
 import com.tourya.api.models.request.RescheduleReservationRequest;
 import com.tourya.api.models.responses.ReservationDetailsResponse;
 import com.tourya.api.models.responses.ReservationResponse;
 import com.tourya.api.models.responses.CreditResponse;
+import com.tourya.api.models.responses.CreateTemporalReservationHoldResponse;
 import com.tourya.api.models.responses.RescheduleValidationResponse;
 import com.tourya.api.models.responses.RescheduleResponse;
 import com.tourya.api.models.responses.ShoppingCartResponse;
@@ -31,6 +33,7 @@ import com.tourya.api.models.request.SlotRequest;
 import com.tourya.api.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.lang.Nullable;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -42,6 +45,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -56,6 +60,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional
 public class ReservationService {
+
+    @Value("${tourya.reservations.holdMinutes:15}")
+    private int defaultHoldMinutes;
 
     private final ReservationRepository reservationRepository;
     private final PaymentRepository paymentRepository;
@@ -82,6 +89,173 @@ public class ReservationService {
     /**
      * Método createReservation removido - las reservas se crean automáticamente con los pagos
      */
+
+    /**
+     * Crea reservas TEMPORAL (holds) por items del carrito.
+     * - Valida pertenencia al usuario.
+     * - Valida disponibilidad usando TSCS.capacity/availability si el tour es limitado.
+     * - Crea Reservation TEMPORAL con expiresAt=now()+holdMinutes.
+     * - Asigna reservationId al ShoppingCartItem.
+     */
+    @Transactional
+    public CreateTemporalReservationHoldResponse createTemporalReservationHolds(CreateTemporalReservationHoldRequest request,
+                                                                               Authentication connectedUser) {
+        User user = (User) connectedUser.getPrincipal();
+        LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(defaultHoldMinutes);
+
+        List<ShoppingCartItem> items = shoppingCartItemRepository.findAllById(request.getShoppingCartItemIds());
+        if (items.size() != request.getShoppingCartItemIds().size()) {
+            throw new IllegalArgumentException("Algunos items del carrito no fueron encontrados");
+        }
+
+        // Validar pertenencia y que tengan slot
+        for (ShoppingCartItem item : items) {
+            if (!item.getShoppingCart().getUser().getId().equals(user.getId())) {
+                throw new IllegalArgumentException("El item del carrito debe corresponder al usuario autenticado (token)");
+            }
+            if (item.getSlot() == null || item.getSlot().getId() == null) {
+                throw new IllegalArgumentException("El item del carrito no tiene slot asociado");
+            }
+        }
+
+        // Validar disponibilidad por slot (si tour limitado)
+        for (ShoppingCartItem item : items) {
+            validateSlotAvailabilityForItem(item);
+        }
+
+        List<Long> reservationIds = new ArrayList<>();
+        for (ShoppingCartItem item : items) {
+            java.math.BigDecimal totalAmount = item.getTotalPrice() != null ? item.getTotalPrice() : java.math.BigDecimal.ZERO;
+            Reservation reservation = Reservation.builder()
+                    .paymentId(null) // Se setea en payment al confirmar
+                    .itemId(item.getId())
+                    .qrUrl(null)
+                    .reservationDate(LocalDateTime.now())
+                    .deliveryStatus(DeliveryStatusEnum.TEMPORAL)
+                    .expiresAt(expiresAt)
+                    .totalAmount(totalAmount)
+                    .serviceResponsibleName(request.getServiceResponsible().getName())
+                    .serviceResponsibleEmail(request.getServiceResponsible().getEmail())
+                    .serviceResponsiblePhone(request.getServiceResponsible().getPhone())
+                    .maxCancellationDate(null)
+                    .maxReschedulingDate(null)
+                    .build();
+
+            reservation = reservationRepository.save(reservation);
+            item.setReservationId(reservation.getReservationId());
+            shoppingCartItemRepository.save(item);
+
+            // Recalcular disponibilidad del slot con este hold (bookings/availability)
+            recalcSlotAvailability(item.getSlot().getId());
+
+            reservationIds.add(reservation.getReservationId());
+        }
+
+        return CreateTemporalReservationHoldResponse.builder()
+                .reservationIds(reservationIds)
+                .expiresAt(expiresAt)
+                .build();
+    }
+
+    private void validateSlotAvailabilityForItem(ShoppingCartItem item) {
+        if (item.getTourSchedule() == null || item.getTourSchedule().getTourId() == null) {
+            throw new OperationNotPermittedException("El item no tiene tourSchedule válido");
+        }
+        Tour tour = tourRepository.findById(item.getTourSchedule().getTourId())
+                .orElseThrow(() -> new ResourceNotFoundException("Tour not found"));
+
+        // Si tour ilimitado, no bloquear por availability
+        if (Boolean.TRUE.equals(tour.getIsUnlimitedCapacity())) {
+            return;
+        }
+
+        TourScheduleConfigSlot slot = tourScheduleConfigSlotRepository.findById(item.getSlot().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Slot not found"));
+
+        if (slot.getCapacity() == null) {
+            throw new OperationNotPermittedException("El slot no tiene capacity configurada");
+        }
+
+        int units = calculateBookingUnits(tour, item);
+        int available = slot.getAvailability() != null ? slot.getAvailability() : (slot.getCapacity() - (slot.getBookings() != null ? slot.getBookings() : 0));
+        if (available < units) {
+            throw new OperationNotPermittedException("No hay disponibilidad suficiente en el slot. Disponible: " + available);
+        }
+    }
+
+    private int calculateBookingUnits(Tour tour, ShoppingCartItem item) {
+        if (tour.getPriceType() != null && "grupo".equalsIgnoreCase(tour.getPriceType().getValue())) {
+            return 1;
+        }
+        if (item.getDetails() == null) return 0;
+        return item.getDetails().stream().mapToInt(ShoppingCartItemDetail::getQuantity).sum();
+    }
+
+    /**
+     * Recalcula bookings/availability/minCapacityCalc/checkAvailability para un slot.
+     * bookings = suma de units de reservas asociadas a items con este slot en estados TEMPORAL/PENDING/DELIVERED
+     * availability = capacity - bookings
+     */
+    private void recalcSlotAvailability(Integer slotId) {
+        TourScheduleConfigSlot slot = tourScheduleConfigSlotRepository.findById(slotId)
+                .orElseThrow(() -> new ResourceNotFoundException("Slot not found"));
+
+        // buscar items con ese slot
+        List<ShoppingCartItem> itemsWithSlot = shoppingCartItemRepository.findAll().stream()
+                .filter(i -> i.getSlot() != null && i.getSlot().getId() != null && i.getSlot().getId().equals(slotId))
+                .collect(Collectors.toList());
+
+        Set<Long> reservationIds = itemsWithSlot.stream()
+                .map(ShoppingCartItem::getReservationId)
+                .filter(id -> id != null)
+                .collect(Collectors.toSet());
+
+        int bookings = 0;
+        if (!reservationIds.isEmpty()) {
+            List<Reservation> reservations = reservationRepository.findAllByReservationIdIn(new ArrayList<>(reservationIds));
+            for (Reservation r : reservations) {
+                if (r.getDeliveryStatus() == DeliveryStatusEnum.CANCELED) continue;
+                if (r.getDeliveryStatus() != DeliveryStatusEnum.TEMPORAL
+                        && r.getDeliveryStatus() != DeliveryStatusEnum.PENDING
+                        && r.getDeliveryStatus() != DeliveryStatusEnum.DELIVERED) {
+                    continue;
+                }
+                ShoppingCartItem item = shoppingCartItemRepository.findById(r.getItemId()).orElse(null);
+                if (item == null || item.getTourSchedule() == null || item.getTourSchedule().getTourId() == null) continue;
+                Tour tour = tourRepository.findById(item.getTourSchedule().getTourId()).orElse(null);
+                if (tour == null) continue;
+                bookings += calculateBookingUnits(tour, item);
+            }
+        }
+
+        slot.setBookings(bookings);
+        if (slot.getCapacity() != null) {
+            slot.setAvailability(Math.max(0, slot.getCapacity() - bookings));
+        } else {
+            slot.setAvailability(0);
+        }
+
+        // minCapacityCalc/checkAvailability solo si tour limitado y podemos inferir tour
+        // (tomamos el tour del primer item con slot)
+        Tour refTour = null;
+        for (ShoppingCartItem i : itemsWithSlot) {
+            if (i.getTourSchedule() != null && i.getTourSchedule().getTourId() != null) {
+                refTour = tourRepository.findById(i.getTourSchedule().getTourId()).orElse(null);
+                if (refTour != null) break;
+            }
+        }
+        if (refTour != null && Boolean.FALSE.equals(refTour.getIsUnlimitedCapacity()) && slot.getCapacity() != null) {
+            int minCap = (int) Math.floor(slot.getCapacity() * 0.4);
+            slot.setMinCapacityCalc(minCap);
+            boolean isGroup = refTour.getPriceType() != null && "grupo".equalsIgnoreCase(refTour.getPriceType().getValue());
+            slot.setCheckAvailability((isGroup && minCap < 5) || (!isGroup && minCap < 20));
+        } else {
+            slot.setMinCapacityCalc(null);
+            slot.setCheckAvailability(false);
+        }
+
+        tourScheduleConfigSlotRepository.save(slot);
+    }
 
     /**
      * Consulta una reserva por su ID con información detallada del tour.
@@ -653,7 +827,7 @@ public class ReservationService {
                         size
                 );
 
-        // Agregar canReschedule a cada reserva
+        // Agregar canReschedule y canCancel a cada reserva
         for (ReservationDetailsResponse reservation : content) {
             try {
                 RescheduleValidationResponse validation = validateRescheduleReservation(
@@ -663,6 +837,16 @@ public class ReservationService {
                 log.warn("Error validating reschedule for reservation {}: {}", 
                         reservation.getReservationId(), e.getMessage());
                 reservation.setCanReschedule(false);
+            }
+
+            try {
+                com.tourya.api.models.responses.CancelValidationResponse cancelValidation =
+                        validateCancelReservation(reservation.getReservationId(), connectedUser);
+                reservation.setCanCancel(cancelValidation.getCanCancel());
+            } catch (Exception e) {
+                log.warn("Error validating cancel for reservation {}: {}",
+                        reservation.getReservationId(), e.getMessage());
+                reservation.setCanCancel(false);
             }
         }
 
@@ -880,6 +1064,24 @@ public class ReservationService {
                     .reason("ALREADY_CANCELED")
                     .build();
         }
+
+        // Validar que la reserva no esté consumida/entregada
+        if (reservation.getDeliveryStatus() == DeliveryStatusEnum.DELIVERED) {
+            return RescheduleValidationResponse.builder()
+                    .canReschedule(false)
+                    .message("No se puede reagendar una reserva completada")
+                    .reason("ALREADY_DELIVERED")
+                    .build();
+        }
+
+        // Validar que la reserva no esté re-agendada previamente
+        if (reservation.getDeliveryStatus() == DeliveryStatusEnum.RESCHEDULED) {
+            return RescheduleValidationResponse.builder()
+                    .canReschedule(false)
+                    .message("No se puede reagendar una reserva ya reagendada")
+                    .reason("ALREADY_RESCHEDULED")
+                    .build();
+        }
         
         // Obtener información del tour
         TourSchedule schedule = item.getTourSchedule();
@@ -930,6 +1132,91 @@ public class ReservationService {
         return RescheduleValidationResponse.builder()
                 .canReschedule(true)
                 .message("La reserva puede ser reagendada")
+                .reason(null)
+                .build();
+    }
+
+    /**
+     * Valida si una reserva puede ser cancelada (sin hacer cambios).
+     * Regla principal: hoy <= maxCancellationDate (según políticas del tour) y la reserva no está cancelada,
+     * ni completada (DELIVERED), ni reagendada (RESCHEDULED). También valida pertenencia al usuario del token.
+     *
+     * Nota: esta validación corresponde al flujo estándar de cancelación (por ventana de cancelación).
+     * La cancelación por lluvia (DIMAR) se valida en el endpoint de cancelación cuando se envía ese motivo.
+     */
+    @Transactional(readOnly = true)
+    public com.tourya.api.models.responses.CancelValidationResponse validateCancelReservation(Long reservationId, Authentication authentication) {
+        log.info("Validating cancel for reservation: {}", reservationId);
+
+        User user = (User) authentication.getPrincipal();
+
+        Reservation reservation = reservationRepository.findById(reservationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Reservation not found with id: " + reservationId));
+
+        ShoppingCartItem item = shoppingCartItemRepository.findById(reservation.getItemId())
+                .orElseThrow(() -> new ResourceNotFoundException("Shopping cart item not found"));
+
+        if (!item.getShoppingCart().getUser().getId().equals(user.getId())) {
+            return com.tourya.api.models.responses.CancelValidationResponse.builder()
+                    .canCancel(false)
+                    .message("No tienes permiso para cancelar esta reserva. La reserva pertenece a otro usuario.")
+                    .reason("PERMISSION_DENIED")
+                    .build();
+        }
+
+        if (reservation.getDeliveryStatus() == DeliveryStatusEnum.CANCELED) {
+            return com.tourya.api.models.responses.CancelValidationResponse.builder()
+                    .canCancel(false)
+                    .message("No se puede cancelar una reserva cancelada")
+                    .reason("ALREADY_CANCELED")
+                    .build();
+        }
+
+        if (reservation.getDeliveryStatus() == DeliveryStatusEnum.DELIVERED) {
+            return com.tourya.api.models.responses.CancelValidationResponse.builder()
+                    .canCancel(false)
+                    .message("No se puede cancelar una reserva completada")
+                    .reason("ALREADY_DELIVERED")
+                    .build();
+        }
+
+        // Nota: una reserva puede estar RESCHEDULED y aún ser cancelable si la ventana/política lo permite.
+
+        // Validar que exista política de cancelación para el tour del item
+        TourSchedule schedule = item.getTourSchedule();
+        if (schedule == null || schedule.getTourId() == null) {
+            return com.tourya.api.models.responses.CancelValidationResponse.builder()
+                    .canCancel(false)
+                    .message("No se puede cancelar: información del tour no encontrada")
+                    .reason("TOUR_NOT_FOUND")
+                    .build();
+        }
+
+        Tour tour = tourRepository.findById(schedule.getTourId())
+                .orElseThrow(() -> new ResourceNotFoundException("Tour not found"));
+
+        List<TourCancellationPolicy> policies = tourCancellationPolicyRepository.findByTourId(tour.getId());
+        if (policies.isEmpty()) {
+            return com.tourya.api.models.responses.CancelValidationResponse.builder()
+                    .canCancel(false)
+                    .message("No se encontró política de cancelación para este tour")
+                    .reason("POLICY_NOT_FOUND")
+                    .build();
+        }
+
+        // Validar ventana de cancelación (fecha máxima)
+        java.time.LocalDate today = java.time.LocalDate.now();
+        if (reservation.getMaxCancellationDate() != null && today.isAfter(reservation.getMaxCancellationDate())) {
+            return com.tourya.api.models.responses.CancelValidationResponse.builder()
+                    .canCancel(false)
+                    .message("No se puede cancelar: la fecha máxima de cancelación (" + reservation.getMaxCancellationDate() + ") ya pasó")
+                    .reason("MAX_DATE_PASSED")
+                    .build();
+        }
+
+        return com.tourya.api.models.responses.CancelValidationResponse.builder()
+                .canCancel(true)
+                .message("La reserva puede ser cancelada")
                 .reason(null)
                 .build();
     }

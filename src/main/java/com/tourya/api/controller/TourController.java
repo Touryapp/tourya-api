@@ -7,6 +7,7 @@ import com.tourya.api.models.responses.TourCompleteDataResponse;
 import com.tourya.api.models.responses.TourFullDataResponse;
 import com.tourya.api.models.responses.TourResponse;
 import com.tourya.api.services.TourService;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -73,6 +74,11 @@ public class TourController {
         return ResponseEntity.ok(tourService.findAllByUser(page, size, connectedUser));
     }
     @PostMapping("/user/saveAll")
+    @Operation(
+            summary = "Crear/actualizar Tour (full data)",
+            description = "Crea o actualiza un tour. Incluye nuevos campos: priceType, isUnlimitedCapacity, subCategory, durationEnum, timeOfDay. " +
+                    "Nota UI: `maxPeople` aplica cuando `priceType = GROUP`."
+    )
     public ResponseEntity<TourFullDataResponse> saveCreateFullData(
             @Valid @RequestBody TourFullDataRequest tourFullDataRequest,
             Authentication connectedUser
@@ -87,6 +93,7 @@ public class TourController {
 
     // --- NEW UNIFIED ENDPOINT ---
     @GetMapping("/details/{tourId}")
+    @Operation(summary = "Detalle unificado del Tour", description = "Retorna el detalle del tour (para público o autenticado).")
     public ResponseEntity<TourFullDataResponse> getTourDetails(
             @PathVariable Integer tourId,
             @Nullable Authentication connectedUser

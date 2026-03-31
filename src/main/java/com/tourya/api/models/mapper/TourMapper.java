@@ -8,6 +8,7 @@ import com.tourya.api.models.request.TourRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.Arrays;
 import java.util.List;
 
 @Service
@@ -22,6 +23,11 @@ public class TourMapper {
         tour.setDescription(tourRequest.getDescription());
         tour.setDuration(tourRequest.getDuration());
         tour.setMaxPeople(tourRequest.getMaxPeople());
+        tour.setPriceType(tourRequest.getPriceType());
+        tour.setIsUnlimitedCapacity(tourRequest.getIsUnlimitedCapacity());
+        tour.setSubCategory(tourRequest.getSubCategory());
+        tour.setDurationEnum(tourRequest.getDurationEnum());
+        tour.setTimeOfDay(toTimeOfDayDb(tourRequest.getTimeOfDay()));
         tour.setHighlight(tourRequest.getHighlight());
         return tour;
     }
@@ -31,6 +37,11 @@ public class TourMapper {
         tour.setDescription(tourCreateRequest.getDescription());
         tour.setDuration(tourCreateRequest.getDuration());
         tour.setMaxPeople(tourCreateRequest.getMaxPeople());
+        tour.setPriceType(tourCreateRequest.getPriceType());
+        tour.setIsUnlimitedCapacity(tourCreateRequest.getIsUnlimitedCapacity());
+        tour.setSubCategory(tourCreateRequest.getSubCategory());
+        tour.setDurationEnum(tourCreateRequest.getDurationEnum());
+        tour.setTimeOfDay(toTimeOfDayDb(tourCreateRequest.getTimeOfDay()));
         tour.setHighlight(tourCreateRequest.getHighlight());
         tour.setMinAge(tourCreateRequest.getMinAge());
         tour.setRating(tourCreateRequest.getRating());
@@ -42,6 +53,11 @@ public class TourMapper {
         tour.setDescription(tourFullDataRequest.getDescription());
         tour.setDuration(tourFullDataRequest.getDuration());
         tour.setMaxPeople(tourFullDataRequest.getMaxPeople());
+        tour.setPriceType(tourFullDataRequest.getPriceType());
+        tour.setIsUnlimitedCapacity(tourFullDataRequest.getIsUnlimitedCapacity());
+        tour.setSubCategory(tourFullDataRequest.getSubCategory());
+        tour.setDurationEnum(tourFullDataRequest.getDurationEnum());
+        tour.setTimeOfDay(toTimeOfDayDb(tourFullDataRequest.getTimeOfDay()));
         tour.setHighlight(tourFullDataRequest.getHighlight());
         tour.setMinAge(tourFullDataRequest.getMinAge());
         tour.setRating(tourFullDataRequest.getRating());
@@ -55,6 +71,11 @@ public class TourMapper {
         tourResponse.setDescription(tour.getDescription());
         tourResponse.setDuration(tour.getDuration());
         tourResponse.setMaxPeople(tour.getMaxPeople());
+        tourResponse.setPriceType(tour.getPriceType());
+        tourResponse.setIsUnlimitedCapacity(tour.getIsUnlimitedCapacity());
+        tourResponse.setSubCategory(tour.getSubCategory());
+        tourResponse.setDurationEnum(tour.getDurationEnum());
+        tourResponse.setTimeOfDay(toTimeOfDayApi(tour.getTimeOfDay()));
         tourResponse.setHighlight(tour.getHighlight());
         tourResponse.setMinAge(tour.getMinAge());
         tourResponse.setRating(tour.getRating());
@@ -90,6 +111,11 @@ public class TourMapper {
         tourFullDataResponse.setTourCategoryId(tour.getTourCategory().getId());
         tourFullDataResponse.setDuration(tour.getDuration());
         tourFullDataResponse.setMaxPeople(tour.getMaxPeople());
+        tourFullDataResponse.setPriceType(tour.getPriceType());
+        tourFullDataResponse.setIsUnlimitedCapacity(tour.getIsUnlimitedCapacity());
+        tourFullDataResponse.setSubCategory(tour.getSubCategory());
+        tourFullDataResponse.setDurationEnum(tour.getDurationEnum());
+        tourFullDataResponse.setTimeOfDay(toTimeOfDayApi(tour.getTimeOfDay()));
         tourFullDataResponse.setHighlight(tour.getHighlight());
         tourFullDataResponse.setMinAge(tour.getMinAge());
         tourFullDataResponse.setRating(tour.getRating());
@@ -109,5 +135,15 @@ public class TourMapper {
         }
 
         return tourFullDataResponse;
+    }
+
+    private String[] toTimeOfDayDb(List<com.tourya.api.constans.enums.TourTimeOfDayEnum> api) {
+        if (api == null) return null;
+        return api.stream().map(com.tourya.api.constans.enums.TourTimeOfDayEnum::getValue).toArray(String[]::new);
+    }
+
+    private List<com.tourya.api.constans.enums.TourTimeOfDayEnum> toTimeOfDayApi(String[] db) {
+        if (db == null) return null;
+        return Arrays.stream(db).map(com.tourya.api.constans.enums.TourTimeOfDayEnum::of).toList();
     }
 }

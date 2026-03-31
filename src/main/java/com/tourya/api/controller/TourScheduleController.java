@@ -12,6 +12,7 @@ import com.tourya.api.models.responses.TourScheduleResponse;
 import com.tourya.api.models.responses.TourScheduleSearchResponseDto;
 import com.tourya.api.services.TourConfigTemplateService;
 import com.tourya.api.services.TourScheduleConfigGeneralService;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -75,6 +76,10 @@ public class TourScheduleController {
      *         HTTP 201 Created.
      */
     @PostMapping("/config")
+    @Operation(
+            summary = "Crear configuración de schedule",
+            description = "Crea una configuración con slots y precios. Cada slot debe incluir `capacity` (capacidad del slot)."
+    )
     public ResponseEntity<TourScheduleConfigResponse> createTourSchedule(
             @RequestParam Boolean isTemplate,
             @Valid @RequestBody TourScheduleConfigCreationRequest request,
@@ -96,6 +101,10 @@ public class TourScheduleController {
      *         estado HTTP 200 OK.
      */
     @PutMapping("config/{configId}")
+    @Operation(
+            summary = "Actualizar configuración de schedule",
+            description = "Actualiza una configuración existente. Cada slot debe incluir `capacity`."
+    )
     public ResponseEntity<TourScheduleConfigResponse> updateTourSchedule(
             @PathVariable Integer configId,
             @Valid @RequestBody TourScheduleConfigCreationRequest request,
@@ -119,6 +128,10 @@ public class TourScheduleController {
      *         OK.
      */
     @GetMapping("config/{configId}")
+    @Operation(
+            summary = "Consultar configuración de schedule",
+            description = "Retorna la configuración con slots y precios, incluyendo campos de capacity/bookings/availability/minCapacityCalc/checkAvailability por slot."
+    )
     public ResponseEntity<TourScheduleConfigResponse> getTourScheduleDetails(
             @PathVariable Integer configId) {
         try {
