@@ -15,7 +15,7 @@ public class TagCategoryRepository {
     public List<String> getAllCategories() {
         return entityManager
                 .createNativeQuery(
-                        "SELECT unnest(enum_range(NULL::tour_tag_category_enum))::TEXT AS category"
+                        "SELECT nombre FROM public.tag_dimensions ORDER BY display_order"
                 )
                 .getResultList();
     }

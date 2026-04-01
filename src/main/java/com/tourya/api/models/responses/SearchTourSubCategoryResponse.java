@@ -5,9 +5,7 @@ import lombok.Data;
 
 @Data
 @AllArgsConstructor
-public class TourTagResponse {
-    private Integer id;
-    private String dimension;
+public class SearchTourSubCategoryResponse {
+    private String code;
     private String name;
-    private String slug;
 }

@@ -2,6 +2,7 @@ package com.tourya.api.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tourya.api.constans.enums.AgePriceType;
+import com.tourya.api.models.request.PublicTourScheduleSearchRequest;
 import com.tourya.api.models.responses.*;
 import com.tourya.api.services.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -17,8 +18,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
-
 @RestController
 @RequestMapping("public")
 @RequiredArgsConstructor
@@ -58,10 +57,10 @@ public class PublicController {
     @PostMapping("/tours/schedule/search")
     @Operation(
             summary = "Búsqueda pública de tours/schedules",
-            description = "Ejecuta búsqueda vía stored procedure `sp_get_tour_schedule_json`. Soporta filtros: categoryId, subCategory, durationEnum, timeOfDay, rango de precio, tags y rango de fechas."
+            description = "Ejecuta búsqueda vía stored procedure `sp_get_tour_schedule_json`. Soporta filtros: categoryId, subCategory, durationEnum, timeOfDay, rango de precio, tags, rango de fechas y requestedUnits para validar cupos."
     )
     public ResponseEntity<Page<SearchTourScheduleFullResponse>> search(
-            @RequestBody Map<String, Object> filters,
+            @RequestBody PublicTourScheduleSearchRequest filters,
             Pageable pageable) {
         return ResponseEntity.ok(searchTourScheduleFullService.searchTourSchedule(filters, pageable));
     }
@@ -74,6 +73,11 @@ public class PublicController {
     @GetMapping("/search/categories")
     public ResponseEntity<List<SearchTourCategoryResponse>> getTourCategories() {
         return ResponseEntity.ok(SearchTourCategoryService.getTourCategories());
+    }
+
+    @GetMapping("/search/subcategories")
+    public ResponseEntity<List<SearchTourSubCategoryResponse>> getTourSubCategories() {
+        return ResponseEntity.ok(SearchTourCategoryService.getTourSubCategories());
     }
 
     @GetMapping("tag/categories")
