@@ -5,6 +5,7 @@ import com.tourya.api.constans.enums.PriceTypeEnum;
 import com.tourya.api.constans.enums.TourDurationEnum;
 import com.tourya.api.constans.enums.TourSubCategoryEnum;
 import com.tourya.api.constans.enums.TourTimeOfDayEnum;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -22,14 +23,18 @@ import java.util.List;
 @Data
 public class TourFullDataRequest {
     private Integer id;
+
     @Valid
     @NotNull(message = "name is mandatory")
+    @Schema(description = "Nombre del tour en formato multiidioma", example = "{\"es\":\"Tour bahia diurno\",\"en\":\"Bay tour\",\"pt\":\"Passeio pela baia\"}")
     private TranslatedField name;
 
     @Valid
+    @Schema(description = "Descripción del tour en formato multiidioma", example = "{\"es\":\"Descripcion del tour\",\"en\":\"Tour description\",\"pt\":\"Descricao do tour\"}")
     private TranslatedField description;
 
     @NotNull(message = "Tour Category ID is mandatory")
+    @Schema(description = "ID de la categoría del tour", example = "1")
     private Integer tourCategoryId;
 
     private String duration;
@@ -37,18 +42,22 @@ public class TourFullDataRequest {
     private Integer maxPeople = 0; // Valor por defecto 0
 
     @NotNull(message = "priceType is mandatory")
+    @Schema(description = "Tipo de precio del tour", example = "individual", allowableValues = {"individual", "grupo"})
     private PriceTypeEnum priceType;
 
     @NotNull(message = "isUnlimitedCapacity is mandatory")
     private Boolean isUnlimitedCapacity;
 
     @NotNull(message = "subCategory is mandatory")
+    @Schema(description = "Código de la subcategoría del tour", example = "tour_bahia_diurno")
     private TourSubCategoryEnum subCategory;
 
     @NotNull(message = "durationEnum is mandatory")
+    @Schema(description = "Duración categorizada del tour", example = "1_a_2_horas")
     private TourDurationEnum durationEnum;
 
     @NotEmpty(message = "timeOfDay is mandatory")
+    @Schema(description = "Momentos del día en que aplica el tour", example = "[\"manana\"]")
     private List<TourTimeOfDayEnum> timeOfDay;
 
     private Integer highlight = 0; // Valor por defecto 0

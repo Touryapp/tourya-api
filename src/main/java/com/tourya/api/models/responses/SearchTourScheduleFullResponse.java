@@ -20,6 +20,8 @@ public class SearchTourScheduleFullResponse {
         private Integer id;
         private TranslatedField name;
         private TranslatedField description;
+        private Integer categoryId;
+        private String categoryName;
         private String duration;
         private String durationType;             // Si tienes enum en Java, cámbialo al enum correspondiente
         private Double rating;
@@ -28,6 +30,7 @@ public class SearchTourScheduleFullResponse {
         private Integer maxPeople;
         private Boolean isUnlimitedCapacity;
         private String subCategory;
+        private String subCategoryName;
         private String durationEnum;
         private List<String> timeOfDay;
         private List<TagResponse> tags;          // Tags del tour

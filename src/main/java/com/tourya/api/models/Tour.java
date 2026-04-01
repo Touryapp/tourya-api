@@ -7,6 +7,7 @@ import com.tourya.api.constans.enums.TourDurationEnum;
 import com.tourya.api.constans.enums.TourDurationEnumConverter;
 import com.tourya.api.constans.enums.TourSubCategoryEnum;
 import com.tourya.api.constans.enums.TourSubCategoryEnumConverter;
+import org.hibernate.annotations.ColumnTransformer;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import com.tourya.api.constans.enums.TourStatusEnum;
@@ -65,15 +66,18 @@ public class Tour extends BaseEntity {
     private Integer maxPeople;
 
     @Convert(converter = TourSubCategoryEnumConverter.class)
-    @Column(name = "sub_category")
+    @Column(name = "sub_category", columnDefinition = "tour_subcategory_enum")
+    @ColumnTransformer(write = "?::tour_subcategory_enum")
     private TourSubCategoryEnum subCategory;
 
     @Convert(converter = TourDurationEnumConverter.class)
-    @Column(name = "duration_enum")
+    @Column(name = "duration_enum", columnDefinition = "tour_duration_enum")
+    @ColumnTransformer(write = "?::tour_duration_enum")
     private TourDurationEnum durationEnum;
 
     @JdbcTypeCode(SqlTypes.ARRAY)
-    @Column(name = "time_of_day", columnDefinition = "text[]")
+    @Column(name = "time_of_day", columnDefinition = "tour_time_of_day_enum[]")
+    @ColumnTransformer(write = "?::tour_time_of_day_enum[]")
     private String[] timeOfDay;
 
     @Column(name = "is_unlimited_capacity")
@@ -94,7 +98,8 @@ public class Tour extends BaseEntity {
     private TourStatusEnum status;
 
     @Convert(converter = PriceTypeEnumConverter.class)
-    @Column(name = "price_type")
+    @Column(name = "price_type", columnDefinition = "price_type_enum")
+    @ColumnTransformer(write = "?::price_type_enum")
     private PriceTypeEnum priceType;
 
     // Many-to-One relationship with Provider
