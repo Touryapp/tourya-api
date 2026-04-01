@@ -29,10 +29,40 @@ DECLARE
   v_category_txt      text := NULLIF(COALESCE(filters->>'category', filters->>'categoryId'), '');
   v_duration_type_txt text := NULLIF(COALESCE(filters->>'duration_type', filters->>'durationType'), '');
   v_age_type_txt      text := UPPER(NULLIF(COALESCE(filters->>'age_type', filters->>'ageType'), ''));
+  v_category_ids int[] := CASE
+    WHEN filters ? 'categoryIds' AND jsonb_typeof(filters->'categoryIds') = 'array' THEN
+      ARRAY(SELECT jsonb_array_elements_text(filters->'categoryIds')::int)
+    WHEN NULLIF(COALESCE(filters->>'category', filters->>'categoryId'), '') IS NOT NULL THEN
+      ARRAY[COALESCE(filters->>'category', filters->>'categoryId')::int]
+    ELSE NULL
+  END;
 
   v_sub_category_txt  text := NULLIF(COALESCE(filters->>'subCategory', filters->>'sub_category'), '');
   v_duration_enum_txt text := NULLIF(COALESCE(filters->>'durationEnum', filters->>'duration_enum'), '');
   v_time_of_day_txt   text := NULLIF(COALESCE(filters->>'timeOfDay', filters->>'time_of_day'), '');
+  v_sub_categories text[] := CASE
+    WHEN filters ? 'subCategories' AND jsonb_typeof(filters->'subCategories') = 'array' THEN
+      ARRAY(SELECT jsonb_array_elements_text(filters->'subCategories'))
+    WHEN NULLIF(COALESCE(filters->>'subCategory', filters->>'sub_category'), '') IS NOT NULL THEN
+      ARRAY[COALESCE(filters->>'subCategory', filters->>'sub_category')]
+    ELSE NULL
+  END;
+  v_duration_enums text[] := CASE
+    WHEN filters ? 'durationEnums' AND jsonb_typeof(filters->'durationEnums') = 'array' THEN
+      ARRAY(SELECT jsonb_array_elements_text(filters->'durationEnums'))
+    WHEN NULLIF(COALESCE(filters->>'durationEnum', filters->>'duration_enum'), '') IS NOT NULL THEN
+      ARRAY[COALESCE(filters->>'durationEnum', filters->>'duration_enum')]
+    ELSE NULL
+  END;
+  v_time_of_day_arr text[] := CASE
+    WHEN filters ? 'timeOfDay' AND jsonb_typeof(filters->'timeOfDay') = 'array' THEN
+      ARRAY(SELECT jsonb_array_elements_text(filters->'timeOfDay'))
+    WHEN filters ? 'time_of_day' AND jsonb_typeof(filters->'time_of_day') = 'array' THEN
+      ARRAY(SELECT jsonb_array_elements_text(filters->'time_of_day'))
+    WHEN NULLIF(COALESCE(filters->>'timeOfDay', filters->>'time_of_day'), '') IS NOT NULL THEN
+      ARRAY[COALESCE(filters->>'timeOfDay', filters->>'time_of_day')]
+    ELSE NULL
+  END;
 
   v_min_price numeric := COALESCE(NULLIF(filters->>'min_price','')::numeric,
                                    NULLIF(filters->>'minPrice','')::numeric);
@@ -40,9 +70,25 @@ DECLARE
                                    NULLIF(filters->>'maxPrice','')::numeric);
 
   v_tag text := NULLIF(COALESCE(filters->>'tag', filters->>'tags'), '');
+  v_tag_ids int[] := CASE
+    WHEN filters ? 'tagIds' AND jsonb_typeof(filters->'tagIds') = 'array' THEN
+      ARRAY(SELECT jsonb_array_elements_text(filters->'tagIds')::int)
+    ELSE NULL
+  END;
+  v_tag_names text[] := CASE
+    WHEN filters ? 'tags' AND jsonb_typeof(filters->'tags') = 'array' THEN
+      ARRAY(SELECT jsonb_array_elements_text(filters->'tags'))
+    WHEN NULLIF(COALESCE(filters->>'tag', filters->>'tags'), '') IS NOT NULL THEN
+      ARRAY[COALESCE(filters->>'tag', filters->>'tags')]
+    ELSE NULL
+  END;
   v_text_search text := NULLIF(filters->>'textSearch','');
 
   v_tour_id int := (filters->>'tourId')::int;
+  v_requested_units int := COALESCE(
+    NULLIF(COALESCE(filters->>'requestedUnits', filters->>'participants', filters->>'quantity'), '')::int,
+    NULL
+  );
   v_language text := COALESCE(NULLIF(filters->>'language', ''), 'es');
 BEGIN
   RETURN QUERY
@@ -51,6 +97,8 @@ BEGIN
       'id', t.id,
       'name', t.name,
       'description', t.description,
+      'categoryId', t.category_id,
+      'categoryName', tc.name,
       'duration', t.duration,
       'durationType', t.duration_type,
       'rating', t.rating,
@@ -59,19 +107,21 @@ BEGIN
       'maxPeople', t.max_people,
       'isUnlimitedCapacity', t.is_unlimited_capacity,
       'subCategory', t.sub_category,
+      'subCategoryName', tscm.display_name,
       'durationEnum', t.duration_enum,
       'timeOfDay', t.time_of_day,
       'tags', COALESCE((
         SELECT jsonb_agg(
           jsonb_build_object(
             'id', tg.id,
-            'name', tg.name,
-            'category', tg.category
+            'name', tg.nombre,
+            'category', td.nombre
           )
         )
-        FROM tour_tag_mapping tm
-        JOIN tour_tag tg ON tg.id = tm.tag_id
-        WHERE tm.tour_id = t.id
+        FROM tour_tags tt
+        JOIN tags tg ON tg.id = tt.tag_id
+        JOIN tag_dimensions td ON td.id = tg.dimension_id
+        WHERE tt.tour_id = t.id
       ), '[]'::jsonb),
       'address', jsonb_build_object(
         'country', a.country_id,
@@ -138,6 +188,11 @@ BEGIN
               )
               FROM tour_schedule_config_slot sl
               WHERE sl.config_id = sc.id
+                AND (
+                  v_requested_units IS NULL
+                  OR COALESCE(s.is_unlimited_capacity, t.is_unlimited_capacity, false) = true
+                  OR COALESCE(sl.availability, 0) >= v_requested_units
+                )
             ), '[]'::jsonb)
           )
         )
@@ -148,11 +203,23 @@ BEGIN
       WHERE s.tour_id = t.id
         AND (v_start_date IS NULL OR s.schedule_date >= v_start_date)
         AND (v_end_date IS NULL OR s.schedule_date <= v_end_date)
+        AND (
+          v_requested_units IS NULL
+          OR COALESCE(s.is_unlimited_capacity, t.is_unlimited_capacity, false) = true
+          OR EXISTS (
+            SELECT 1
+            FROM tour_schedule_config_slot sl_filter
+            WHERE sl_filter.config_id = sc.id
+              AND COALESCE(sl_filter.availability, 0) >= v_requested_units
+          )
+        )
     ), '[]'::jsonb)
   ) AS result
   FROM tour t
+  JOIN tour_category tc ON tc.id = t.category_id
   JOIN tour_address a ON a.tour_id = t.id
   JOIN provider pr ON pr.id = t.provider_id
+  LEFT JOIN tour_business_subcategory_mapping tscm ON tscm.subcategory_code = t.sub_category::text
   WHERE
     t.status = 'accepted'
     AND (v_tour_id IS NULL OR t.id = v_tour_id)
@@ -162,17 +229,27 @@ BEGIN
     AND (v_provider_city_txt IS NULL OR pr.city_id::text = v_provider_city_txt)
     AND (v_duration_txt IS NULL OR t.duration::text = v_duration_txt)
     AND (v_duration_type_txt IS NULL OR t.duration_type::text = v_duration_type_txt)
-    AND (v_category_txt IS NULL OR t.category_id::text = v_category_txt)
-    AND (v_sub_category_txt IS NULL OR t.sub_category::text = v_sub_category_txt)
-    AND (v_duration_enum_txt IS NULL OR t.duration_enum::text = v_duration_enum_txt)
-    AND (v_time_of_day_txt IS NULL OR (t.time_of_day::text ILIKE '%' || v_time_of_day_txt || '%'))
+    AND (v_category_ids IS NULL OR t.category_id = ANY(v_category_ids))
+    AND (v_sub_categories IS NULL OR t.sub_category::text = ANY(v_sub_categories))
+    AND (v_duration_enums IS NULL OR t.duration_enum::text = ANY(v_duration_enums))
     AND (
-      v_tag IS NULL OR EXISTS (
+      v_time_of_day_arr IS NULL
+      OR EXISTS (
         SELECT 1
-        FROM tour_tag_mapping tm2
-        JOIN tour_tag tg2 ON tg2.id = tm2.tag_id
-        WHERE tm2.tour_id = t.id
-          AND tg2.name ILIKE '%' || v_tag || '%'
+        FROM unnest(t.time_of_day::text[]) AS tod(value)
+        WHERE tod.value = ANY(v_time_of_day_arr)
+      )
+    )
+    AND (
+      (v_tag_ids IS NULL AND v_tag_names IS NULL) OR EXISTS (
+        SELECT 1
+        FROM tour_tags tt2
+        JOIN tags tg2 ON tg2.id = tt2.tag_id
+        WHERE tt2.tour_id = t.id
+          AND (
+            (v_tag_ids IS NOT NULL AND tg2.id = ANY(v_tag_ids))
+            OR (v_tag_names IS NOT NULL AND tg2.nombre = ANY(v_tag_names))
+          )
       )
     )
     AND (
@@ -185,9 +262,20 @@ BEGIN
       (v_start_date IS NULL AND v_end_date IS NULL)
       OR EXISTS (
         SELECT 1 FROM tour_schedule sx
+        LEFT JOIN tour_schedule_config scx ON scx.id = sx.config_id
         WHERE sx.tour_id = t.id
           AND (v_start_date IS NULL OR sx.schedule_date >= v_start_date)
           AND (v_end_date IS NULL OR sx.schedule_date <= v_end_date)
+          AND (
+            v_requested_units IS NULL
+            OR COALESCE(sx.is_unlimited_capacity, t.is_unlimited_capacity, false) = true
+            OR EXISTS (
+              SELECT 1
+              FROM tour_schedule_config_slot slx
+              WHERE slx.config_id = scx.id
+                AND COALESCE(slx.availability, 0) >= v_requested_units
+            )
+          )
       )
     )
     -- Price filters MUST be based on ADULT price in date range
@@ -221,7 +309,7 @@ BEGIN
           AND p3.price <= v_max_price
       )
     )
-  GROUP BY t.id, a.id, pr.id
+  GROUP BY t.id, tc.id, a.id, pr.id, tscm.subcategory_code, tscm.display_name
   ORDER BY t.id ASC
   LIMIT v_size
   OFFSET v_page * v_size;
