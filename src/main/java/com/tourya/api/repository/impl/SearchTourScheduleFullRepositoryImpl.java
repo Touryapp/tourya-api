@@ -46,14 +46,15 @@ public class SearchTourScheduleFullRepositoryImpl implements SearchTourScheduleF
 
             // 🔹 Limpiar y asegurar valores simples para JSON
             Map<String, Object> cleanFilters = filters.entrySet().stream()
-                    .filter(e -> e.getValue() != null) // eliminar nulls
+                    .filter(e -> e.getValue() != null)
                     .collect(Collectors.toMap(
                             Map.Entry::getKey,
                             e -> (e.getValue() instanceof String ||
                                     e.getValue() instanceof Number ||
-                                    e.getValue() instanceof Boolean)
+                                    e.getValue() instanceof Boolean ||
+                                    e.getValue() instanceof List)
                                     ? e.getValue()
-                                    : e.getValue().toString() // convertir objetos complejos a String
+                                    : e.getValue().toString()
                     ));
 
             // 🔹 Convertir a JSON válido

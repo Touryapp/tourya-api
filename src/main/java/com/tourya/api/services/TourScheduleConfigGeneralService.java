@@ -214,10 +214,23 @@ public class TourScheduleConfigGeneralService {
                     // Nuevo slot para crear
                     currentSlot = new TourScheduleConfigSlot();
                     currentSlot.setConfig(existingConfig);
+                    currentSlot.setBookings(0);
+                    currentSlot.setAvailability(0);
+                    currentSlot.setMinCapacityCalc(null);
+                    currentSlot.setCheckAvailability(false);
                 }
                 currentSlot.setStartTime(slotDto.getStartTime());
                 currentSlot.setEndTime(slotDto.getEndTime());
                 currentSlot.setCapacity(slotDto.getCapacity());
+                if (currentSlot.getBookings() == null) {
+                    currentSlot.setBookings(0);
+                }
+                if (currentSlot.getAvailability() == null) {
+                    currentSlot.setAvailability(0);
+                }
+                if (currentSlot.getCheckAvailability() == null) {
+                    currentSlot.setCheckAvailability(false);
+                }
 
                 updateSlotPrices(currentSlot, new HashSet<>(slotDto.getPrices()));
                 newOrUpdatedSlots.add(currentSlot);
