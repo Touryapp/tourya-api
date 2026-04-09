@@ -86,6 +86,8 @@ public class ReservationService {
     private final AgeRangeConfigService ageRangeConfigService;
     private final ShoppingCartService shoppingCartService;
     private final ShoppingCartRepository shoppingCartRepository;
+    private final TourScheduleSlotAvailabilityService tourScheduleSlotAvailabilityService;
+
     /**
      * Método createReservation removido - las reservas se crean automáticamente con los pagos
      */
@@ -101,7 +103,8 @@ public class ReservationService {
     public CreateTemporalReservationHoldResponse createTemporalReservationHolds(CreateTemporalReservationHoldRequest request,
                                                                                Authentication connectedUser) {
         User user = (User) connectedUser.getPrincipal();
-        LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(defaultHoldMinutes);
+        // Usar una referencia consistente (UTC) para evitar expiraciones inmediatas por desfase de zona horaria
+        LocalDateTime expiresAt = LocalDateTime.now(java.time.ZoneId.of("UTC")).plusMinutes(defaultHoldMinutes);
 
         List<ShoppingCartItem> items = shoppingCartItemRepository.findAllById(request.getShoppingCartItemIds());
         if (items.size() != request.getShoppingCartItemIds().size()) {
@@ -130,7 +133,7 @@ public class ReservationService {
                     .paymentId(null) // Se setea en payment al confirmar
                     .itemId(item.getId())
                     .qrUrl(null)
-                    .reservationDate(LocalDateTime.now())
+                    .reservationDate(LocalDateTime.now(java.time.ZoneId.of("UTC")))
                     .deliveryStatus(DeliveryStatusEnum.TEMPORAL)
                     .expiresAt(expiresAt)
                     .totalAmount(totalAmount)
@@ -146,7 +149,7 @@ public class ReservationService {
             shoppingCartItemRepository.save(item);
 
             // Recalcular disponibilidad del slot con este hold (bookings/availability)
-            recalcSlotAvailability(item.getSlot().getId());
+            tourScheduleSlotAvailabilityService.recalculate(item.getSlot().getId());
 
             reservationIds.add(reservation.getReservationId());
         }
@@ -163,98 +166,11 @@ public class ReservationService {
         }
         Tour tour = tourRepository.findById(item.getTourSchedule().getTourId())
                 .orElseThrow(() -> new ResourceNotFoundException("Tour not found"));
-
-        // Si tour ilimitado, no bloquear por availability
-        if (Boolean.TRUE.equals(tour.getIsUnlimitedCapacity())) {
-            return;
-        }
-
         TourScheduleConfigSlot slot = tourScheduleConfigSlotRepository.findById(item.getSlot().getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Slot not found"));
-
-        if (slot.getCapacity() == null) {
-            throw new OperationNotPermittedException("El slot no tiene capacity configurada");
-        }
-
-        int units = calculateBookingUnits(tour, item);
-        int available = slot.getAvailability() != null ? slot.getAvailability() : (slot.getCapacity() - (slot.getBookings() != null ? slot.getBookings() : 0));
-        if (available < units) {
-            throw new OperationNotPermittedException("No hay disponibilidad suficiente en el slot. Disponible: " + available);
-        }
-    }
-
-    private int calculateBookingUnits(Tour tour, ShoppingCartItem item) {
-        if (tour.getPriceType() != null && "grupo".equalsIgnoreCase(tour.getPriceType().getValue())) {
-            return 1;
-        }
-        if (item.getDetails() == null) return 0;
-        return item.getDetails().stream().mapToInt(ShoppingCartItemDetail::getQuantity).sum();
-    }
-
-    /**
-     * Recalcula bookings/availability/minCapacityCalc/checkAvailability para un slot.
-     * bookings = suma de units de reservas asociadas a items con este slot en estados TEMPORAL/PENDING/DELIVERED
-     * availability = capacity - bookings
-     */
-    private void recalcSlotAvailability(Integer slotId) {
-        TourScheduleConfigSlot slot = tourScheduleConfigSlotRepository.findById(slotId)
-                .orElseThrow(() -> new ResourceNotFoundException("Slot not found"));
-
-        // buscar items con ese slot
-        List<ShoppingCartItem> itemsWithSlot = shoppingCartItemRepository.findAll().stream()
-                .filter(i -> i.getSlot() != null && i.getSlot().getId() != null && i.getSlot().getId().equals(slotId))
-                .collect(Collectors.toList());
-
-        Set<Long> reservationIds = itemsWithSlot.stream()
-                .map(ShoppingCartItem::getReservationId)
-                .filter(id -> id != null)
-                .collect(Collectors.toSet());
-
-        int bookings = 0;
-        if (!reservationIds.isEmpty()) {
-            List<Reservation> reservations = reservationRepository.findAllByReservationIdIn(new ArrayList<>(reservationIds));
-            for (Reservation r : reservations) {
-                if (r.getDeliveryStatus() == DeliveryStatusEnum.CANCELED) continue;
-                if (r.getDeliveryStatus() != DeliveryStatusEnum.TEMPORAL
-                        && r.getDeliveryStatus() != DeliveryStatusEnum.PENDING
-                        && r.getDeliveryStatus() != DeliveryStatusEnum.DELIVERED) {
-                    continue;
-                }
-                ShoppingCartItem item = shoppingCartItemRepository.findById(r.getItemId()).orElse(null);
-                if (item == null || item.getTourSchedule() == null || item.getTourSchedule().getTourId() == null) continue;
-                Tour tour = tourRepository.findById(item.getTourSchedule().getTourId()).orElse(null);
-                if (tour == null) continue;
-                bookings += calculateBookingUnits(tour, item);
-            }
-        }
-
-        slot.setBookings(bookings);
-        if (slot.getCapacity() != null) {
-            slot.setAvailability(Math.max(0, slot.getCapacity() - bookings));
-        } else {
-            slot.setAvailability(0);
-        }
-
-        // minCapacityCalc/checkAvailability solo si tour limitado y podemos inferir tour
-        // (tomamos el tour del primer item con slot)
-        Tour refTour = null;
-        for (ShoppingCartItem i : itemsWithSlot) {
-            if (i.getTourSchedule() != null && i.getTourSchedule().getTourId() != null) {
-                refTour = tourRepository.findById(i.getTourSchedule().getTourId()).orElse(null);
-                if (refTour != null) break;
-            }
-        }
-        if (refTour != null && Boolean.FALSE.equals(refTour.getIsUnlimitedCapacity()) && slot.getCapacity() != null) {
-            int minCap = (int) Math.floor(slot.getCapacity() * 0.4);
-            slot.setMinCapacityCalc(minCap);
-            boolean isGroup = refTour.getPriceType() != null && "grupo".equalsIgnoreCase(refTour.getPriceType().getValue());
-            slot.setCheckAvailability((isGroup && minCap < 5) || (!isGroup && minCap < 20));
-        } else {
-            slot.setMinCapacityCalc(null);
-            slot.setCheckAvailability(false);
-        }
-
-        tourScheduleConfigSlotRepository.save(slot);
+        int participantTotal = item.getDetails() == null ? 0
+                : item.getDetails().stream().mapToInt(ShoppingCartItemDetail::getQuantity).sum();
+        tourScheduleSlotAvailabilityService.ensureSlotHasCapacity(tour, slot, participantTotal);
     }
 
     /**
@@ -931,14 +847,16 @@ public class ReservationService {
         boolean canCancel = false;
         
         if (request.getCancellationReason() == CancellationReasonEnum.CANNOT_ATTEND) {
-            // Validar que hoy <= fecha máxima de cancelación
-            if (reservation.getMaxCancellationDate() != null) {
+            // Alineado con validateCancelReservation: si no hay fecha máxima persistida, no bloqueamos por ventana
+            if (reservation.getMaxCancellationDate() == null) {
+                canCancel = true;
+            } else {
                 canCancel = !today.isAfter(reservation.getMaxCancellationDate());
             }
-            
+
             if (!canCancel) {
                 throw new OperationNotPermittedException(
-                        "Cannot cancel reservation: maximum cancellation date (" + 
+                        "Cannot cancel reservation: maximum cancellation date (" +
                         reservation.getMaxCancellationDate() + ") has passed");
             }
         } else if (request.getCancellationReason() == CancellationReasonEnum.RAIN) {
@@ -975,30 +893,13 @@ public class ReservationService {
         // Si todas las validaciones pasan, cancelar la reserva y crear crédito
         Credit credit = null;
         if (canCancel) {
-            // Liberar capacidad del schedule antes de cancelar
-            int totalQuantity = 0;
-            if (item.getDetails() != null) {
-                totalQuantity = item.getDetails().stream()
-                        .mapToInt(ShoppingCartItemDetail::getQuantity)
-                        .sum();
-            }
-            
-            if (totalQuantity > 0 && Boolean.FALSE.equals(schedule.getIsUnlimitedCapacity())
-                    && schedule.getReservedCapacity() != null) {
-                int newReserved = schedule.getReservedCapacity() - totalQuantity;
-                if (newReserved < 0) {
-                    newReserved = 0; // por seguridad, nunca negativo
-                }
-                schedule.setReservedCapacity(newReserved);
-                tourScheduleRepository.save(schedule);
-                log.info("Released {} capacity from schedule {} for canceled reservation {}", 
-                        totalQuantity, schedule.getId(), reservationId);
-            }
-            
             reservation.setDeliveryStatus(DeliveryStatusEnum.CANCELED);
             reservation.setCancellationReason(request.getCancellationReason());
             reservation.setCancellationDate(LocalDateTime.now());
             reservation = reservationRepository.save(reservation);
+            if (item.getSlot() != null && item.getSlot().getId() != null) {
+                tourScheduleSlotAvailabilityService.recalculate(item.getSlot().getId());
+            }
             
             // Crear crédito para la reserva cancelada
             credit = createCreditForReservation(reservation, tour);
@@ -1329,30 +1230,6 @@ public class ReservationService {
                     .sum();
         }
         
-        // Validar capacidad en el nuevo schedule
-        log.info("Validating capacity for reschedule - scheduleId: {}, isUnlimitedCapacity: {}, maxCapacity: {}, reservedCapacity: {}, requestedQuantity: {}", 
-                newSchedule.getId(), newSchedule.getIsUnlimitedCapacity(), newSchedule.getMaxCapacity(), 
-                newSchedule.getReservedCapacity(), newTotalQuantity);
-        
-        if (!Boolean.TRUE.equals(newSchedule.getIsUnlimitedCapacity())) {
-            Integer max = newSchedule.getMaxCapacity();
-            Integer reserved = newSchedule.getReservedCapacity() != null ? newSchedule.getReservedCapacity() : 0;
-            if (max != null && max > 0) {
-                int available = max - reserved;
-                if (newTotalQuantity > available) {
-                    throw new OperationNotPermittedException(
-                            "No hay capacidad suficiente en el nuevo horario. Disponible: " + available + 
-                            ", solicitado: " + newTotalQuantity);
-                }
-            } else if (max == null || max == 0) {
-                throw new OperationNotPermittedException(
-                        "El horario seleccionado no tiene capacidad configurada (max_capacity = " + max + 
-                        "). Por favor, configura la capacidad del horario o habilita capacidad ilimitada.");
-            }
-        } else {
-            log.info("Skipping capacity validation - schedule {} has unlimited capacity", newSchedule.getId());
-        }
-        
         // IMPORTANTE: En un re-agendamiento, el usuario SOLO puede cambiar:
         // - La fecha (newDate)
         // - La cantidad de personas (configQuantity)
@@ -1384,6 +1261,14 @@ public class ReservationService {
         // 3) startTime/endTime del slot actual (fallback)
         // 4) ID del slot actual (si es la misma config)
         TourScheduleConfigSlot slotToUse = resolveSlotForReschedule(newConfig, currentSlot, request);
+
+        Tour tourForCap = tourRepository.findById(schedule.getTourId())
+                .orElseThrow(() -> new ResourceNotFoundException("Tour not found for reschedule"));
+        log.info("Validating slot capacity for reschedule - newScheduleId: {}, targetSlotId: {}, requestedParticipants: {}",
+                newSchedule.getId(), slotToUse.getId(), newTotalQuantity);
+        if (!Boolean.TRUE.equals(tourForCap.getIsUnlimitedCapacity())) {
+            tourScheduleSlotAvailabilityService.ensureSlotHasCapacity(tourForCap, slotToUse, newTotalQuantity);
+        }
         
         // Crear SlotRequest temporal con el slotId y la nueva configQuantity
         SlotRequest slotRequest = SlotRequest.builder()
@@ -1667,36 +1552,8 @@ public class ReservationService {
                     reservation.getReservationId(), priceDifference, currentPrice, newPrice);
         }
         
-        // Calcular cantidad total del item actual para liberar capacidad
-        int oldTotalQuantity = 0;
-        if (item.getDetails() != null) {
-            oldTotalQuantity = item.getDetails().stream()
-                    .mapToInt(ShoppingCartItemDetail::getQuantity)
-                    .sum();
-        }
-        
-        // Liberar capacidad del horario original
-        if (oldTotalQuantity > 0 && Boolean.FALSE.equals(oldSchedule.getIsUnlimitedCapacity())
-                && oldSchedule.getReservedCapacity() != null) {
-            int newReservedOld = oldSchedule.getReservedCapacity() - oldTotalQuantity;
-            if (newReservedOld < 0) {
-                newReservedOld = 0;
-            }
-            oldSchedule.setReservedCapacity(newReservedOld);
-            tourScheduleRepository.save(oldSchedule);
-            log.info("Released {} capacity from old schedule {} for rescheduled reservation {}", 
-                    oldTotalQuantity, oldSchedule.getId(), reservation.getReservationId());
-        }
-        
-        // Consumir capacidad en el nuevo horario
-        if (newTotalQuantity > 0 && !Boolean.TRUE.equals(newSchedule.getIsUnlimitedCapacity())) {
-            int reservedNew = newSchedule.getReservedCapacity() != null ? newSchedule.getReservedCapacity() : 0;
-            newSchedule.setReservedCapacity(reservedNew + newTotalQuantity);
-            tourScheduleRepository.save(newSchedule);
-            log.info("Reserved {} capacity in new schedule {} for rescheduled reservation {}", 
-                    newTotalQuantity, newSchedule.getId(), reservation.getReservationId());
-        }
-        
+        Integer oldSlotId = item.getSlot() != null ? item.getSlot().getId() : null;
+
         // Actualizar el ShoppingCartItem con la nueva configuración (slot ya resuelto)
         updateItemWithNewConfiguration(item, newSchedule, request, newPrice, slotToUse);
         shoppingCartItemRepository.save(item);
@@ -1712,6 +1569,13 @@ public class ReservationService {
         reservation.setMaxReschedulingDate(newMaxReschedulingDate);
         reservation.setDeliveryStatus(DeliveryStatusEnum.RESCHEDULED);
         reservation = reservationRepository.save(reservation);
+
+        if (oldSlotId != null && !oldSlotId.equals(slotToUse.getId())) {
+            tourScheduleSlotAvailabilityService.recalculate(oldSlotId);
+        }
+        if (slotToUse.getId() != null) {
+            tourScheduleSlotAvailabilityService.recalculate(slotToUse.getId());
+        }
         
         // Construir respuesta
         ReservationResponse reservationResponse = reservationMapper.toResponse(reservation);
@@ -1741,6 +1605,25 @@ public class ReservationService {
     }
     
     /**
+     * Cancelación interna cuando el reagendamiento sube de precio: la política de reagendamiento ya se validó
+     * en {@link #rescheduleReservation}; aquí no aplica la ventana de cancelación CANNOT_ATTEND.
+     * No crea crédito (el flujo de reschedule con precio mayor crea un único crédito por el monto pagado).
+     */
+    private void cancelReservationSupersededByHigherPriceReschedule(Reservation reservation, ShoppingCartItem item) {
+        if (reservation.getDeliveryStatus() == DeliveryStatusEnum.CANCELED) {
+            throw new OperationNotPermittedException("Reservation is already canceled");
+        }
+        reservation.setDeliveryStatus(DeliveryStatusEnum.CANCELED);
+        reservation.setCancellationReason(null);
+        reservation.setCancellationDate(LocalDateTime.now());
+        reservationRepository.save(reservation);
+        if (item.getSlot() != null && item.getSlot().getId() != null) {
+            tourScheduleSlotAvailabilityService.recalculate(item.getSlot().getId());
+        }
+        log.info("Reservation {} canceled as superseded by reschedule (higher price)", reservation.getReservationId());
+    }
+
+    /**
      * Maneja el reagendamiento cuando el precio nuevo es mayor al anterior.
      * Cancela la reserva anterior, crea crédito, limpia el carrito y agrega el nuevo item.
      */
@@ -1750,12 +1633,10 @@ public class ReservationService {
             TourCancellationPolicy policy, BigDecimal currentPrice, BigDecimal newPrice,
             int newTotalQuantity, User user, TourScheduleConfigSlot slotToUse) {
         
-        // 1. Cancelar la reserva anterior (sin motivo específico, es por reagendamiento con precio mayor)
-        CancelReservationRequest cancelRequest = new CancelReservationRequest();
-        cancelRequest.setCancellationReason(CancellationReasonEnum.CANNOT_ATTEND);
-        cancelReservation(reservation.getReservationId(), cancelRequest, 
-                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(user, null, user.getAuthorities()));
-        
+        // 1. Cancelar la reserva anterior: no usar cancelReservation(CANNOT_ATTEND) porque exige ventana distinta
+        //    a la de reagendamiento y además crearía un crédito duplicado (el crédito se crea en el paso 2).
+        cancelReservationSupersededByHigherPriceReschedule(reservation, item);
+
         // 2. Crear crédito con el valor de la reserva anterior
         Integer userId = item.getShoppingCart().getUser().getId();
         Credit credit = Credit.builder()

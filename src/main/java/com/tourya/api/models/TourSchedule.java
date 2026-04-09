@@ -46,15 +46,6 @@ public class TourSchedule extends BaseEntity {
     @Column(name = "schedule_date", nullable = false)
     private LocalDate scheduleDate; // DATE en SQL se mapea a LocalDate en Java
 
-      @Column(name = "max_capacity")
-    private Integer maxCapacity; // int4 en SQL se mapea a Integer en Java (permite NULL)
-
-    @Column(name = "reserved_capacity")
-    private Integer reservedCapacity; // int4 en SQL se mapea a Integer en Java, con DEFAULT 0
-
-    @Column(name = "is_unlimited_capacity")
-    private Boolean isUnlimitedCapacity; // bool en SQL se mapea a Boolean en Java, con DEFAULT false
-
     @Convert(converter = TourScheduleStatusEnumConverter.class)
     @Column(name = "status") // varchar(20) en SQL
     private TourScheduleStatusEnum status; // String en Java, con DEFAULT 'available'

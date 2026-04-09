@@ -72,14 +72,24 @@ public class TourScheduleSpecification {
                 predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("endTime"), request.getEndTime()));
             }
 
-            // 7. Filtrar por capacidad disponible
+            // 7. Capacidad mínima disponible por slot (capacity - bookings), o tour ilimitado
             if (request.getMinCapacityAvailable() != null) {
-                predicates.add(criteriaBuilder.or(
-                        criteriaBuilder.isTrue(root.get("isUnlimitedCapacity")),
+                Subquery<Integer> slotAvailSubquery = query.subquery(Integer.class);
+                Root<TourScheduleConfigSlot> slotRoot = slotAvailSubquery.from(TourScheduleConfigSlot.class);
+                jakarta.persistence.criteria.Expression<Integer> cap =
+                        criteriaBuilder.coalesce(slotRoot.get("capacity"), 0);
+                jakarta.persistence.criteria.Expression<Integer> book =
+                        criteriaBuilder.coalesce(slotRoot.get("bookings"), 0);
+                slotAvailSubquery.select(slotRoot.get("id")).where(
+                        criteriaBuilder.equal(slotRoot.get("config").get("id"), configJoin.get("id")),
                         criteriaBuilder.greaterThanOrEqualTo(
-                                criteriaBuilder.diff(root.get("maxCapacity"), root.get("reservedCapacity")),
+                                criteriaBuilder.diff(cap, book),
                                 request.getMinCapacityAvailable()
                         )
+                );
+                predicates.add(criteriaBuilder.or(
+                        criteriaBuilder.isTrue(tourJoin.get("isUnlimitedCapacity")),
+                        criteriaBuilder.exists(slotAvailSubquery)
                 ));
             }
 

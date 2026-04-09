@@ -70,9 +70,6 @@ public class SearchTourScheduleFullResponse {
         private LocalDate scheduleDate;
         private LocalTime startTime;
         private LocalTime endTime;
-        private Integer maxCapacity;
-        private Integer reservedCapacity;
-        private Boolean isUnlimitedCapacity;
         private String status; // Si tienes enum (TourScheduleStatusEnum), cámbialo aquí
         private TourScheduleConfigResponse config; // Config asociada al schedule
     }

@@ -18,7 +18,6 @@ public class TourScheduleConfigDto { // Cambio de nombre de clase
     private LocalDate startDate;
     private LocalDate endDate;
     private List<String> daysOfWeek;
-    private Boolean isUnlimitedCapacity;
     private Boolean isTemplate;
     @Valid
     private Set<TourScheduleConfigSlotDto> slots = new HashSet<>();
