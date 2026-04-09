@@ -15,6 +15,7 @@ import com.tourya.api.models.responses.ShoppingCartResponse;
 import com.tourya.api.models.request.CreateShoppingCartRequest;
 import com.tourya.api.models.request.ReservationItemRequest;
 import com.tourya.api.models.request.ReservationRequest;
+import com.tourya.api.models.request.SlotRequest;
 import com.tourya.api.models.request.UpdateItemStatusRequest;
 import com.tourya.api.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -52,6 +53,7 @@ public class ShoppingCartService {
     private final ServiceRepository serviceRepository;
     private final TourReservationService tourReservationService;
     private final AgeRangeConfigService ageRangeConfigService;
+    private final TourScheduleSlotAvailabilityService tourScheduleSlotAvailabilityService;
 
     /**
      * Crea un nuevo carrito de compras para un usuario.
@@ -106,6 +108,27 @@ public class ShoppingCartService {
     }
 
     /**
+     * Capacidad solo a nivel de slot ({@link TourScheduleConfigSlot}) y tour ilimitado ({@link Tour}).
+     */
+    private void validateTourCapacityForCartRequest(TourSchedule tourSchedule, Tour tour, SlotRequest slotRequest) {
+        if (tour != null && Boolean.TRUE.equals(tour.getIsUnlimitedCapacity())) {
+            return;
+        }
+        if (tour == null) {
+            throw new ResourceNotFoundException("Tour no encontrado para el horario indicado");
+        }
+        if (slotRequest == null || slotRequest.getId() == null) {
+            throw new OperationNotPermittedException("Debe indicar el slot para validar capacidad");
+        }
+        int totalPax = slotRequest.getConfigQuantity() != null
+                ? slotRequest.getConfigQuantity().stream().mapToInt(ConfigQuantityRequest::getQuantity).sum()
+                : 0;
+        TourScheduleConfigSlot slot = tourScheduleConfigSlotRepository.findById(slotRequest.getId().intValue())
+                .orElseThrow(() -> new ResourceNotFoundException("Slot no encontrado"));
+        tourScheduleSlotAvailabilityService.ensureSlotHasCapacity(tour, slot, totalPax);
+    }
+
+    /**
      * Agrega un item al carrito de compras.
      * Implementa la lógica de carrito activo único por usuario.
      * 
@@ -132,24 +155,13 @@ public class ShoppingCartService {
         // Buscar carrito activo del usuario o crear uno nuevo
         ShoppingCart cart = findOrCreateActiveCart(user);
 
-        // Verificar disponibilidad para tours
         if (request.getTourScheduleId() != null) {
-        TourSchedule tourSchedule = tourScheduleRepository.findById(request.getTourScheduleId())
+            TourSchedule tourSchedule = tourScheduleRepository.findById(request.getTourScheduleId())
                     .orElseThrow(() -> new ResourceNotFoundException("Horario de tour no encontrado"));
-
-        if (!tourSchedule.getIsUnlimitedCapacity()) {
-            int availableCapacity = tourSchedule.getMaxCapacity() - tourSchedule.getReservedCapacity();
-                // Calcular cantidad total desde los details
-                int totalQuantity = 0;
-                if (request.getSlot() != null && request.getSlot().getConfigQuantity() != null) {
-                    totalQuantity = request.getSlot().getConfigQuantity().stream()
-                            .mapToInt(ConfigQuantityRequest::getQuantity)
-                            .sum();
-                }
-                if (totalQuantity > availableCapacity) {
-                    throw new OperationNotPermittedException("No hay suficiente capacidad disponible. Disponible: " + availableCapacity);
-                }
-            }
+            Tour tour = tourSchedule.getTourId() != null
+                    ? tourRepository.findById(tourSchedule.getTourId()).orElse(null)
+                    : null;
+            validateTourCapacityForCartRequest(tourSchedule, tour, request.getSlot());
         }
 
         // Calcular total price desde los details
@@ -297,28 +309,13 @@ public class ShoppingCartService {
                     .orElseThrow(() -> new ResourceNotFoundException("Servicio no encontrado"));
         }
 
-        // Validar capacidad del TourSchedule si se proporciona
         if (request.getTourScheduleId() != null) {
             TourSchedule tourSchedule = tourScheduleRepository.findById(request.getTourScheduleId())
                     .orElseThrow(() -> new ResourceNotFoundException("Horario de tour no encontrado"));
-
-            if (!tourSchedule.getIsUnlimitedCapacity()) {
-                int availableCapacity = tourSchedule.getMaxCapacity() != null 
-                        ? tourSchedule.getMaxCapacity() - (tourSchedule.getReservedCapacity() != null ? tourSchedule.getReservedCapacity() : 0)
-                        : 0;
-                
-                // Calcular cantidad total desde los details
-                int totalQuantity = 0;
-                if (request.getSlot() != null && request.getSlot().getConfigQuantity() != null) {
-                    totalQuantity = request.getSlot().getConfigQuantity().stream()
-                            .mapToInt(ConfigQuantityRequest::getQuantity)
-                            .sum();
-                }
-                
-                if (totalQuantity > availableCapacity) {
-                    throw new OperationNotPermittedException("No hay suficiente capacidad disponible. Disponible: " + availableCapacity);
-                }
-            }
+            Tour tour = tourSchedule.getTourId() != null
+                    ? tourRepository.findById(tourSchedule.getTourId()).orElse(null)
+                    : null;
+            validateTourCapacityForCartRequest(tourSchedule, tour, request.getSlot());
         }
 
         // Calcular total price desde los details

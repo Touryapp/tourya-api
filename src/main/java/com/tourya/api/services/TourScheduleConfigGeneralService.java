@@ -43,6 +43,7 @@ public class TourScheduleConfigGeneralService {
     private final ProviderService providerService;
     private final TourAddressRepository tourAddressRepository;
     private final AgeRangeConfigService ageRangeConfigService; // Servicio para obtener rangos de edad
+    private final TourScheduleSlotAvailabilityService tourScheduleSlotAvailabilityService;
     private static final String NOT_PRIVILEGES = "You have no privileges to perform this action.";
 
     private Tour getTour(Integer tourId, Integer providerId) {
@@ -68,8 +69,11 @@ public class TourScheduleConfigGeneralService {
         // 2. Guardar la configuración completa
         TourScheduleConfig savedConfig = tourScheduleConfigRepository.save(config);
 
-        // 4. Mapear a la respuesta directamente sin volver a consultar la BD
-        return mapToTourScheduleConfigResponse(savedConfig);
+        recalculateAvailabilityForAllSlots(savedConfig);
+        TourScheduleConfig refreshed = tourScheduleConfigRepository.findByIdWithSlots(savedConfig.getId())
+                .orElse(savedConfig);
+
+        return mapToTourScheduleConfigResponse(refreshed);
     }
 
     private TourScheduleConfig buildConfigFromRequest(TourScheduleConfigCreationRequest request, Provider provider) {
@@ -87,7 +91,6 @@ public class TourScheduleConfigGeneralService {
         }
 
         config.setDaysOfWeek(new ArrayList<>(request.getDaysOfWeek()));
-        config.setIsUnlimitedCapacity(request.getIsUnlimitedCapacity() != null && request.getIsUnlimitedCapacity());
         config.setIsTemplate(request.getIsTemplate());
         return config;
     }
@@ -108,9 +111,12 @@ public class TourScheduleConfigGeneralService {
             slot.setEndTime(slotDto.getEndTime());
             slot.setCapacity(slotDto.getCapacity());
             slot.setBookings(0);
-            slot.setAvailability(0);
-            slot.setMinCapacityCalc(null);
-            slot.setCheckAvailability(false);
+            int cap0 = slotDto.getCapacity() != null ? slotDto.getCapacity() : 0;
+            slot.setAvailability(cap0);
+            Tour tourForSlot = config.getTourId() != null
+                    ? tourRepository.findById(config.getTourId()).orElse(null)
+                    : null;
+            tourScheduleSlotAvailabilityService.applyMinCapacityAndCheckAvailability(slot, tourForSlot);
 
             if (slotDto.getPrices() != null) {
                 Set<TourScheduleConfigPrice> prices = new HashSet<>();
@@ -163,37 +169,35 @@ public class TourScheduleConfigGeneralService {
         // 4. Guardar la entidad actualizada
         TourScheduleConfig savedConfig = tourScheduleConfigRepository.save(existingConfig);
 
-        // 5. Regenerar los horarios
-        Set<DayOfWeek> newValidDaysOfWeek = getValidDaysOfWeek(request.getDaysOfWeek());
+        // 5. Sincronizar bookings/availability con reservas reales (p. ej. al cambiar capacity en batch)
+        recalculateAvailabilityForAllSlots(savedConfig);
+        TourScheduleConfig refreshed = tourScheduleConfigRepository.findByIdWithSlots(savedConfig.getId())
+                .orElse(savedConfig);
 
-        // 6. Mapear y devolver la respuesta
-        return mapToTourScheduleConfigResponse(savedConfig);
+        // Validar días de la semana (lanza 400 si son inválidos)
+        getValidDaysOfWeek(request.getDaysOfWeek());
+
+        return mapToTourScheduleConfigResponse(refreshed);
     }
 
-    private void validateUpdateRequestAgainstExistingReservations(TourScheduleConfig existingConfig,
-            TourScheduleConfigCreationRequest request) {
-        List<TourSchedule> existingSchedules = tourScheduleRepository.findByConfigId(existingConfig.getId());
-
-        Set<String> reservedScheduleKeys = existingSchedules.stream()
-                .filter(s -> s.getReservedCapacity() > 0)
-                .map(this::generateScheduleKey)
-                .collect(Collectors.toSet());
-
-        // Si no hay reservas, no hay nada que validar. Permitir cualquier cambio.
-        if (reservedScheduleKeys.isEmpty()) {
+    /**
+     * Recalcula {@code bookings} y {@code availability} de cada slot a partir de reservas/carrito,
+     * no solo {@code capacity - bookings} en memoria (que puede estar desactualizado).
+     */
+    private void recalculateAvailabilityForAllSlots(TourScheduleConfig config) {
+        if (config == null || config.getSlots() == null) {
             return;
         }
-    }
-
-    private String generateScheduleKey(TourSchedule schedule) {
-        return schedule.getScheduleDate() + "";
+        for (TourScheduleConfigSlot slot : config.getSlots()) {
+            if (slot.getId() != null) {
+                tourScheduleSlotAvailabilityService.recalculate(slot.getId());
+            }
+        }
     }
 
     private void updateConfigProperties(TourScheduleConfig existingConfig, TourScheduleConfigCreationRequest request) {
         existingConfig.setLabel(request.getLabel());
         existingConfig.setDaysOfWeek(new ArrayList<>(request.getDaysOfWeek()));
-        existingConfig
-                .setIsUnlimitedCapacity(request.getIsUnlimitedCapacity() != null && request.getIsUnlimitedCapacity());
         existingConfig.setIsTemplate(request.getIsTemplate()); // <-- Mapear isTemplate
     }
 
@@ -216,8 +220,6 @@ public class TourScheduleConfigGeneralService {
                     currentSlot.setConfig(existingConfig);
                     currentSlot.setBookings(0);
                     currentSlot.setAvailability(0);
-                    currentSlot.setMinCapacityCalc(null);
-                    currentSlot.setCheckAvailability(false);
                 }
                 currentSlot.setStartTime(slotDto.getStartTime());
                 currentSlot.setEndTime(slotDto.getEndTime());
@@ -225,12 +227,13 @@ public class TourScheduleConfigGeneralService {
                 if (currentSlot.getBookings() == null) {
                     currentSlot.setBookings(0);
                 }
-                if (currentSlot.getAvailability() == null) {
-                    currentSlot.setAvailability(0);
-                }
-                if (currentSlot.getCheckAvailability() == null) {
-                    currentSlot.setCheckAvailability(false);
-                }
+                int booked = currentSlot.getBookings();
+                Integer capVal = currentSlot.getCapacity();
+                currentSlot.setAvailability(capVal != null ? Math.max(0, capVal - booked) : 0);
+                Tour tourForSlot = existingConfig.getTourId() != null
+                        ? tourRepository.findById(existingConfig.getTourId()).orElse(null)
+                        : null;
+                tourScheduleSlotAvailabilityService.applyMinCapacityAndCheckAvailability(currentSlot, tourForSlot);
 
                 updateSlotPrices(currentSlot, new HashSet<>(slotDto.getPrices()));
                 newOrUpdatedSlots.add(currentSlot);
@@ -422,7 +425,6 @@ public class TourScheduleConfigGeneralService {
         responseDto.setProviderId(config.getProviderId());
         responseDto.setLabel(config.getLabel());
         responseDto.setDaysOfWeek(config.getDaysOfWeek());
-        responseDto.setIsUnlimitedCapacity(config.getIsUnlimitedCapacity());
 
         Set<TourScheduleSlotResponse> slotDtos = config.getSlots().stream()
                 .map(slot -> {
@@ -482,9 +484,6 @@ public class TourScheduleConfigGeneralService {
                         dto.setId(schedule.getId());
                         dto.setTourId(schedule.getTourId());
                         dto.setScheduleDate(schedule.getScheduleDate());
-                        dto.setMaxCapacity(schedule.getMaxCapacity());
-                        dto.setReservedCapacity(schedule.getReservedCapacity());
-                        dto.setIsUnlimitedCapacity(schedule.getIsUnlimitedCapacity());
                         dto.setStatus(schedule.getStatus());
                         dto.setConfigId(schedule.getConfigId());
                         if (schedule.getConfigId() != null) {
@@ -514,7 +513,6 @@ public class TourScheduleConfigGeneralService {
         responseDto.setProviderId(config.getProviderId());
         responseDto.setLabel(config.getLabel());
         responseDto.setDaysOfWeek(config.getDaysOfWeek());
-        responseDto.setIsUnlimitedCapacity(config.getIsUnlimitedCapacity());
 
         if (config.getSlots() != null) {
             Set<TourScheduleSlotResponse> slotDtos = config.getSlots().stream()
@@ -592,19 +590,8 @@ public class TourScheduleConfigGeneralService {
                     TourScheduleSearchResponseDto dto = new TourScheduleSearchResponseDto();
                     dto.setScheduleId(schedule.getId());
                     dto.setScheduleDate(schedule.getScheduleDate());
-                    dto.setMaxCapacity(schedule.getMaxCapacity());
-                    dto.setReservedCapacity(schedule.getReservedCapacity());
-                    dto.setIsUnlimitedCapacity(schedule.getIsUnlimitedCapacity());
                     dto.setStatus(schedule.getStatus().getValue());
                     dto.setConfigId(schedule.getConfigId());
-
-                    if (schedule.getIsUnlimitedCapacity() != null && schedule.getIsUnlimitedCapacity()) {
-                        dto.setAvailableCapacity(null);
-                    } else if (schedule.getMaxCapacity() != null && schedule.getReservedCapacity() != null) {
-                        dto.setAvailableCapacity(schedule.getMaxCapacity() - schedule.getReservedCapacity());
-                    } else {
-                        dto.setAvailableCapacity(0);
-                    }
 
                     if (schedule.getTour() != null) {
                         Tour tour = schedule.getTour();
@@ -801,9 +788,6 @@ public class TourScheduleConfigGeneralService {
         TourSchedule schedule = new TourSchedule();
         schedule.setTourId(dto.getTourId());
         schedule.setScheduleDate(dto.getScheduleDate());
-        schedule.setMaxCapacity(dto.getMaxCapacity());
-        schedule.setReservedCapacity(dto.getReservedCapacity());
-        schedule.setIsUnlimitedCapacity(dto.getIsUnlimitedCapacity());
         schedule.setStatus(dto.getStatus());
         schedule.setConfig(config); // Usar setConfig() en lugar de setConfigId()
 
@@ -817,9 +801,6 @@ public class TourScheduleConfigGeneralService {
             TourSchedule schedule,
             TourScheduleRequest dto) {
 
-        schedule.setMaxCapacity(dto.getMaxCapacity());
-        schedule.setReservedCapacity(dto.getReservedCapacity());
-        schedule.setIsUnlimitedCapacity(dto.getIsUnlimitedCapacity());
         schedule.setStatus(dto.getStatus());
     }
 
@@ -837,7 +818,6 @@ public class TourScheduleConfigGeneralService {
         request.setProviderId(dto.getProviderId());
         request.setLabel(dto.getLabel());
         request.setDaysOfWeek(dto.getDaysOfWeek());
-        request.setIsUnlimitedCapacity(dto.getIsUnlimitedCapacity());
         request.setSlots(dto.getSlots());
         request.setIsTemplate(false);
 

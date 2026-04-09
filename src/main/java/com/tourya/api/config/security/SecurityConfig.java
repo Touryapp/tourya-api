@@ -30,6 +30,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(req ->
                         req.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // <-- AÑADE ESTA LÍNEA
+                                .requestMatchers(HttpMethod.POST, "/requestProvider/user/save").permitAll()
                                 .requestMatchers(
                                         "/auth/**","/public/**","/actuator/**",
                                         "/v2/api-docs",

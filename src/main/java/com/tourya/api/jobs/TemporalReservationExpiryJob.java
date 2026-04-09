@@ -29,7 +29,8 @@ public class TemporalReservationExpiryJob {
     @Scheduled(fixedDelayString = "${tourya.temporalReservationExpiry.fixedDelayMs:60000}")
     @Transactional
     public void expireTemporalReservations() {
-        LocalDateTime now = LocalDateTime.now();
+        // Mantener coherencia con creación del hold (UTC) para evitar expiraciones inmediatas por zona horaria
+        LocalDateTime now = LocalDateTime.now(java.time.ZoneId.of("UTC"));
         List<Reservation> expired = reservationRepository.findExpiredTemporalReservations(now);
         if (expired.isEmpty()) return;
 

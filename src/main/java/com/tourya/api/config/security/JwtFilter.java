@@ -15,6 +15,7 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import io.jsonwebtoken.JwtException;
 import java.io.IOException;
 
 @Component
@@ -46,20 +47,25 @@ public class JwtFilter extends OncePerRequestFilter{
         }
         
         jwt = authHeader.substring(7);
-        userEmail = jwtService.extractUsername(jwt);
-        if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
-            if (jwtService.isTokenValid(jwt, userDetails)) {
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userDetails,
-                        null,
-                        userDetails.getAuthorities()
-                );
-                authToken.setDetails(
-                        new WebAuthenticationDetailsSource().buildDetails(request)
-                );
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+        try {
+            userEmail = jwtService.extractUsername(jwt);
+            if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
+                if (jwtService.isTokenValid(jwt, userDetails)) {
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                            userDetails,
+                            null,
+                            userDetails.getAuthorities()
+                    );
+                    authToken.setDetails(
+                            new WebAuthenticationDetailsSource().buildDetails(request)
+                    );
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
             }
+        } catch (JwtException | IllegalArgumentException e) {
+            // No romper la request si el cliente envía un token inválido (ej. "Bearer null").
+            logger.warn("JWT inválido en Authorization header: " + e.getMessage(), e);
         }
         filterChain.doFilter(request, response);
     }
