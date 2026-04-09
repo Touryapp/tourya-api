@@ -60,6 +60,14 @@ public class TourService {
 
     private static final String NOT_PRIVILEGES = "You have no privileges to perform this action.";
 
+    /** Copia defensiva para que Hibernate detecte cambios en columnas JSON mapeadas con {@code AttributeConverter}. */
+    private static TranslatedField copyTranslatedField(TranslatedField src) {
+        if (src == null) {
+            return null;
+        }
+        return new TranslatedField(src.getEs(), src.getEn(), src.getPt());
+    }
+
     private TourCategory getTourCategory(Integer id){
         TourCategory tourCategory = tourCategoryService.findById(id);
         if(tourCategory != null){
@@ -218,8 +226,10 @@ public class TourService {
         Tour tour = tourRepository.findTourByIdAndProviderId(tourId, provider.getId());
         validateProcessUpdateTourFullData(tourFullDataRequest);
         if(tour != null){
-            tour.setName(tourFullDataRequest.getName());
-            tour.setDescription(tourFullDataRequest.getDescription());
+            TourCategory tourCategory = getTourCategory(tourFullDataRequest.getTourCategoryId());
+            tour.setTourCategory(tourCategory);
+            tour.setName(copyTranslatedField(tourFullDataRequest.getName()));
+            tour.setDescription(copyTranslatedField(tourFullDataRequest.getDescription()));
             tour.setDuration(tourFullDataRequest.getDuration());
             tour.setMaxPeople(tourFullDataRequest.getMaxPeople());
             tour.setPriceType(tourFullDataRequest.getPriceType());
@@ -234,8 +244,10 @@ public class TourService {
                             : null
             );
             tour.setHighlight(tourFullDataRequest.getHighlight());
+            tour.setMinAge(tourFullDataRequest.getMinAge());
+            tour.setRating(tourFullDataRequest.getRating());
             //update Tour
-            Tour tourUpdate = tourRepository.save(tour);
+            Tour tourUpdate = tourRepository.saveAndFlush(tour);
 
             List<TourAddressResponse> tourAddressResponseList = processUpdateTourFullDataLocations(tourFullDataRequest, tourUpdate);
             List<TourMainAttractionResponse>  tourMainAttractionResponseList  = processUpdateTourFullDataMainAttractions(tourFullDataRequest, tourUpdate);
@@ -246,7 +258,8 @@ public class TourService {
             List<TourCancellationPolicyResponse>  tourCancellationPolicyResponseList =  processUpdateTourFullDataCancellationPolicy(tourFullDataRequest, tourUpdate);
 
             return tourMapper.toTourFullDataResponse(tourUpdate, tourAddressResponseList,
-                    tourMainAttractionResponseList, tourIncludesResponseList, tourExcludesResponseList, tourFaqResponseList,  tourItineraryResponseList, tourCancellationPolicyResponseList);
+                    tourMainAttractionResponseList, tourIncludesResponseList, tourExcludesResponseList, tourFaqResponseList,  tourItineraryResponseList, tourCancellationPolicyResponseList,
+                    getAllByTourGallery(tourUpdate.getId()));
 
         }else{
             throw new ResourceNotFoundException("Tour not found with id = "+tourId+" to providerId = "+provider.getId());

@@ -209,16 +209,23 @@ public class PaymentService {
      */
     private List<Reservation> confirmTemporalReservations(Payment payment,
                                                          List<Reservation> reservationsToPay) {
-        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        // Mantener coherencia con creación del hold (UTC) para evitar falsos expirados por zona horaria
+        java.time.LocalDateTime now = java.time.LocalDateTime.now(java.time.ZoneId.of("UTC"));
         List<Reservation> confirmed = new java.util.ArrayList<>();
 
         for (Reservation reservation : reservationsToPay) {
             if (reservation.getDeliveryStatus() != DeliveryStatusEnum.TEMPORAL) {
-                throw new IllegalArgumentException("La reserva " + reservation.getReservationId() + " no está en estado TEMPORAL");
+                throw new IllegalArgumentException(
+                        "La reserva " + reservation.getReservationId()
+                                + " no está en estado TEMPORAL (estado actual: " + reservation.getDeliveryStatus() + ")");
             }
             if (reservation.getExpiresAt() != null && !reservation.getExpiresAt().isAfter(now)) {
                 throw new IllegalArgumentException("La reserva temporal " + reservation.getReservationId() + " está expirada");
             }
+
+            // Calcular ventanas (maxCancellationDate / maxReschedulingDate) al confirmar el pago
+            LocalDate tourDate = resolveTourDateForReservation(reservation);
+            setWindowsFromTourPolicy(reservation, tourDate);
 
             reservation.setPaymentId(payment.getPaymentId());
             reservation.setDeliveryStatus(DeliveryStatusEnum.PENDING);
@@ -236,6 +243,59 @@ public class PaymentService {
         }
 
         return confirmed;
+    }
+
+    private LocalDate resolveTourDateForReservation(Reservation reservation) {
+        ShoppingCartItem item = shoppingCartItemRepository.findById(reservation.getItemId()).orElse(null);
+        if (item == null) {
+            return null;
+        }
+        if (item.getScheduleDate() != null) {
+            return item.getScheduleDate();
+        }
+        if (item.getTourSchedule() != null) {
+            return item.getTourSchedule().getScheduleDate();
+        }
+        // fallback: usar la parte de fecha del reservationDate
+        return reservation.getReservationDate() != null ? reservation.getReservationDate().toLocalDate() : null;
+    }
+
+    private void setWindowsFromTourPolicy(Reservation reservation, LocalDate tourDate) {
+        if (tourDate == null) {
+            reservation.setMaxCancellationDate(null);
+            reservation.setMaxReschedulingDate(null);
+            return;
+        }
+
+        // maxReschedulingDate: regla actual del servicio de reservas
+        reservation.setMaxReschedulingDate(tourDate.minusDays(2));
+
+        // maxCancellationDate: usar política del tour si existe; fallback a null si no se puede inferir
+        ShoppingCartItem item = shoppingCartItemRepository.findById(reservation.getItemId()).orElse(null);
+        Integer tourId = item != null && item.getTourSchedule() != null ? item.getTourSchedule().getTourId() : null;
+        if (tourId == null) {
+            reservation.setMaxCancellationDate(null);
+            return;
+        }
+        List<TourCancellationPolicy> policies = tourCancellationPolicyRepository.findByTourId(tourId);
+        if (policies == null || policies.isEmpty()) {
+            reservation.setMaxCancellationDate(null);
+            return;
+        }
+        CancellationPolicyTypeEnum type = policies.get(0).getCancellationPolicyType();
+        reservation.setMaxCancellationDate(defaultMaxCancellationDate(type, tourDate));
+    }
+
+    private LocalDate defaultMaxCancellationDate(CancellationPolicyTypeEnum policyType, LocalDate tourDate) {
+        if (policyType == null || tourDate == null) {
+            return null;
+        }
+        return switch (policyType) {
+            case FLEXIBLE -> tourDate.minusDays(1);
+            case STANDARD -> tourDate.minusDays(2);
+            case MODERATE -> tourDate.minusDays(4);
+            case STRICT -> tourDate.minusDays(7);
+        };
     }
 
     // createReservationsForItems removido: ahora payment confirma reservas temporales existentes.

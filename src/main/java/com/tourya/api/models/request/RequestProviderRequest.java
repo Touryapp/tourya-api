@@ -53,4 +53,10 @@ public class RequestProviderRequest {
     @NotEmpty(message = "phone is mandatory")
     @NotNull(message = "phone is mandatory")
     private String phone;
+
+    /**
+     * Correo del usuario creado con {@code POST /auth/register}. Obligatorio en el flujo público de registro de proveedor
+     * (sin Bearer). Si la petición va autenticada, se ignora y se usa el usuario del token.
+     */
+    private String userEmail;
 }

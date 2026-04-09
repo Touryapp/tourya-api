@@ -23,8 +23,6 @@ public class TourScheduleConfigCreationRequest {
     private LocalDate endDate;*/
     @NotEmpty(message = "La lista de días de la semana no puede estar vacía")
     private List<String> daysOfWeek; // Días de la semana como Strings (ej. "MONDAY", "TUESDAY")
-    // isUnlimitedCapacity tiene un default en DB, no requiere @NotNull aquí
-    private Boolean isUnlimitedCapacity;
     private Boolean isTemplate; // campo para indicar si es una plantilla
     @Valid // Habilita la validación anidada de los slots
     @NotEmpty(message = "La configuración debe tener al menos un slot de horario")

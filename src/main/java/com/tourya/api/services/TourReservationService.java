@@ -5,6 +5,7 @@ import com.tourya.api.constans.enums.ReservationStatusEnum;
 import com.tourya.api.constans.enums.TourScheduleStatusEnum;
 import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
+import com.tourya.api.models.Tour;
 import com.tourya.api.models.TourReservation;
 import com.tourya.api.models.TourReservationDetail;
 import com.tourya.api.models.TourSchedule;
@@ -14,8 +15,11 @@ import com.tourya.api.models.request.ReservationItemRequest;
 import com.tourya.api.models.request.ReservationRequest;
 import com.tourya.api.models.responses.ReservationDetailResponse;
 import com.tourya.api.models.responses.TourReservationResponse;
+import com.tourya.api.models.TourScheduleConfigSlot;
+import com.tourya.api.repository.TourRepository;
 import com.tourya.api.repository.TourReservationRepository;
 import com.tourya.api.repository.TourScheduleConfigPriceRepository;
+import com.tourya.api.repository.TourScheduleConfigSlotRepository;
 import com.tourya.api.repository.TourScheduleRepository;
 import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
@@ -27,8 +31,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.ZoneId;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -38,6 +45,9 @@ public class TourReservationService {
     private final TourReservationRepository tourReservationRepository;
     private final TourScheduleRepository tourScheduleRepository;
     private final TourScheduleConfigPriceRepository tourScheduleConfigPriceRepository;
+    private final TourRepository tourRepository;
+    private final TourScheduleConfigSlotRepository tourScheduleConfigSlotRepository;
+    private final TourScheduleSlotAvailabilityService tourScheduleSlotAvailabilityService;
 
     @Transactional
     @Lock(LockModeType.PESSIMISTIC_WRITE) // Apply lock to all queries in this transaction if applicable
@@ -51,15 +61,8 @@ public class TourReservationService {
             throw new OperationNotPermittedException("This tour schedule is not available for reservation.");
         }
 
-        // 2. Validate capacity
-        int totalQuantityRequested = request.getItems().stream().mapToInt(ReservationItemRequest::getQuantity).sum();
-
-        if (!schedule.getIsUnlimitedCapacity()) {
-            int availableCapacity = schedule.getMaxCapacity() - schedule.getReservedCapacity();
-            if (totalQuantityRequested > availableCapacity) {
-                throw new OperationNotPermittedException("Not enough capacity available. Only " + availableCapacity + " spots left.");
-            }
-        }
+        Tour tourEntity = tourRepository.findById(schedule.getTourId())
+                .orElseThrow(() -> new ResourceNotFoundException("Tour not found for schedule"));
 
         // 3. Validate prices and calculate total amount
         List<Integer> priceIds = request.getItems().stream().map(ReservationItemRequest::getPriceId).collect(Collectors.toList());
@@ -68,6 +71,19 @@ public class TourReservationService {
 
         if (priceIds.size() != pricesById.size()) {
             throw new ResourceNotFoundException("One or more price IDs are invalid.");
+        }
+
+        Map<Integer, Integer> qtyBySlot = new HashMap<>();
+        for (ReservationItemRequest line : request.getItems()) {
+            TourScheduleConfigPrice price = pricesById.get(line.getPriceId());
+            qtyBySlot.merge(price.getSlot().getId(), line.getQuantity(), Integer::sum);
+        }
+        if (!Boolean.TRUE.equals(tourEntity.getIsUnlimitedCapacity())) {
+            for (Map.Entry<Integer, Integer> e : qtyBySlot.entrySet()) {
+                TourScheduleConfigSlot slot = tourScheduleConfigSlotRepository.findById(e.getKey())
+                        .orElseThrow(() -> new ResourceNotFoundException("Slot not found"));
+                tourScheduleSlotAvailabilityService.ensureSlotHasCapacity(tourEntity, slot, e.getValue());
+            }
         }
 
         BigDecimal totalAmount = BigDecimal.ZERO;
@@ -105,13 +121,13 @@ public class TourReservationService {
 
         reservation.setDetails(details);
 
-        // 5. Update schedule's reserved capacity
-        schedule.setReservedCapacity(schedule.getReservedCapacity() + totalQuantityRequested);
-
-        // 6. Save the reservation (cascades to details)
+        // 5. Save the reservation (cascades to details)
         TourReservation savedReservation = tourReservationRepository.save(reservation);
+        for (Integer sid : qtyBySlot.keySet()) {
+            tourScheduleSlotAvailabilityService.recalculate(sid);
+        }
 
-        // 7. Return response DTO
+        // 6. Return response DTO
         return mapToReservationResponse(savedReservation);
     }
 
@@ -169,22 +185,23 @@ public class TourReservationService {
             throw new OperationNotPermittedException("Cancellation is not allowed within 24 hours of the tour date.");
         }
 
-        // 5. Release the capacity
-        if (!schedule.getIsUnlimitedCapacity()) {
-            int totalQuantityToRelease = reservation.getDetails().stream()
-                    .mapToInt(TourReservationDetail::getQuantity)
-                    .sum();
-            schedule.setReservedCapacity(schedule.getReservedCapacity() - totalQuantityToRelease);
-            tourScheduleRepository.save(schedule);
-        }
-
-        // 6. Update reservation status
+        // 5. Update reservation status
         reservation.setStatus(ReservationStatusEnum.CANCELED);
         TourReservation savedReservation = tourReservationRepository.save(reservation);
 
+        Set<Integer> slotIds = new HashSet<>();
+        for (TourReservationDetail d : savedReservation.getDetails()) {
+            if (d.getPrice() != null && d.getPrice().getSlot() != null && d.getPrice().getSlot().getId() != null) {
+                slotIds.add(d.getPrice().getSlot().getId());
+            }
+        }
+        for (Integer sid : slotIds) {
+            tourScheduleSlotAvailabilityService.recalculate(sid);
+        }
+
         // TODO: Here you would trigger the refund process
 
-        // 7. Return the updated reservation
+        // 6. Return the updated reservation
         return mapToReservationResponse(savedReservation);
     }
 

@@ -17,9 +17,6 @@ import java.time.LocalTime;
         private LocalDate scheduleDate;
         private LocalTime startTime;
         private LocalTime endTime;
-        private Integer maxCapacity;
-        private Integer reservedCapacity;
-        private Boolean isUnlimitedCapacity;
         private TourScheduleStatusEnum status;
         private TourScheduleConfigDto config;
     }
