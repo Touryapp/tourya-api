@@ -42,6 +42,7 @@ public class TourScheduleConfig extends BaseEntity {
 
     // Una configuración puede tener múltiples slots
     @OneToMany(mappedBy = "config", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private Set<TourScheduleConfigSlot> slots = new HashSet<>();
 
     @Column(name = "label")
@@ -58,9 +59,6 @@ public class TourScheduleConfig extends BaseEntity {
     // Si usas PostgreSQL text[] (asegúrate del mapping de array)
     @Column(name = "days_of_week", columnDefinition = "text[]")
     private List<String> daysOfWeek;
-
-    @Column(name = "is_unlimited_capacity")
-    private Boolean isUnlimitedCapacity;
 
     @Column(name = "is_template")
     private Boolean isTemplate;

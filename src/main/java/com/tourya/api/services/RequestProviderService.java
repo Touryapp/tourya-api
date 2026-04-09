@@ -5,6 +5,7 @@ import com.tourya.api._utils.Utils;
 import com.tourya.api.common.PageResponse;
 import com.tourya.api.constans.enums.ProviderStatusEnum;
 import com.tourya.api.constans.enums.RequestProviderStatusEnum;
+import com.tourya.api.exceptions.EmailInvalidFormatException;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
 import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
@@ -25,7 +26,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,7 +54,16 @@ public class RequestProviderService {
     @Transactional
     public RequestProviderResponse save(RequestProviderRequest request,
                                         Authentication connectedUser){
-        User user = ((User) connectedUser.getPrincipal());
+        User user = resolveUserForProviderSave(request, connectedUser);
+
+        // Para el flujo público (sin JWT), setear auditor temporal para que @CreatedBy no quede null
+        Authentication previousAuth = SecurityContextHolder.getContext().getAuthentication();
+        boolean setTempAuth = (connectedUser == null || !(connectedUser.getPrincipal() instanceof User));
+        if (setTempAuth) {
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities()));
+        }
+        try {
         Provider providerCurrent = providerService.findByUser(user);
         if(providerCurrent != null && requestProviderRepository.findByProvider(providerCurrent) != null){
             throw new OperationNotPermittedException("It is not possible to create another request, this user already has a provider and request assigned to him.");
@@ -82,7 +94,35 @@ public class RequestProviderService {
         RequestProvider requestProviderNew = requestProviderRepository.save(requestProvider);
 
         return requestProviderMapper.toRequestProviderResponse(requestProviderNew);
+        } finally {
+            if (setTempAuth) {
+                SecurityContextHolder.getContext().setAuthentication(previousAuth);
+            }
+        }
     }
+
+    /**
+     * Usuario del JWT si la petición está autenticada con {@link User}; si no, el indicado en {@code userEmail}
+     * (mismo correo que en registro) para el flujo público proveedor.
+     */
+    private User resolveUserForProviderSave(RequestProviderRequest request, Authentication connectedUser) {
+        if (connectedUser != null && connectedUser.getPrincipal() instanceof User u) {
+            return u;
+        }
+        String email = request.getUserEmail();
+        if (email == null || email.isBlank()) {
+            throw new OperationNotPermittedException(
+                    "En el registro público de proveedor debe enviar userEmail (mismo correo usado en /auth/register) "
+                            + "o autenticarse con Bearer.");
+        }
+        if (!Utils.isValidEmail(email)) {
+            throw new EmailInvalidFormatException("Formato de correo inválido: " + email);
+        }
+        return userRepository.findByEmail(email.toLowerCase().trim())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "No existe un usuario con ese correo. Complete primero POST /auth/register con el mismo email."));
+    }
+
     private Country getCountry(Integer countryId){
         Country country = countryService.findById(countryId);
         if(country != null){

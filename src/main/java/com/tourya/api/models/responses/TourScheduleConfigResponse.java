@@ -15,6 +15,5 @@ public class TourScheduleConfigResponse {
     private Integer providerId;
     private String label;
     private List<String> daysOfWeek;
-    private Boolean isUnlimitedCapacity;
     private Set<TourScheduleSlotResponse> slots = new HashSet<>();
 }
