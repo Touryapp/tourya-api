@@ -67,7 +67,7 @@ public class ReviewService {
     private final ReviewAnswerMapper reviewAnswerMapper;
     private final ReservationMapper reservationMapper;
     private final ProviderService providerService;
-    private final S3Service s3Service;
+    private final IStorageService s3Service;
     private final com.tourya.api.config.security.JwtService jwtService;
     private final org.springframework.security.core.userdetails.UserDetailsService userDetailsService;
 

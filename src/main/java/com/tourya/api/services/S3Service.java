@@ -2,6 +2,7 @@
 package com.tourya.api.services;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -20,7 +21,8 @@ import java.time.Duration;
 import java.time.Instant;
 
 @Service
-public class S3Service {
+@ConditionalOnProperty(name = "storage.provider", havingValue = "AWS", matchIfMissing = true)
+public class S3Service implements IStorageService {
 
     private final S3Client s3Client;
     private final String bucket;
@@ -37,6 +39,7 @@ public class S3Service {
                 .build();
     }
 
+    @Override
     public String uploadFile(String prefix, MultipartFile file) throws IOException {
         String key = prefix + "/" + Instant.now().toEpochMilli() + "_" + file.getOriginalFilename();
 
@@ -51,6 +54,7 @@ public class S3Service {
         return "https://" + bucket + ".s3.amazonaws.com/" + key;
     }
 
+    @Override
     public void deleteFile(String fullUrl) {
         String key = fullUrl.replace("https://" + bucket + ".s3.amazonaws.com/", "");
         DeleteObjectRequest deleteRequest = DeleteObjectRequest.builder()
@@ -60,6 +64,7 @@ public class S3Service {
         s3Client.deleteObject(deleteRequest);
     }
 
+    @Override
     public InputStream downloadFile(String fullUrl) {
         String key = fullUrl.replace("https://" + bucket + ".s3.amazonaws.com/", "");
         GetObjectRequest getObjectRequest = GetObjectRequest.builder()
@@ -69,6 +74,7 @@ public class S3Service {
         return s3Client.getObject(getObjectRequest);
     }
 
+    @Override
     public URL generatePresignedUrl(String fullUrl, Duration duration) {
         String key = fullUrl.replace("https://" + bucket + ".s3.amazonaws.com/", "");
         return s3Client.utilities().getUrl(builder -> builder.bucket(bucket).key(key));
