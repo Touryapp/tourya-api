@@ -31,3 +31,7 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# GCP service account keys
+*-sa-key.json
+docs/*-sa-key.json
