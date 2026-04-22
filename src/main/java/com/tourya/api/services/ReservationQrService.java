@@ -26,7 +26,7 @@ import java.io.IOException;
 public class ReservationQrService {
 
     private final QrCodeService qrCodeService;
-    private final S3Service s3Service;
+    private final IStorageService s3Service;
     private final PaymentRepository paymentRepository;
     private final ReservationRepository reservationRepository;
 

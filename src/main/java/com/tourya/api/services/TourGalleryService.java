@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 public class TourGalleryService {
 
     private final TourGalleryRepository repository;
-    private final S3Service s3Service;
+    private final IStorageService s3Service;
     private final TourGalleryMapper mapper;
     private final ProviderService providerService;
     private final TourService tourService;

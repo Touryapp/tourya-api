@@ -29,7 +29,7 @@ public class RequestProviderGalleryService {
 
     private final RequestProviderGalleryRepository repository;
     private final RequestProviderRepository requestProviderRepository;
-    private final S3Service s3Service;
+    private final IStorageService s3Service;
     private final RequestProviderGalleryMapper mapper;
     private final ProviderService providerService;
 
