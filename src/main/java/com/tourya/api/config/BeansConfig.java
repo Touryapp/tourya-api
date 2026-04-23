@@ -48,7 +48,9 @@ public class BeansConfig {
         //config.setAllowedOrigins(List.of("*")); //Despues cambiar a las urls de origen.
         config.setAllowedOrigins(List.of("http://localhost:4200",
                 "http://localhost:8080", "http://44.203.38.85:8088", "http://44.203.38.85:8080",
-                "http://localhost:8100", "https://localhost/"));
+                "http://localhost:8100", "https://localhost/",
+                "https://tourya-dev-front-5j2nd2oflq-ue.a.run.app",
+                "https://tourya-dev-api-5j2nd2oflq-ue.a.run.app"));
         config.setAllowedHeaders(Arrays.asList(
                 HttpHeaders.ORIGIN,
                 HttpHeaders.CONTENT_TYPE,
