@@ -1,7 +1,6 @@
 package com.tourya.api.models;
 
 import com.tourya.api.common.BaseEntity;
-import com.tourya.api.constans.enums.ReviewReasonTypeEnum;
 import com.tourya.api.constans.enums.ReviewStatusEnum;
 import com.tourya.api.config.TranslatedFieldConverter;
 import jakarta.persistence.*;
@@ -79,13 +78,6 @@ public class Review extends BaseEntity {
 
     @Column(name = "rejection_reason", columnDefinition = "TEXT")
     private String rejectionReason;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "reason_type", length = 10)
-    private ReviewReasonTypeEnum reasonType;
-
-    @Column(name = "reason_id")
-    private Integer reasonId;
 
     // Relaciones
     @ManyToOne(fetch = FetchType.LAZY)

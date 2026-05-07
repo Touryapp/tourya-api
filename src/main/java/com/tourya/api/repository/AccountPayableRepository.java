@@ -8,7 +8,6 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -53,23 +52,5 @@ public interface AccountPayableRepository extends JpaRepository<AccountPayable, 
      * Busca cuenta por pagar por reserva y proveedor
      */
     Optional<AccountPayable> findByReservationIdAndProviderId(Long reservationId, Integer providerId);
-
-    @Query("""
-            SELECT ap
-            FROM AccountPayable ap
-            JOIN ap.reservation r
-            JOIN r.shoppingCartItem sci
-            WHERE ap.deliveryStatus = :status
-              AND r.deliveryStatus = com.tourya.api.constans.enums.DeliveryStatusEnum.DELIVERED
-              AND r.payoutAvailableDate IS NOT NULL
-              AND r.payoutAvailableDate <= :payDate
-              AND sci.scheduleDate BETWEEN :scheduleStart AND :scheduleEnd
-            """)
-    List<AccountPayable> findEligibleForPayoutOrder(
-            @Param("status") AccountPayableStatusEnum status,
-            @Param("payDate") LocalDate payDate,
-            @Param("scheduleStart") LocalDate scheduleStart,
-            @Param("scheduleEnd") LocalDate scheduleEnd
-    );
 }
 

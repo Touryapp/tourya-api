@@ -1,7 +1,6 @@
 package com.tourya.api.models.responses;
 
 import com.tourya.api.constans.enums.ReviewStatusEnum;
-import com.tourya.api.constans.enums.ReviewReasonTypeEnum;
 import com.tourya.api.models.TranslatedField;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -40,8 +39,6 @@ public class ReviewResponse {
     private String bookingId;
     private ReviewStatusEnum status;
     private String rejectionReason;
-    private ReviewReasonTypeEnum reasonType;
-    private Integer reasonId;
     private ReviewAnswerResponse answer;
     private List<String> attachmentUrls;
 }

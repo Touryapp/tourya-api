@@ -13,7 +13,6 @@ import org.thymeleaf.context.Context;
 import org.thymeleaf.spring6.SpringTemplateEngine;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -113,37 +112,5 @@ public class EmailService {
         message.setSubject(subject);
         message.setText(text);
         mailSender.send(message);
-    }
-
-    @Async
-    public void sendPurchaseConfirmationEmail(
-            String to,
-            String username,
-            List<com.tourya.api.models.responses.ReservationResponse> reservations,
-            String subject
-    ) throws MessagingException {
-        String templateName = EmailTemplateNameEnum.PURCHASE_CONFIRMATION.getName();
-
-        MimeMessage mimeMessage = mailSender.createMimeMessage();
-        MimeMessageHelper helper = new MimeMessageHelper(
-                mimeMessage,
-                MULTIPART_MODE_MIXED,
-                UTF_8.name()
-        );
-
-        Map<String, Object> properties = new HashMap<>();
-        properties.put("username", username);
-        properties.put("reservations", reservations);
-
-        Context context = new Context();
-        context.setVariables(properties);
-
-        helper.setFrom("eowkin@gmail.com");
-        helper.setTo(to);
-        helper.setSubject(subject);
-
-        String template = templateEngine.process(templateName, context);
-        helper.setText(template, true);
-        mailSender.send(mimeMessage);
     }
 }

@@ -29,7 +29,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -44,7 +43,6 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class ShoppingCartService {
-    private static final ZoneId CO_ZONE = ZoneId.of("America/Bogota");
 
     private final ShoppingCartRepository shoppingCartRepository;
     private final ShoppingCartItemRepository shoppingCartItemRepository;
@@ -143,7 +141,7 @@ public class ShoppingCartService {
         User user = (User) connectedUser.getPrincipal();
         
         // Validar que la fecha del schedule no sea anterior a la fecha actual
-        if (request.getScheduleDate() != null && request.getScheduleDate().isBefore(LocalDate.now(CO_ZONE))) {
+        if (request.getScheduleDate() != null && request.getScheduleDate().isBefore(LocalDate.now())) {
             throw new OperationNotPermittedException("No se puede agregar un item al carrito con una fecha anterior a la fecha actual");
         }
         
@@ -301,7 +299,7 @@ public class ShoppingCartService {
      */
     private void addItemToExistingCart(AddItemToCartRequest request, ShoppingCart cart) {
         // Validar que la fecha del schedule no sea anterior a la fecha actual
-        if (request.getScheduleDate() != null && request.getScheduleDate().isBefore(LocalDate.now(CO_ZONE))) {
+        if (request.getScheduleDate() != null && request.getScheduleDate().isBefore(LocalDate.now())) {
             throw new OperationNotPermittedException("No se puede agregar un item al carrito con una fecha anterior a la fecha actual");
         }
         

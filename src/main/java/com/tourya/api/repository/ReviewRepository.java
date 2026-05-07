@@ -137,46 +137,5 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
      * Busca una reseña por ID de reserva
      */
     Optional<Review> findOneByReservationId(Long reservationId);
-
-    @Query("""
-            SELECT AVG(r.rating)
-            FROM Review r
-            WHERE r.tourId = :tourId
-              AND r.status = com.tourya.api.constans.enums.ReviewStatusEnum.PUBLISHED
-            """)
-    BigDecimal avgPublishedRatingByTourId(@Param("tourId") Integer tourId);
-
-    @Query("""
-            SELECT COUNT(r)
-            FROM Review r
-            WHERE r.tourId = :tourId
-              AND r.status = com.tourya.api.constans.enums.ReviewStatusEnum.PUBLISHED
-            """)
-    long countPublishedByTourId(@Param("tourId") Integer tourId);
-
-    @Query(value = """
-            SELECT CAST(FLOOR(rating) AS int) AS stars, COUNT(*) AS cnt
-            FROM public.review
-            WHERE tour_id = :tourId
-              AND status = 'PUBLISHED'
-            GROUP BY CAST(FLOOR(rating) AS int)
-            """, nativeQuery = true)
-    List<Object[]> countPublishedByStars(@Param("tourId") Integer tourId);
-
-    @Query("""
-            SELECT r
-            FROM Review r
-            WHERE r.tourId = :tourId
-              AND r.status = com.tourya.api.constans.enums.ReviewStatusEnum.PUBLISHED
-              AND r.rating >= :minRating
-              AND r.rating < :maxRating
-            ORDER BY r.reviewDate DESC
-            """)
-    Page<Review> findPublishedByTourIdAndStars(
-            @Param("tourId") Integer tourId,
-            @Param("minRating") BigDecimal minRating,
-            @Param("maxRating") BigDecimal maxRating,
-            Pageable pageable
-    );
 }
 

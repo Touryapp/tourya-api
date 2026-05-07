@@ -40,6 +40,4 @@ public class TourFullDataResponse {
     private List<TourCancellationPolicyResponse>  cancellationPolicies = new ArrayList<>();
     private List<TourGalleryResponse>  galleries = new ArrayList<>();
 
-    private List<Integer> tagIds = new ArrayList<>();
-
 }

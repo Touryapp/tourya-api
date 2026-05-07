@@ -5,7 +5,6 @@ import com.tourya.api.models.request.CreateReviewRequest;
 import com.tourya.api.models.request.UpdateReviewRequest;
 import com.tourya.api.models.responses.ReviewAnswerResponse;
 import com.tourya.api.models.responses.ReviewResponse;
-import com.tourya.api.constans.enums.ReviewReasonTypeEnum;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -31,7 +30,7 @@ public class ReviewMapper {
             return null;
         }
 
-        Review review = Review.builder()
+        return Review.builder()
                 .reservationId(request.getReservationId())
                 .itemId(itemId)
                 .tourId(tourId)
@@ -44,20 +43,6 @@ public class ReviewMapper {
                 .dislikes(0)
                 .hearts(0)
                 .build();
-
-        if (request.getReasonId() != null) {
-            review.setReasonId(request.getReasonId());
-            review.setReasonType(inferReasonTypeFromRating(request.getRating()));
-        }
-
-        return review;
-    }
-
-    private ReviewReasonTypeEnum inferReasonTypeFromRating(java.math.BigDecimal rating) {
-        if (rating == null) return null;
-        return rating.compareTo(new java.math.BigDecimal("4.0")) >= 0
-                ? ReviewReasonTypeEnum.POSITIVE
-                : ReviewReasonTypeEnum.NEGATIVE;
     }
 
     /**
@@ -117,8 +102,6 @@ public class ReviewMapper {
                 .bookingId(bookingId)
                 .status(review.getStatus())
                 .rejectionReason(review.getRejectionReason())
-                .reasonType(review.getReasonType())
-                .reasonId(review.getReasonId())
                 .answer(answerResponse)
                 .attachmentUrls(mapAttachmentsToUrls(review.getAttachments()))
                 .build();
