@@ -40,7 +40,12 @@ public enum DeliveryStatusEnum {
     /**
      * Reserva temporal (hold) pendiente de pago/confirmación (15 min)
      */
-    TEMPORAL
+    TEMPORAL,
+
+    /**
+     * No asistió (la fecha del tour ya pasó y nunca se consumió)
+     */
+    NO_SHOW
 }
 
 

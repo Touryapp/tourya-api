@@ -43,6 +43,8 @@ public class TourService {
     private final TourCancellationPolicyRepository tourCancellationPolicyRepository;
     private final TourItineraryRepository tourItineraryRepository;
     private final TourGalleryRepository tourGalleryRepository;
+    private final TourTagsRepository tourTagsRepository;
+    private final ReviewRepository reviewRepository;
     private final TourCategoryService tourCategoryService;
     private final ProviderService providerService;
     private final CountryService countryService;
@@ -198,6 +200,11 @@ public class TourService {
         tour.setStatus(TourStatusEnum.CREATED);
         Tour tourNew =  tourRepository.save(tour);
 
+        // Sync tags (opcional)
+        if (tourFullDataRequest.getTagIds() != null) {
+            tourTagsRepository.replaceTourTags(tourNew.getId(), tourFullDataRequest.getTagIds());
+        }
+
         List<TourAddressResponse> tourAddressResponseList = createOrUpdateTourAddressesForTour(tourFullDataRequest.getLocations(), tourNew);
 
         List<TourMainAttractionRequest> tourMainAttractionRequestList = tourFullDataRequest.getMainAttractions();
@@ -218,8 +225,19 @@ public class TourService {
         List<TourCancellationPolicyRequest> tourCancellationPolicyRequestList = tourFullDataRequest.getCancellationPolicies();
         List<TourCancellationPolicyResponse>  tourCancellationPolicyResponseList =  createOrUpdateTourCancellationPoliciesForTour(tourCancellationPolicyRequestList, tourNew);
 
-        return tourMapper.toTourFullDataResponse(tourNew, tourAddressResponseList,
-                tourMainAttractionResponseList, tourIncludesResponseList, tourExcludesResponseList, tourFaqResponseList,  tourItineraryResponseList, tourCancellationPolicyResponseList);
+        List<Integer> tagIds = tourTagsRepository.getTagIdsByTourId(tourNew.getId());
+        return tourMapper.toTourFullDataResponse(
+                tourNew,
+                tourAddressResponseList,
+                tourMainAttractionResponseList,
+                tourIncludesResponseList,
+                tourExcludesResponseList,
+                tourFaqResponseList,
+                tourItineraryResponseList,
+                tourCancellationPolicyResponseList,
+                null,
+                tagIds
+        );
     }
     private TourFullDataResponse processUpdateTourFullData(Integer tourId, User user, TourFullDataRequest tourFullDataRequest){
         Provider provider = providerService.findByUserAndStatusActive(user);
@@ -249,6 +267,11 @@ public class TourService {
             //update Tour
             Tour tourUpdate = tourRepository.saveAndFlush(tour);
 
+            // Sync tags (solo si el cliente los envía)
+            if (tourFullDataRequest.getTagIds() != null) {
+                tourTagsRepository.replaceTourTags(tourUpdate.getId(), tourFullDataRequest.getTagIds());
+            }
+
             List<TourAddressResponse> tourAddressResponseList = processUpdateTourFullDataLocations(tourFullDataRequest, tourUpdate);
             List<TourMainAttractionResponse>  tourMainAttractionResponseList  = processUpdateTourFullDataMainAttractions(tourFullDataRequest, tourUpdate);
             List<TourIncludesExcludesResponse>  tourIncludesResponseList  =  processUpdateTourFullDataIncludes(tourFullDataRequest, tourUpdate);
@@ -257,9 +280,19 @@ public class TourService {
             List<TourItineraryResponse>  tourItineraryResponseList  =  processUpdateTourFullDataItinerary(tourFullDataRequest, tourUpdate);
             List<TourCancellationPolicyResponse>  tourCancellationPolicyResponseList =  processUpdateTourFullDataCancellationPolicy(tourFullDataRequest, tourUpdate);
 
-            return tourMapper.toTourFullDataResponse(tourUpdate, tourAddressResponseList,
-                    tourMainAttractionResponseList, tourIncludesResponseList, tourExcludesResponseList, tourFaqResponseList,  tourItineraryResponseList, tourCancellationPolicyResponseList,
-                    getAllByTourGallery(tourUpdate.getId()));
+            List<Integer> tagIds = tourTagsRepository.getTagIdsByTourId(tourUpdate.getId());
+            return tourMapper.toTourFullDataResponse(
+                    tourUpdate,
+                    tourAddressResponseList,
+                    tourMainAttractionResponseList,
+                    tourIncludesResponseList,
+                    tourExcludesResponseList,
+                    tourFaqResponseList,
+                    tourItineraryResponseList,
+                    tourCancellationPolicyResponseList,
+                    getAllByTourGallery(tourUpdate.getId()),
+                    tagIds
+            );
 
         }else{
             throw new ResourceNotFoundException("Tour not found with id = "+tourId+" to providerId = "+provider.getId());
@@ -620,10 +653,19 @@ public class TourService {
             Provider provider = providerService.findByUserAndStatusActive(user);
             Tour tour = tourRepository.findTourByIdAndProviderId(tourId, provider.getId());
             if(tour != null){
-                return tourMapper.toTourFullDataResponse(tour, consultDataTourAddressListByTourId(tourId),
-                        getAllByTourMainAttractions(tourId), getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
-                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId),
-                        getAllByTourItineraries(tourId), getAllByTourCancellationPolicy(tourId));
+                List<Integer> tagIds = tourTagsRepository.getTagIdsByTourId(tourId);
+                return tourMapper.toTourFullDataResponse(
+                        tour,
+                        consultDataTourAddressListByTourId(tourId),
+                        getAllByTourMainAttractions(tourId),
+                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
+                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE),
+                        getAllByTourFaqs(tourId),
+                        getAllByTourItineraries(tourId),
+                        getAllByTourCancellationPolicy(tourId),
+                        null,
+                        tagIds
+                );
             }else{
                 throw new ResourceNotFoundException("Tour not found with id = "+tourId+" to providerId = "+provider.getId());
             }
@@ -638,10 +680,19 @@ public class TourService {
             Optional<Tour> optionalTour = tourRepository.findById(tourId);
             if(optionalTour.isPresent()){
                 Tour tour = optionalTour.get();
-                return tourMapper.toTourFullDataResponse(tour, consultDataTourAddressListByTourId(tourId),
-                        getAllByTourMainAttractions(tourId), getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
-                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId),
-                        getAllByTourItineraries(tourId), getAllByTourCancellationPolicy(tourId),getAllByTourGallery(tourId));
+                List<Integer> tagIds = tourTagsRepository.getTagIdsByTourId(tourId);
+                return tourMapper.toTourFullDataResponse(
+                        tour,
+                        consultDataTourAddressListByTourId(tourId),
+                        getAllByTourMainAttractions(tourId),
+                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
+                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE),
+                        getAllByTourFaqs(tourId),
+                        getAllByTourItineraries(tourId),
+                        getAllByTourCancellationPolicy(tourId),
+                        getAllByTourGallery(tourId),
+                        tagIds
+                );
             }else{
                 throw new ResourceNotFoundException("Tour not found with id = "+tourId);
             }
@@ -658,10 +709,19 @@ public class TourService {
                 Tour tour = optionalTour.get();
                 tour.setStatus(TourStatusEnum.ACCEPTED);
                 Tour tourUpdate = tourRepository.save(tour);
-                return tourMapper.toTourFullDataResponse(tourUpdate, consultDataTourAddressListByTourId(tourId),
-                        getAllByTourMainAttractions(tourId), getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
-                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId),
-                        getAllByTourItineraries(tourId), getAllByTourCancellationPolicy(tourId));
+                List<Integer> tagIds = tourTagsRepository.getTagIdsByTourId(tourId);
+                return tourMapper.toTourFullDataResponse(
+                        tourUpdate,
+                        consultDataTourAddressListByTourId(tourId),
+                        getAllByTourMainAttractions(tourId),
+                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
+                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE),
+                        getAllByTourFaqs(tourId),
+                        getAllByTourItineraries(tourId),
+                        getAllByTourCancellationPolicy(tourId),
+                        null,
+                        tagIds
+                );
             }else{
                 throw new ResourceNotFoundException("Tour not found with id = "+tourId);
             }
@@ -678,10 +738,19 @@ public class TourService {
                 Tour tour = optionalTour.get();
                 tour.setStatus(TourStatusEnum.RETURNED);
                 Tour tourUpdate = tourRepository.save(tour);
-                return tourMapper.toTourFullDataResponse(tourUpdate, consultDataTourAddressListByTourId(tourId),
-                        getAllByTourMainAttractions(tourId), getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
-                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId),
-                        getAllByTourItineraries(tourId), getAllByTourCancellationPolicy(tourId));
+                List<Integer> tagIds = tourTagsRepository.getTagIdsByTourId(tourId);
+                return tourMapper.toTourFullDataResponse(
+                        tourUpdate,
+                        consultDataTourAddressListByTourId(tourId),
+                        getAllByTourMainAttractions(tourId),
+                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
+                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE),
+                        getAllByTourFaqs(tourId),
+                        getAllByTourItineraries(tourId),
+                        getAllByTourCancellationPolicy(tourId),
+                        null,
+                        tagIds
+                );
             }else{
                 throw new ResourceNotFoundException("Tour not found with id = "+tourId);
             }
@@ -699,10 +768,19 @@ public class TourService {
                 Tour tour = optionalTour.get();
                 tour.setStatus(TourStatusEnum.SUBMITTED);
                 Tour tourUpdate = tourRepository.save(tour);
-                return tourMapper.toTourFullDataResponse(tourUpdate, consultDataTourAddressListByTourId(tourId),
-                        getAllByTourMainAttractions(tourId), getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
-                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId),
-                        getAllByTourItineraries(tourId), getAllByTourCancellationPolicy(tourId));
+                List<Integer> tagIds = tourTagsRepository.getTagIdsByTourId(tourId);
+                return tourMapper.toTourFullDataResponse(
+                        tourUpdate,
+                        consultDataTourAddressListByTourId(tourId),
+                        getAllByTourMainAttractions(tourId),
+                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
+                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE),
+                        getAllByTourFaqs(tourId),
+                        getAllByTourItineraries(tourId),
+                        getAllByTourCancellationPolicy(tourId),
+                        null,
+                        tagIds
+                );
             }else{
                 throw new ResourceNotFoundException("Tour not found with id = "+tourId);
             }
@@ -720,10 +798,19 @@ public class TourService {
                 Tour tour = optionalTour.get();
                 tour.setStatus(TourStatusEnum.CANCELLED);
                 Tour tourUpdate = tourRepository.save(tour);
-                return tourMapper.toTourFullDataResponse(tourUpdate, consultDataTourAddressListByTourId(tourId),
-                        getAllByTourMainAttractions(tourId), getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
-                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE), getAllByTourFaqs(tourId),
-                        getAllByTourItineraries(tourId), getAllByTourCancellationPolicy(tourId));
+                List<Integer> tagIds = tourTagsRepository.getTagIdsByTourId(tourId);
+                return tourMapper.toTourFullDataResponse(
+                        tourUpdate,
+                        consultDataTourAddressListByTourId(tourId),
+                        getAllByTourMainAttractions(tourId),
+                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
+                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE),
+                        getAllByTourFaqs(tourId),
+                        getAllByTourItineraries(tourId),
+                        getAllByTourCancellationPolicy(tourId),
+                        null,
+                        tagIds
+                );
             }else{
                 throw new ResourceNotFoundException("Tour not found with id = "+tourId);
             }
@@ -842,6 +929,17 @@ public class TourService {
         //List<TourGalleryResponse> galleries = (roleType == UserRoleType.ADMIN) ? getAllByTourGallery(tourId) : null;
         List<TourGalleryResponse> galleries = getAllByTourGallery(tourId);
 
-        return tourMapper.toTourFullDataResponse(tour, locations, mainAttractions, includes, excludes, faqs, itineraries, cancellationPolicies, galleries);
+        List<Integer> tagIds = tourTagsRepository.getTagIdsByTourId(tourId);
+        TourFullDataResponse resp = tourMapper.toTourFullDataResponse(tour, locations, mainAttractions, includes, excludes, faqs, itineraries, cancellationPolicies, galleries, tagIds);
+
+        // Promedio de reseñas publicadas (1 decimal)
+        java.math.BigDecimal avg = reviewRepository.avgPublishedRatingByTourId(tourId);
+        if (avg != null) {
+            try {
+                resp.setRating(avg.setScale(1, java.math.RoundingMode.HALF_UP));
+            } catch (Exception ignored) {
+            }
+        }
+        return resp;
     }
 }
