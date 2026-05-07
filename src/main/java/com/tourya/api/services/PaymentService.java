@@ -51,10 +51,12 @@ public class PaymentService {
     private final TourMainAttractionRepository tourMainAttractionRepository;
     private final TourIncludesExcludesRepository tourIncludesExcludesRepository;
     private final TourAddressRepository tourAddressRepository;
+    private final TourGalleryRepository tourGalleryRepository;
     private final ObjectMapper objectMapper;
     private final AgeRangeConfigService ageRangeConfigService;
     private final CreditRepository creditRepository;
     private final PaymentCreditRepository paymentCreditRepository;
+    private final EmailService emailService;
 
     /**
      * Crea un pago y automáticamente genera la reserva con sus items.
@@ -197,7 +199,27 @@ public class PaymentService {
         log.info("Payment and {} reservations confirmed successfully. Payment ID: {}",
                 reservations.size(), savedPayment.getPaymentId());
 
-        return buildPaymentResponse(savedPayment, reservations);
+        PaymentResponse response = buildPaymentResponse(savedPayment, reservations);
+        sendPurchaseEmailBestEffort(savedPayment, response);
+        return response;
+    }
+
+    private void sendPurchaseEmailBestEffort(Payment payment, PaymentResponse response) {
+        try {
+            if (payment == null || payment.getPayerEmail() == null || payment.getPayerEmail().isBlank()) return;
+            String subject = "Confirmación de compra - Tourya";
+            String username = payment.getPayerName() != null && !payment.getPayerName().isBlank()
+                    ? payment.getPayerName()
+                    : "Turista";
+            emailService.sendPurchaseConfirmationEmail(
+                    payment.getPayerEmail(),
+                    username,
+                    response != null ? response.getReservations() : null,
+                    subject
+            );
+        } catch (Exception ignored) {
+            // best-effort: no bloquear el pago por fallo de correo
+        }
     }
 
     /**
@@ -450,6 +472,15 @@ public class PaymentService {
         Tour tour = tourRepository.findById(tourId).orElse(null);
         if (tour == null) {
             return;
+        }
+
+        // Imagen principal (order_index = 1); fallback a primera imagen si existe
+        List<TourGallery> galleries = tourGalleryRepository.findByTourIdAndOrderIndex(tourId, 1);
+        if (galleries == null || galleries.isEmpty()) {
+            galleries = tourGalleryRepository.findByTourIdOrderByOrderIndexAsc(tourId);
+        }
+        if (galleries != null && !galleries.isEmpty()) {
+            response.setTourImageUrl(galleries.get(0).getImageUrl());
         }
         
         // Información básica del tour

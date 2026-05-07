@@ -33,6 +33,7 @@ public class SearchTourScheduleFullResponse {
         private String subCategoryName;
         private String durationEnum;
         private List<String> timeOfDay;
+        private BigDecimal priceFrom;
         private List<TagResponse> tags;          // Tags del tour
         private AddressResponse address;         // Dirección del tour
         private List<GalleryItemResponse> gallery; // Imágenes del tour

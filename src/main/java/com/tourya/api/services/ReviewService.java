@@ -71,6 +71,67 @@ public class ReviewService {
     private final com.tourya.api.config.security.JwtService jwtService;
     private final org.springframework.security.core.userdetails.UserDetailsService userDetailsService;
 
+    @Transactional(readOnly = true)
+    public com.tourya.api.models.responses.TourReviewSummaryResponse getTourReviewSummary(Integer tourId) {
+        java.math.BigDecimal avg = reviewRepository.avgPublishedRatingByTourId(tourId);
+        if (avg != null) {
+            avg = avg.setScale(1, java.math.RoundingMode.HALF_UP);
+        }
+        long total = reviewRepository.countPublishedByTourId(tourId);
+
+        java.util.Map<Integer, Long> counts = new java.util.HashMap<>();
+        for (int s = 1; s <= 5; s++) counts.put(s, 0L);
+        List<Object[]> rows = reviewRepository.countPublishedByStars(tourId);
+        for (Object[] row : rows) {
+            if (row == null || row.length < 2) continue;
+            Integer stars = row[0] != null ? ((Number) row[0]).intValue() : null;
+            Long cnt = row[1] != null ? ((Number) row[1]).longValue() : 0L;
+            if (stars != null && stars >= 1 && stars <= 5) {
+                counts.put(stars, cnt);
+            }
+        }
+
+        return com.tourya.api.models.responses.TourReviewSummaryResponse.builder()
+                .tourId(tourId)
+                .averageRating(avg)
+                .totalReviews(total)
+                .countByStars(counts)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<ReviewResponse> getPublishedReviewsForTourByStars(Integer tourId, Integer stars, Integer pageSize, Integer pageNumber) {
+        if (pageSize == null || pageNumber == null) {
+            throw new IllegalArgumentException("pageSize and pageNumber are required parameters");
+        }
+        Pageable pageable = PageRequest.of(pageNumber, pageSize);
+        Page<Review> page;
+        if (stars != null) {
+            if (stars < 1 || stars > 5) throw new IllegalArgumentException("stars must be between 1 and 5");
+            java.math.BigDecimal min = new java.math.BigDecimal(stars).setScale(2);
+            java.math.BigDecimal max = new java.math.BigDecimal(stars + 1).setScale(2);
+            page = reviewRepository.findPublishedByTourIdAndStars(tourId, min, max, pageable);
+        } else {
+            page = reviewRepository.findWithFiltersForAdmin(tourId, null, ReviewStatusEnum.PUBLISHED, pageable);
+        }
+
+        List<ReviewResponse> responses = page.getContent().stream()
+                .map(r -> loadReviewRelations(r, true))
+                .map(reviewMapper::toResponse)
+                .map(this::enrichReviewResponse)
+                .collect(Collectors.toList());
+
+        return PageResponse.<ReviewResponse>builder()
+                .content(responses)
+                .number(page.getNumber())
+                .size(page.getSize())
+                .totalElements(page.getTotalElements())
+                .totalPages(page.getTotalPages())
+                .first(page.isFirst())
+                .last(page.isLast())
+                .build();
+    }
+
     /**
      * Crea una nueva reseña
      */

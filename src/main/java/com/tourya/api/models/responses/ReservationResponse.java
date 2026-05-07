@@ -38,6 +38,7 @@ public class ReservationResponse {
     // Información adicional del tour
     private Integer tourId;
     private String tourName;
+    private String tourImageUrl;
     private String tourType;
     private String duration;
     private LocalDateTime checkInDate;

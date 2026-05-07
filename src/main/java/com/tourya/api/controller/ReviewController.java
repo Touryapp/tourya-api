@@ -6,6 +6,10 @@ import com.tourya.api.models.request.CreateReviewRequest;
 import com.tourya.api.models.request.UpdateReviewRequest;
 import com.tourya.api.models.responses.ReservationResponse;
 import com.tourya.api.models.responses.ReviewResponse;
+import com.tourya.api.models.responses.ReviewReasonCatalogResponse;
+import com.tourya.api.models.responses.ReviewReasonListResponse;
+import com.tourya.api.models.responses.TourReviewSummaryResponse;
+import com.tourya.api.services.ReviewReasonCatalogService;
 import com.tourya.api.services.ReviewService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -43,6 +47,7 @@ import java.util.List;
 public class ReviewController {
 
     private final ReviewService reviewService;
+    private final ReviewReasonCatalogService reviewReasonCatalogService;
     private final ObjectMapper objectMapper;
 
     /**
@@ -137,6 +142,37 @@ public class ReviewController {
         UpdateReviewRequest request = objectMapper.readValue(reviewDataJson, UpdateReviewRequest.class);
         ReviewResponse response = reviewService.updateReview(reviewId, request, answerFiles, authentication);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/tour/{tourId}/reviews/summary")
+    @Operation(summary = "Resumen de reseñas del tour", description = "Promedio (1 decimal) + conteo por estrellas (1..5) de reseñas publicadas.")
+    public ResponseEntity<TourReviewSummaryResponse> getTourReviewSummary(@PathVariable Integer tourId) {
+        return ResponseEntity.ok(reviewService.getTourReviewSummary(tourId));
+    }
+
+    @GetMapping("/tour/{tourId}/reviews")
+    @Operation(summary = "Reseñas publicadas por tour (filtrar por estrellas)", description = "Retorna reseñas publicadas del tour. Si se envía stars=3, retorna solo reseñas de 3 estrellas.")
+    public ResponseEntity<PageResponse<ReviewResponse>> getTourReviews(
+            @PathVariable Integer tourId,
+            @RequestParam(required = true) Integer pageSize,
+            @RequestParam(required = true) Integer pageNumber,
+            @RequestParam(required = false) Integer stars
+    ) {
+        return ResponseEntity.ok(reviewService.getPublishedReviewsForTourByStars(tourId, stars, pageSize, pageNumber));
+    }
+
+    @GetMapping("/review/reasons")
+    @Operation(summary = "Catálogo de motivos de reseña", description = "Devuelve los motivos positivos y negativos (IDs 1..7 por tipo).")
+    public ResponseEntity<ReviewReasonCatalogResponse> getReviewReasonsCatalog() {
+        return ResponseEntity.ok(reviewReasonCatalogService.getCatalog());
+    }
+
+    @GetMapping("/review/reasons/by-rating")
+    @Operation(summary = "Motivos sugeridos según rating", description = "Si rating es 4 o 5 devuelve motivos positivos; si es 1 a 3 devuelve negativos.")
+    public ResponseEntity<ReviewReasonListResponse> getReviewReasonsByRating(
+            @RequestParam java.math.BigDecimal rating
+    ) {
+        return ResponseEntity.ok(reviewReasonCatalogService.getReasonsForRating(rating));
     }
 }
 
