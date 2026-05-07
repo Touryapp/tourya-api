@@ -1,8 +1,11 @@
 package com.tourya.api.jobs;
 
 import com.tourya.api.constans.enums.DeliveryStatusEnum;
+import com.tourya.api.constans.enums.CreditStatusEnum;
+import com.tourya.api.models.Credit;
 import com.tourya.api.models.Reservation;
 import com.tourya.api.models.ShoppingCartItem;
+import com.tourya.api.repository.CreditRepository;
 import com.tourya.api.repository.ReservationRepository;
 import com.tourya.api.repository.ShoppingCartItemRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +24,7 @@ public class TemporalReservationExpiryJob {
 
     private final ReservationRepository reservationRepository;
     private final ShoppingCartItemRepository shoppingCartItemRepository;
+    private final CreditRepository creditRepository;
 
     /**
      * Expira holds temporales vencidos.
@@ -46,6 +50,21 @@ public class TemporalReservationExpiryJob {
                     // mantener el item en el carrito pero quitar la reserva temporal para permitir reintento
                     item.setReservationId(null);
                     shoppingCartItemRepository.save(item);
+                }
+
+                // Liberar créditos reservados para este item si el pago no se completó
+                // Regla: si Credit está RESERVED y asociado al shopping_cart_item_id, lo devolvemos a CREATED.
+                if (r.getItemId() != null) {
+                    java.util.Set<Long> itemIds = java.util.Set.of(r.getItemId());
+                    List<Credit> reservedCredits = creditRepository.findByShoppingCartItemIdInAndStatusReserved(itemIds);
+                    for (Credit c : reservedCredits) {
+                        c.setReservedAmount(java.math.BigDecimal.ZERO);
+                        c.setShoppingCartItemId(null);
+                        c.setStatus(CreditStatusEnum.CREATED);
+                    }
+                    if (!reservedCredits.isEmpty()) {
+                        creditRepository.saveAll(reservedCredits);
+                    }
                 }
             } catch (Exception e) {
                 log.warn("No se pudo expirar reserva temporal {}: {}", r.getReservationId(), e.getMessage());
