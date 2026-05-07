@@ -11,6 +11,9 @@ import java.util.List;
 @Data
 @Schema(description = "Filtros para la búsqueda pública de tours y horarios")
 public class PublicTourScheduleSearchRequest {
+    @Schema(description = "Tipo de búsqueda especial", example = "wishlist")
+    private String type;
+
     @Schema(description = "ID de la categoría del tour", example = "1")
     private Integer categoryId;
 
@@ -20,6 +23,10 @@ public class PublicTourScheduleSearchRequest {
 
     @Schema(description = "ID específico del tour", example = "43")
     private Integer tourId;
+
+    @JsonFormat(with = JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
+    @Schema(description = "IDs de tours para limitar la búsqueda (ej. wishlist)", example = "[43,44,90]")
+    private List<Integer> tourIds;
 
     @Schema(description = "Código de la subcategoría", example = "tour_bahia_diurno")
     private String subCategory;

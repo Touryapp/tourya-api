@@ -129,11 +129,13 @@ public class ReservationService {
         List<Long> reservationIds = new ArrayList<>();
         for (ShoppingCartItem item : items) {
             java.math.BigDecimal totalAmount = item.getTotalPrice() != null ? item.getTotalPrice() : java.math.BigDecimal.ZERO;
+            LocalDateTime reservationDateUtc = LocalDateTime.now(java.time.ZoneId.of("UTC"));
             Reservation reservation = Reservation.builder()
                     .paymentId(null) // Se setea en payment al confirmar
                     .itemId(item.getId())
                     .qrUrl(null)
-                    .reservationDate(LocalDateTime.now(java.time.ZoneId.of("UTC")))
+                    .reservationDate(reservationDateUtc)
+                    .payoutAvailableDate(reservationDateUtc.toLocalDate().plusDays(2))
                     .deliveryStatus(DeliveryStatusEnum.TEMPORAL)
                     .expiresAt(expiresAt)
                     .totalAmount(totalAmount)
@@ -627,6 +629,10 @@ public class ReservationService {
         // Validar que la reserva no esté re-agendada
         if (reservation.getDeliveryStatus() == DeliveryStatusEnum.RESCHEDULED) {
             throw new IllegalStateException("Cannot consume a rescheduled reservation");
+        }
+
+        if (reservation.getDeliveryStatus() == DeliveryStatusEnum.NO_SHOW) {
+            throw new IllegalStateException("Cannot consume a no-show reservation");
         }
 
         // 2. Obtener el shopping cart item relacionado

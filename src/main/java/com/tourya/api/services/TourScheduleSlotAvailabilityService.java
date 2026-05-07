@@ -105,7 +105,8 @@ public class TourScheduleSlotAvailabilityService {
         if (!reservationIds.isEmpty()) {
             List<Reservation> reservations = reservationRepository.findAllByReservationIdIn(new ArrayList<>(reservationIds));
             for (Reservation r : reservations) {
-                if (r.getDeliveryStatus() == DeliveryStatusEnum.CANCELED) {
+                if (r.getDeliveryStatus() == DeliveryStatusEnum.CANCELED
+                        || r.getDeliveryStatus() == DeliveryStatusEnum.NO_SHOW) {
                     continue;
                 }
                 if (r.getDeliveryStatus() != DeliveryStatusEnum.TEMPORAL
