@@ -93,7 +93,7 @@ public class TourMapper {
                                                        List<TourCancellationPolicyResponse>  tourCancellationPolicyResponseList) {
         return this.toTourFullDataResponse(tour, tourAddressResponseList, tourMainAttractionResponseList,
                 tourIncludesResponseList, tourExcludesResponseList, tourFaqResponseList, tourItineraryResponseList,
-                tourCancellationPolicyResponseList, null, null);
+                tourCancellationPolicyResponseList, null);
     }
 
     public TourFullDataResponse toTourFullDataResponse(Tour tour, List<TourAddressResponse> tourAddressResponseList,
@@ -104,29 +104,6 @@ public class TourMapper {
                                                        List<TourItineraryResponse> tourItineraryResponseList,
                                                        List<TourCancellationPolicyResponse>  tourCancellationPolicyResponseList,
                                                        List<TourGalleryResponse> tourGalleryResponseList) {
-        return this.toTourFullDataResponse(
-                tour,
-                tourAddressResponseList,
-                tourMainAttractionResponseList,
-                tourIncludesResponseList,
-                tourExcludesResponseList,
-                tourFaqResponseList,
-                tourItineraryResponseList,
-                tourCancellationPolicyResponseList,
-                tourGalleryResponseList,
-                null
-        );
-    }
-
-    public TourFullDataResponse toTourFullDataResponse(Tour tour, List<TourAddressResponse> tourAddressResponseList,
-                                                       List<TourMainAttractionResponse>  tourMainAttractionResponseList,
-                                                       List<TourIncludesExcludesResponse>  tourIncludesResponseList,
-                                                       List<TourIncludesExcludesResponse>  tourExcludesResponseList,
-                                                       List<TourFaqResponse> tourFaqResponseList,
-                                                       List<TourItineraryResponse> tourItineraryResponseList,
-                                                       List<TourCancellationPolicyResponse>  tourCancellationPolicyResponseList,
-                                                       List<TourGalleryResponse> tourGalleryResponseList,
-                                                       List<Integer> tagIds) {
         TourFullDataResponse tourFullDataResponse = new TourFullDataResponse();
         tourFullDataResponse.setId(tour.getId());
         tourFullDataResponse.setName(tour.getName());
@@ -155,10 +132,6 @@ public class TourMapper {
         // Conditionally add galleries
         if (tourGalleryResponseList != null) {
             tourFullDataResponse.setGalleries(tourGalleryResponseList);
-        }
-
-        if (tagIds != null) {
-            tourFullDataResponse.setTagIds(tagIds);
         }
 
         return tourFullDataResponse;

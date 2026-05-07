@@ -13,7 +13,6 @@ import lombok.experimental.SuperBuilder;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.math.BigDecimal;
-import java.time.OffsetDateTime;
 
 /**
  * Entidad que representa una reserva.
@@ -45,15 +44,6 @@ public class Reservation extends BaseEntity {
 
     @Column(name = "reservation_date", nullable = false)
     private LocalDateTime reservationDate;
-
-    @Column(name = "payout_available_date")
-    private LocalDate payoutAvailableDate;
-
-    @Column(name = "payout_status", nullable = false, length = 20)
-    private String payoutStatus;
-
-    @Column(name = "payout_paid_at")
-    private OffsetDateTime payoutPaidAt;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "delivery_status", nullable = false)
