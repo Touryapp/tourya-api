@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -116,6 +117,19 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
         WHERE r.reservationId IN :ids
         """)
     List<Reservation> findAllByReservationIdIn(@Param("ids") List<Long> ids);
+
+    @Query("""
+        SELECT r
+        FROM Reservation r
+        JOIN r.shoppingCartItem item
+        WHERE r.deliveryStatus = :status
+          AND item.scheduleDate IS NOT NULL
+          AND item.scheduleDate < :today
+        """)
+    List<Reservation> findPendingWithScheduleDateBefore(
+            @Param("status") DeliveryStatusEnum status,
+            @Param("today") LocalDate today
+    );
 
     /**
      * Busca reservas general

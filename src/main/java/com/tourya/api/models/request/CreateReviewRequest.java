@@ -35,6 +35,10 @@ public class CreateReviewRequest {
     @Valid
     private TranslatedField comment;
 
+    @Min(value = 1, message = "El motivo debe ser entre 1 y 7")
+    @Max(value = 7, message = "El motivo debe ser entre 1 y 7")
+    private Integer reasonId;
+
     private LocalDate date;
 }
 

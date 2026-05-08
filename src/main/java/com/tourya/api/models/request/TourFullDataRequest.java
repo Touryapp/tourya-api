@@ -99,5 +99,8 @@ public class TourFullDataRequest {
     @NotNull(message = "cancellationPolicies is mandatory")
     private List<TourCancellationPolicyRequest>  cancellationPolicies = new ArrayList<>();
 
+    @Schema(description = "IDs de tags seleccionados para el tour", example = "[61,66,62]")
+    private List<Integer> tagIds;
+
     private ModifiedArrayListRequest  modifiedArrayList;
 }
