@@ -34,7 +34,7 @@ import io.swagger.v3.oas.annotations.servers.Server;
                 ),
                 @Server(
                         description = "SERVER-DEV ENV",
-                        url = "http://44.203.38.85:8088/api/v1"
+                        url = "http://34.160.22.16/api/v1"
                 )
         },
         security = {
