@@ -40,7 +40,7 @@ public class ProviderPayoutOrderService {
     private static final String NOT_PRIVILEGES = "You have no privileges to perform this action.";
 
     private final ProviderService providerService;
-    private final S3Service s3Service;
+    private final IStorageService storageService;
 
     private final ProviderPayoutOrderRepository payoutOrderRepository;
     private final ProviderPayoutOrderReservationRepository payoutOrderReservationRepository;
@@ -135,7 +135,7 @@ public class ProviderPayoutOrderService {
             throw new IllegalStateException("Only PENDING orders can be marked as PAID");
         }
 
-        String url = s3Service.uploadFile("provider-payout-orders/" + orderId, file);
+        String url = storageService.uploadFile("provider-payout-orders/" + orderId, file);
         ProviderPayoutAttachment att = new ProviderPayoutAttachment();
         att.setPayoutOrderId(orderId);
         att.setFileUrl(url);
