@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirmación de compra</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4; color:#111; }
+        .container { max-width: 680px; margin: 12px auto; padding: 20px; background-color: #fff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.08); }
+        .header { padding-bottom: 10px; border-bottom: 1px solid #eee; }
+        .header h1 { margin: 0; font-size: 20px; }
+        .muted { color: #666; font-size: 13px; }
+        .card { border: 1px solid #eee; border-radius: 8px; padding: 14px; margin-top: 12px; }
+        .row { display:flex; gap:12px; align-items:flex-start; }
+        .img { width: 120px; height: 80px; background:#fafafa; border:1px solid #eee; border-radius: 8px; object-fit: cover; }
+        .title { font-size: 16px; font-weight: 700; margin: 0; }
+        .kv { margin-top: 8px; font-size: 13px; line-height: 1.4; }
+        .kv b { display:inline-block; min-width: 78px; }
+        .qr { word-break: break-all; font-size: 12px; }
+        .btn { display:inline-block; margin-top: 10px; padding: 10px 12px; background:#007bff; color:#fff; text-decoration:none; border-radius: 6px; font-weight: 700; font-size: 13px; }
+        .footer { margin-top: 18px; padding-top: 12px; border-top: 1px solid #eee; font-size: 12px; color:#777; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>Confirmación de compra</h1>
+        <p class="muted" th:text="'Hola ' + ${username} + ', gracias por tu compra en Tourya.'"></p>
+    </div>
+
+    <p class="muted" style="margin-top:12px">Aquí están los detalles de tus reservas:</p>
+
+    <div th:if="${reservations == null || #lists.isEmpty(reservations)}" class="card">
+        <p class="muted">No encontramos reservas para mostrar en este correo.</p>
+    </div>
+
+    <div th:each="r : ${reservations}" class="card">
+        <div class="row">
+            <img class="img" th:if="${r.tourImageUrl != null}" th:src="${r.tourImageUrl}" alt="Imagen del tour"/>
+            <div style="flex:1">
+                <p class="title" th:text="${r.tourName != null ? r.tourName : 'Tour'}"></p>
+                <div class="kv">
+                    <div><b>Reserva:</b> <span th:text="${r.reservationId}"></span></div>
+                    <div><b>Tour ID:</b> <span th:text="${r.tourId}"></span></div>
+                    <div th:if="${r.checkInDate != null}"><b>Fecha:</b> <span th:text="${#temporals.format(r.checkInDate, 'yyyy-MM-dd')}"></span></div>
+                </div>
+
+                <div style="margin-top:10px">
+                    <div class="muted" style="font-weight:700">QR</div>
+                    <div class="qr" th:text="${r.qrUrl != null ? r.qrUrl : 'QR no disponible'}"></div>
+                    <a class="btn" th:if="${r.qrUrl != null}" th:href="${r.qrUrl}" target="_blank">Ver QR</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <div>Si tienes dudas, responde a este correo o contáctanos desde la app.</div>
+    </div>
+</div>
+</body>
+</html>
+
