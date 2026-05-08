@@ -3,6 +3,7 @@ package com.tourya.api.services.impl;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tourya.api.models.request.PublicTourScheduleSearchRequest;
 import com.tourya.api.models.responses.SearchTourScheduleFullResponse;
+import com.tourya.api.models.responses.TourGalleryResponse;
 import com.tourya.api.repository.SearchTourScheduleFullRepository;
 import com.tourya.api.services.SearchTourScheduleFullService;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,7 @@ import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -26,13 +28,34 @@ public class SearchTourScheduleFullServiceImpl implements SearchTourScheduleFull
     public Page<SearchTourScheduleFullResponse> searchTourSchedule(PublicTourScheduleSearchRequest filters, Pageable pageable) {
         Map<String, Object> filterMap = new HashMap<>(objectMapper.convertValue(filters, Map.class));
         return searchRepo.callStoredProcedure(filterMap, pageable)
-                .map(this::enrichPriceFrom);
+                .map(this::enrichPriceFrom)
+                .map(this::enrichProfilePicture);
     }
 
     private SearchTourScheduleFullResponse enrichPriceFrom(SearchTourScheduleFullResponse r) {
         if (r == null || r.getTour() == null) return r;
         BigDecimal priceFrom = computePriceFrom(r.getSchedules());
         r.getTour().setPriceFrom(priceFrom);
+        return r;
+    }
+
+    private SearchTourScheduleFullResponse enrichProfilePicture(SearchTourScheduleFullResponse r) {
+        if (r == null || r.getTour() == null) return r;
+        List<SearchTourScheduleFullResponse.GalleryItemResponse> gallery = r.getTour().getGallery();
+        if (gallery == null || gallery.isEmpty()) return r;
+
+        SearchTourScheduleFullResponse.GalleryItemResponse chosen = gallery.stream()
+                .filter(Objects::nonNull)
+                .filter(g -> g.getOrder() != null && g.getOrder() == 1)
+                .findFirst()
+                .orElse(gallery.get(0));
+
+        TourGalleryResponse pic = new TourGalleryResponse();
+        pic.setId(chosen.getId());
+        pic.setImageUrl(chosen.getImageUrl());
+        pic.setDescription(chosen.getDescription());
+        pic.setOrderIndex(chosen.getOrder());
+        r.getTour().setProfilePicture(pic);
         return r;
     }
 

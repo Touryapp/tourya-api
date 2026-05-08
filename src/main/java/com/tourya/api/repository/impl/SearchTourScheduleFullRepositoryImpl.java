@@ -33,7 +33,7 @@ public class SearchTourScheduleFullRepositoryImpl implements SearchTourScheduleF
 
         try {
             // 🔹 Agregar paginación
-            filters.put("page", pageable.getOffset());
+            filters.put("page", pageable.getPageNumber());
             filters.put("size", pageable.getPageSize());
 
             // 🔹 Agregar ordenamiento si existe

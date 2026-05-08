@@ -37,6 +37,8 @@ public class SearchTourScheduleFullResponse {
         private List<TagResponse> tags;          // Tags del tour
         private AddressResponse address;         // Dirección del tour
         private List<GalleryItemResponse> gallery; // Imágenes del tour
+        /** Misma semántica que {@link TourResponse#getProfilePicture}: imagen principal (orderIndex 1 o primera). */
+        private TourGalleryResponse profilePicture;
     }
 
     @Data
