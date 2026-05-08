@@ -222,6 +222,6 @@ public class AuthenticationService {
         return UUID.randomUUID().toString().substring(0, 16); // Ejemplo
     }
     public void sendEmailTest(){
-        emailService.sendSimpleMessage("eowkin@gmail.com",  "test-email", "Prueba de email");
+        emailService.sendSimpleMessage("noreply@wass.com.co",  "test-email", "Prueba de email");
     }
 }

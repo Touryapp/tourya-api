@@ -4,6 +4,7 @@ import com.tourya.api.constans.enums.EmailTemplateNameEnum;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -24,6 +25,9 @@ import static org.springframework.mail.javamail.MimeMessageHelper.MULTIPART_MODE
 public class EmailService {
     private final JavaMailSender mailSender;
     private final SpringTemplateEngine templateEngine;
+
+    @Value("${spring.mail.username}")
+    private String fromEmail;
 
     @Async
     public void sendEmail(
@@ -54,8 +58,7 @@ public class EmailService {
         Context context = new Context();
         context.setVariables(properties);
 
-        //helper.setFrom("contact@aliboucoding.com");
-        helper.setFrom("eowkin@gmail.com");
+        helper.setFrom(fromEmail);
         helper.setTo(to);
         helper.setSubject(subject);
 
@@ -95,8 +98,7 @@ public class EmailService {
         Context context = new Context();
         context.setVariables(properties);
 
-        //helper.setFrom("contact@aliboucoding.com");
-        helper.setFrom("eowkin@gmail.com");
+        helper.setFrom(fromEmail);
         helper.setTo(to);
         helper.setSubject(subject);
 
@@ -108,7 +110,7 @@ public class EmailService {
     }
     public void sendSimpleMessage(String to, String subject, String text) {
         SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom("eowkin@gmail.com"); // La dirección desde la que se enviará el correo
+        message.setFrom(fromEmail); // La dirección desde la que se enviará el correo
         message.setTo(to);
         message.setSubject(subject);
         message.setText(text);
@@ -138,7 +140,7 @@ public class EmailService {
         Context context = new Context();
         context.setVariables(properties);
 
-        helper.setFrom("eowkin@gmail.com");
+        helper.setFrom(fromEmail);
         helper.setTo(to);
         helper.setSubject(subject);
 
