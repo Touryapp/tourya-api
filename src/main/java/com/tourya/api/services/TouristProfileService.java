@@ -23,7 +23,7 @@ public class TouristProfileService {
     private static final ZoneId CO_ZONE = ZoneId.of("America/Bogota");
 
     private final TouristProfileRepository touristProfileRepository;
-    private final S3Service s3Service;
+    private final IStorageService storageService;
 
     @Transactional(readOnly = true)
     public TouristProfileResponse getMyProfile(Authentication connectedUser) {
@@ -99,7 +99,7 @@ public class TouristProfileService {
                         .createdAt(now)
                         .build());
 
-        String url = s3Service.uploadFile("tourist-profiles/" + user.getId(), file);
+        String url = storageService.uploadFile("tourist-profiles/" + user.getId(), file);
         profile.setPhotoUrl(url);
         profile.setUpdatedAt(now);
         TouristProfile saved = touristProfileRepository.save(profile);
