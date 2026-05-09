@@ -30,6 +30,9 @@ import java.time.OffsetDateTime;
 @Table(name = "reservation")
 public class Reservation extends BaseEntity {
 
+    /** Valor inicial en BD (migration 032); coincide con columna NOT NULL DEFAULT 'PENDING'. */
+    public static final String PAYOUT_STATUS_PENDING = "PENDING";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long reservationId;
@@ -94,4 +97,11 @@ public class Reservation extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "item_id", insertable = false, updatable = false)
     private ShoppingCartItem shoppingCartItem;
+
+    @PrePersist
+    void ensurePayoutStatusForInsert() {
+        if (payoutStatus == null || payoutStatus.isBlank()) {
+            payoutStatus = PAYOUT_STATUS_PENDING;
+        }
+    }
 }

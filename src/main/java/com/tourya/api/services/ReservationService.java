@@ -136,6 +136,7 @@ public class ReservationService {
                     .qrUrl(null)
                     .reservationDate(reservationDateUtc)
                     .payoutAvailableDate(reservationDateUtc.toLocalDate().plusDays(2))
+                    .payoutStatus(Reservation.PAYOUT_STATUS_PENDING)
                     .deliveryStatus(DeliveryStatusEnum.TEMPORAL)
                     .expiresAt(expiresAt)
                     .totalAmount(totalAmount)

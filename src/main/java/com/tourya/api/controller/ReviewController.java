@@ -3,6 +3,7 @@ package com.tourya.api.controller;
 import com.tourya.api.common.PageResponse;
 import com.tourya.api.constans.enums.ReviewStatusEnum;
 import com.tourya.api.models.request.CreateReviewRequest;
+import com.tourya.api.models.request.CreateReviewMultipartDoc;
 import com.tourya.api.models.request.UpdateReviewRequest;
 import com.tourya.api.models.responses.ReservationResponse;
 import com.tourya.api.models.responses.ReviewResponse;
@@ -13,6 +14,10 @@ import com.tourya.api.services.ReviewReasonCatalogService;
 import com.tourya.api.services.ReviewService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -101,7 +106,38 @@ public class ReviewController {
      * Crea una nueva reseña
      */
     @PostMapping(value = "/save/review", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @Operation(summary = "Crear reseña", description = "Crea una nueva reseña para una reserva con imágenes (máximo 5). Requiere autenticación mediante token Bearer en el header Authorization")
+    @Operation(
+            summary = "Crear reseña",
+            description = "Multipart: parte `reviewData` = JSON (`CreateReviewRequest`) y opcionalmente `files` (hasta 5 imágenes). "
+                    + "Motivos: solo **un** `reasonId` opcional (1–7), coherente con el catálogo de motivos. "
+                    + "Requiere Bearer token."
+    )
+    @RequestBody(
+            required = true,
+            content = @Content(
+                    mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
+                    schema = @Schema(implementation = CreateReviewMultipartDoc.class),
+                    examples = @ExampleObject(
+                            name = "multipartExample",
+                            summary = "Ejemplo de reviewData (JSON) dentro del multipart",
+                            value = """
+                                    {
+                                      "reviewData": {
+                                        "reservationId": 214,
+                                        "rating": 5.0,
+                                        "comment": { "es": "Excelente experiencia", "en": "", "pt": "" },
+                                        "reasonId": 3,
+                                        "date": "2026-05-08"
+                                      },
+                                      "files": [
+                                        "<BINARY_FILE_1>",
+                                        "<BINARY_FILE_2>"
+                                      ]
+                                    }
+                                    """
+                    )
+            )
+    )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Reseña creada exitosamente"),
             @ApiResponse(responseCode = "401", description = "No autenticado - se requiere token Bearer"),
@@ -109,7 +145,15 @@ public class ReviewController {
             @ApiResponse(responseCode = "404", description = "Reserva no encontrada")
     })
     public ResponseEntity<ReviewResponse> createReview(
-            @Parameter(description = "Datos de la reseña en JSON") @RequestPart("reviewData") String reviewDataJson,
+            @Parameter(
+                    description = "JSON string con el cuerpo de CreateReviewRequest (reservationId, rating, comment, reasonId opcional único, date opcional).",
+                    schema = @Schema(
+                            type = "string",
+                            format = "json",
+                            example = "{\"reservationId\":214,\"rating\":5.0,\"comment\":{\"es\":\"Excelente experiencia\",\"en\":\"\",\"pt\":\"\"},\"reasonId\":3,\"date\":\"2026-05-08\"}"
+                    )
+            )
+            @RequestPart("reviewData") String reviewDataJson,
             @Parameter(description = "Imágenes de la reseña (máximo 5)") @RequestPart(value = "files", required = false) List<MultipartFile> files,
             @Nullable Authentication authentication) throws IOException {
         log.info("Creating review with {} images", files != null ? files.size() : 0);
