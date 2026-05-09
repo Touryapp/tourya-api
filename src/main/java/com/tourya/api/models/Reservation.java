@@ -4,7 +4,9 @@ import com.tourya.api.common.BaseEntity;
 import com.tourya.api.constans.enums.CancellationReasonEnum;
 import com.tourya.api.constans.enums.DeliveryStatusEnum;
 import jakarta.persistence.*;
+import org.hibernate.annotations.DynamicInsert;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -28,6 +30,7 @@ import java.time.OffsetDateTime;
 @NoArgsConstructor
 @Entity
 @Table(name = "reservation")
+@DynamicInsert
 public class Reservation extends BaseEntity {
 
     /** Valor inicial en BD (migration 032); coincide con columna NOT NULL DEFAULT 'PENDING'. */
@@ -52,8 +55,9 @@ public class Reservation extends BaseEntity {
     @Column(name = "payout_available_date")
     private LocalDate payoutAvailableDate;
 
+    @Builder.Default
     @Column(name = "payout_status", nullable = false, length = 20)
-    private String payoutStatus;
+    private String payoutStatus = PAYOUT_STATUS_PENDING;
 
     @Column(name = "payout_paid_at")
     private OffsetDateTime payoutPaidAt;
