@@ -4,7 +4,9 @@ import com.tourya.api.common.BaseEntity;
 import com.tourya.api.constans.enums.CancellationReasonEnum;
 import com.tourya.api.constans.enums.DeliveryStatusEnum;
 import jakarta.persistence.*;
+import org.hibernate.annotations.DynamicInsert;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -28,7 +30,11 @@ import java.time.OffsetDateTime;
 @NoArgsConstructor
 @Entity
 @Table(name = "reservation")
+@DynamicInsert
 public class Reservation extends BaseEntity {
+
+    /** Valor inicial en BD (migration 032); coincide con columna NOT NULL DEFAULT 'PENDING'. */
+    public static final String PAYOUT_STATUS_PENDING = "PENDING";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -49,8 +55,9 @@ public class Reservation extends BaseEntity {
     @Column(name = "payout_available_date")
     private LocalDate payoutAvailableDate;
 
+    @Builder.Default
     @Column(name = "payout_status", nullable = false, length = 20)
-    private String payoutStatus;
+    private String payoutStatus = PAYOUT_STATUS_PENDING;
 
     @Column(name = "payout_paid_at")
     private OffsetDateTime payoutPaidAt;
@@ -94,4 +101,11 @@ public class Reservation extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "item_id", insertable = false, updatable = false)
     private ShoppingCartItem shoppingCartItem;
+
+    @PrePersist
+    void ensurePayoutStatusForInsert() {
+        if (payoutStatus == null || payoutStatus.isBlank()) {
+            payoutStatus = PAYOUT_STATUS_PENDING;
+        }
+    }
 }

@@ -32,6 +32,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -340,6 +341,8 @@ public class ReviewService {
 
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new ResourceNotFoundException("Review not found with id: " + reviewId));
+        ReviewStatusEnum prevStatus = review.getStatus();
+        BigDecimal prevRating = review.getRating();
 
         // Obtener usuario autenticado
         User user = getUserFromAuthentication(authentication);
@@ -389,6 +392,16 @@ public class ReviewService {
         }
         
         review = reviewRepository.save(review);
+        // Si cambió el estado/rating y afecta reviews publicadas, recalcular rating del tour persistido
+        if (review.getTourId() != null && (request.getStatus() != null || request.getRating() != null)) {
+            boolean wasPublished = prevStatus == ReviewStatusEnum.PUBLISHED;
+            boolean isPublished = review.getStatus() == ReviewStatusEnum.PUBLISHED;
+            boolean ratingChanged = request.getRating() != null && (prevRating == null || prevRating.compareTo(review.getRating()) != 0);
+            boolean statusChanged = request.getStatus() != null && prevStatus != review.getStatus();
+            if (wasPublished || isPublished || ratingChanged || statusChanged) {
+                refreshAndPersistTourRating(review.getTourId());
+            }
+        }
 
         // NO se modifican las imágenes del review en PATCH - solo se pueden agregar al crear
 
@@ -431,6 +444,21 @@ public class ReviewService {
 
         ReviewResponse response = reviewMapper.toResponse(review);
         return enrichReviewResponse(response);
+    }
+
+    /**
+     * Persistimos el promedio de reviews publicadas en tour.rating para acelerar listados/búsquedas.
+     */
+    private void refreshAndPersistTourRating(Integer tourId) {
+        if (tourId == null) return;
+        BigDecimal avg = reviewRepository.avgPublishedRatingByTourId(tourId);
+        if (avg != null) {
+            avg = avg.setScale(1, RoundingMode.HALF_UP);
+        }
+        Tour tour = tourRepository.findById(tourId).orElse(null);
+        if (tour == null) return;
+        tour.setRating(avg);
+        tourRepository.save(tour);
     }
 
     /**

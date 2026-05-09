@@ -30,7 +30,10 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -54,8 +57,13 @@ public class ProviderPayoutOrderService {
         User user = (User) connectedUser.getPrincipal();
         Provider provider = providerService.findByUserAndStatusActive(user);
 
-        return payoutOrderRepository.findAll().stream()
+        List<ProviderPayoutOrder> orders = payoutOrderRepository.findAll().stream()
                 .filter(o -> o.getProviderId().equals(provider.getId()))
+                .toList();
+        Map<Long, String> proofUrlByOrderId = latestProofUrlByOrderIds(
+                orders.stream().map(ProviderPayoutOrder::getId).toList());
+
+        return orders.stream()
                 .map(o -> ProviderPayoutOrderListItemResponse.builder()
                         .id(o.getId())
                         .providerId(o.getProviderId())
@@ -64,6 +72,7 @@ public class ProviderPayoutOrderService {
                         .status(o.getStatus())
                         .amountTotal(o.getAmountTotal())
                         .reservationsCount(payoutOrderReservationRepository.findByPayoutOrderId(o.getId()).size())
+                        .proofUrl(proofUrlByOrderId.get(o.getId()))
                         .build())
                 .toList();
     }
@@ -76,7 +85,11 @@ public class ProviderPayoutOrderService {
             throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
         }
 
-        return payoutOrderRepository.findAll().stream()
+        List<ProviderPayoutOrder> orders = payoutOrderRepository.findAll().stream().toList();
+        Map<Long, String> proofUrlByOrderId = latestProofUrlByOrderIds(
+                orders.stream().map(ProviderPayoutOrder::getId).toList());
+
+        return orders.stream()
                 .map(o -> ProviderPayoutOrderListItemResponse.builder()
                         .id(o.getId())
                         .providerId(o.getProviderId())
@@ -85,6 +98,7 @@ public class ProviderPayoutOrderService {
                         .status(o.getStatus())
                         .amountTotal(o.getAmountTotal())
                         .reservationsCount(payoutOrderReservationRepository.findByPayoutOrderId(o.getId()).size())
+                        .proofUrl(proofUrlByOrderId.get(o.getId()))
                         .build())
                 .toList();
     }
@@ -204,6 +218,24 @@ public class ProviderPayoutOrderService {
                 .attachments(attDtos)
                 .reservations(items)
                 .build();
+    }
+
+    /**
+     * Una sola consulta de adjuntos para todas las órdenes; por orden devuelve la URL del adjunto más reciente.
+     */
+    private Map<Long, String> latestProofUrlByOrderIds(Collection<Long> orderIds) {
+        Map<Long, String> result = new HashMap<>();
+        if (orderIds == null || orderIds.isEmpty()) {
+            return result;
+        }
+        List<ProviderPayoutAttachment> attachments = payoutAttachmentRepository.findByPayoutOrderIdIn(orderIds);
+        Map<Long, ProviderPayoutAttachment> latest = new HashMap<>();
+        for (ProviderPayoutAttachment a : attachments) {
+            latest.merge(a.getPayoutOrderId(), a, (a1, a2) ->
+                    a1.getCreatedAt().isAfter(a2.getCreatedAt()) ? a1 : a2);
+        }
+        latest.forEach((id, att) -> result.put(id, att.getFileUrl()));
+        return result;
     }
 
     private void validateProofFile(MultipartFile file) {
