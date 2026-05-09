@@ -26,6 +26,7 @@ public class ReservationMapper {
                 .paymentId(request.getPaymentId())
                 .qrUrl(request.getQrToken()) // Mapear qrToken a qrUrl
                 .reservationDate(request.getReservationDate())
+                .payoutStatus(Reservation.PAYOUT_STATUS_PENDING)
                 .deliveryStatus(request.getDeliveryStatus())
                 .build();
     }
