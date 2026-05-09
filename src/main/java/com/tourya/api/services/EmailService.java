@@ -4,6 +4,8 @@ import com.tourya.api.constans.enums.EmailTemplateNameEnum;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
@@ -12,6 +14,7 @@ import org.thymeleaf.context.Context;
 import org.thymeleaf.spring6.SpringTemplateEngine;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -22,6 +25,9 @@ import static org.springframework.mail.javamail.MimeMessageHelper.MULTIPART_MODE
 public class EmailService {
     private final JavaMailSender mailSender;
     private final SpringTemplateEngine templateEngine;
+
+    @Value("${spring.mail.username}")
+    private String fromEmail;
 
     @Async
     public void sendEmail(
@@ -52,8 +58,7 @@ public class EmailService {
         Context context = new Context();
         context.setVariables(properties);
 
-        //helper.setFrom("contact@aliboucoding.com");
-        helper.setFrom("eowkin@usb.ve");
+        helper.setFrom(fromEmail);
         helper.setTo(to);
         helper.setSubject(subject);
 
@@ -93,8 +98,7 @@ public class EmailService {
         Context context = new Context();
         context.setVariables(properties);
 
-        //helper.setFrom("contact@aliboucoding.com");
-        helper.setFrom("eowkin@usb.ve");
+        helper.setFrom(fromEmail);
         helper.setTo(to);
         helper.setSubject(subject);
 
@@ -102,6 +106,46 @@ public class EmailService {
 
         helper.setText(template, true);
 
+        mailSender.send(mimeMessage);
+    }
+    public void sendSimpleMessage(String to, String subject, String text) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromEmail); // La dirección desde la que se enviará el correo
+        message.setTo(to);
+        message.setSubject(subject);
+        message.setText(text);
+        mailSender.send(message);
+    }
+
+    @Async
+    public void sendPurchaseConfirmationEmail(
+            String to,
+            String username,
+            List<com.tourya.api.models.responses.ReservationResponse> reservations,
+            String subject
+    ) throws MessagingException {
+        String templateName = EmailTemplateNameEnum.PURCHASE_CONFIRMATION.getName();
+
+        MimeMessage mimeMessage = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(
+                mimeMessage,
+                MULTIPART_MODE_MIXED,
+                UTF_8.name()
+        );
+
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("username", username);
+        properties.put("reservations", reservations);
+
+        Context context = new Context();
+        context.setVariables(properties);
+
+        helper.setFrom(fromEmail);
+        helper.setTo(to);
+        helper.setSubject(subject);
+
+        String template = templateEngine.process(templateName, context);
+        helper.setText(template, true);
         mailSender.send(mimeMessage);
     }
 }

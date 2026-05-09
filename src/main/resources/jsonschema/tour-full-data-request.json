@@ -1,0 +1,400 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://tourya.com/schemas/tour-full-data-request.json",
+  "title": "TourFullDataRequest",
+  "description": "Schema for creating or updating a full tour data.",
+  "type": "object",
+  "required": [
+    "name",
+    "tourCategoryId",
+    "minAge",
+    "locations",
+    "mainAttractions",
+    "includes",
+    "excludes",
+    "faq",
+    "itineraries",
+    "cancellationPolicies",
+    "galleries"
+  ],
+  "properties": {
+    "id": {
+      "type": ["integer", "null"],
+      "description": "Optional ID for existing tours. Nullable for new tours."
+    },
+    "name": {
+      "type": "string",
+      "description": "Name of the tour.",
+      "minLength": 1
+    },
+    "description": {
+      "type": ["string", "null"],
+      "description": "Full description of the tour. Now optional and can be empty or null.",
+      "default": null
+    },
+    "tourCategoryId": {
+      "type": "integer",
+      "description": "ID of the tour category.",
+      "minimum": 1
+    },
+    "duration": {
+      "type": ["string", "null"],
+      "description": "Duration of the tour. Can be null if not applicable.",
+      "minLength": 1
+    },
+    "maxPeople": {
+      "type": "integer",
+      "description": "Maximum number of people allowed on the tour. Defaults to 0.",
+      "minimum": 0
+    },
+    "highlight": {
+      "type": "integer",
+      "description": "Highlight status or identifier. Defaults to 0.",
+      "minimum": 0
+    },
+    "price": {
+      "type": "number",
+      "description": "Price of the tour.",
+      "exclusiveMinimum": 0.00
+    },
+    "minAge": {
+      "type": "integer",
+      "description": "Minimum age for the tour.",
+      "minimum": 0,
+      "maximum": 99
+    },
+    "rating": {
+      "type": "number",
+      "description": "Rating of the tour (0.00 to 5.00).",
+      "minimum": 0.00,
+      "maximum": 5.00
+    },
+    "locations": {
+      "type": "array",
+      "description": "List of locations associated with the tour.",
+      "items": { "$ref": "#/$defs/TourAddressRequest" },
+      "minItems": 1,
+      "uniqueItems": false
+    },
+    "mainAttractions": {
+      "type": "array",
+      "description": "List of main attractions of the tour.",
+      "items": { "$ref": "#/$defs/TourMainAttractionRequest" },
+      "minItems": 0,
+      "uniqueItems": false
+    },
+    "includes": {
+      "type": "array",
+      "description": "List of items included in the tour price.",
+      "items": { "$ref": "#/$defs/TourIncludesExcludesRequest" },
+      "minItems": 0,
+      "uniqueItems": false
+    },
+    "excludes": {
+      "type": "array",
+      "description": "List of items excluded from the tour price.",
+      "items": { "$ref": "#/$defs/TourIncludesExcludesRequest" },
+      "minItems": 0,
+      "uniqueItems": false
+    },
+    "faq": {
+      "type": "array",
+      "description": "List of frequently asked questions and answers.",
+      "items": { "$ref": "#/$defs/TourFaqRequest" },
+      "minItems": 0,
+      "uniqueItems": false
+    },
+    "itineraries": {
+      "type": "array",
+      "description": "List of itinerary entries for the tour.",
+      "items": { "$ref": "#/$defs/TourItineraryRequest" },
+      "minItems": 0,
+      "uniqueItems": false
+    },
+    "cancellationPolicies": {
+      "type": "array",
+      "description": "List of cancellation policies for the tour.",
+      "items": { "$ref": "#/$defs/TourCancellationPolicyRequest" },
+      "minItems": 0,
+      "uniqueItems": false
+    },
+    "galleries": {
+      "type": "array",
+      "description": "List of gallery images/items for the tour.",
+      "items": { "$ref": "#/$defs/TourGalleryRequest" },
+      "minItems": 0,
+      "uniqueItems": false
+    },
+    "modifiedArrayList": {
+      "type": "object",
+      "description": "Flags indicating which nested lists have been updated.",
+      "$ref": "#/$defs/ModifiedArrayListRequest"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "TourAddressRequest": {
+      "type": "object",
+      "required": [
+        "countryId",
+        "stateId",
+        "cityId",
+        "addressType"
+      ],
+      "properties": {
+        "id": {
+          "type": ["integer", "null"],
+          "description": "Optional ID for existing items. Nullable for new items."
+        },
+        "countryId": {
+          "type": "integer",
+          "description": "ID of the country.",
+          "minimum": 1
+        },
+        "stateId": {
+          "type": "integer",
+          "description": "ID of the state.",
+          "minimum": 1
+        },
+        "cityId": {
+          "type": "integer",
+          "description": "ID of the city.",
+          "minimum": 1
+        },
+        "latitude": {
+          "type": ["number", "null"],
+          "description": "Latitude coordinate. Defaults to 0.0.",
+          "default": 0.0
+        },
+        "longitude": {
+          "type": ["number", "null"],
+          "description": "Longitude coordinate. Defaults to 0.0.",
+          "default": 0.0
+        },
+        "address": {
+          "type": ["string", "null"],
+          "description": "Full address string. Can be empty or null."
+        },
+        "location": {
+          "type": ["string", "null"],
+          "description": "Descriptive location name. Can be empty or null."
+        },
+        "addressType": {
+          "type": "string",
+          "description": "Type of address (e.g., 'MEETING_POINT', 'DESTINATION').",
+          "enum": ["Meeting Point", "End Point", "Pick-up Point"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "TourMainAttractionRequest": {
+      "type": "object",
+      "required": [
+        "description"
+      ],
+      "properties": {
+        "id": {
+          "type": ["integer", "null"],
+          "description": "Optional ID for existing items. Nullable for new items."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the main attraction.",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "TourIncludesExcludesRequest": {
+      "type": "object",
+      "required": [
+        "description",
+        "type"
+      ],
+      "properties": {
+        "id": {
+          "type": ["integer", "null"],
+          "description": "Optional ID for existing items. Nullable for new items."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the inclusion/exclusion.",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "description": "Type of item (e.g., 'Include', 'Exclude').",
+          "enum": ["Include", "Exclude"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "TourFaqRequest": {
+      "type": "object",
+      "required": [
+        "question",
+        "answer"
+      ],
+      "properties": {
+        "id": {
+          "type": ["integer", "null"],
+          "description": "Optional ID for existing items. Nullable for new items."
+        },
+        "question": {
+          "type": "string",
+          "description": "FAQ question.",
+          "minLength": 1
+        },
+        "answer": {
+          "type": "string",
+          "description": "FAQ answer.",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "TourItineraryRequest": {
+      "type": "object",
+      "required": [
+        "title",
+        "day",
+        "time",
+        "description"
+      ],
+      "properties": {
+        "id": {
+          "type": ["integer", "null"],
+          "description": "Optional ID for existing items. Nullable for new items."
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the itinerary entry.",
+          "minLength": 1
+        },
+        "day": {
+          "type": "integer",
+          "description": "Day of the itinerary.",
+          "minimum": 1
+        },
+        "time": {
+          "type": "string",
+          "description": "Time of the itinerary entry in HH:mm format.",
+          "pattern": "^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the itinerary entry.",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "TourCancellationPolicyRequest": {
+      "type": "object",
+      "required": [
+        "cancellationPolicyType"
+      ],
+      "properties": {
+        "id": {
+          "type": ["integer", "null"],
+          "description": "Optional ID for existing items. Nullable for new items."
+        },
+        "observations": {
+          "type": ["string", "null"],
+          "description": "Observations about the policy. Can be empty or null."
+        },
+        "allowsRainRefund": {
+          "type": "boolean",
+          "description": "Indicates if rain refunds are allowed. Defaults to true.",
+          "default": true
+        },
+        "allowsRescheduling": {
+          "type": "boolean",
+          "description": "Indicates if rescheduling is allowed. Defaults to true.",
+          "default": true
+        },
+        "cancellationPolicyType": {
+          "type": "string",
+          "description": "Type of cancellation policy.",
+          "enum": ["Flexible", "Moderate", "Non-refundable"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "TourGalleryRequest": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": ["integer", "null"],
+          "description": "Optional ID for existing items. Nullable for new items."
+        },
+        "imageUrl": {
+          "type": ["string", "null"],
+          "description": "URL of the image. Can be null/empty if not present.",
+          "format": "uri"
+        },
+        "description": {
+          "type": ["string", "null"],
+          "description": "Description of the gallery item."
+        },
+        "orderIndex": {
+          "type": ["integer", "null"],
+          "description": "Order index of the gallery item. Can be null/empty if not present.",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "anyOf": [
+        { "required": ["imageUrl"] },
+        { "required": ["description"] }
+      ]
+    },
+    "ModifiedArrayListRequest": {
+      "type": "object",
+      "description": "Flags indicating which nested lists have been updated.",
+      "properties": {
+        "updatedLocations": {
+          "type": "boolean",
+          "description": "Indicates if the locations list has been updated.",
+          "default": false
+        },
+        "updatedMainAttractions": {
+          "type": "boolean",
+          "description": "Indicates if the main attractions list has been updated.",
+          "default": false
+        },
+        "updatedIncludes": {
+          "type": "boolean",
+          "description": "Indicates if the includes list has been updated.",
+          "default": false
+        },
+        "updatedExcludes": {
+          "type": "boolean",
+          "description": "Indicates if the excludes list has been updated.",
+          "default": false
+        },
+        "updatedItineraries": {
+          "type": "boolean",
+          "description": "Indicates if the itineraries list has been updated.",
+          "default": false
+        },
+        "updatedFaq": {
+          "type": "boolean",
+          "description": "Indicates if the FAQ list has been updated.",
+          "default": false
+        },
+        "updatedCancellationPolicies": {
+          "type": "boolean",
+          "description": "Indicates if the cancellation policies list has been updated.",
+          "default": false
+        },
+        "updatedGalleries": {
+          "type": "boolean",
+          "description": "Indicates if the galleries list has been updated.",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

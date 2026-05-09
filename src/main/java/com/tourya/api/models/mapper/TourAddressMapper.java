@@ -1,0 +1,60 @@
+package com.tourya.api.models.mapper;
+
+import com.tourya.api.models.TourAddress;
+import com.tourya.api.models.responses.TourAddressResponse;
+import com.tourya.api.models.request.TourAddressRequest;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+@Service
+@RequiredArgsConstructor
+public class TourAddressMapper {
+
+    private final TourMapper tourMapper;
+    public TourAddress toTourAddress(TourAddressRequest tourAddressRequest){
+        TourAddress tourAddress = new TourAddress();
+        tourAddress.setAddress(tourAddressRequest.getAddress());
+        tourAddress.setLocation(tourAddressRequest.getLocation());
+        tourAddress.setAddressType(tourAddressRequest.getAddressType());
+        tourAddress.setLongitude(tourAddressRequest.getLongitude());
+        tourAddress.setLatitude(tourAddressRequest.getLatitude());
+        tourAddress.setAddressType(tourAddressRequest.getAddressType());
+        return tourAddress;
+    }
+
+    public TourAddressResponse toTourAddressResponse(TourAddress tourAddress){
+        TourAddressResponse tourAddressResponse = new TourAddressResponse();
+        tourAddressResponse.setId(tourAddress.getId());
+        tourAddressResponse.setAddress(tourAddress.getAddress());
+        tourAddressResponse.setLocation(tourAddress.getLocation());
+        tourAddressResponse.setAddressType(tourAddress.getAddressType());
+        tourAddressResponse.setLatitude(tourAddress.getLatitude());
+        tourAddressResponse.setLongitude(tourAddress.getLongitude());
+        tourAddressResponse.setCountryId(tourAddress.getCountry().getId());
+        tourAddressResponse.setStateId(tourAddress.getState().getId());
+        tourAddressResponse.setCityId(tourAddress.getCity().getId());
+        return tourAddressResponse;
+    }
+    public void updateTourAddressFromRequest(TourAddressRequest request, TourAddress entity) {
+        if (request == null || entity == null) {
+            return;
+        }
+
+        if (request.getAddress() != null) {
+            entity.setAddress(request.getAddress());
+        }
+        if (request.getLocation() != null) {
+            entity.setLocation(request.getLocation());
+        }
+        if (request.getAddressType() != null) {
+            entity.setAddressType(request.getAddressType());
+        }
+        if (request.getLongitude() != null) {
+            entity.setLongitude(request.getLongitude());
+        }
+        if (request.getLatitude() != null) {
+            entity.setLatitude(request.getLatitude());
+        }
+    }
+
+}

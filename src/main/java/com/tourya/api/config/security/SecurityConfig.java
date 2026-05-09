@@ -1,9 +1,9 @@
 package com.tourya.api.config.security;
 
-
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod; // Importar HttpMethod
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -29,8 +29,10 @@ public class SecurityConfig {
                 .cors(withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(req ->
-                        req.requestMatchers(
-                                        "/auth/**",
+                        req.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // <-- AÑADE ESTA LÍNEA
+                                .requestMatchers(HttpMethod.POST, "/requestProvider/user/save").permitAll()
+                                .requestMatchers(
+                                        "/auth/**","/public/**","/actuator/**",
                                         "/v2/api-docs",
                                         "/v3/api-docs",
                                         "/v3/api-docs/**",

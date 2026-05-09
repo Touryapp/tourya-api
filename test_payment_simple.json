@@ -1,0 +1,18 @@
+{
+    "transactionId": "TXN_SIMPLE_001",
+    "transactionData": "{\"amount\":100.00}",
+    "items": [
+        {
+            "shoppingCartItemId": 1,
+            "serviceResponsible": {
+                "name": "Test User",
+                "email": "test@test.com"
+            }
+        }
+    ],
+    "payer": {
+        "name": "Test Payer",
+        "email": "payer@test.com",
+        "id": 1
+    }
+}

@@ -1,0 +1,22 @@
+{
+    "transactionId": "TXN_TEST_001",
+    "transactionData": "{\"amount\":150.00,\"currency\":\"COP\",\"method\":\"CREDIT_CARD\"}",
+    "items": [
+        {
+            "shoppingCartItemId": 11,
+            "serviceResponsible": {
+                "name": "María García",
+                "email": "maria@tourya.com",
+                "phone": "+57 300 123 4567"
+            }
+        }
+    ],
+    "payer": {
+        "name": "Juan Pérez",
+        "email": "juan@email.com",
+        "id": 1001,
+        "phone": "+57 300 123 4567",
+        "documentType": "CC",
+        "documentNumber": "12345678"
+    }
+}
