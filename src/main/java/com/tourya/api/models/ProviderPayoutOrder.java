@@ -1,6 +1,5 @@
 package com.tourya.api.models;
 
-import com.tourya.api.common.BaseEntity;
 import com.tourya.api.constans.enums.ProviderPayoutOrderStatusEnum;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -20,7 +19,7 @@ import java.time.OffsetDateTime;
 @NoArgsConstructor
 @Entity
 @Table(name = "provider_payout_order")
-public class ProviderPayoutOrder extends BaseEntity {
+public class ProviderPayoutOrder {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
