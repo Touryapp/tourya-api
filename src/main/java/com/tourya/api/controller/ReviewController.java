@@ -83,22 +83,29 @@ public class ReviewController {
      * REQUIERE AUTENTICACIÓN
      */
     @GetMapping("/search/reviews")
-    @Operation(summary = "Buscar reseñas", description = "Obtiene reseñas. El filtrado se realiza automáticamente según el rol del usuario autenticado (Cliente/Proveedor/Admin). Requiere autenticación.")
+    @Operation(
+            summary = "Buscar reseñas",
+            description = "Obtiene reseñas según rol (Cliente/Proveedor/Admin). Requiere autenticación. "
+                    + "Si se indica **tourId** y no se envía **status**, el filtro por defecto es **PUBLISHED** "
+                    + "(coherente con `GET /public/tour/{tourId}/reviews/summary` y listados públicos). "
+                    + "Para moderación (ver PENDING/CANCELED u mezcla), use `status=...` o `includeAllStatuses=true`.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Lista de reseñas obtenida exitosamente"),
             @ApiResponse(responseCode = "401", description = "No autenticado - se requiere token Bearer")
     })
     public ResponseEntity<PageResponse<ReviewResponse>> getReviews(
             @Parameter(description = "Tamaño de la página", required = true) @RequestParam(required = true) Integer pageSize,
-            @Parameter(description = "Número de página (0-indexed)", required = true) @RequestParam(required = true) Integer pageNumber,
+            @Parameter(description = "Número de página **base 0** (0 = primera página)", required = true) @RequestParam(required = true) Integer pageNumber,
             @Parameter(description = "Filtrar por calificación mínima") @RequestParam(required = false) BigDecimal rating,
-            @Parameter(description = "Filtrar por ID de tour (solo para admin)") @RequestParam(required = false) Integer tourId,
-            @Parameter(description = "Filtrar por estado de la reseña (PENDING, PUBLISHED, CANCELED)") @RequestParam(required = false) ReviewStatusEnum status,
+            @Parameter(description = "Filtrar por tour. Proveedor: solo reseñas de tours que le pertenecen; si el tour no es suyo, lista vacía.") @RequestParam(required = false) Integer tourId,
+            @Parameter(description = "Filtrar por estado (PENDING, PUBLISHED, CANCELED). Con tourId omitido, por defecto PUBLISHED.") @RequestParam(required = false) ReviewStatusEnum status,
+            @Parameter(description = "Si true y tourId está presente, no se fuerza PUBLISHED cuando status va vacío (vista moderación).") @RequestParam(required = false) Boolean includeAllStatuses,
             @Nullable Authentication authentication) {
-        log.info("Getting reviews with filters - pageSize: {}, pageNumber: {}, rating: {}, tourId: {}, status: {}",
-                pageSize, pageNumber, rating, tourId, status);
-        
-        PageResponse<ReviewResponse> response = reviewService.getReviews(pageSize, pageNumber, rating, tourId, status, authentication);
+        log.info("Getting reviews with filters - pageSize: {}, pageNumber: {}, rating: {}, tourId: {}, status: {}, includeAllStatuses: {}",
+                pageSize, pageNumber, rating, tourId, status, includeAllStatuses);
+
+        PageResponse<ReviewResponse> response = reviewService.getReviews(
+                pageSize, pageNumber, rating, tourId, status, includeAllStatuses, authentication);
         return ResponseEntity.ok(response);
     }
 
@@ -189,7 +196,9 @@ public class ReviewController {
     }
 
     @GetMapping("/tour/{tourId}/reviews/summary")
-    @Operation(summary = "Resumen de reseñas del tour", description = "Promedio (1 decimal) + conteo por estrellas (1..5) de reseñas publicadas.")
+    @Operation(
+            summary = "Resumen de reseñas del tour",
+            description = "Promedio (1 decimal) + total + histograma por estrellas (1..5). **Solo cuenta reseñas con estado PUBLISHED** (no incluye PENDING ni CANCELED).")
     public ResponseEntity<TourReviewSummaryResponse> getTourReviewSummary(@PathVariable Integer tourId) {
         return ResponseEntity.ok(reviewService.getTourReviewSummary(tourId));
     }
