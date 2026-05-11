@@ -207,9 +207,10 @@ public class ReviewService {
             BigDecimal rating,
             Integer tourId,
             ReviewStatusEnum status,
+            Boolean includeAllStatuses,
             @Nullable Authentication authentication) {
-        log.info("Getting reviews with filters - pageSize: {}, pageNumber: {}, rating: {}, tourId: {}, status: {}",
-                pageSize, pageNumber, rating, tourId, status);
+        log.info("Getting reviews with filters - pageSize: {}, pageNumber: {}, rating: {}, tourId: {}, status: {}, includeAllStatuses: {}",
+                pageSize, pageNumber, rating, tourId, status, includeAllStatuses);
 
         // Validar que pageSize y pageNumber sean proporcionados
         if (pageSize == null || pageNumber == null) {
@@ -253,19 +254,26 @@ public class ReviewService {
         }
         // Si no es Provider o no tiene tours, providerTourIds es null y se filtrará solo por userId (cliente)
 
+        // Con tourId y sin status explícito: por defecto PUBLISHED (alineado con /tour/{id}/reviews/summary y catálogo público).
+        // includeAllStatuses=true recupera el comportamiento anterior (todos los estados) para moderación.
+        ReviewStatusEnum effectiveStatus = status;
+        if (tourId != null && status == null && !Boolean.TRUE.equals(includeAllStatuses)) {
+            effectiveStatus = ReviewStatusEnum.PUBLISHED;
+        }
+
         Pageable pageable = PageRequest.of(pageNumber, pageSize);
         
         Page<Review> reviewsPage;
         if (isAdmin) {
             // Admin: usar query sin filtro de userId
-            reviewsPage = reviewRepository.findWithFiltersForAdmin(tourId, rating, status, pageable);
+            reviewsPage = reviewRepository.findWithFiltersForAdmin(tourId, rating, effectiveStatus, pageable);
         } else if (providerTourIds != null && !providerTourIds.isEmpty()) {
             // Proveedor con tours: usar query con lista de tourIds (no filtra por userId para ver todas las reviews de sus tours)
             reviewsPage = reviewRepository.findWithFiltersAndTourIds(
-                    providerTourIds, null, rating, status, pageable);
+                    providerTourIds, null, rating, effectiveStatus, pageable);
         } else {
             // Cliente o Provider sin tours: usar query normal con filtro de userId (solo sus propias reviews)
-            reviewsPage = reviewRepository.findWithFilters(tourId, finalUserId, rating, status, pageable);
+            reviewsPage = reviewRepository.findWithFilters(tourId, finalUserId, rating, effectiveStatus, pageable);
         }
 
         List<ReviewResponse> responses = reviewsPage.getContent().stream()
