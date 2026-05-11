@@ -268,9 +268,14 @@ public class ReviewService {
             // Admin: usar query sin filtro de userId
             reviewsPage = reviewRepository.findWithFiltersForAdmin(tourId, rating, effectiveStatus, pageable);
         } else if (providerTourIds != null && !providerTourIds.isEmpty()) {
-            // Proveedor con tours: usar query con lista de tourIds (no filtra por userId para ver todas las reviews de sus tours)
-            reviewsPage = reviewRepository.findWithFiltersAndTourIds(
-                    providerTourIds, null, rating, effectiveStatus, pageable);
+            // Proveedor: si piden tourId, solo ese tour y solo si es suyo; antes se ignoraba tourId y el IN era todos los tours.
+            if (tourId != null && !providerTourIds.contains(tourId)) {
+                reviewsPage = Page.empty(pageable);
+            } else {
+                List<Integer> idsForQuery = (tourId != null) ? List.of(tourId) : providerTourIds;
+                reviewsPage = reviewRepository.findWithFiltersAndTourIds(
+                        idsForQuery, null, rating, effectiveStatus, pageable);
+            }
         } else {
             // Cliente o Provider sin tours: usar query normal con filtro de userId (solo sus propias reviews)
             reviewsPage = reviewRepository.findWithFilters(tourId, finalUserId, rating, effectiveStatus, pageable);

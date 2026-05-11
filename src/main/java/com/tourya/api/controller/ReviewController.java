@@ -95,9 +95,9 @@ public class ReviewController {
     })
     public ResponseEntity<PageResponse<ReviewResponse>> getReviews(
             @Parameter(description = "Tamaño de la página", required = true) @RequestParam(required = true) Integer pageSize,
-            @Parameter(description = "Número de página (0-indexed)", required = true) @RequestParam(required = true) Integer pageNumber,
+            @Parameter(description = "Número de página **base 0** (0 = primera página)", required = true) @RequestParam(required = true) Integer pageNumber,
             @Parameter(description = "Filtrar por calificación mínima") @RequestParam(required = false) BigDecimal rating,
-            @Parameter(description = "Filtrar por ID de tour (admin; proveedor según implementación)") @RequestParam(required = false) Integer tourId,
+            @Parameter(description = "Filtrar por tour. Proveedor: solo reseñas de tours que le pertenecen; si el tour no es suyo, lista vacía.") @RequestParam(required = false) Integer tourId,
             @Parameter(description = "Filtrar por estado (PENDING, PUBLISHED, CANCELED). Con tourId omitido, por defecto PUBLISHED.") @RequestParam(required = false) ReviewStatusEnum status,
             @Parameter(description = "Si true y tourId está presente, no se fuerza PUBLISHED cuando status va vacío (vista moderación).") @RequestParam(required = false) Boolean includeAllStatuses,
             @Nullable Authentication authentication) {
