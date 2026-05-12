@@ -254,10 +254,9 @@ public class ReviewService {
         }
         // Si no es Provider o no tiene tours, providerTourIds es null y se filtrará solo por userId (cliente)
 
-        // Con tourId y sin status explícito: por defecto PUBLISHED (alineado con /tour/{id}/reviews/summary y catálogo público).
-        // includeAllStatuses=true recupera el comportamiento anterior (todos los estados) para moderación.
+        // Admin: status null = todos los estados. Resto: sin status explícito → solo PUBLISHED (alineado con summary, detalle y búsqueda pública).
         ReviewStatusEnum effectiveStatus = status;
-        if (tourId != null && status == null && !Boolean.TRUE.equals(includeAllStatuses)) {
+        if (!isAdmin && status == null && !Boolean.TRUE.equals(includeAllStatuses)) {
             effectiveStatus = ReviewStatusEnum.PUBLISHED;
         }
 
