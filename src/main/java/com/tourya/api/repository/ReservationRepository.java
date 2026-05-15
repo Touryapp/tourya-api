@@ -5,7 +5,9 @@ import com.tourya.api.models.Reservation;
 import com.tourya.api.constans.enums.DeliveryStatusEnum;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -28,6 +30,10 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
      * Busca reservas por URL del QR
      */
     Optional<Reservation> findByQrUrl(String qrUrl);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r FROM Reservation r WHERE r.reservationId = :id")
+    Optional<Reservation> findByIdForUpdate(@Param("id") Long id);
 
     /**
      * Busca reservas por ID del pago
