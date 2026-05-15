@@ -35,6 +35,13 @@ public class ReservationResponse {
     private Integer createdBy;
     private Integer lastModifiedBy;
     
+    /** Datos del pagador (tabla {@code payment}); null si la reserva aún no tiene pago asociado. */
+    private String payerName;
+    private String payerEmail;
+    private String payerPhone;
+    private String payerDocumentType;
+    private String payerDocumentNumber;
+
     // Información adicional del tour
     private Integer tourId;
     private String tourName;

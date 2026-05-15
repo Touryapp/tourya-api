@@ -86,9 +86,9 @@ public class ReviewController {
     @Operation(
             summary = "Buscar reseñas",
             description = "Obtiene reseñas según rol (Cliente/Proveedor/Admin). Requiere autenticación. "
-                    + "Si se indica **tourId** y no se envía **status**, el filtro por defecto es **PUBLISHED** "
-                    + "(coherente con `GET /public/tour/{tourId}/reviews/summary` y listados públicos). "
-                    + "Para moderación (ver PENDING/CANCELED u mezcla), use `status=...` o `includeAllStatuses=true`.")
+                    + "**Admin:** sin `status` se listan todos los estados (moderación). "
+                    + "**No admin:** sin `status` solo **PUBLISHED** (coherente con summary, detalle del tour y catálogo). "
+                    + "Use `includeAllStatuses=true` (no admin) o `status=...` para ver otros estados (p. ej. pendientes propias con `status=PENDING`).")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Lista de reseñas obtenida exitosamente"),
             @ApiResponse(responseCode = "401", description = "No autenticado - se requiere token Bearer")
@@ -98,8 +98,8 @@ public class ReviewController {
             @Parameter(description = "Número de página **base 0** (0 = primera página)", required = true) @RequestParam(required = true) Integer pageNumber,
             @Parameter(description = "Filtrar por calificación mínima") @RequestParam(required = false) BigDecimal rating,
             @Parameter(description = "Filtrar por tour. Proveedor: solo reseñas de tours que le pertenecen; si el tour no es suyo, lista vacía.") @RequestParam(required = false) Integer tourId,
-            @Parameter(description = "Filtrar por estado (PENDING, PUBLISHED, CANCELED). Con tourId omitido, por defecto PUBLISHED.") @RequestParam(required = false) ReviewStatusEnum status,
-            @Parameter(description = "Si true y tourId está presente, no se fuerza PUBLISHED cuando status va vacío (vista moderación).") @RequestParam(required = false) Boolean includeAllStatuses,
+            @Parameter(description = "Filtrar por estado. Omitido: admin = todos; cliente/proveedor = solo PUBLISHED salvo `includeAllStatuses=true`.") @RequestParam(required = false) ReviewStatusEnum status,
+            @Parameter(description = "Solo no admin: si true y no envía `status`, listar todos los estados (p. ej. ver PENDING).") @RequestParam(required = false) Boolean includeAllStatuses,
             @Nullable Authentication authentication) {
         log.info("Getting reviews with filters - pageSize: {}, pageNumber: {}, rating: {}, tourId: {}, status: {}, includeAllStatuses: {}",
                 pageSize, pageNumber, rating, tourId, status, includeAllStatuses);

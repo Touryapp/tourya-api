@@ -18,6 +18,8 @@ public class BookingDetailsResponse {
     private Long paymentId;
     private String transactionId;
     private String payer;
+    private String payerDocumentType;
+    private String payerDocumentNumber;
     private String email;
     private LocalDateTime reservationDate;
     private String status;

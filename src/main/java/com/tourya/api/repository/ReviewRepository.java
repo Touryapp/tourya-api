@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -145,6 +146,15 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
               AND r.status = com.tourya.api.constans.enums.ReviewStatusEnum.PUBLISHED
             """)
     BigDecimal avgPublishedRatingByTourId(@Param("tourId") Integer tourId);
+
+    @Query("""
+            SELECT r.tourId, AVG(r.rating)
+            FROM Review r
+            WHERE r.tourId IN :tourIds
+              AND r.status = com.tourya.api.constans.enums.ReviewStatusEnum.PUBLISHED
+            GROUP BY r.tourId
+            """)
+    List<Object[]> avgPublishedRatingGroupedByTourIds(@Param("tourIds") Collection<Integer> tourIds);
 
     @Query("""
             SELECT COUNT(r)
