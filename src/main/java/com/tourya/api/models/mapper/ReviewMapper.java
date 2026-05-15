@@ -39,7 +39,7 @@ public class ReviewMapper {
                 .rating(request.getRating())
                 .comment(request.getComment())
                 .reviewDate(request.getDate() != null ? request.getDate() : LocalDate.now())
-                .status(com.tourya.api.constans.enums.ReviewStatusEnum.PENDING)
+                .status(com.tourya.api.constans.enums.ReviewStatusEnum.PUBLISHED)
                 .likes(0)
                 .dislikes(0)
                 .hearts(0)

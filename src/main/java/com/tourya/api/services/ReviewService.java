@@ -150,6 +150,11 @@ public class ReviewService {
             throw new com.tourya.api.exceptions.InsufficientPrivilegesException("Authentication is required to create a review. Please provide a valid Bearer token in the Authorization header.");
         }
 
+        if (Utils.isProvider(user.getRoles())) {
+            throw new com.tourya.api.exceptions.InsufficientPrivilegesException(
+                    "Los proveedores no pueden crear reseñas; solo pueden publicar una réplica desde la actualización de una reseña existente.");
+        }
+
         // Obtener la reserva
         Reservation reservation = reservationRepository.findById(request.getReservationId())
                 .orElseThrow(() -> new ResourceNotFoundException("Reservation not found with id: " + request.getReservationId()));
@@ -179,7 +184,9 @@ public class ReviewService {
 
         // Guardar la reseña
         review = reviewRepository.save(review);
-        
+
+        refreshAndPersistTourRating(tourId);
+
         // Guardar imágenes si se proporcionaron
         if (files != null && !files.isEmpty()) {
             saveAttachmentsFromMultipartFiles(review.getId(), files, user.getId());
@@ -195,8 +202,8 @@ public class ReviewService {
 
     /**
      * Obtiene reseñas con filtros basado en el rol del usuario autenticado
-     * - Cliente: solo sus propias reviews
-     * - Proveedor: reviews de sus tours
+     * - Cliente: con {@code tourId}, todas las reseñas publicadas de ese tour (listado público en ficha); sin {@code tourId}, solo las suyas
+     * - Proveedor: sin {@code tourId}, reseñas de sus tours; con {@code tourId} de un tour suyo, ese tour; con {@code tourId} ajeno, listado público PUBLISHED de ese tour (misma ficha que el cliente)
      * - Admin: todas las reviews
      * REQUIERE AUTENTICACIÓN
      */
@@ -267,17 +274,24 @@ public class ReviewService {
             // Admin: usar query sin filtro de userId
             reviewsPage = reviewRepository.findWithFiltersForAdmin(tourId, rating, effectiveStatus, pageable);
         } else if (providerTourIds != null && !providerTourIds.isEmpty()) {
-            // Proveedor: si piden tourId, solo ese tour y solo si es suyo; antes se ignoraba tourId y el IN era todos los tours.
-            if (tourId != null && !providerTourIds.contains(tourId)) {
-                reviewsPage = Page.empty(pageable);
-            } else {
-                List<Integer> idsForQuery = (tourId != null) ? List.of(tourId) : providerTourIds;
+            // Proveedor: sin tourId → reseñas de todos sus tours. Con tourId suyo → ese tour.
+            // Con tourId que no es suyo → mismo listado público que un cliente (ficha del tour / USER+PROVIDER).
+            if (tourId != null && providerTourIds.contains(tourId)) {
                 reviewsPage = reviewRepository.findWithFiltersAndTourIds(
-                        idsForQuery, null, rating, effectiveStatus, pageable);
+                        List.of(tourId), null, rating, effectiveStatus, pageable);
+            } else if (tourId != null) {
+                reviewsPage = reviewRepository.findWithFilters(tourId, null, rating, effectiveStatus, pageable);
+            } else {
+                reviewsPage = reviewRepository.findWithFiltersAndTourIds(
+                        providerTourIds, null, rating, effectiveStatus, pageable);
             }
         } else {
-            // Cliente o Provider sin tours: usar query normal con filtro de userId (solo sus propias reviews)
-            reviewsPage = reviewRepository.findWithFilters(tourId, finalUserId, rating, effectiveStatus, pageable);
+            // Cliente u operador sin catálogo propio: con tourId se listan reseñas publicadas del tour (no filtrar por userId del token).
+            if (tourId != null) {
+                reviewsPage = reviewRepository.findWithFilters(tourId, null, rating, effectiveStatus, pageable);
+            } else {
+                reviewsPage = reviewRepository.findWithFilters(null, finalUserId, rating, effectiveStatus, pageable);
+            }
         }
 
         List<ReviewResponse> responses = reviewsPage.getContent().stream()
@@ -448,6 +462,16 @@ public class ReviewService {
                 }
                 // Guardar nuevas imágenes del answer
                 saveAnswerAttachmentsFromMultipartFiles(answer.getAnswerId(), answerFiles, user.getId());
+            }
+        }
+
+        if (request.getAnswer() != null && Utils.isProvider(roles)) {
+            if (review.getStatus() != ReviewStatusEnum.PUBLISHED) {
+                review.setStatus(ReviewStatusEnum.PUBLISHED);
+                review = reviewRepository.save(review);
+            }
+            if (review.getTourId() != null) {
+                refreshAndPersistTourRating(review.getTourId());
             }
         }
 

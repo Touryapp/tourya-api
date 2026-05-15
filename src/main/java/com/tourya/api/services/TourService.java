@@ -932,13 +932,17 @@ public class TourService {
         List<Integer> tagIds = tourTagsRepository.getTagIdsByTourId(tourId);
         TourFullDataResponse resp = tourMapper.toTourFullDataResponse(tour, locations, mainAttractions, includes, excludes, faqs, itineraries, cancellationPolicies, galleries, tagIds);
 
-        // Promedio de reseñas publicadas (1 decimal)
+        // Rating mostrado: promedio de reseñas publicadas; si no hay, mismo criterio que búsqueda (columna tour.rating).
         java.math.BigDecimal avg = reviewRepository.avgPublishedRatingByTourId(tourId);
-        if (avg != null) {
-            try {
+        try {
+            if (avg != null) {
                 resp.setRating(avg.setScale(1, java.math.RoundingMode.HALF_UP));
-            } catch (Exception ignored) {
+            } else if (tour.getRating() != null) {
+                resp.setRating(tour.getRating().setScale(1, java.math.RoundingMode.HALF_UP));
+            } else {
+                resp.setRating(null);
             }
+        } catch (Exception ignored) {
         }
         return resp;
     }

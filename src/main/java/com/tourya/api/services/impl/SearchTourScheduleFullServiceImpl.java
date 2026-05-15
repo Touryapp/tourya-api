@@ -6,6 +6,7 @@ import com.tourya.api.models.responses.SearchTourScheduleFullResponse;
 import com.tourya.api.models.responses.TourGalleryResponse;
 import com.tourya.api.repository.ReviewRepository;
 import com.tourya.api.repository.SearchTourScheduleFullRepository;
+import com.tourya.api.repository.TourRepository;
 import com.tourya.api.services.SearchTourScheduleFullService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -27,6 +28,7 @@ public class SearchTourScheduleFullServiceImpl implements SearchTourScheduleFull
 
     private final SearchTourScheduleFullRepository searchRepo;
     private final ReviewRepository reviewRepository;
+    private final TourRepository tourRepository;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -34,6 +36,7 @@ public class SearchTourScheduleFullServiceImpl implements SearchTourScheduleFull
         Map<String, Object> filterMap = new HashMap<>(objectMapper.convertValue(filters, Map.class));
         Page<SearchTourScheduleFullResponse> page = searchRepo.callStoredProcedure(filterMap, pageable);
         Map<Integer, BigDecimal> avgRatingByTourId = loadAvgPublishedRatingByTourIds(page.getContent());
+        fillTourRatingFallbackForSearch(page.getContent(), avgRatingByTourId);
         return page.map(r -> enrichRating(enrichPriceFrom(enrichProfilePicture(r)), avgRatingByTourId));
     }
 
@@ -67,6 +70,41 @@ public class SearchTourScheduleFullServiceImpl implements SearchTourScheduleFull
             }
         }
         return out;
+    }
+
+    /**
+     * Alinea con detalle público del tour: si no hay promedio de reseñas publicadas pero existe {@code tour.rating}, usarlo.
+     */
+    private void fillTourRatingFallbackForSearch(List<SearchTourScheduleFullResponse> rows, Map<Integer, BigDecimal> avgRatingByTourId) {
+        if (rows == null || rows.isEmpty() || avgRatingByTourId == null) {
+            return;
+        }
+        Set<Integer> missing = new HashSet<>();
+        for (SearchTourScheduleFullResponse row : rows) {
+            if (row == null || row.getTour() == null || row.getTour().getId() == null) continue;
+            Integer tid = row.getTour().getId();
+            if (!avgRatingByTourId.containsKey(tid)) {
+                missing.add(tid);
+            }
+        }
+        if (missing.isEmpty()) {
+            return;
+        }
+        List<Object[]> tourRows = tourRepository.findIdAndRatingByTourIds(missing);
+        for (Object[] tr : tourRows) {
+            if (tr == null || tr.length < 2) continue;
+            Integer tourId = tr[0] != null ? ((Number) tr[0]).intValue() : null;
+            if (tourId == null) continue;
+            BigDecimal col = null;
+            if (tr[1] instanceof BigDecimal) {
+                col = (BigDecimal) tr[1];
+            } else if (tr[1] instanceof Number) {
+                col = BigDecimal.valueOf(((Number) tr[1]).doubleValue());
+            }
+            if (col != null) {
+                avgRatingByTourId.put(tourId, col.setScale(1, RoundingMode.HALF_UP));
+            }
+        }
     }
 
     private SearchTourScheduleFullResponse enrichRating(SearchTourScheduleFullResponse r, Map<Integer, BigDecimal> avgRatingByTourId) {

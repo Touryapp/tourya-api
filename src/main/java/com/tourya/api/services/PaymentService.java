@@ -373,7 +373,7 @@ public class PaymentService {
     private PaymentResponse buildPaymentResponse(Payment payment, List<Reservation> reservations) {
         // Construir respuestas de las reservas
         List<ReservationResponse> reservationResponses = reservations.stream()
-                .map(this::buildReservationResponse)
+                .map(r -> buildReservationResponse(r, payment))
                 .collect(Collectors.toList());
 
         // Construir respuesta del pagador
@@ -417,14 +417,19 @@ public class PaymentService {
     /**
      * Construye la respuesta de una reserva.
      */
-    private ReservationResponse buildReservationResponse(Reservation reservation) {
+    private ReservationResponse buildReservationResponse(Reservation reservation, Payment payment) {
         // Construir respuesta del responsable del servicio
-        ServiceResponsibleResponse serviceResponsible = ServiceResponsibleResponse.builder()
-                .name(reservation.getServiceResponsibleName())
-                .email(reservation.getServiceResponsibleEmail())
-                .phone(reservation.getServiceResponsiblePhone() != null ? 
-                      Long.parseLong(reservation.getServiceResponsiblePhone().replaceAll("[^0-9]", "")) : null)
-                .build();
+        ServiceResponsibleResponse serviceResponsible = null;
+        if (reservation.getServiceResponsibleName() != null ||
+                reservation.getServiceResponsibleEmail() != null ||
+                reservation.getServiceResponsiblePhone() != null) {
+            serviceResponsible = ServiceResponsibleResponse.builder()
+                    .name(reservation.getServiceResponsibleName())
+                    .email(reservation.getServiceResponsibleEmail())
+                    .phone(reservation.getServiceResponsiblePhone() != null ?
+                            Long.parseLong(reservation.getServiceResponsiblePhone().replaceAll("[^0-9]", "")) : null)
+                    .build();
+        }
 
         ReservationResponse response = ReservationResponse.builder()
                 .reservationId(reservation.getReservationId())
@@ -443,11 +448,16 @@ public class PaymentService {
                 .maxReschedulingDate(reservation.getMaxReschedulingDate())
                 .cancellationReason(reservation.getCancellationReason())
                 .cancellationDate(reservation.getCancellationDate())
+                .payerName(payment != null ? payment.getPayerName() : null)
+                .payerEmail(payment != null ? payment.getPayerEmail() : null)
+                .payerPhone(payment != null ? payment.getPayerPhone() : null)
+                .payerDocumentType(payment != null ? payment.getPayerDocumentType() : null)
+                .payerDocumentNumber(payment != null ? payment.getPayerDocumentNumber() : null)
                 .build();
-        
-        // Enriquecer con información del tour y del payer
+
+        // Enriquecer con información del tour (y payer desde BD si hiciera falta vía paymentId en otro flujo)
         enrichReservationResponse(response, reservation);
-        
+
         return response;
     }
     
@@ -456,8 +466,19 @@ public class PaymentService {
      * Copia exacta de ReservationService.enrichReservationResponse para mantener consistencia.
      */
     private void enrichReservationResponse(ReservationResponse response, Reservation reservation) {
-        ShoppingCartItem item = shoppingCartItemRepository.findById(reservation.getItemId()).orElse(null);
-        
+        if (reservation.getPaymentId() != null) {
+            paymentRepository.findById(reservation.getPaymentId()).ifPresent(payment -> {
+                response.setPayerName(payment.getPayerName());
+                response.setPayerEmail(payment.getPayerEmail());
+                response.setPayerPhone(payment.getPayerPhone());
+                response.setPayerDocumentType(payment.getPayerDocumentType());
+                response.setPayerDocumentNumber(payment.getPayerDocumentNumber());
+            });
+        }
+
+        Long itemId = reservation.getItemId();
+        ShoppingCartItem item = itemId != null ? shoppingCartItemRepository.findById(itemId).orElse(null) : null;
+
         if (item == null || item.getTourSchedule() == null) {
             return;
         }
