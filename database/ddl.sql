@@ -949,6 +949,7 @@ CREATE TABLE public.provider (
 	"name" varchar(100) NULL,
 	service_type varchar(30) NOT NULL,
 	document_number varchar(30) NOT NULL,
+	rnt varchar(50) NULL,
 	document_type varchar(10) NOT NULL,
 	country_id int4 NOT NULL,
 	state_id int4 NOT NULL,
