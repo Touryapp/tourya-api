@@ -47,13 +47,16 @@ public class ProviderService {
         return providerRepository.save(provider);
     }
 
+    @Transactional
     public ProviderResponse update(ProviderRequest providerRequest,
                                    Authentication connectedUser ) {
         User user = ((User) connectedUser.getPrincipal());
         Provider provider = providerRepository.findByUser(user);
         if(provider != null){
+            String rnt = providerRequest.getRnt() != null ? providerRequest.getRnt().trim() : null;
             provider.setName(providerRequest.getName());
             provider.setDocumentNumber(providerRequest.getDocumentNumber());
+            provider.setRnt(rnt);
             provider.setDocumentType(providerRequest.getDocumentType());
             provider.setServiceType(providerRequest.getServiceType());
             provider.setCountry(getCountry(providerRequest.getCountryId()));
@@ -62,7 +65,12 @@ public class ProviderService {
             provider.setDepartment(providerRequest.getDepartment());
             provider.setAddress(providerRequest.getAddress());
             provider.setPhone(providerRequest.getPhone());
-            return providerMapper.toProviderResponse(providerRepository.save(provider));
+            Provider saved = providerRepository.saveAndFlush(provider);
+            if (rnt != null && !rnt.isEmpty()) {
+                providerRepository.updateRntById(saved.getId(), rnt);
+                saved.setRnt(rnt);
+            }
+            return providerMapper.toProviderResponse(saved);
         }else{
             throw new ResourceNotFoundException("Provider not found for user: "+ user.getEmail());
         }
@@ -104,6 +112,14 @@ public class ProviderService {
 
     public Provider findByUser(User user) {
         return providerRepository.findByUser(user);
+    }
+
+    public Provider requireByUser(User user) {
+        Provider provider = providerRepository.findByUser(user);
+        if (provider == null) {
+            throw new ResourceNotFoundException("No provider was found assigning this user.");
+        }
+        return provider;
     }
 
     public Provider findByUserAndStatusActive(User user) {
