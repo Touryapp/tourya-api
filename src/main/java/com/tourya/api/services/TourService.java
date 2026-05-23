@@ -84,7 +84,7 @@ public class TourService {
         List<Role> roleList = user.getRoles();
         if(Utils.isProvider(roleList)){
             Pageable pageable = PageRequest.of(page, size, Sort.by("createdDate").descending());
-            Provider provider = providerService.findByUserAndStatusActive(user);
+            Provider provider = providerService.requireByUser(user);
             Page<Tour> allTours = tourRepository.findAllByProviderId(provider.getId(), pageable);
 
             List<TourResponse> toursResponse = allTours.stream()

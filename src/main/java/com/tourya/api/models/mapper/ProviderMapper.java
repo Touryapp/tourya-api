@@ -18,6 +18,7 @@ public class ProviderMapper {
         Provider provider = new Provider();
         provider.setName(request.getName());
         provider.setDocumentNumber(request.getDocumentNumber());
+        provider.setRnt(request.getRnt());
         provider.setDocumentType(request.getDocumentType());
         provider.setServiceType(request.getServiceType());
         provider.setAddress(request.getAddress());
@@ -31,6 +32,7 @@ public class ProviderMapper {
         providerResponse.setId(provider.getId());
         providerResponse.setName(provider.getName());
         providerResponse.setDocumentNumber(provider.getDocumentNumber());
+        providerResponse.setRnt(provider.getRnt());
         providerResponse.setDocumentType(provider.getDocumentType());
         providerResponse.setServiceType(provider.getServiceType());
         providerResponse.setCountry(countryMapper.toCountryResponse(provider.getCountry()));
