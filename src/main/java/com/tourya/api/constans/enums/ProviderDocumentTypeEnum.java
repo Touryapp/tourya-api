@@ -8,7 +8,7 @@ import lombok.AllArgsConstructor;
 @AllArgsConstructor
 public enum ProviderDocumentTypeEnum {
     NIT("NIT"),
-    RNT("RNT");
+    CC("CC");
 
     private String value;
 
