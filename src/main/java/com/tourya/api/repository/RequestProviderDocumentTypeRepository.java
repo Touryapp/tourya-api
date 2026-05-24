@@ -11,6 +11,7 @@ public interface RequestProviderDocumentTypeRepository extends JpaRepository<Req
     @Query("""
             SELECT requestProviderDocumentType
             FROM RequestProviderDocumentType requestProviderDocumentType
+            ORDER BY requestProviderDocumentType.id
             """)
     List<RequestProviderDocumentType> getAllRequestProviderDocumentTypeList();
 }
