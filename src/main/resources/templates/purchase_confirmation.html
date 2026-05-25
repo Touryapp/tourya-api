@@ -46,9 +46,11 @@
                 </div>
 
                 <div style="margin-top:10px">
-                    <div class="muted" style="font-weight:700">QR</div>
-                    <div class="qr" th:text="${r.qrUrl != null ? r.qrUrl : 'QR no disponible'}"></div>
-                    <a class="btn" th:if="${r.qrUrl != null}" th:href="${r.qrUrl}" target="_blank">Ver QR</a>
+                    <div class="muted" style="font-weight:700">Código QR de tu reserva</div>
+                    <img th:if="${r.qrUrl != null}" th:src="${r.qrUrl}" alt="QR reserva"
+                         style="max-width:220px;margin-top:8px;border:1px solid #eee;border-radius:8px;display:block"/>
+                    <p class="muted" th:if="${r.qrUrl == null}">QR no disponible</p>
+                    <a class="btn" th:if="${r.qrUrl != null}" th:href="${r.qrUrl}" target="_blank">Abrir QR</a>
                 </div>
             </div>
         </div>

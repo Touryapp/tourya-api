@@ -217,8 +217,9 @@ public class PaymentService {
                     response != null ? response.getReservations() : null,
                     subject
             );
-        } catch (Exception ignored) {
-            // best-effort: no bloquear el pago por fallo de correo
+        } catch (Exception e) {
+            log.error("No se pudo enviar correo de confirmación de compra paymentId={}: {}",
+                    payment.getPaymentId(), e.getMessage());
         }
     }
 
@@ -479,13 +480,11 @@ public class PaymentService {
         Long itemId = reservation.getItemId();
         ShoppingCartItem item = itemId != null ? shoppingCartItemRepository.findById(itemId).orElse(null) : null;
 
-        if (item == null || item.getTourSchedule() == null) {
+        if (item == null) {
             return;
         }
-        
-        TourSchedule schedule = item.getTourSchedule();
-        Integer tourId = schedule.getTourId();
-        
+
+        Integer tourId = resolveTourIdFromCartItem(item);
         if (tourId == null) {
             return;
         }
@@ -596,6 +595,22 @@ public class PaymentService {
         if (!extraServices.isEmpty()) {
             response.setExtraServices(extraServices);
         }
+    }
+
+    /**
+     * Tour desde horario del carrito o, si no hay FK, desde productId cuando productType es TOUR.
+     */
+    private Integer resolveTourIdFromCartItem(ShoppingCartItem item) {
+        TourSchedule schedule = item.getTourSchedule();
+        if (schedule != null && schedule.getTourId() != null) {
+            return schedule.getTourId();
+        }
+        if (item.getProductType() != null
+                && "TOUR".equalsIgnoreCase(item.getProductType())
+                && item.getProductId() != null) {
+            return item.getProductId();
+        }
+        return null;
     }
 
     /**
