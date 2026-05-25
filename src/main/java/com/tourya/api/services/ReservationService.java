@@ -77,6 +77,7 @@ public class ReservationService {
     private final TourMainAttractionRepository tourMainAttractionRepository;
     private final TourIncludesExcludesRepository tourIncludesExcludesRepository;
     private final TourAddressRepository tourAddressRepository;
+    private final TourGalleryRepository tourGalleryRepository;
     private final ReservationNativeRepository reservationNativeRepository;
     private final TourCancellationPolicyRepository tourCancellationPolicyRepository;
     private final CreditRepository creditRepository;
@@ -207,15 +208,14 @@ public class ReservationService {
         Long itemId = reservation.getItemId();
         ShoppingCartItem item = itemId != null ? shoppingCartItemRepository.findById(itemId).orElse(null) : null;
 
-        if (item == null || item.getTourSchedule() == null) {
+        if (item == null) {
             enrichReservationResponseWithoutCartItem(response, reservation);
             return;
         }
-        
-        TourSchedule schedule = item.getTourSchedule();
-        Integer tourId = schedule.getTourId();
-        
+
+        Integer tourId = resolveTourIdFromCartItem(item);
         if (tourId == null) {
+            enrichReservationResponseWithoutCartItem(response, reservation);
             return;
         }
         
@@ -226,6 +226,7 @@ public class ReservationService {
         
         // Información básica del tour
         response.setTourId(tourId);
+        applyMainTourImageUrl(response, tourId);
         if (tour.getName() != null && tour.getName().getEs() != null) {
             response.setTourName(tour.getName().getEs());
         }
@@ -300,6 +301,29 @@ public class ReservationService {
         logIfPaymentPayerDiffersFromCartUser(reservation, item);
     }
 
+    private Integer resolveTourIdFromCartItem(ShoppingCartItem item) {
+        TourSchedule schedule = item.getTourSchedule();
+        if (schedule != null && schedule.getTourId() != null) {
+            return schedule.getTourId();
+        }
+        if (item.getProductType() != null
+                && "TOUR".equalsIgnoreCase(item.getProductType())
+                && item.getProductId() != null) {
+            return item.getProductId();
+        }
+        return null;
+    }
+
+    private void applyMainTourImageUrl(ReservationResponse response, Integer tourId) {
+        List<TourGallery> galleries = tourGalleryRepository.findByTourIdAndOrderIndex(tourId, 1);
+        if (galleries == null || galleries.isEmpty()) {
+            galleries = tourGalleryRepository.findByTourIdOrderByOrderIndexAsc(tourId);
+        }
+        if (galleries != null && !galleries.isEmpty()) {
+            response.setTourImageUrl(galleries.get(0).getImageUrl());
+        }
+    }
+
     /**
      * Cuando el {@code shopping_cart_item} ya no existe o se desvinculó, conservar en respuesta lo persistido
      * en {@code reservation} y, si aplica, el tour vía reseña asociada.
@@ -317,6 +341,7 @@ public class ReservationService {
                 return;
             }
             response.setTourId(tid);
+            applyMainTourImageUrl(response, tid);
             tourRepository.findById(tid).ifPresent(tour -> {
                 if (tour.getName() != null && tour.getName().getEs() != null) {
                     response.setTourName(tour.getName().getEs());

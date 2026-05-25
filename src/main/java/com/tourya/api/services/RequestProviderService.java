@@ -21,7 +21,9 @@ import com.tourya.api.repository.RequestProviderGalleryRepository;
 import com.tourya.api.repository.RoleRepository;
 import com.tourya.api.repository.RequestProviderRepository;
 import com.tourya.api.repository.UserRepository;
+import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -35,6 +37,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RequestProviderService {
@@ -49,6 +52,8 @@ public class RequestProviderService {
     private final CountryService countryService;
     private final CityService cityService;
     private final StateService stateService;
+    private final EmailService emailService;
+
     private static final String NOT_PRIVILEGES = "You have no privileges to perform this action.";
     private static final String REQUEST_PROVIDER_NOT_FOUND = "RequestProvider not found Id: ";
     @Transactional
@@ -224,6 +229,14 @@ public class RequestProviderService {
                 requestProvider.setStatus(RequestProviderStatusEnum.APPROVED);
                 RequestProvider requestProviderUpdate = requestProviderRepository.save(requestProvider);
 
+                sendRequestProviderStatusEmailBestEffort(
+                        requestProviderUpdate,
+                        "Aprobada",
+                        "¡Felicitaciones! Tu solicitud como proveedor ha sido aprobada. Ya puedes publicar tours en Tourya.",
+                        null,
+                        "Solicitud proveedor aprobada - Tourya"
+                );
+
                 return requestProviderMapper.toRequestProviderResponse(requestProviderUpdate);
             }else{
                 throw new ResourceNotFoundException(REQUEST_PROVIDER_NOT_FOUND+requestProviderId);
@@ -250,6 +263,14 @@ public class RequestProviderService {
                 requestProvider.setDeclinedReason(requestProviderActionRequest.getDeclinedReason());
                 RequestProvider requestProviderUpdate = requestProviderRepository.save(requestProvider);
 
+                sendRequestProviderStatusEmailBestEffort(
+                        requestProviderUpdate,
+                        "Cancelada",
+                        "Tu solicitud como proveedor ha sido cancelada. Si tienes dudas, contáctanos.",
+                        requestProviderUpdate.getDeclinedReason(),
+                        "Solicitud proveedor cancelada - Tourya"
+                );
+
                 return requestProviderMapper.toRequestProviderResponse(requestProviderUpdate);
             }else{
                 throw new ResourceNotFoundException(REQUEST_PROVIDER_NOT_FOUND+requestProviderId);
@@ -270,6 +291,15 @@ public class RequestProviderService {
                 requestProvider.setStatus(RequestProviderStatusEnum.INCOMPLETE_INFORMATION);
                 requestProvider.setIncompleteReason(requestProviderActionRequest.getIncompleteReason());
                 RequestProvider requestProviderUpdate = requestProviderRepository.save(requestProvider);
+
+                sendRequestProviderStatusEmailBestEffort(
+                        requestProviderUpdate,
+                        "Información incompleta",
+                        "Tu solicitud requiere información o documentos adicionales. Revisa el detalle e ingresa a la plataforma para completarla.",
+                        requestProviderUpdate.getIncompleteReason(),
+                        "Solicitud proveedor - información incompleta - Tourya"
+                );
+
                 return requestProviderMapper.toRequestProviderResponse(requestProviderUpdate);
             }else{
                 throw new ResourceNotFoundException(REQUEST_PROVIDER_NOT_FOUND+requestProviderId);
@@ -319,12 +349,56 @@ public class RequestProviderService {
                 requestProvider.setStatus(RequestProviderStatusEnum.PRE_APPROVED);
                 RequestProvider requestProviderUpdate = requestProviderRepository.save(requestProvider);
 
+                sendRequestProviderStatusEmailBestEffort(
+                        requestProviderUpdate,
+                        "Pre-aprobada",
+                        "Tu solicitud ha sido pre-aprobada. Ya puedes cargar y enviar la documentación requerida en la plataforma.",
+                        null,
+                        "Solicitud proveedor pre-aprobada - Tourya"
+                );
+
                 return requestProviderMapper.toRequestProviderResponse(requestProviderUpdate);
             }else{
                 throw new ResourceNotFoundException(REQUEST_PROVIDER_NOT_FOUND+requestProviderId);
             }
         }else{
             throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
+        }
+    }
+
+    private void sendRequestProviderStatusEmailBestEffort(
+            RequestProvider requestProvider,
+            String statusLabel,
+            String messageBody,
+            String reason,
+            String subject
+    ) {
+        try {
+            Provider provider = requestProvider.getProvider();
+            if (provider == null || provider.getUser() == null) {
+                log.warn("No se envió correo de solicitud proveedor {}: proveedor o usuario no encontrado", requestProvider.getId());
+                return;
+            }
+            User providerUser = provider.getUser();
+            if (providerUser.getEmail() == null || providerUser.getEmail().isBlank()) {
+                log.warn("No se envió correo de solicitud proveedor {}: el usuario no tiene email", requestProvider.getId());
+                return;
+            }
+            String username = providerUser.fullName();
+            if (username == null || username.isBlank()) {
+                username = provider.getName() != null ? provider.getName() : "Proveedor";
+            }
+            emailService.sendRequestProviderStatusEmail(
+                    providerUser.getEmail(),
+                    username,
+                    provider.getName(),
+                    statusLabel,
+                    messageBody,
+                    reason,
+                    subject
+            );
+        } catch (MessagingException e) {
+            log.error("Error enviando correo de solicitud proveedor id={}: {}", requestProvider.getId(), e.getMessage());
         }
     }
 }
