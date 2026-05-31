@@ -72,6 +72,7 @@ public class Provider extends BaseEntity{
 
     private String department;
 
+    @Column(length = 255)
     private String address;
 
     private String phone;

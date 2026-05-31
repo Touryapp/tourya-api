@@ -8,6 +8,7 @@ public enum EmailTemplateNameEnum {
     TEMPORARY_PASSWORD("temporary_password"),
     PURCHASE_CONFIRMATION("purchase_confirmation"),
     REQUEST_PROVIDER_STATUS("request_provider_status");
+
     private final String name;
     EmailTemplateNameEnum(String name) {
         this.name = name;

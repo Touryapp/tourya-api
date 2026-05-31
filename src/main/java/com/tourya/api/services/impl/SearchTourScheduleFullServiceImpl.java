@@ -1,6 +1,7 @@
 package com.tourya.api.services.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tourya.api._utils.Utils;
 import com.tourya.api.models.request.PublicTourScheduleSearchRequest;
 import com.tourya.api.models.responses.SearchTourScheduleFullResponse;
 import com.tourya.api.models.responses.TourGalleryResponse;
@@ -11,6 +12,9 @@ import com.tourya.api.services.SearchTourScheduleFullService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.lang.Nullable;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -29,15 +33,35 @@ public class SearchTourScheduleFullServiceImpl implements SearchTourScheduleFull
     private final SearchTourScheduleFullRepository searchRepo;
     private final ReviewRepository reviewRepository;
     private final TourRepository tourRepository;
+    private final SearchTourScheduleSlotPercentageEnricher slotPercentageEnricher;
     private final ObjectMapper objectMapper;
 
     @Override
-    public Page<SearchTourScheduleFullResponse> searchTourSchedule(PublicTourScheduleSearchRequest filters, Pageable pageable) {
+    @SuppressWarnings("unchecked")
+    public Page<SearchTourScheduleFullResponse> searchTourSchedule(
+            PublicTourScheduleSearchRequest filters,
+            Pageable pageable,
+            @Nullable Authentication connectedUser) {
         Map<String, Object> filterMap = new HashMap<>(objectMapper.convertValue(filters, Map.class));
         Page<SearchTourScheduleFullResponse> page = searchRepo.callStoredProcedure(filterMap, pageable);
-        Map<Integer, BigDecimal> avgRatingByTourId = loadAvgPublishedRatingByTourIds(page.getContent());
-        fillTourRatingFallbackForSearch(page.getContent(), avgRatingByTourId);
+        List<SearchTourScheduleFullResponse> content = page.getContent();
+        Map<Integer, BigDecimal> avgRatingByTourId = loadAvgPublishedRatingByTourIds(content);
+        fillTourRatingFallbackForSearch(content, avgRatingByTourId);
+        slotPercentageEnricher.enrich(content, isTouryaBackoffice(connectedUser));
         return page.map(r -> enrichRating(enrichPriceFrom(enrichProfilePicture(r)), avgRatingByTourId));
+    }
+
+    private boolean isTouryaBackoffice(@Nullable Authentication connectedUser) {
+        if (connectedUser == null) {
+            return false;
+        }
+        for (GrantedAuthority authority : connectedUser.getAuthorities()) {
+            String name = authority.getAuthority();
+            if ("ADMIN".equals(name) || "BACKOFFICE_OPERATION".equals(name)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private Map<Integer, BigDecimal> loadAvgPublishedRatingByTourIds(List<SearchTourScheduleFullResponse> rows) {
@@ -56,9 +80,13 @@ public class SearchTourScheduleFullServiceImpl implements SearchTourScheduleFull
         List<Object[]> grouped = reviewRepository.avgPublishedRatingGroupedByTourIds(tourIds);
         Map<Integer, BigDecimal> out = new HashMap<>();
         for (Object[] row : grouped) {
-            if (row == null || row.length < 2) continue;
+            if (row == null || row.length < 2) {
+                continue;
+            }
             Integer tourId = row[0] != null ? ((Number) row[0]).intValue() : null;
-            if (tourId == null) continue;
+            if (tourId == null) {
+                continue;
+            }
             BigDecimal avg = null;
             if (row[1] instanceof BigDecimal) {
                 avg = (BigDecimal) row[1];
@@ -81,7 +109,9 @@ public class SearchTourScheduleFullServiceImpl implements SearchTourScheduleFull
         }
         Set<Integer> missing = new HashSet<>();
         for (SearchTourScheduleFullResponse row : rows) {
-            if (row == null || row.getTour() == null || row.getTour().getId() == null) continue;
+            if (row == null || row.getTour() == null || row.getTour().getId() == null) {
+                continue;
+            }
             Integer tid = row.getTour().getId();
             if (!avgRatingByTourId.containsKey(tid)) {
                 missing.add(tid);
@@ -92,9 +122,13 @@ public class SearchTourScheduleFullServiceImpl implements SearchTourScheduleFull
         }
         List<Object[]> tourRows = tourRepository.findIdAndRatingByTourIds(missing);
         for (Object[] tr : tourRows) {
-            if (tr == null || tr.length < 2) continue;
+            if (tr == null || tr.length < 2) {
+                continue;
+            }
             Integer tourId = tr[0] != null ? ((Number) tr[0]).intValue() : null;
-            if (tourId == null) continue;
+            if (tourId == null) {
+                continue;
+            }
             BigDecimal col = null;
             if (tr[1] instanceof BigDecimal) {
                 col = (BigDecimal) tr[1];
@@ -121,16 +155,22 @@ public class SearchTourScheduleFullServiceImpl implements SearchTourScheduleFull
     }
 
     private SearchTourScheduleFullResponse enrichPriceFrom(SearchTourScheduleFullResponse r) {
-        if (r == null || r.getTour() == null) return r;
+        if (r == null || r.getTour() == null) {
+            return r;
+        }
         BigDecimal priceFrom = computePriceFrom(r.getSchedules());
         r.getTour().setPriceFrom(priceFrom);
         return r;
     }
 
     private SearchTourScheduleFullResponse enrichProfilePicture(SearchTourScheduleFullResponse r) {
-        if (r == null || r.getTour() == null) return r;
+        if (r == null || r.getTour() == null) {
+            return r;
+        }
         List<SearchTourScheduleFullResponse.GalleryItemResponse> gallery = r.getTour().getGallery();
-        if (gallery == null || gallery.isEmpty()) return r;
+        if (gallery == null || gallery.isEmpty()) {
+            return r;
+        }
 
         SearchTourScheduleFullResponse.GalleryItemResponse chosen = gallery.stream()
                 .filter(Objects::nonNull)
@@ -148,17 +188,25 @@ public class SearchTourScheduleFullServiceImpl implements SearchTourScheduleFull
     }
 
     private BigDecimal computePriceFrom(List<SearchTourScheduleFullResponse.TourScheduleResponse> schedules) {
-        if (schedules == null || schedules.isEmpty()) return null;
+        if (schedules == null || schedules.isEmpty()) {
+            return null;
+        }
 
         BigDecimal minAdult = null;
         BigDecimal minAny = null;
 
         for (SearchTourScheduleFullResponse.TourScheduleResponse sch : schedules) {
-            if (sch == null || sch.getConfig() == null || sch.getConfig().getSlots() == null) continue;
+            if (sch == null || sch.getConfig() == null || sch.getConfig().getSlots() == null) {
+                continue;
+            }
             for (SearchTourScheduleFullResponse.TourScheduleSlotResponse slot : sch.getConfig().getSlots()) {
-                if (slot == null || slot.getPrices() == null) continue;
+                if (slot == null || slot.getPrices() == null) {
+                    continue;
+                }
                 for (SearchTourScheduleFullResponse.TourSchedulePriceResponse p : slot.getPrices()) {
-                    if (p == null || p.getPrice() == null) continue;
+                    if (p == null || p.getPrice() == null) {
+                        continue;
+                    }
                     BigDecimal price = p.getPrice();
 
                     minAny = (minAny == null || price.compareTo(minAny) < 0) ? price : minAny;

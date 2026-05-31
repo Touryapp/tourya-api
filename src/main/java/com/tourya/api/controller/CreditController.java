@@ -2,11 +2,14 @@ package com.tourya.api.controller;
 
 import com.tourya.api.constans.enums.CreditStatusEnum;
 import com.tourya.api.models.request.ReserveCreditRequest;
+import com.tourya.api.models.request.TransferCreditRequest;
+import com.tourya.api.models.responses.TouristLookupResponse;
 import com.tourya.api.models.responses.CreditResponse;
 import com.tourya.api.models.responses.ReserveCreditResponse;
 import com.tourya.api.services.CreditReservationService;
 import com.tourya.api.services.CreditService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -17,6 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -82,5 +86,22 @@ public class CreditController {
         log.info("Reserving credits for item {} amount {}", request.getShoppingCartItemId(), request.getAmountToReserve());
         ReserveCreditResponse response = creditReservationService.reserveCredits(request, authentication);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/tourist-lookup")
+    @Operation(summary = "Buscar turista por documento", description = "Retorna userId para usar en transferencia de crédito.")
+    public ResponseEntity<TouristLookupResponse> lookupTouristByDocument(
+            @Parameter(description = "Número de documento del turista destino", required = true)
+            @RequestParam String documentNumber) {
+        return ResponseEntity.ok(creditService.lookupTouristByDocument(documentNumber));
+    }
+
+    @PostMapping("/{creditId}/transfer")
+    @Operation(summary = "Transferir crédito a otro turista", description = "Solo una transferencia por crédito.")
+    public ResponseEntity<CreditResponse> transferCredit(
+            @PathVariable Long creditId,
+            @RequestBody @Valid TransferCreditRequest request,
+            Authentication authentication) {
+        return ResponseEntity.ok(creditService.transferCredit(creditId, request, authentication));
     }
 }

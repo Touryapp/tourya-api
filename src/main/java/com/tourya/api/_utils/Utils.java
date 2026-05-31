@@ -21,8 +21,28 @@ public class Utils {
                 .anyMatch(role -> role.getName() != null && role.getName().equals("ADMIN"));
     }
 
+    public static boolean isBackofficeOperation(List<Role> roleList) {
+        return roleList != null && roleList.stream()
+                .anyMatch(role -> role.getName() != null && role.getName().equals("BACKOFFICE_OPERATION"));
+    }
+
+    /** Admin o backoffice operaciones: puede ver/editar porcentaje Tourya. */
+    public static boolean isTouryaBackoffice(List<Role> roleList) {
+        return isAdmin(roleList) || isBackofficeOperation(roleList);
+    }
+
     public static boolean isProvider(List<Role> roleList) {
         return roleList != null && roleList.stream()
                 .anyMatch(role -> role.getName() != null && role.getName().equals("PROVIDER"));
+    }
+
+    public static boolean isProviderOperator(List<Role> roleList) {
+        return roleList != null && roleList.stream()
+                .anyMatch(role -> role.getName() != null && role.getName().equals("PROVIDER_OPERATOR"));
+    }
+
+    /** Cuenta de proveedor titular u operador turístico. */
+    public static boolean isProviderSide(List<Role> roleList) {
+        return isProvider(roleList) || isProviderOperator(roleList);
     }
 }

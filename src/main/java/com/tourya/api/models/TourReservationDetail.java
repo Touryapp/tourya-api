@@ -39,4 +39,7 @@ public class TourReservationDetail extends BaseEntity {
 
     @Column(name = "subtotal", nullable = false)
     private BigDecimal subtotal;
+
+    @Column(name = "provider_price_at_reservation")
+    private BigDecimal providerPriceAtReservation;
 }

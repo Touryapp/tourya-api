@@ -17,6 +17,7 @@ public class TourScheduleConfigSlotDto {
     private LocalTime endTime;
     @NotNull(message = "La capacidad del slot no puede ser nula")
     private Integer capacity;
+
     @Valid // Habilita la validación anidada de los precios
     @NotEmpty(message = "Cada slot debe tener al menos un precio asociado")
     private List<TourScheduleConfigPriceDto> prices; // Precios asociados a este slot

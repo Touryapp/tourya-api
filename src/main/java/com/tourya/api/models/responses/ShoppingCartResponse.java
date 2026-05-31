@@ -27,8 +27,19 @@ public class ShoppingCartResponse {
     private ShoppingCartStatusEnum status;
     private List<ShoppingCartItemResponse> items;
     private BigDecimal totalAmount;
+    private BigDecimal providerTotalAmount;
     private LocalDateTime creationDate;
     private LocalDateTime lastModifiedDate;
+
+    private String accommodationName;
+    private Double accommodationLatitude;
+    private Double accommodationLongitude;
+    private Boolean electronicBilling;
+    private String billingDocumentType;
+    private String billingDocumentNumber;
+    private String billingEmail;
+    private String billingCustomerName;
+    private String billingPhone;
 }
 
 

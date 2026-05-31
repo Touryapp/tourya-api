@@ -7,7 +7,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -24,6 +26,8 @@ import java.util.List;
 public class ReservationResponse {
 
     private Long reservationId;
+    /** Identificador visible (ej. TB-250). */
+    private String bookingId;
     private Long paymentId;
     private Long itemId;
     private String qrUrl; // URL del QR en S3
@@ -52,6 +56,10 @@ public class ReservationResponse {
     private LocalDateTime returnDate;
     private String destination;
     private Double price;
+    /** Total que recibe el proveedor (suma de subtotales por ageType). */
+    private BigDecimal providerTotalAmount;
+    /** Desglose por tipo de turista (ADULT, CHILD, INFANT). */
+    private List<ReservationPriceBreakdownResponse> priceBreakdown = new ArrayList<>();
     private String travellers;
     private List<String> activities;
     private List<String> extraServices;

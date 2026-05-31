@@ -18,9 +18,9 @@ import io.swagger.v3.oas.annotations.servers.Server;
                         email = "noreply@wass.com.co",
                         url = "https://tourya.co"
                 ),
-                description = "OpenApi documentation for Spring Security",
+                description = "API Tourya — incluye ajustes 27/05/2026 (reviews, reservas, payout, créditos, operadores).",
                 title = "OpenApi specification - Tourya",
-                version = "1.0",
+                version = "1.1",
                 license = @License(
                         name = "Licence name",
                         url = "https://some-url.com"

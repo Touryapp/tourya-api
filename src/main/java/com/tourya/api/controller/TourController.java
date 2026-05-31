@@ -66,6 +66,7 @@ public class TourController {
             @PathVariable Integer tourId, Authentication connectedUser){
         return ResponseEntity.ok(tourService.cancelTourByIdToAdmin(tourId, connectedUser));
     }
+
     @GetMapping("/user/findAllByUser")
     public ResponseEntity<PageResponse<TourResponse>> findAllByUser (
             @RequestParam(name = "page", defaultValue = "0", required = false) int page,

@@ -19,6 +19,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
+import java.math.BigDecimal;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -57,6 +58,10 @@ public class TourScheduleConfigSlot extends BaseEntity {
 
     @Column(name = "check_availability", nullable = false)
     private Boolean checkAvailability;
+
+    /** Fracción decimal copiada del tour al crear el slot. Solo editable por backoffice Tourya. */
+    @Column(name = "slot_porcentaje_tourya", precision = 8, scale = 4)
+    private BigDecimal slotPorcentajeTourya;
 
     @Column(name = "config_id", nullable = false, insertable = false, updatable = false) // MODIFICACIÓN
     private Integer configId;

@@ -4,6 +4,8 @@ import com.tourya.api.config.auth.request.AuthenticationRequest;
 import com.tourya.api.config.auth.request.SocialAuthRequest;
 import com.tourya.api.config.auth.request.RegistrationRequest;
 import com.tourya.api.config.auth.response.AuthenticationResponse;
+import io.swagger.v3.oas.annotations.Hidden;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.mail.MessagingException;
 import jakarta.validation.Valid;
@@ -27,6 +29,7 @@ public class AuthenticationController {
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.ACCEPTED)
+    @Operation(summary = "Registro de usuario", description = "Envía email de activación con ACTIVATION_URL.")
     public ResponseEntity<?> register(
             @RequestBody @Valid RegistrationRequest request
     ) throws MessagingException {
@@ -35,6 +38,7 @@ public class AuthenticationController {
     }
 
     @PostMapping("/authenticate")
+    @Operation(summary = "Login", description = "Devuelve JWT. Si mustChangePassword=true (p. ej. operador con clave temporal), usar PATCH /users.")
     public ResponseEntity<AuthenticationResponse> authenticate(
             @RequestBody AuthenticationRequest request
     ) {
@@ -42,6 +46,7 @@ public class AuthenticationController {
     }
 
     @GetMapping("/activate-account")
+    @Operation(summary = "Activar cuenta", description = "Token de 6 dígitos enviado por email al registrarse.")
     public void confirm(
             @RequestParam String token
     ) throws MessagingException {
@@ -49,11 +54,14 @@ public class AuthenticationController {
     }
 
     @PostMapping("/social-auth")
+    @Operation(summary = "Login social (Google)")
     public ResponseEntity<AuthenticationResponse> authenticateWithSocial(
             @RequestBody @Valid SocialAuthRequest request
     ){
         return ResponseEntity.ok(service.authenticateWithSocial(request));
     }
+
+    @Hidden
     @GetMapping("/sendEmailTest")
     public void sendEmailTest(
     ) throws MessagingException {
