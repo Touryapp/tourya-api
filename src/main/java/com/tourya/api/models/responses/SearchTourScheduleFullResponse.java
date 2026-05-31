@@ -1,21 +1,24 @@
 package com.tourya.api.models.responses;
 
 import com.tourya.api.models.TranslatedField;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 
-@Data
+@Getter
+@Setter
 public class SearchTourScheduleFullResponse {
 
     private TourInfo tour;                       // Info completa del tour (incluye address, tags, gallery)
     private List<TourScheduleResponse> schedules; // N schedules por tour
 
     // ===================== TOUR =====================
-    @Data
+    @Getter
+    @Setter
     public static class TourInfo {
         private Integer id;
         private TranslatedField name;
@@ -41,14 +44,16 @@ public class SearchTourScheduleFullResponse {
         private TourGalleryResponse profilePicture;
     }
 
-    @Data
+    @Getter
+    @Setter
     public static class TagResponse {
         private Integer id;
         private String name;
         private String category;
     }
 
-    @Data
+    @Getter
+    @Setter
     public static class AddressResponse {
         private Integer country;     // country_id (según SP)
         private Integer state;       // state_id
@@ -58,7 +63,8 @@ public class SearchTourScheduleFullResponse {
         private Double longitude;
     }
 
-    @Data
+    @Getter
+    @Setter
     public static class GalleryItemResponse {
         private Integer id;
         private String imageUrl;
@@ -67,7 +73,8 @@ public class SearchTourScheduleFullResponse {
     }
 
     // ===================== SCHEDULE =====================
-    @Data
+    @Getter
+    @Setter
     public static class TourScheduleResponse {
         private Integer id;
         private LocalDate scheduleDate;
@@ -78,14 +85,16 @@ public class SearchTourScheduleFullResponse {
     }
 
     // ===================== CONFIG =====================
-    @Data
+    @Getter
+    @Setter
     public static class TourScheduleConfigResponse {
         private Integer id;
         private List<TourScheduleSlotResponse> slots; // N slots por config
     }
 
     // ===================== SLOT =====================
-    @Data
+    @Getter
+    @Setter
     public static class TourScheduleSlotResponse {
         private Integer slotId;
         private LocalTime startTime;
@@ -95,12 +104,15 @@ public class SearchTourScheduleFullResponse {
         private Integer availability;
         private Integer minCapacityCalc;
         private Boolean checkAvailability;
+        /** Solo visible para backoffice Tourya (puntos: 15 = 15%). */
+        private BigDecimal slotPorcentajeTourya;
         private List<TourSchedulePriceResponse> prices; // N prices por slot
         private HighestPriceResponse highestPrice;      // price más alto por slot
     }
 
     // ===================== PRICE =====================
-    @Data
+    @Getter
+    @Setter
     public static class TourSchedulePriceResponse {
         private String ageType;     // Si tienes enum (AgePriceTypeEnum), cámbialo aquí
         private Integer minAge;
@@ -109,7 +121,8 @@ public class SearchTourScheduleFullResponse {
         private BigDecimal providerPrice; // Precio que recibe el proveedor
     }
 
-    @Data
+    @Getter
+    @Setter
     public static class HighestPriceResponse {
         private String ageType;
         private BigDecimal price;

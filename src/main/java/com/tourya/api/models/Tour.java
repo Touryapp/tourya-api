@@ -102,6 +102,10 @@ public class Tour extends BaseEntity {
     @ColumnTransformer(write = "?::price_type_enum")
     private PriceTypeEnum priceType;
 
+    /** Fracción decimal (0.15 = 15%). Solo editable por backoffice Tourya. */
+    @Column(name = "porcentaje_tourya", precision = 8, scale = 4)
+    private BigDecimal porcentajeTourya;
+
     // Many-to-One relationship with Provider
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "provider_id")

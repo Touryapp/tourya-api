@@ -69,8 +69,9 @@ public class PublicController {
             @RequestBody PublicTourScheduleSearchRequest filters,
             @ParameterObject
             @Parameter(description = "Paginación (page, size, sort) como query params")
-            Pageable pageable) {
-        return ResponseEntity.ok(searchTourScheduleFullService.searchTourSchedule(filters, pageable));
+            Pageable pageable,
+            @Nullable Authentication connectedUser) {
+        return ResponseEntity.ok(searchTourScheduleFullService.searchTourSchedule(filters, pageable, connectedUser));
     }
 
     @GetMapping("/search/locations")
@@ -126,11 +127,14 @@ public class PublicController {
     }
 
     @GetMapping("/bookings/{bookingId}")
-    @Operation(operationId = "publicGetBookingById", summary = "Obtener booking por ID (público)")
+    @Operation(
+            operationId = "publicGetBookingById",
+            summary = "Obtener booking por ID (público)",
+            description = "Acepta reservationId numérico (250) o bookingId con prefijo TB- (TB-250).")
     public ResponseEntity<com.tourya.api.models.responses.BookingDetailsResponse> getBookingById(
-            @PathVariable Long bookingId) {
-        // El bookingId es el reservationId según el mock
-        return ResponseEntity.ok(reservationService.getBookingDetailsById(bookingId));
+            @PathVariable String bookingId) {
+        Long reservationId = com.tourya.api._utils.ReservationDisplayId.parse(bookingId);
+        return ResponseEntity.ok(reservationService.getBookingDetailsById(reservationId));
     }
 
 }

@@ -128,6 +128,7 @@ public class AuthenticationService {
                 .email(user.getEmail())
                 .roleList(user.getRoles())
                 .token(jwtToken)
+                .mustChangePassword(user.isMustChangePassword())
                 .build();
     }
 

@@ -42,4 +42,6 @@ public class TourFullDataResponse {
 
     private List<Integer> tagIds = new ArrayList<>();
 
+    /** Solo visible para backoffice Tourya (ADMIN / BACKOFFICE_OPERATION). */
+
 }

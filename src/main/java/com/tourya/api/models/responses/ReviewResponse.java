@@ -3,6 +3,7 @@ package com.tourya.api.models.responses;
 import com.tourya.api.constans.enums.ReviewStatusEnum;
 import com.tourya.api.constans.enums.ReviewReasonTypeEnum;
 import com.tourya.api.models.TranslatedField;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -37,7 +38,10 @@ public class ReviewResponse {
     private Integer likes;
     private Integer dislikes;
     private Integer hearts;
+    @Schema(description = "ID visible, formato TB-{reservationId}")
     private String bookingId;
+    @Schema(description = "ID numérico de la reserva")
+    private Long reservationId;
     private ReviewStatusEnum status;
     private String rejectionReason;
     private ReviewReasonTypeEnum reasonType;

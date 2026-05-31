@@ -137,6 +137,15 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
             @Param("today") LocalDate today
     );
 
+    @Query("""
+        SELECT r FROM Reservation r
+        WHERE (
+            (r.canCancel = true AND r.maxCancellationDate IS NOT NULL AND r.maxCancellationDate < :today)
+            OR (r.canReschedule = true AND r.maxReschedulingDate IS NOT NULL AND r.maxReschedulingDate < :today)
+        )
+        """)
+    List<Reservation> findWithExpiredCancellationOrRescheduleFlags(@Param("today") LocalDate today);
+
     /**
      * Busca reservas general
      */

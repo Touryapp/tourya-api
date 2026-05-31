@@ -6,6 +6,9 @@ import com.tourya.api.models.User;
 import com.tourya.api.models.request.TourScheduleConfigCreationRequest;
 import com.tourya.api.models.request.TourScheduleRequest;
 import com.tourya.api.models.request.TourSearchRequestDto;
+import com.tourya.api.models.request.UpdateSlotPercentageRangeRequest;
+import com.tourya.api.models.request.UpdateSlotPercentageSingleRequest;
+import com.tourya.api.models.responses.UpdateSlotPercentageResultResponse;
 import com.tourya.api.models.responses.TourScheduleBulkResponse;
 import com.tourya.api.models.responses.TourScheduleConfigResponse;
 import com.tourya.api.models.responses.TourScheduleResponse;
@@ -81,7 +84,7 @@ public class TourScheduleController {
             description = "Crea una configuración con slots y precios. Cada slot debe incluir `capacity` (capacidad del slot)."
     )
     public ResponseEntity<TourScheduleConfigResponse> createTourSchedule(
-            @RequestParam Boolean isTemplate,
+            @RequestParam("isTemplate") Boolean isTemplate,
             @Valid @RequestBody TourScheduleConfigCreationRequest request,
             Authentication connectedUser) {
         request.setIsTemplate(isTemplate);
@@ -165,5 +168,33 @@ public class TourScheduleController {
     @GetMapping("/templates")
     public ResponseEntity<List<TourScheduleConfigResponse>> getTemplatesByProvider(Authentication connectedUser) {
         return ResponseEntity.ok(configTemplateService.getConfigTemplatesByProvider(connectedUser));
+    }
+
+    @PutMapping("/tours/{tourId}/percentage")
+    @Operation(
+            summary = "Actualizar % Tourya por rango de fechas",
+            description = "Solo backoffice (ADMIN / BACKOFFICE_OPERATION). Actualiza slotPercentageTourya en todos los slots "
+                    + "de schedules del tour entre startDate y endDate, y recalcula price = providerPrice + (providerPrice × %)."
+    )
+    public ResponseEntity<UpdateSlotPercentageResultResponse> updateSlotPercentageByDateRange(
+            @PathVariable Integer tourId,
+            @Valid @RequestBody UpdateSlotPercentageRangeRequest request,
+            Authentication connectedUser) {
+        return ResponseEntity.ok(
+                tourScheduleConfigGeneralService.updateSlotPercentageByDateRange(tourId, request, connectedUser));
+    }
+
+    @PutMapping("/tours/{tourId}/percentage/{slotId}")
+    @Operation(
+            summary = "Actualizar % Tourya de un slot",
+            description = "Solo backoffice. Actualiza el porcentaje de un slot y recalcula sus precios de venta."
+    )
+    public ResponseEntity<UpdateSlotPercentageResultResponse> updateSlotPercentageForSlot(
+            @PathVariable Integer tourId,
+            @PathVariable Integer slotId,
+            @Valid @RequestBody UpdateSlotPercentageSingleRequest request,
+            Authentication connectedUser) {
+        return ResponseEntity.ok(
+                tourScheduleConfigGeneralService.updateSlotPercentageForSlot(tourId, slotId, request, connectedUser));
     }
 }

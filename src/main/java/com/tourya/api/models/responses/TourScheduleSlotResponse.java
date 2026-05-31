@@ -2,6 +2,7 @@ package com.tourya.api.models.responses;
 
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalTime;
 import java.util.HashSet;
 import java.util.Set;
@@ -16,5 +17,7 @@ public class TourScheduleSlotResponse {
     private Integer availability;
     private Integer minCapacityCalc;
     private Boolean checkAvailability;
+    /** Solo backoffice Tourya. */
+    private BigDecimal slotPorcentajeTourya;
     private Set<TourSchedulePriceResponse> prices = new HashSet<>();
 }

@@ -13,6 +13,7 @@ import com.tourya.api.models.responses.ShoppingCartItemDetailResponse;
 import com.tourya.api.models.responses.ShoppingCartItemResponse;
 import com.tourya.api.models.responses.ShoppingCartResponse;
 import com.tourya.api.models.request.CreateShoppingCartRequest;
+import com.tourya.api.models.request.UpdateShoppingCartCheckoutRequest;
 import com.tourya.api.models.request.ReservationItemRequest;
 import com.tourya.api.models.request.ReservationRequest;
 import com.tourya.api.models.request.SlotRequest;
@@ -418,7 +419,7 @@ public class ShoppingCartService {
     @Transactional(readOnly = true)
     public Page<ShoppingCartResponse> getAllShoppingCarts(Pageable pageable) {
         Page<ShoppingCart> carts = shoppingCartRepository.findAll(pageable);
-        return carts.map(this::buildShoppingCartResponse);
+        return carts.map(cart -> buildShoppingCartResponse(cart, null));
     }
 
     /**
@@ -431,7 +432,7 @@ public class ShoppingCartService {
     public ShoppingCartResponse getShoppingCartById(Long cartId) {
         ShoppingCart cart = shoppingCartRepository.findById(cartId)
                 .orElseThrow(() -> new ResourceNotFoundException("Carrito no encontrado"));
-        return buildShoppingCartResponse(cart);
+        return buildShoppingCartResponse(cart, null);
     }
 
     /**
@@ -626,21 +627,14 @@ public class ShoppingCartService {
     }
 
     /**
-     * Construye la respuesta del carrito de compras.
-     * 
-     * @param cart carrito de compras
-     * @return ShoppingCartResponse
+     * Respuesta para el usuario: solo ítems pendientes de pago ({@code ACTIVE}).
      */
     private ShoppingCartResponse buildShoppingCartResponse(ShoppingCart cart) {
-        return buildShoppingCartResponse(cart, null);
+        return buildShoppingCartResponse(cart, ShoppingCartStatusEnum.ACTIVE);
     }
 
     /**
-     * Construye la respuesta del carrito de compras, opcionalmente filtrando por status.
-     * 
-     * @param cart carrito de compras
-     * @param statusFilter status para filtrar items (null = sin filtro)
-     * @return ShoppingCartResponse
+     * @param statusFilter {@code ACTIVE} para carrito del usuario; {@code null} para listado/admin con todos los ítems
      */
     private ShoppingCartResponse buildShoppingCartResponse(ShoppingCart cart, ShoppingCartStatusEnum statusFilter) {
         List<ShoppingCartItemResponse> itemResponses = cart.getItems().stream()
@@ -648,15 +642,27 @@ public class ShoppingCartService {
                 .map(item -> {
                     // Mapear detalles del item
                     List<ShoppingCartItemDetailResponse> detailResponses = item.getDetails().stream()
-                            .map(detail -> ShoppingCartItemDetailResponse.builder()
+                            .map(detail -> {
+                                BigDecimal providerTotal = detail.getProviderUnitPrice() != null
+                                        ? detail.getProviderUnitPrice().multiply(
+                                                BigDecimal.valueOf(detail.getQuantity()))
+                                        : null;
+                                return ShoppingCartItemDetailResponse.builder()
                                     .id(detail.getId())
                                     .ageType(detail.getAgeType())
                                     .quantity(detail.getQuantity())
                                     .unitPrice(detail.getUnitPrice())
                                     .providerUnitPrice(detail.getProviderUnitPrice())
                                     .totalPrice(detail.getTotalPrice())
-                        .build())
+                                    .providerTotalPrice(providerTotal)
+                                    .build();
+                            })
                             .collect(Collectors.toList());
+
+                    BigDecimal itemProviderTotal = detailResponses.stream()
+                            .map(ShoppingCartItemDetailResponse::getProviderTotalPrice)
+                            .filter(p -> p != null)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
 
                     // Obtener productName y tourName según el tipo de producto
                     String productName = null;
@@ -692,6 +698,7 @@ public class ShoppingCartService {
                             .tourName(tourName)
                             .slotId(item.getSlot() != null ? item.getSlot().getId() : null)
                             .totalPrice(item.getTotalPrice())
+                            .providerTotalPrice(itemProviderTotal)
                             .status(item.getStatus())
                             .details(detailResponses)
                             .build();
@@ -702,15 +709,70 @@ public class ShoppingCartService {
                 .map(ShoppingCartItemResponse::getTotalPrice)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        BigDecimal providerTotalAmount = itemResponses.stream()
+                .map(ShoppingCartItemResponse::getProviderTotalPrice)
+                .filter(p -> p != null)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
         return ShoppingCartResponse.builder()
                 .id(cart.getId())
                 .userId(cart.getUser().getId())
                 .status(cart.getStatus())
                 .items(itemResponses)
                 .totalAmount(totalAmount)
+                .providerTotalAmount(providerTotalAmount)
                 .creationDate(cart.getCreatedDate())
                 .lastModifiedDate(cart.getLastModifiedDate())
+                .accommodationName(cart.getAccommodationName())
+                .accommodationLatitude(cart.getAccommodationLatitude())
+                .accommodationLongitude(cart.getAccommodationLongitude())
+                .electronicBilling(cart.getElectronicBilling())
+                .billingDocumentType(cart.getBillingDocumentType())
+                .billingDocumentNumber(cart.getBillingDocumentNumber())
+                .billingEmail(cart.getBillingEmail())
+                .billingCustomerName(cart.getBillingCustomerName())
+                .billingPhone(cart.getBillingPhone())
                 .build();
+    }
+
+    @Transactional
+    public ShoppingCartResponse updateCheckoutData(
+            Long cartId,
+            UpdateShoppingCartCheckoutRequest request,
+            Authentication connectedUser) {
+        User user = (User) connectedUser.getPrincipal();
+        ShoppingCart cart = shoppingCartRepository.findById(cartId)
+                .orElseThrow(() -> new ResourceNotFoundException("Carrito no encontrado"));
+        if (!cart.getUser().getId().equals(user.getId())) {
+            throw new OperationNotPermittedException("No tienes permisos para actualizar este carrito");
+        }
+        if (request.getAccommodationName() != null) {
+            cart.setAccommodationName(request.getAccommodationName());
+        }
+        if (request.getAccommodationLatitude() != null) {
+            cart.setAccommodationLatitude(request.getAccommodationLatitude());
+        }
+        if (request.getAccommodationLongitude() != null) {
+            cart.setAccommodationLongitude(request.getAccommodationLongitude());
+        }
+        if (request.getElectronicBilling() != null) {
+            cart.setElectronicBilling(request.getElectronicBilling());
+        }
+        if (Boolean.TRUE.equals(request.getElectronicBilling())) {
+            cart.setBillingDocumentType(request.getBillingDocumentType());
+            cart.setBillingDocumentNumber(request.getBillingDocumentNumber());
+            cart.setBillingEmail(request.getBillingEmail());
+            cart.setBillingCustomerName(request.getBillingCustomerName());
+            cart.setBillingPhone(request.getBillingPhone());
+        } else if (Boolean.FALSE.equals(request.getElectronicBilling())) {
+            cart.setBillingDocumentType(null);
+            cart.setBillingDocumentNumber(null);
+            cart.setBillingEmail(null);
+            cart.setBillingCustomerName(null);
+            cart.setBillingPhone(null);
+        }
+        shoppingCartRepository.save(cart);
+        return buildShoppingCartResponse(cart);
     }
 
     @Transactional

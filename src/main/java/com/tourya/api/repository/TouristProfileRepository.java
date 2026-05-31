@@ -9,6 +9,9 @@ import java.util.Optional;
 @Repository
 public interface TouristProfileRepository extends JpaRepository<TouristProfile, Long> {
     Optional<TouristProfile> findByUserId(Integer userId);
+
+    Optional<TouristProfile> findByDocumentNumberIgnoreCase(String documentNumber);
+
     boolean existsByUserId(Integer userId);
 }
 

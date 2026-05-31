@@ -108,6 +108,7 @@ public class EmailService {
 
         mailSender.send(mimeMessage);
     }
+
     public void sendSimpleMessage(String to, String subject, String text) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(fromEmail); // La dirección desde la que se enviará el correo

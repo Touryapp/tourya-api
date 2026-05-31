@@ -61,14 +61,16 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
         SELECT r FROM Review r 
         WHERE (:tourId IS NULL OR r.tourId = :tourId)
         AND (:userId IS NULL OR r.userId = :userId)
-        AND (:rating IS NULL OR r.rating >= :rating)
+        AND (:minRating IS NULL OR r.rating >= :minRating)
+        AND (:maxRating IS NULL OR r.rating < :maxRating)
         AND (:status IS NULL OR r.status = :status)
         ORDER BY r.reviewDate DESC
         """)
     Page<Review> findWithFilters(
             @Param("tourId") Integer tourId,
             @Param("userId") Integer userId,
-            @Param("rating") BigDecimal rating,
+            @Param("minRating") BigDecimal minRating,
+            @Param("maxRating") BigDecimal maxRating,
             @Param("status") ReviewStatusEnum status,
             Pageable pageable
     );
@@ -80,14 +82,16 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
         SELECT r FROM Review r 
         WHERE (:tourIds IS NULL OR r.tourId IN :tourIds)
         AND (:userId IS NULL OR r.userId = :userId)
-        AND (:rating IS NULL OR r.rating >= :rating)
+        AND (:minRating IS NULL OR r.rating >= :minRating)
+        AND (:maxRating IS NULL OR r.rating < :maxRating)
         AND (:status IS NULL OR r.status = :status)
         ORDER BY r.reviewDate DESC
         """)
     Page<Review> findWithFiltersAndTourIds(
             @Param("tourIds") List<Integer> tourIds,
             @Param("userId") Integer userId,
-            @Param("rating") BigDecimal rating,
+            @Param("minRating") BigDecimal minRating,
+            @Param("maxRating") BigDecimal maxRating,
             @Param("status") ReviewStatusEnum status,
             Pageable pageable
     );
@@ -98,13 +102,15 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     @Query("""
         SELECT r FROM Review r 
         WHERE (:tourId IS NULL OR r.tourId = :tourId)
-        AND (:rating IS NULL OR r.rating >= :rating)
+        AND (:minRating IS NULL OR r.rating >= :minRating)
+        AND (:maxRating IS NULL OR r.rating < :maxRating)
         AND (:status IS NULL OR r.status = :status)
         ORDER BY r.reviewDate DESC
         """)
     Page<Review> findWithFiltersForAdmin(
             @Param("tourId") Integer tourId,
-            @Param("rating") BigDecimal rating,
+            @Param("minRating") BigDecimal minRating,
+            @Param("maxRating") BigDecimal maxRating,
             @Param("status") ReviewStatusEnum status,
             Pageable pageable
     );
