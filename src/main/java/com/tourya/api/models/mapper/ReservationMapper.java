@@ -1,5 +1,6 @@
 package com.tourya.api.models.mapper;
 
+import com.tourya.api._utils.ReservationDisplayId;
 import com.tourya.api.models.Reservation;
 import com.tourya.api.models.request.CreateReservationRequest;
 import com.tourya.api.models.responses.ReservationResponse;
@@ -54,6 +55,7 @@ public class ReservationMapper {
 
         return ReservationResponse.builder()
                 .reservationId(reservation.getReservationId())
+                .bookingId(ReservationDisplayId.format(reservation.getReservationId()))
                 .paymentId(reservation.getPaymentId())
                 .itemId(reservation.getItemId())
                 .qrUrl(reservation.getQrUrl()) // URL del QR en S3

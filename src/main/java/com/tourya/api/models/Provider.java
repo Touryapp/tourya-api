@@ -8,6 +8,8 @@ import com.tourya.api.constans.enums.ProviderDocumentTypeEnum;
 import com.tourya.api.constans.enums.ProviderDocumentTypeEnumConverter;
 import com.tourya.api.constans.enums.ProviderServiceTypeEnum;
 import com.tourya.api.constans.enums.ProviderServiceTypeEnumConverter;
+import jakarta.persistence.Access;
+import jakarta.persistence.AccessType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
@@ -30,6 +32,7 @@ import lombok.experimental.SuperBuilder;
 @NoArgsConstructor
 @Entity
 @Table(name = "provider")
+@Access(AccessType.FIELD)
 public class Provider extends BaseEntity{
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY) // Utiliza la generación de identidad de la base de datos (serial)
@@ -40,6 +43,9 @@ public class Provider extends BaseEntity{
 
     @Column(name = "document_number")
     private String documentNumber;
+
+    @Column(name = "rnt")
+    private String rnt;
 
     @Convert(converter = ProviderDocumentTypeEnumConverter.class)
     @Column(name = "document_type")
@@ -66,6 +72,7 @@ public class Provider extends BaseEntity{
 
     private String department;
 
+    @Column(length = 255)
     private String address;
 
     private String phone;

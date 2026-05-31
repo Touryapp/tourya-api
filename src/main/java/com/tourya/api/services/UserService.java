@@ -32,18 +32,19 @@ public class UserService {
     private final UserMapper userMapper;
     private static final String NOT_PRIVILEGES = "You have no privileges to perform this action.";
     public void changePassword(ChangePasswordRequest changePasswordRequest, Authentication connectedUser){
-        User user = ((User) connectedUser.getPrincipal());
+        User principal = (User) connectedUser.getPrincipal();
+        User user = userRepository.findById(principal.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        //check if the current password is correct
         if(!passwordEncoder.matches(changePasswordRequest.getCurrentPassword(), user.getPassword())){
             throw new OperationNotPermittedException("Wrong password");
         }
-        //check if the two password are the same
         if(!changePasswordRequest.getNewPassword().equals(changePasswordRequest.getConfirmationPassword())){
             throw new OperationNotPermittedException("Password are not the same");
         }
 
         user.setPassword(passwordEncoder.encode(changePasswordRequest.getNewPassword()));
+        user.setMustChangePassword(false);
         userRepository.save(user);
     }
 

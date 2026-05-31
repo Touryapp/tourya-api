@@ -9,6 +9,7 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -18,6 +19,9 @@ import java.time.LocalDate;
 public class CreditResponse {
     private Long id;
     private Long reservationId;
+    private Integer userId;
+    private Integer transferredFromUserId;
+    private LocalDateTime transferredAt;
     private BigDecimal amount;
     private BigDecimal reservedAmount;
     private Long shoppingCartItemId;

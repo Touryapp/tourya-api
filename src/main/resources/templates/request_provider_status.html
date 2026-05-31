@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Actualización solicitud proveedor</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4; color: #111; }
+        .container { max-width: 600px; margin: 12px auto; padding: 20px; background-color: #fff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.08); }
+        .header h1 { margin: 0 0 8px; font-size: 20px; }
+        .muted { color: #666; font-size: 14px; line-height: 1.5; }
+        .status { display: inline-block; margin: 12px 0; padding: 6px 10px; background: #eef5ff; color: #004a99; border-radius: 6px; font-weight: 700; }
+        .reason { margin-top: 12px; padding: 12px; background: #fafafa; border-left: 4px solid #007bff; font-size: 14px; }
+        .footer { margin-top: 18px; padding-top: 12px; border-top: 1px solid #eee; font-size: 12px; color: #777; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>Actualización de tu solicitud</h1>
+        <p class="muted" th:text="'Hola ' + ${username} + ','"></p>
+    </div>
+
+    <p class="muted">Te informamos sobre el estado de tu solicitud como proveedor en Tourya
+        <span th:if="${providerName != null && !#strings.isEmpty(providerName)}" th:text="' (' + ${providerName} + ')'"></span>:
+    </p>
+
+    <div class="status" th:text="${statusLabel}"></div>
+
+    <p class="muted" th:text="${messageBody}"></p>
+
+    <div class="reason" th:if="${reason != null && !#strings.isEmpty(reason)}">
+        <strong>Detalle:</strong>
+        <div th:text="${reason}"></div>
+    </div>
+
+    <div class="footer">
+        Si tienes dudas, responde a este correo o contáctanos desde la plataforma.
+    </div>
+</div>
+</body>
+</html>

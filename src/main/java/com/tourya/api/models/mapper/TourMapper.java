@@ -161,6 +161,7 @@ public class TourMapper {
             tourFullDataResponse.setTagIds(tagIds);
         }
 
+
         return tourFullDataResponse;
     }
 

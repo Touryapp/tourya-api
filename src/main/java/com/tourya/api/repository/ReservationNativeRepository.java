@@ -10,6 +10,9 @@ public interface ReservationNativeRepository {
             Integer providerId,
             Long reservationId,
             String deliveryStatus,
+            String subCategory,
+            String sortBy,
+            String sortDirection,
             int page,
             int size
     );
@@ -17,7 +20,8 @@ public interface ReservationNativeRepository {
     long countProviderReservations(
             Integer providerId,
             Long reservationId,
-            String deliveryStatus
+            String deliveryStatus,
+            String subCategory
     );
 
     void deleteShoppingCartItemDirectly(Long itemId);

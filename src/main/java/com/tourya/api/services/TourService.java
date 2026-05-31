@@ -24,6 +24,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -82,9 +83,9 @@ public class TourService {
     public PageResponse<TourResponse> findAllByUser(int page, int size, Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
-        if(Utils.isProvider(roleList)){
+        if(Utils.isProviderSide(roleList)){
             Pageable pageable = PageRequest.of(page, size, Sort.by("createdDate").descending());
-            Provider provider = providerService.findByUserAndStatusActive(user);
+            Provider provider = providerService.requireByUser(user);
             Page<Tour> allTours = tourRepository.findAllByProviderId(provider.getId(), pageable);
 
             List<TourResponse> toursResponse = allTours.stream()
@@ -649,7 +650,7 @@ public class TourService {
     public TourFullDataResponse consultDataTourById(Integer tourId, Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
-        if(Utils.isProvider(roleList)){
+        if(Utils.isProviderSide(roleList)){
             Provider provider = providerService.findByUserAndStatusActive(user);
             Tour tour = tourRepository.findTourByIdAndProviderId(tourId, provider.getId());
             if(tour != null){
@@ -676,7 +677,7 @@ public class TourService {
     public TourFullDataResponse consultDataTourByIdToAdmin(Integer tourId, Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
-        if(Utils.isAdmin(roleList)){
+        if(Utils.isTouryaBackoffice(roleList)){
             Optional<Tour> optionalTour = tourRepository.findById(tourId);
             if(optionalTour.isPresent()){
                 Tour tour = optionalTour.get();
@@ -703,7 +704,7 @@ public class TourService {
     public TourFullDataResponse acceptTourByIdToAdmin(Integer tourId, Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
-        if(Utils.isAdmin(roleList)){
+        if(Utils.isTouryaBackoffice(roleList)){
             Optional<Tour> optionalTour = tourRepository.findById(tourId);
             if(optionalTour.isPresent()){
                 Tour tour = optionalTour.get();
@@ -732,7 +733,7 @@ public class TourService {
     public TourFullDataResponse returnedTourByIdToAdmin(Integer tourId, Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
-        if(Utils.isAdmin(roleList)){
+        if(Utils.isTouryaBackoffice(roleList)){
             Optional<Tour> optionalTour = tourRepository.findById(tourId);
             if(optionalTour.isPresent()){
                 Tour tour = optionalTour.get();
@@ -792,7 +793,7 @@ public class TourService {
     public TourFullDataResponse cancelTourByIdToAdmin(Integer tourId, Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
-        if(Utils.isAdmin(roleList)){
+        if(Utils.isTouryaBackoffice(roleList)){
             Optional<Tour> optionalTour = tourRepository.findById(tourId);
             if(optionalTour.isPresent()){
                 Tour tour = optionalTour.get();
@@ -879,10 +880,12 @@ public class TourService {
             user = (User) connectedUser.getPrincipal();
             List<Role> roles = user.getRoles();
 
-            if (Utils.isAdmin(roles)) {
-                roleType = UserRoleType.ADMIN;
+            if (Utils.isTouryaBackoffice(roles)) {
+                roleType = Utils.isAdmin(roles) ? UserRoleType.ADMIN : UserRoleType.BACKOFFICE;
             } else if (Utils.isProvider(roles)) {
                 roleType = UserRoleType.PROVIDER;
+            } else if (Utils.isProviderOperator(roles)) {
+                roleType = UserRoleType.PROVIDER_OPERATOR;
             }
         }
 
@@ -898,11 +901,13 @@ public class TourService {
 
         switch (roleType) {
             case ADMIN:
+            case BACKOFFICE:
                 tour = tourRepository.findById(tourId)
                         .orElseThrow(() -> new ResourceNotFoundException("Tour not found with id = " + tourId));
                 break;
 
             case PROVIDER:
+            case PROVIDER_OPERATOR:
                 Provider provider = providerService.findByUserAndStatusActive(user);
                 tour = tourRepository.findTourByIdAndProviderId(tourId, provider.getId());
                 if (tour == null) {
@@ -932,13 +937,17 @@ public class TourService {
         List<Integer> tagIds = tourTagsRepository.getTagIdsByTourId(tourId);
         TourFullDataResponse resp = tourMapper.toTourFullDataResponse(tour, locations, mainAttractions, includes, excludes, faqs, itineraries, cancellationPolicies, galleries, tagIds);
 
-        // Promedio de reseñas publicadas (1 decimal)
+        // Rating mostrado: promedio de reseñas publicadas; si no hay, mismo criterio que búsqueda (columna tour.rating).
         java.math.BigDecimal avg = reviewRepository.avgPublishedRatingByTourId(tourId);
-        if (avg != null) {
-            try {
+        try {
+            if (avg != null) {
                 resp.setRating(avg.setScale(1, java.math.RoundingMode.HALF_UP));
-            } catch (Exception ignored) {
+            } else if (tour.getRating() != null) {
+                resp.setRating(tour.getRating().setScale(1, java.math.RoundingMode.HALF_UP));
+            } else {
+                resp.setRating(null);
             }
+        } catch (Exception ignored) {
         }
         return resp;
     }

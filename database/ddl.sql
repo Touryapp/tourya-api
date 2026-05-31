@@ -618,7 +618,7 @@ CREATE INDEX idx_payment_transaction_id ON public.payment USING btree (transacti
 
 CREATE TABLE public.request_provider_document_type (
 	id serial4 NOT NULL,
-	"name" varchar(30) NOT NULL,
+	"name" varchar(120) NOT NULL,
 	mandatory bool DEFAULT false NOT NULL,
 	created_date timestamp DEFAULT CURRENT_TIMESTAMP NULL,
 	last_modified_date timestamp NULL,
@@ -949,6 +949,7 @@ CREATE TABLE public.provider (
 	"name" varchar(100) NULL,
 	service_type varchar(30) NOT NULL,
 	document_number varchar(30) NOT NULL,
+	rnt varchar(50) NULL,
 	document_type varchar(10) NOT NULL,
 	country_id int4 NOT NULL,
 	state_id int4 NOT NULL,

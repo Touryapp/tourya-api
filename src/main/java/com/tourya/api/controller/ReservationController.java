@@ -44,12 +44,20 @@ public class ReservationController {
     private final ReservationQrService reservationQrService;
 
     @GetMapping
+    @Operation(
+            summary = "Listar reservas (proveedor / backoffice)",
+            description = "Filtros: status (delivery), subCategory (enum tour), reservationId. "
+                    + "Orden: sortBy=scheduleDate|reservationCreatedDate|reservationDate, sortDirection=ASC|DESC. "
+                    + "Cada ítem incluye reservationId y bookingId (TB-{id}).")
     public ResponseEntity<PageResponse<ReservationDetailsResponse>> getProviderReservations(
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "10") int size,
             @RequestParam(name = "providerId", required = false) Integer providerId,
             @RequestParam(name = "reservationId", required = false) Long reservationId,
             @RequestParam(name = "status", required = false) DeliveryStatusEnum status,
+            @RequestParam(name = "subCategory", required = false) String subCategory,
+            @RequestParam(name = "sortBy", required = false) String sortBy,
+            @RequestParam(name = "sortDirection", defaultValue = "DESC") String sortDirection,
             Authentication connectedUser
     ) {
 
@@ -60,6 +68,9 @@ public class ReservationController {
                         providerId,
                         reservationId,
                         status,
+                        subCategory,
+                        sortBy,
+                        sortDirection,
                         connectedUser
                 );
 

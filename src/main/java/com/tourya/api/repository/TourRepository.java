@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -43,4 +44,10 @@ public interface TourRepository extends JpaRepository<Tour, Integer> {
     Page<Tour> findAllTour(@Param("status") TourStatusEnum status, Pageable pageable);
 
     Optional<Tour> findTourByIdAndStatus(Integer tourId, TourStatusEnum tourStatusEnum);
+
+    /**
+     * Rating persistido en {@code tour.rating} (denormalizado); usado como respaldo cuando aún no hay AVG en reseñas publicadas.
+     */
+    @Query("SELECT t.id, t.rating FROM Tour t WHERE t.id IN :ids")
+    List<Object[]> findIdAndRatingByTourIds(@Param("ids") Collection<Integer> ids);
 }

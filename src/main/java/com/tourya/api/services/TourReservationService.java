@@ -115,6 +115,7 @@ public class TourReservationService {
             detail.setPrice(price);
             detail.setQuantity(item.getQuantity());
             detail.setPriceAtReservation(price.getPrice()); // Store historical price
+            detail.setProviderPriceAtReservation(price.getProviderPrice());
             detail.setSubtotal(price.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
             return detail;
         }).collect(Collectors.toList());
@@ -207,13 +208,22 @@ public class TourReservationService {
 
     private TourReservationResponse mapToReservationResponse(TourReservation reservation) {
         List<ReservationDetailResponse> detailResponses = reservation.getDetails().stream()
-                .map(detail -> ReservationDetailResponse.builder()
+                .map(detail -> {
+                    BigDecimal providerUnit = detail.getProviderPriceAtReservation();
+                    BigDecimal providerSubtotal = providerUnit != null
+                            ? providerUnit.multiply(BigDecimal.valueOf(detail.getQuantity()))
+                            : null;
+                    return ReservationDetailResponse.builder()
                         .detailId(detail.getId())
                         .ageType(detail.getPrice().getAgeType())
                         .quantity(detail.getQuantity())
+                        .unitPrice(detail.getPriceAtReservation())
+                        .providerUnitPrice(providerUnit)
                         .priceAtReservation(detail.getPriceAtReservation())
                         .subtotal(detail.getSubtotal())
-                        .build())
+                        .providerSubtotal(providerSubtotal)
+                        .build();
+                })
                 .collect(Collectors.toList());
 
         return TourReservationResponse.builder()

@@ -6,7 +6,6 @@ import com.tourya.api.constans.enums.DeliveryStatusEnum;
 import jakarta.persistence.*;
 import org.hibernate.annotations.DynamicInsert;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -55,7 +54,6 @@ public class Reservation extends BaseEntity {
     @Column(name = "payout_available_date")
     private LocalDate payoutAvailableDate;
 
-    @Builder.Default
     @Column(name = "payout_status", nullable = false, length = 20)
     private String payoutStatus = PAYOUT_STATUS_PENDING;
 
@@ -86,6 +84,12 @@ public class Reservation extends BaseEntity {
 
     @Column(name = "max_rescheduling_date")
     private LocalDate maxReschedulingDate;
+
+    @Column(name = "can_cancel", nullable = false)
+    private Boolean canCancel = false;
+
+    @Column(name = "can_reschedule", nullable = false)
+    private Boolean canReschedule = false;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "cancellation_reason")

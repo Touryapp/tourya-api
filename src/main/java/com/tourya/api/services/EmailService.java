@@ -108,6 +108,7 @@ public class EmailService {
 
         mailSender.send(mimeMessage);
     }
+
     public void sendSimpleMessage(String to, String subject, String text) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(fromEmail); // La dirección desde la que se enviará el correo
@@ -136,6 +137,44 @@ public class EmailService {
         Map<String, Object> properties = new HashMap<>();
         properties.put("username", username);
         properties.put("reservations", reservations);
+
+        Context context = new Context();
+        context.setVariables(properties);
+
+        helper.setFrom(fromEmail);
+        helper.setTo(to);
+        helper.setSubject(subject);
+
+        String template = templateEngine.process(templateName, context);
+        helper.setText(template, true);
+        mailSender.send(mimeMessage);
+    }
+
+    @Async
+    public void sendRequestProviderStatusEmail(
+            String to,
+            String username,
+            String providerName,
+            String statusLabel,
+            String messageBody,
+            String reason,
+            String subject
+    ) throws MessagingException {
+        String templateName = EmailTemplateNameEnum.REQUEST_PROVIDER_STATUS.getName();
+
+        MimeMessage mimeMessage = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(
+                mimeMessage,
+                MULTIPART_MODE_MIXED,
+                UTF_8.name()
+        );
+
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("username", username);
+        properties.put("providerName", providerName);
+        properties.put("statusLabel", statusLabel);
+        properties.put("messageBody", messageBody);
+        properties.put("reason", reason);
 
         Context context = new Context();
         context.setVariables(properties);

@@ -5,6 +5,7 @@ import com.tourya.api.common.PageResponse;
 import com.tourya.api.models.request.ChangePasswordRequest;
 import com.tourya.api.models.responses.UserResponse;
 import com.tourya.api.services.UserService;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +28,8 @@ public class UserController {
     private final UserService userService;
 
     @PatchMapping()
-    public ResponseEntity<?>  changePassword(
+    @Operation(summary = "Cambiar contraseña", description = "Requiere contraseña actual. Limpia mustChangePassword tras éxito.")
+    public ResponseEntity<?> changePassword(
             @Valid @RequestBody ChangePasswordRequest changePasswordRequest,
             Authentication connectedUser
             ){

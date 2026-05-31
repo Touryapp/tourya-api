@@ -18,7 +18,9 @@ import com.tourya.api.models.User;
 import com.tourya.api.models.mapper.ProviderMapper;
 import com.tourya.api.models.responses.ProviderResponse;
 import com.tourya.api.models.request.ProviderRequest;
+import com.tourya.api.models.ProviderUser;
 import com.tourya.api.repository.ProviderRepository;
+import com.tourya.api.repository.ProviderUserRepository;
 import com.tourya.api.repository.RequestProviderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -36,6 +38,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class ProviderService {
     private final ProviderRepository providerRepository;
+    private final ProviderUserRepository providerUserRepository;
     private final ProviderMapper providerMapper;
     private final RequestProviderRepository requestProviderRepository;
     private final CountryService countryService;
@@ -47,13 +50,16 @@ public class ProviderService {
         return providerRepository.save(provider);
     }
 
+    @Transactional
     public ProviderResponse update(ProviderRequest providerRequest,
                                    Authentication connectedUser ) {
         User user = ((User) connectedUser.getPrincipal());
         Provider provider = providerRepository.findByUser(user);
         if(provider != null){
+            String rnt = providerRequest.getRnt() != null ? providerRequest.getRnt().trim() : null;
             provider.setName(providerRequest.getName());
             provider.setDocumentNumber(providerRequest.getDocumentNumber());
+            provider.setRnt(rnt);
             provider.setDocumentType(providerRequest.getDocumentType());
             provider.setServiceType(providerRequest.getServiceType());
             provider.setCountry(getCountry(providerRequest.getCountryId()));
@@ -62,7 +68,12 @@ public class ProviderService {
             provider.setDepartment(providerRequest.getDepartment());
             provider.setAddress(providerRequest.getAddress());
             provider.setPhone(providerRequest.getPhone());
-            return providerMapper.toProviderResponse(providerRepository.save(provider));
+            Provider saved = providerRepository.saveAndFlush(provider);
+            if (rnt != null && !rnt.isEmpty()) {
+                providerRepository.updateRntById(saved.getId(), rnt);
+                saved.setRnt(rnt);
+            }
+            return providerMapper.toProviderResponse(saved);
         }else{
             throw new ResourceNotFoundException("Provider not found for user: "+ user.getEmail());
         }
@@ -103,17 +114,30 @@ public class ProviderService {
     }
 
     public Provider findByUser(User user) {
-        return providerRepository.findByUser(user);
+        Provider provider = providerRepository.findByUser(user);
+        if (provider != null) {
+            return provider;
+        }
+        return providerUserRepository.findByUserIdWithProvider(user.getId())
+                .map(ProviderUser::getProvider)
+                .orElse(null);
+    }
+
+    public Provider requireByUser(User user) {
+        Provider provider = findByUser(user);
+        if (provider == null) {
+            throw new ResourceNotFoundException("No provider was found assigning this user.");
+        }
+        return provider;
     }
 
     public Provider findByUserAndStatusActive(User user) {
-        Provider provider = providerRepository.findByUser(user);
-        if(provider != null){
+        Provider provider = findByUser(user);
+        if (provider != null) {
             validateRules(provider);
             return provider;
-        }else{
-            throw new ResourceNotFoundException("No provider was found assigning this user.");
         }
+        throw new ResourceNotFoundException("No provider was found assigning this user.");
     }
     private void validateRules(Provider provider){
         if(!provider.getStatus().equals(ProviderStatusEnum.ACTIVE)){

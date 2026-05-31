@@ -14,6 +14,7 @@ import com.tourya.api.models.request.UpdateReviewRequest;
 import com.tourya.api.models.responses.ReservationResponse;
 import com.tourya.api.models.responses.ReviewResponse;
 import com.tourya.api.models.mapper.ReservationMapper;
+import com.tourya.api.models.mapper.ReservationPriceBreakdownMapper;
 import com.tourya.api.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -67,10 +68,12 @@ public class ReviewService {
     private final ReviewMapper reviewMapper;
     private final ReviewAnswerMapper reviewAnswerMapper;
     private final ReservationMapper reservationMapper;
+    private final ReservationPriceBreakdownMapper reservationPriceBreakdownMapper;
     private final ProviderService providerService;
     private final IStorageService s3Service;
     private final com.tourya.api.config.security.JwtService jwtService;
     private final org.springframework.security.core.userdetails.UserDetailsService userDetailsService;
+    private final TouristProfileRepository touristProfileRepository;
 
     @Transactional(readOnly = true)
     public com.tourya.api.models.responses.TourReviewSummaryResponse getTourReviewSummary(Integer tourId) {
@@ -113,13 +116,11 @@ public class ReviewService {
             java.math.BigDecimal max = new java.math.BigDecimal(stars + 1).setScale(2);
             page = reviewRepository.findPublishedByTourIdAndStars(tourId, min, max, pageable);
         } else {
-            page = reviewRepository.findWithFiltersForAdmin(tourId, null, ReviewStatusEnum.PUBLISHED, pageable);
+            page = reviewRepository.findWithFiltersForAdmin(tourId, null, null, ReviewStatusEnum.PUBLISHED, pageable);
         }
 
         List<ReviewResponse> responses = page.getContent().stream()
-                .map(r -> loadReviewRelations(r, true))
-                .map(reviewMapper::toResponse)
-                .map(this::enrichReviewResponse)
+                .map(r -> mapToEnrichedResponse(loadReviewRelations(r, true)))
                 .collect(Collectors.toList());
 
         return PageResponse.<ReviewResponse>builder()
@@ -150,6 +151,11 @@ public class ReviewService {
             throw new com.tourya.api.exceptions.InsufficientPrivilegesException("Authentication is required to create a review. Please provide a valid Bearer token in the Authorization header.");
         }
 
+        if (Utils.isProvider(user.getRoles())) {
+            throw new com.tourya.api.exceptions.InsufficientPrivilegesException(
+                    "Los proveedores no pueden crear reseñas; solo pueden publicar una réplica desde la actualización de una reseña existente.");
+        }
+
         // Obtener la reserva
         Reservation reservation = reservationRepository.findById(request.getReservationId())
                 .orElseThrow(() -> new ResourceNotFoundException("Reservation not found with id: " + request.getReservationId()));
@@ -169,7 +175,8 @@ public class ReviewService {
 
         // Verificar que no exista ya una reseña para esta reserva
         if (reviewRepository.existsByReservationId(reservation.getReservationId())) {
-            throw new IllegalStateException("A review already exists for this reservation");
+            throw new com.tourya.api.exceptions.OperationNotPermittedException(
+                    "A review already exists for this reservation");
         }
 
         // Crear la reseña
@@ -179,7 +186,9 @@ public class ReviewService {
 
         // Guardar la reseña
         review = reviewRepository.save(review);
-        
+
+        refreshAndPersistTourRating(tourId);
+
         // Guardar imágenes si se proporcionaron
         if (files != null && !files.isEmpty()) {
             saveAttachmentsFromMultipartFiles(review.getId(), files, user.getId());
@@ -189,14 +198,13 @@ public class ReviewService {
         review = reviewRepository.findById(review.getId()).orElse(review);
         review = loadReviewRelations(review, true);
 
-        ReviewResponse response = reviewMapper.toResponse(review);
-        return enrichReviewResponse(response);
+        return mapToEnrichedResponse(review);
     }
 
     /**
      * Obtiene reseñas con filtros basado en el rol del usuario autenticado
-     * - Cliente: solo sus propias reviews
-     * - Proveedor: reviews de sus tours
+     * - Cliente: con {@code tourId}, todas las reseñas publicadas de ese tour (listado público en ficha); sin {@code tourId}, solo las suyas
+     * - Proveedor: sin {@code tourId}, reseñas de sus tours; con {@code tourId} de un tour suyo, ese tour; con {@code tourId} ajeno, listado público PUBLISHED de ese tour (misma ficha que el cliente)
      * - Admin: todas las reviews
      * REQUIERE AUTENTICACIÓN
      */
@@ -261,29 +269,41 @@ public class ReviewService {
         }
 
         Pageable pageable = PageRequest.of(pageNumber, pageSize);
-        
+        ReviewRatingFilterBounds ratingBounds = ReviewRatingFilterBounds.fromRatingParam(rating);
+
         Page<Review> reviewsPage;
         if (isAdmin) {
             // Admin: usar query sin filtro de userId
-            reviewsPage = reviewRepository.findWithFiltersForAdmin(tourId, rating, effectiveStatus, pageable);
+            reviewsPage = reviewRepository.findWithFiltersForAdmin(
+                    tourId, ratingBounds.minRating(), ratingBounds.maxRating(), effectiveStatus, pageable);
         } else if (providerTourIds != null && !providerTourIds.isEmpty()) {
-            // Proveedor: si piden tourId, solo ese tour y solo si es suyo; antes se ignoraba tourId y el IN era todos los tours.
-            if (tourId != null && !providerTourIds.contains(tourId)) {
-                reviewsPage = Page.empty(pageable);
-            } else {
-                List<Integer> idsForQuery = (tourId != null) ? List.of(tourId) : providerTourIds;
+            // Proveedor: sin tourId → reseñas de todos sus tours. Con tourId suyo → ese tour.
+            // Con tourId que no es suyo → mismo listado público que un cliente (ficha del tour / USER+PROVIDER).
+            if (tourId != null && providerTourIds.contains(tourId)) {
                 reviewsPage = reviewRepository.findWithFiltersAndTourIds(
-                        idsForQuery, null, rating, effectiveStatus, pageable);
+                        List.of(tourId), null, ratingBounds.minRating(), ratingBounds.maxRating(),
+                        effectiveStatus, pageable);
+            } else if (tourId != null) {
+                reviewsPage = reviewRepository.findWithFilters(
+                        tourId, null, ratingBounds.minRating(), ratingBounds.maxRating(), effectiveStatus, pageable);
+            } else {
+                reviewsPage = reviewRepository.findWithFiltersAndTourIds(
+                        providerTourIds, null, ratingBounds.minRating(), ratingBounds.maxRating(),
+                        effectiveStatus, pageable);
             }
         } else {
-            // Cliente o Provider sin tours: usar query normal con filtro de userId (solo sus propias reviews)
-            reviewsPage = reviewRepository.findWithFilters(tourId, finalUserId, rating, effectiveStatus, pageable);
+            // Cliente u operador sin catálogo propio: con tourId se listan reseñas publicadas del tour (no filtrar por userId del token).
+            if (tourId != null) {
+                reviewsPage = reviewRepository.findWithFilters(
+                        tourId, null, ratingBounds.minRating(), ratingBounds.maxRating(), effectiveStatus, pageable);
+            } else {
+                reviewsPage = reviewRepository.findWithFilters(
+                        null, finalUserId, ratingBounds.minRating(), ratingBounds.maxRating(), effectiveStatus, pageable);
+            }
         }
 
         List<ReviewResponse> responses = reviewsPage.getContent().stream()
-                .map(review -> loadReviewRelations(review, true))
-                .map(reviewMapper::toResponse)
-                .map(this::enrichReviewResponse)
+                .map(review -> mapToEnrichedResponse(loadReviewRelations(review, true)))
                 .collect(Collectors.toList());
 
         return PageResponse.<ReviewResponse>builder()
@@ -451,11 +471,20 @@ public class ReviewService {
             }
         }
 
+        if (request.getAnswer() != null && Utils.isProvider(roles)) {
+            if (review.getStatus() != ReviewStatusEnum.PUBLISHED) {
+                review.setStatus(ReviewStatusEnum.PUBLISHED);
+                review = reviewRepository.save(review);
+            }
+            if (review.getTourId() != null) {
+                refreshAndPersistTourRating(review.getTourId());
+            }
+        }
+
         // Cargar relaciones para la respuesta
         review = loadReviewRelations(review, true);
 
-        ReviewResponse response = reviewMapper.toResponse(review);
-        return enrichReviewResponse(response);
+        return mapToEnrichedResponse(review);
     }
 
     /**
@@ -766,13 +795,28 @@ public class ReviewService {
                 response.setTourImage(galleries.get(0).getImageUrl());
             }
 
-            // Obtener nombre del tour
             Tour tour = tourRepository.findById(tourId).orElse(null);
             if (tour != null && tour.getName() != null && tour.getName().getEs() != null) {
                 response.setTourName(tour.getName().getEs());
             }
         }
         return response;
+    }
+
+    private ReviewResponse mapToEnrichedResponse(Review review) {
+        ReviewResponse response = reviewMapper.toResponse(review);
+        enrichCustomerImage(response, review.getUserId());
+        return enrichReviewResponse(response);
+    }
+
+    private void enrichCustomerImage(ReviewResponse response, Integer userId) {
+        if (userId == null) {
+            return;
+        }
+        touristProfileRepository.findByUserId(userId)
+                .map(TouristProfile::getPhotoUrl)
+                .filter(url -> url != null && !url.isBlank())
+                .ifPresent(response::setCustomerImage);
     }
 
     /**
@@ -871,6 +915,8 @@ public class ReviewService {
                 response.setTravellers(String.join(", ", travellerParts));
             }
         }
+
+        reservationPriceBreakdownMapper.applyToReservationResponse(response, item);
         
         // Actividades (main attractions)
         List<String> activities = tourMainAttractionRepository.findByTourId(tourId).stream()
@@ -888,6 +934,28 @@ public class ReviewService {
                 .toList();
         if (!extraServices.isEmpty()) {
             response.setExtraServices(extraServices);
+        }
+    }
+
+    /**
+     * Convierte el query param {@code rating} en límites de consulta.
+     * Entero 1–5: filtro por estrellas ({@code rating >= N AND rating < N+1}), igual que {@code /tour/{id}/reviews?stars=N}.
+     * Otro valor: solo calificación mínima ({@code rating >= valor}).
+     */
+    private record ReviewRatingFilterBounds(BigDecimal minRating, BigDecimal maxRating) {
+        static ReviewRatingFilterBounds fromRatingParam(BigDecimal rating) {
+            if (rating == null) {
+                return new ReviewRatingFilterBounds(null, null);
+            }
+            int stars = rating.setScale(0, RoundingMode.DOWN).intValue();
+            boolean isWholeStar = rating.compareTo(BigDecimal.valueOf(stars)) == 0
+                    && stars >= 1 && stars <= 5;
+            if (isWholeStar) {
+                return new ReviewRatingFilterBounds(
+                        BigDecimal.valueOf(stars).setScale(2, RoundingMode.UNNECESSARY),
+                        BigDecimal.valueOf(stars + 1).setScale(2, RoundingMode.UNNECESSARY));
+            }
+            return new ReviewRatingFilterBounds(rating, null);
         }
     }
 }

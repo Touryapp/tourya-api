@@ -1,6 +1,7 @@
 package com.tourya.api.models.responses;
 
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.tourya.api.constans.enums.ProviderStatusEnum;
 import com.tourya.api.constans.enums.ProviderDocumentTypeEnum;
 import com.tourya.api.constans.enums.ProviderDocumentTypeEnumConverter;
@@ -16,6 +17,9 @@ public class ProviderResponse {
     private String name;
 
     private String documentNumber;
+
+    @JsonProperty("rnt")
+    private String rnt;
 
     @Convert(converter = ProviderDocumentTypeEnumConverter.class)
     private ProviderDocumentTypeEnum documentType;

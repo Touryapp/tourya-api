@@ -1,13 +1,12 @@
 package com.tourya.api.models.request;
 
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.tourya.api.constans.enums.ProviderDocumentTypeEnum;
-import com.tourya.api.constans.enums.ProviderDocumentTypeEnumConverter;
 import com.tourya.api.constans.enums.ProviderServiceTypeEnum;
-import com.tourya.api.constans.enums.ProviderServiceTypeEnumConverter;
-import jakarta.persistence.Convert;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
@@ -25,12 +24,15 @@ public class RequestProviderRequest {
     @NotNull(message = "documentNumber is mandatory")
     private String documentNumber;
 
+    @JsonProperty("rnt")
+    @NotEmpty(message = "rnt is mandatory")
+    @NotNull(message = "rnt is mandatory")
+    private String rnt;
+
     @NotNull(message = "documentType is mandatory")
-    @Convert(converter = ProviderDocumentTypeEnumConverter.class)
     private ProviderDocumentTypeEnum documentType;
 
     @NotNull(message = "serviceType is mandatory")
-    @Convert(converter = ProviderServiceTypeEnumConverter.class)
     private ProviderServiceTypeEnum serviceType;
 
     @NotNull(message = "countryId is mandatory")
@@ -48,6 +50,7 @@ public class RequestProviderRequest {
 
     @NotEmpty(message = "address is mandatory")
     @NotNull(message = "address is mandatory")
+    @Size(max = 255, message = "address must not exceed 255 characters")
     private String address;
 
     @NotEmpty(message = "phone is mandatory")

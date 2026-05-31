@@ -15,6 +15,7 @@ import com.tourya.api.models.Role;
 import com.tourya.api.models.User;
 import com.tourya.api.models.responses.ProviderPayoutOrderDetailsResponse;
 import com.tourya.api.models.responses.ProviderPayoutOrderListItemResponse;
+import com.tourya.api.models.responses.ProviderPayoutOrderListPageResponse;
 import com.tourya.api.repository.AccountPayableRepository;
 import com.tourya.api.repository.ProviderPayoutAttachmentRepository;
 import com.tourya.api.repository.ProviderPayoutOrderRepository;
@@ -28,8 +29,10 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import org.springframework.lang.Nullable;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -53,43 +56,61 @@ public class ProviderPayoutOrderService {
     private final ReservationRepository reservationRepository;
 
     @Transactional(readOnly = true)
-    public List<ProviderPayoutOrderListItemResponse> listForProvider(Authentication connectedUser) {
+    public ProviderPayoutOrderListPageResponse listForProvider(
+            Authentication connectedUser,
+            @Nullable ProviderPayoutOrderStatusEnum status,
+            @Nullable LocalDate fromDate,
+            @Nullable LocalDate toDate) {
         User user = (User) connectedUser.getPrincipal();
         Provider provider = providerService.findByUserAndStatusActive(user);
-
-        List<ProviderPayoutOrder> orders = payoutOrderRepository.findAll().stream()
-                .filter(o -> o.getProviderId().equals(provider.getId()))
-                .toList();
-        Map<Long, String> proofUrlByOrderId = latestProofUrlByOrderIds(
-                orders.stream().map(ProviderPayoutOrder::getId).toList());
-
-        return orders.stream()
-                .map(o -> ProviderPayoutOrderListItemResponse.builder()
-                        .id(o.getId())
-                        .providerId(o.getProviderId())
-                        .createdAt(o.getCreatedAt())
-                        .payDate(o.getPayDate())
-                        .status(o.getStatus())
-                        .amountTotal(o.getAmountTotal())
-                        .reservationsCount(payoutOrderReservationRepository.findByPayoutOrderId(o.getId()).size())
-                        .proofUrl(proofUrlByOrderId.get(o.getId()))
-                        .build())
-                .toList();
+        return buildListPage(
+                payoutOrderRepository.findFiltered(
+                        provider.getId(),
+                        status,
+                        toStartOfDay(fromDate),
+                        toEndOfDay(toDate)));
     }
 
     @Transactional(readOnly = true)
-    public List<ProviderPayoutOrderListItemResponse> listForAdmin(Authentication connectedUser) {
+    public ProviderPayoutOrderListPageResponse listForAdmin(
+            Authentication connectedUser,
+            @Nullable Integer providerId,
+            @Nullable ProviderPayoutOrderStatusEnum status,
+            @Nullable LocalDate fromDate,
+            @Nullable LocalDate toDate) {
         User user = (User) connectedUser.getPrincipal();
         List<Role> roles = user.getRoles();
         if (!Utils.isAdmin(roles)) {
             throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
         }
+        return buildListPage(
+                payoutOrderRepository.findFiltered(
+                        providerId,
+                        status,
+                        toStartOfDay(fromDate),
+                        toEndOfDay(toDate)));
+    }
 
-        List<ProviderPayoutOrder> orders = payoutOrderRepository.findAll().stream().toList();
+    private ProviderPayoutOrderListPageResponse buildListPage(List<ProviderPayoutOrder> orders) {
         Map<Long, String> proofUrlByOrderId = latestProofUrlByOrderIds(
                 orders.stream().map(ProviderPayoutOrder::getId).toList());
 
-        return orders.stream()
+        BigDecimal paidTotal = BigDecimal.ZERO;
+        BigDecimal pendingTotal = BigDecimal.ZERO;
+        BigDecimal canceledTotal = BigDecimal.ZERO;
+
+        for (ProviderPayoutOrder o : orders) {
+            if (o.getAmountTotal() == null) {
+                continue;
+            }
+            switch (o.getStatus()) {
+                case PAID -> paidTotal = paidTotal.add(o.getAmountTotal());
+                case PENDING -> pendingTotal = pendingTotal.add(o.getAmountTotal());
+                case CANCELED -> canceledTotal = canceledTotal.add(o.getAmountTotal());
+            }
+        }
+
+        List<ProviderPayoutOrderListItemResponse> items = orders.stream()
                 .map(o -> ProviderPayoutOrderListItemResponse.builder()
                         .id(o.getId())
                         .providerId(o.getProviderId())
@@ -101,6 +122,22 @@ public class ProviderPayoutOrderService {
                         .proofUrl(proofUrlByOrderId.get(o.getId()))
                         .build())
                 .toList();
+
+        return ProviderPayoutOrderListPageResponse.builder()
+                .orders(items)
+                .paidTotal(paidTotal)
+                .pendingTotal(pendingTotal)
+                .canceledTotal(canceledTotal)
+                .totalIncome(paidTotal.add(pendingTotal))
+                .build();
+    }
+
+    private OffsetDateTime toStartOfDay(LocalDate date) {
+        return date != null ? date.atStartOfDay(ZONE).toOffsetDateTime() : null;
+    }
+
+    private OffsetDateTime toEndOfDay(LocalDate date) {
+        return date != null ? date.atTime(23, 59, 59).atZone(ZONE).toOffsetDateTime() : null;
     }
 
     @Transactional(readOnly = true)

@@ -1,5 +1,6 @@
 package com.tourya.api.models.mapper;
 
+import com.tourya.api._utils.ReservationDisplayId;
 import com.tourya.api.models.*;
 import com.tourya.api.models.request.CreateReviewRequest;
 import com.tourya.api.models.request.UpdateReviewRequest;
@@ -39,7 +40,7 @@ public class ReviewMapper {
                 .rating(request.getRating())
                 .comment(request.getComment())
                 .reviewDate(request.getDate() != null ? request.getDate() : LocalDate.now())
-                .status(com.tourya.api.constans.enums.ReviewStatusEnum.PENDING)
+                .status(com.tourya.api.constans.enums.ReviewStatusEnum.PUBLISHED)
                 .likes(0)
                 .dislikes(0)
                 .hearts(0)
@@ -97,9 +98,8 @@ public class ReviewMapper {
             answerResponse = mapAnswerToResponse(review.getAnswer());
         }
 
-        // bookingId con prefijo TB- según el mock
-        String bookingId = review.getReservationId() != null ? "TB-" + review.getReservationId() : null;
-        
+        String bookingId = ReservationDisplayId.format(review.getReservationId());
+
         return ReviewResponse.builder()
                 .id(review.getId())
                 .tourName(tourName)
@@ -115,6 +115,7 @@ public class ReviewMapper {
                 .dislikes(review.getDislikes())
                 .hearts(review.getHearts())
                 .bookingId(bookingId)
+                .reservationId(review.getReservationId())
                 .status(review.getStatus())
                 .rejectionReason(review.getRejectionReason())
                 .reasonType(review.getReasonType())

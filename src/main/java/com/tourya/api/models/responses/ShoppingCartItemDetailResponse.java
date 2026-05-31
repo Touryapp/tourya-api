@@ -26,6 +26,7 @@ public class ShoppingCartItemDetailResponse {
     private BigDecimal unitPrice;
     private BigDecimal providerUnitPrice; // Precio unitario que recibe el proveedor
     private BigDecimal totalPrice;
+    private BigDecimal providerTotalPrice;
 }
 
 

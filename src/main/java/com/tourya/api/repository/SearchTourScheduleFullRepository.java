@@ -8,4 +8,6 @@ import java.util.Map;
 
 public interface SearchTourScheduleFullRepository {
     Page<SearchTourScheduleFullResponse> callStoredProcedure(Map<String, Object> filters, Pageable pageable);
+
+    long countTours(Map<String, Object> filters);
 }

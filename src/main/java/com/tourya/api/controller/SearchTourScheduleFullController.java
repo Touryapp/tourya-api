@@ -13,6 +13,8 @@ import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.Nullable;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -35,7 +37,8 @@ public class SearchTourScheduleFullController {
             @RequestBody PublicTourScheduleSearchRequest filters,
             @ParameterObject
             @Parameter(description = "Paginación (page, size, sort) como query params")
-            Pageable pageable) {
-        return ResponseEntity.ok(searchTourScheduleFullService.searchTourSchedule(filters, pageable));
+            Pageable pageable,
+            @Nullable Authentication connectedUser) {
+        return ResponseEntity.ok(searchTourScheduleFullService.searchTourSchedule(filters, pageable, connectedUser));
     }
 }

@@ -10,6 +10,7 @@ public class ReservationDetailsResponse {
 
     // --- Reservation ---
     private Long reservationId;
+    private String bookingId;
     private String reservationDate;
     private String reservationDeliveryStatus;
     private String reservationCreatedDate;
@@ -38,6 +39,7 @@ public class ReservationDetailsResponse {
     private Integer tourId;
     private TranslatedField tourName;
     private Integer tourCategoryId;
+    private String tourSubCategory;
     private Integer tourProviderId;
 
     // --- Schedule ---

@@ -13,10 +13,14 @@ import com.tourya.api.constans.enums.AccountPayableStatusEnum;
 import com.tourya.api.constans.enums.IncludeExcludeTypeEnum;
 import com.tourya.api.constans.enums.TourScheduleStatusEnum;
 import com.tourya.api.constans.enums.ConfigKeyEnum;
+import com.tourya.api.exceptions.InsufficientPrivilegesException;
 import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.models.*;
 import com.tourya.api.models.mapper.ReservationMapper;
+import com.tourya.api.models.mapper.ReservationPriceBreakdownMapper;
+import com.tourya.api.models.responses.ReservationPriceBreakdownResponse;
+import com.tourya.api._utils.TourDurationUtils;
 import com.tourya.api._utils.Utils;
 import com.tourya.api.models.request.CancelReservationRequest;
 import com.tourya.api.models.request.CreateTemporalReservationHoldRequest;
@@ -45,6 +49,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -76,6 +81,7 @@ public class ReservationService {
     private final TourMainAttractionRepository tourMainAttractionRepository;
     private final TourIncludesExcludesRepository tourIncludesExcludesRepository;
     private final TourAddressRepository tourAddressRepository;
+    private final TourGalleryRepository tourGalleryRepository;
     private final ReservationNativeRepository reservationNativeRepository;
     private final TourCancellationPolicyRepository tourCancellationPolicyRepository;
     private final CreditRepository creditRepository;
@@ -87,6 +93,8 @@ public class ReservationService {
     private final ShoppingCartService shoppingCartService;
     private final ShoppingCartRepository shoppingCartRepository;
     private final TourScheduleSlotAvailabilityService tourScheduleSlotAvailabilityService;
+    private final ReviewRepository reviewRepository;
+    private final ReservationPriceBreakdownMapper reservationPriceBreakdownMapper;
 
     /**
      * Método createReservation removido - las reservas se crean automáticamente con los pagos
@@ -200,16 +208,19 @@ public class ReservationService {
      * Enriquece un ReservationResponse con información adicional del tour y del pagador
      */
     private void enrichReservationResponse(ReservationResponse response, Reservation reservation) {
-        ShoppingCartItem item = shoppingCartItemRepository.findById(reservation.getItemId()).orElse(null);
-        
-        if (item == null || item.getTourSchedule() == null) {
+        enrichPayerFromPayment(response, reservation);
+
+        Long itemId = reservation.getItemId();
+        ShoppingCartItem item = itemId != null ? shoppingCartItemRepository.findById(itemId).orElse(null) : null;
+
+        if (item == null) {
+            enrichReservationResponseWithoutCartItem(response, reservation);
             return;
         }
-        
-        TourSchedule schedule = item.getTourSchedule();
-        Integer tourId = schedule.getTourId();
-        
+
+        Integer tourId = resolveTourIdFromCartItem(item);
         if (tourId == null) {
+            enrichReservationResponseWithoutCartItem(response, reservation);
             return;
         }
         
@@ -220,46 +231,20 @@ public class ReservationService {
         
         // Información básica del tour
         response.setTourId(tourId);
+        applyMainTourImageUrl(response, tourId);
         if (tour.getName() != null && tour.getName().getEs() != null) {
             response.setTourName(tour.getName().getEs());
         }
         if (tour.getTourCategory() != null && tour.getTourCategory().getName() != null) {
             response.setTourType(tour.getTourCategory().getName());
         }
-        response.setDuration(tour.getDuration());
-        
-        // checkInDate = fecha del tour que el usuario seleccionó (scheduleDate del request)
-        // returnDate = checkInDate + duration (número de días del tour)
+        response.setDuration(TourDurationUtils.resolveDurationLabel(tour));
+
         if (item.getScheduleDate() != null) {
             response.setCheckInDate(item.getScheduleDate().atStartOfDay());
-            // Calcular returnDate basado en duration
-            if (tour.getDuration() != null && response.getCheckInDate() != null) {
-                try {
-                    String durationStr = tour.getDuration().trim();
-                    int days = 0;
-                    
-                    // Intentar parsear directamente si es solo un número
-                    try {
-                        days = Integer.parseInt(durationStr);
-                    } catch (NumberFormatException e) {
-                        // Si no es solo un número, buscar "Days" o "Day" en el string
-                        String[] parts = durationStr.split(" ");
-                        for (int i = 0; i < parts.length; i++) {
-                            if (parts[i].equalsIgnoreCase("Days") || parts[i].equalsIgnoreCase("Day")) {
-                                if (i > 0) {
-                                    days = Integer.parseInt(parts[i-1]);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    
-                    if (days > 0) {
-                        response.setReturnDate(response.getCheckInDate().plusDays(days));
-                    }
-                } catch (Exception e) {
-                    log.warn("Could not parse duration: {}", tour.getDuration());
-                }
+            LocalDateTime ret = TourDurationUtils.computeReturnDate(response.getCheckInDate(), tour);
+            if (ret != null) {
+                response.setReturnDate(ret);
             }
         }
         
@@ -292,6 +277,8 @@ public class ReservationService {
                 response.setTravellers(String.join(", ", travellerParts));
             }
         }
+
+        reservationPriceBreakdownMapper.applyToReservationResponse(response, item);
         
         // Actividades (main attractions)
         List<String> activities = tourMainAttractionRepository.findByTourId(tourId).stream()
@@ -313,6 +300,178 @@ public class ReservationService {
         
         // maxCancellationDate y maxReschedulingDate vienen directamente de la BD (ya están en el mapper)
         // No se calculan dinámicamente porque se guardan en la tabla reservation
+
+        logIfPaymentPayerDiffersFromCartUser(reservation, item);
+    }
+
+    private Integer resolveTourIdFromCartItem(ShoppingCartItem item) {
+        TourSchedule schedule = item.getTourSchedule();
+        if (schedule != null && schedule.getTourId() != null) {
+            return schedule.getTourId();
+        }
+        if (item.getProductType() != null
+                && "TOUR".equalsIgnoreCase(item.getProductType())
+                && item.getProductId() != null) {
+            return item.getProductId();
+        }
+        return null;
+    }
+
+    private void applyMainTourImageUrl(ReservationResponse response, Integer tourId) {
+        List<TourGallery> galleries = tourGalleryRepository.findByTourIdAndOrderIndex(tourId, 1);
+        if (galleries == null || galleries.isEmpty()) {
+            galleries = tourGalleryRepository.findByTourIdOrderByOrderIndexAsc(tourId);
+        }
+        if (galleries != null && !galleries.isEmpty()) {
+            response.setTourImageUrl(galleries.get(0).getImageUrl());
+        }
+    }
+
+    /**
+     * Cuando el {@code shopping_cart_item} ya no existe o se desvinculó, conservar en respuesta lo persistido
+     * en {@code reservation} y, si aplica, el tour vía reseña asociada.
+     */
+    private void enrichReservationResponseWithoutCartItem(ReservationResponse response, Reservation reservation) {
+        if (reservation.getTotalAmount() != null) {
+            response.setPrice(reservation.getTotalAmount().doubleValue());
+        }
+        if (reservation.getReservationDate() != null) {
+            response.setCheckInDate(reservation.getReservationDate());
+        }
+        reviewRepository.findOneByReservationId(reservation.getReservationId()).ifPresent(review -> {
+            Integer tid = review.getTourId();
+            if (tid == null) {
+                return;
+            }
+            response.setTourId(tid);
+            applyMainTourImageUrl(response, tid);
+            tourRepository.findById(tid).ifPresent(tour -> {
+                if (tour.getName() != null && tour.getName().getEs() != null) {
+                    response.setTourName(tour.getName().getEs());
+                }
+                if (tour.getTourCategory() != null && tour.getTourCategory().getName() != null) {
+                    response.setTourType(tour.getTourCategory().getName());
+                }
+                response.setDuration(TourDurationUtils.resolveDurationLabel(tour));
+                List<TourAddress> addresses = tourAddressRepository.findByTourId(tid);
+                if (addresses != null && !addresses.isEmpty()) {
+                    TourAddress firstAddress = addresses.get(0);
+                    if (firstAddress.getCity() != null && firstAddress.getCity().getName() != null) {
+                        response.setDestination(firstAddress.getCity().getName());
+                    } else if (firstAddress.getLocation() != null && firstAddress.getLocation().getEs() != null) {
+                        response.setDestination(firstAddress.getLocation().getEs());
+                    }
+                }
+                List<String> activities = tourMainAttractionRepository.findByTourId(tid).stream()
+                        .filter(attr -> attr.getDescription() != null && attr.getDescription().getEs() != null)
+                        .map(attr -> attr.getDescription().getEs())
+                        .toList();
+                if (!activities.isEmpty()) {
+                    response.setActivities(activities);
+                }
+                List<String> extraServices = tourIncludesExcludesRepository.findByTourIdAndType(tid, IncludeExcludeTypeEnum.INCLUDE).stream()
+                        .filter(inc -> inc.getDescription() != null && inc.getDescription().getEs() != null)
+                        .map(inc -> inc.getDescription().getEs())
+                        .toList();
+                if (!extraServices.isEmpty()) {
+                    response.setExtraServices(extraServices);
+                }
+            });
+        });
+    }
+
+    private record TourBookingEnrichment(
+            Integer tourId,
+            String tourName,
+            String tourType,
+            String duration,
+            String destination,
+            List<String> activities,
+            List<String> extraServices
+    ) {}
+
+    private Optional<TourBookingEnrichment> loadTourBookingEnrichmentFromReview(Long reservationId) {
+        return reviewRepository.findOneByReservationId(reservationId)
+                .map(Review::getTourId)
+                .flatMap(tourRepository::findById)
+                .map(tour -> {
+                    Integer tid = tour.getId();
+                    String tname = tour.getName() != null && tour.getName().getEs() != null
+                            ? tour.getName().getEs()
+                            : null;
+                    String ttype = tour.getTourCategory() != null && tour.getTourCategory().getName() != null
+                            ? tour.getTourCategory().getName()
+                            : null;
+                    String dur = TourDurationUtils.resolveDurationLabel(tour);
+                    List<String> act = tourMainAttractionRepository.findByTourId(tid).stream()
+                            .filter(a -> a.getDescription() != null && a.getDescription().getEs() != null)
+                            .map(a -> a.getDescription().getEs())
+                            .toList();
+                    List<String> ex = tourIncludesExcludesRepository.findByTourIdAndType(tid, IncludeExcludeTypeEnum.INCLUDE).stream()
+                            .filter(inc -> inc.getDescription() != null && inc.getDescription().getEs() != null)
+                            .map(inc -> inc.getDescription().getEs())
+                            .toList();
+                    String dest = null;
+                    List<TourAddress> addresses = tourAddressRepository.findByTourId(tid);
+                    if (addresses != null && !addresses.isEmpty()) {
+                        TourAddress firstAddress = addresses.get(0);
+                        if (firstAddress.getCity() != null && firstAddress.getCity().getName() != null) {
+                            dest = firstAddress.getCity().getName();
+                        } else if (firstAddress.getLocation() != null && firstAddress.getLocation().getEs() != null) {
+                            dest = firstAddress.getLocation().getEs();
+                        }
+                    }
+                    return new TourBookingEnrichment(tid, tname, ttype, dur, dest, act, ex);
+                });
+    }
+
+    /**
+     * Coincidencia entre la actividad cargada en el reporte DIMAR y la subcategoría del tour (p. ej. {@code paseo_al_cayo}).
+     */
+    private boolean maritimReportActivityMatchesTourSubcategory(MaritimActivityReport report, Tour tour) {
+        if (report == null || report.getActivity() == null || tour.getSubCategory() == null) {
+            return false;
+        }
+        String sub = tour.getSubCategory().getValue();
+        String act = report.getActivity().trim();
+        if (act.equalsIgnoreCase(sub)) {
+            return true;
+        }
+        String normalized = act.toLowerCase().replace(' ', '_').replace('-', '_');
+        return normalized.equalsIgnoreCase(sub);
+    }
+
+    /**
+     * Rellena en la respuesta los datos del pagador desde la entidad {@link Payment}.
+     */
+    private void enrichPayerFromPayment(ReservationResponse response, Reservation reservation) {
+        if (response == null || reservation == null || reservation.getPaymentId() == null) {
+            return;
+        }
+        paymentRepository.findById(reservation.getPaymentId()).ifPresent(payment -> {
+            response.setPayerName(payment.getPayerName());
+            response.setPayerEmail(payment.getPayerEmail());
+            response.setPayerPhone(payment.getPayerPhone());
+            response.setPayerDocumentType(payment.getPayerDocumentType());
+            response.setPayerDocumentNumber(payment.getPayerDocumentNumber());
+        });
+    }
+
+    /**
+     * Registra inconsistencia si el pagador del pago no coincide con el titular del carrito de la reserva.
+     */
+    private void logIfPaymentPayerDiffersFromCartUser(Reservation reservation, ShoppingCartItem item) {
+        if (reservation.getPaymentId() == null || item == null || item.getShoppingCart() == null) {
+            return;
+        }
+        paymentRepository.findById(reservation.getPaymentId()).ifPresent(payment -> {
+            Integer payerId = payment.getPayerId();
+            Integer holderId = item.getShoppingCart().getUser().getId();
+            if (payerId != null && holderId != null && !payerId.equals(holderId)) {
+                log.warn("Datos de reserva: payerId={} del pago {} difiere del usuario del carrito (holder={}) para reservationId={}",
+                        payerId, payment.getPaymentId(), holderId, reservation.getReservationId());
+            }
+        });
     }
     
     @Transactional(readOnly = true)
@@ -326,12 +485,13 @@ public class ReservationService {
     }
     
     private com.tourya.api.models.responses.BookingDetailsResponse buildBookingDetailsResponse(Reservation reservation) {
-        // Cargar relaciones necesarias
-        Payment payment = paymentRepository.findById(reservation.getPaymentId())
-                .orElse(null);
-        ShoppingCartItem item = shoppingCartItemRepository.findById(reservation.getItemId())
-                .orElse(null);
-        
+        Payment payment = null;
+        if (reservation.getPaymentId() != null) {
+            payment = paymentRepository.findById(reservation.getPaymentId()).orElse(null);
+        }
+        Long itemId = reservation.getItemId();
+        ShoppingCartItem item = itemId != null ? shoppingCartItemRepository.findById(itemId).orElse(null) : null;
+
         // Obtener tour
         Integer tourId = null;
         String tourName = null;
@@ -342,39 +502,37 @@ public class ReservationService {
         String destination = null;
         List<String> activities = new ArrayList<>();
         List<String> extraServices = new ArrayList<>();
-        
-        if (item != null && item.getTourSchedule() != null) {
-            TourSchedule schedule = item.getTourSchedule();
-            tourId = schedule.getTourId();
-            checkInDate = schedule.getScheduleDate() != null 
-                ? schedule.getScheduleDate().atStartOfDay() 
-                : null;
-            
-            // Cargar tour completo desde repositorio
+
+        Tour tourForBooking = null;
+        if (item != null) {
+            tourId = resolveTourIdFromCartItem(item);
+            if (item.getScheduleDate() != null) {
+                checkInDate = item.getScheduleDate().atStartOfDay();
+            } else if (item.getTourSchedule() != null && item.getTourSchedule().getScheduleDate() != null) {
+                checkInDate = item.getTourSchedule().getScheduleDate().atStartOfDay();
+            }
+
             if (tourId != null) {
-                Tour tour = tourRepository.findById(tourId).orElse(null);
-                if (tour != null) {
-                    tourName = tour.getName() != null && tour.getName().getEs() != null 
-                        ? tour.getName().getEs() 
-                        : null;
-                    tourType = tour.getTourCategory() != null && tour.getTourCategory().getName() != null 
-                        ? tour.getTourCategory().getName() 
-                        : null;
-                    duration = tour.getDuration() != null ? tour.getDuration() : null;
-                    
-                    // Obtener actividades (main attractions) desde repositorio
+                tourForBooking = tourRepository.findById(tourId).orElse(null);
+                if (tourForBooking != null) {
+                    tourName = tourForBooking.getName() != null && tourForBooking.getName().getEs() != null
+                            ? tourForBooking.getName().getEs()
+                            : null;
+                    tourType = tourForBooking.getTourCategory() != null && tourForBooking.getTourCategory().getName() != null
+                            ? tourForBooking.getTourCategory().getName()
+                            : null;
+                    duration = TourDurationUtils.resolveDurationLabel(tourForBooking);
+
                     activities = tourMainAttractionRepository.findByTourId(tourId).stream()
-                        .filter(attr -> attr.getDescription() != null && attr.getDescription().getEs() != null)
-                        .map(attr -> attr.getDescription().getEs())
-                        .toList();
-                    
-                    // Obtener servicios extra (includes) desde repositorio
+                            .filter(attr -> attr.getDescription() != null && attr.getDescription().getEs() != null)
+                            .map(attr -> attr.getDescription().getEs())
+                            .toList();
+
                     extraServices = tourIncludesExcludesRepository.findByTourIdAndType(tourId, IncludeExcludeTypeEnum.INCLUDE).stream()
-                        .filter(inc -> inc.getDescription() != null && inc.getDescription().getEs() != null)
-                        .map(inc -> inc.getDescription().getEs())
-                        .toList();
-                    
-                    // Destination desde tour address
+                            .filter(inc -> inc.getDescription() != null && inc.getDescription().getEs() != null)
+                            .map(inc -> inc.getDescription().getEs())
+                            .toList();
+
                     List<TourAddress> addresses = tourAddressRepository.findByTourId(tourId);
                     if (addresses != null && !addresses.isEmpty()) {
                         TourAddress firstAddress = addresses.get(0);
@@ -384,40 +542,31 @@ public class ReservationService {
                             destination = firstAddress.getLocation().getEs();
                         }
                     }
+
+                    returnDate = TourDurationUtils.computeReturnDate(checkInDate, tourForBooking);
                 }
             }
-            
-            // Calcular returnDate basado en duration y checkInDate
-            if (checkInDate != null && duration != null) {
-                try {
-                    String durationStr = duration.trim();
-                    int days = 0;
-                    
-                    // Intentar parsear directamente si es solo un número
-                    try {
-                        days = Integer.parseInt(durationStr);
-                    } catch (NumberFormatException e) {
-                        // Si no es solo un número, buscar "Days" o "Day" en el string
-                        String[] parts = durationStr.split(" ");
-                        for (int i = 0; i < parts.length; i++) {
-                            if (parts[i].equalsIgnoreCase("Days") || parts[i].equalsIgnoreCase("Day")) {
-                                if (i > 0) {
-                                    days = Integer.parseInt(parts[i-1]);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    
-                    if (days > 0) {
-                        returnDate = checkInDate.plusDays(days);
-                    }
-                } catch (Exception e) {
-                    log.warn("Could not parse duration: {}", duration);
-                }
+        } else {
+            if (reservation.getReservationDate() != null) {
+                checkInDate = reservation.getReservationDate();
+            }
+            Optional<TourBookingEnrichment> fbOpt = loadTourBookingEnrichmentFromReview(reservation.getReservationId());
+            if (fbOpt.isPresent()) {
+                TourBookingEnrichment fb = fbOpt.get();
+                tourId = fb.tourId();
+                tourName = fb.tourName();
+                tourType = fb.tourType();
+                duration = fb.duration();
+                destination = fb.destination();
+                activities = fb.activities();
+                extraServices = fb.extraServices();
             }
         }
-        
+
+        if (returnDate == null && checkInDate != null && duration != null) {
+            returnDate = TourDurationUtils.computeReturnDateFromDurationDays(checkInDate, duration);
+        }
+
         // Construir travellers string desde los detalles del item
         String travellers = null;
         if (item != null && item.getDetails() != null && !item.getDetails().isEmpty()) {
@@ -432,19 +581,31 @@ public class ReservationService {
                 travellers = String.join(", ", travellerParts);
             }
         }
-        
+
         // Obtener precio
         Double price = null;
         if (item != null && item.getTotalPrice() != null) {
             price = item.getTotalPrice().doubleValue();
+        } else if (reservation.getTotalAmount() != null) {
+            price = reservation.getTotalAmount().doubleValue();
         }
-        
+
+        List<ReservationPriceBreakdownResponse> priceBreakdown = java.util.Collections.emptyList();
+        java.math.BigDecimal providerTotalAmount = null;
+        if (item != null && item.getDetails() != null && !item.getDetails().isEmpty()) {
+            priceBreakdown = reservationPriceBreakdownMapper.fromCartDetails(item.getDetails());
+            providerTotalAmount = reservationPriceBreakdownMapper.sumProviderTotal(priceBreakdown);
+        }
+
         return com.tourya.api.models.responses.BookingDetailsResponse.builder()
                 .id(reservation.getReservationId().intValue())
-                .reservationId(reservation.getReservationId().toString())
+                .reservationId(reservation.getReservationId())
+                .bookingId(com.tourya.api._utils.ReservationDisplayId.format(reservation.getReservationId()))
                 .paymentId(reservation.getPaymentId())
                 .transactionId(payment != null ? payment.getTransactionId() : null)
                 .payer(payment != null ? payment.getPayerName() : null)
+                .payerDocumentType(payment != null ? payment.getPayerDocumentType() : null)
+                .payerDocumentNumber(payment != null ? payment.getPayerDocumentNumber() : null)
                 .email(payment != null ? payment.getPayerEmail() : null)
                 .reservationDate(reservation.getReservationDate())
                 .status(reservation.getDeliveryStatus() != null ? reservation.getDeliveryStatus().name() : null)
@@ -452,6 +613,8 @@ public class ReservationService {
                 .tourName(tourName)
                 .tourType(tourType)
                 .price(price)
+                .providerTotalAmount(providerTotalAmount)
+                .priceBreakdown(priceBreakdown)
                 .travellers(travellers)
                 .duration(duration)
                 .checkInDate(checkInDate)
@@ -627,11 +790,6 @@ public class ReservationService {
             throw new IllegalStateException("Cannot consume a canceled reservation");
         }
         
-        // Validar que la reserva no esté re-agendada
-        if (reservation.getDeliveryStatus() == DeliveryStatusEnum.RESCHEDULED) {
-            throw new IllegalStateException("Cannot consume a rescheduled reservation");
-        }
-
         if (reservation.getDeliveryStatus() == DeliveryStatusEnum.NO_SHOW) {
             throw new IllegalStateException("Cannot consume a no-show reservation");
         }
@@ -721,22 +879,23 @@ public class ReservationService {
             @Nullable Integer requestedProviderId,
             @Nullable Long reservationId,
             @Nullable DeliveryStatusEnum deliveryStatus,
+            @Nullable String subCategory,
+            @Nullable String sortBy,
+            @Nullable String sortDirection,
             Authentication connectedUser
     ) {
-        //User user = (User) connectedUser.getPrincipal();
-        //List<Role> roles = user.getRoles();
-        Integer finalProviderId = null; // null = admin puede consultar todos
+        User user = (User) connectedUser.getPrincipal();
+        List<Role> roles = user.getRoles();
+        Integer finalProviderId = null;
 
-        // --- Lógica de roles ---
-        /*if (Utils.isProvider(roles)) {
+        if (Utils.isProviderSide(roles)) {
             Provider provider = providerService.findByUserAndStatusActive(user);
-            finalProviderId = provider.getId(); // proveedor solo ve sus reservas
-        } else if (Utils.isAdmin(roles)) {
-            finalProviderId = requestedProviderId; // admin puede ver todos o filtrar
+            finalProviderId = provider.getId();
+        } else if (Utils.isTouryaBackoffice(roles)) {
+            finalProviderId = requestedProviderId;
         } else {
-            // sin rol adecuado
-            return new PageResponse<>();
-        }*/
+            throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
+        }
 
         String status = (deliveryStatus != null) ? deliveryStatus.name() : null;
 
@@ -746,6 +905,9 @@ public class ReservationService {
                         finalProviderId,
                         reservationId,
                         status,
+                        subCategory,
+                        sortBy,
+                        sortDirection,
                         page,
                         size
                 );
@@ -777,7 +939,8 @@ public class ReservationService {
                 reservationNativeRepository.countProviderReservations(
                         finalProviderId,
                         reservationId,
-                        status
+                        status,
+                        subCategory
                 );
 
         // --- Construcción del PageResponse ---
@@ -811,48 +974,60 @@ public class ReservationService {
         // Obtener usuario autenticado
         User user = (User) authentication.getPrincipal();
         
-        // Buscar la reserva
-        Reservation reservation = reservationRepository.findById(reservationId)
+        // Buscar la reserva (bloqueo pesimista para evitar doble cancelación / créditos duplicados)
+        Reservation reservation = reservationRepository.findByIdForUpdate(reservationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Reservation not found with id: " + reservationId));
-        
+
+        if (reservation.getItemId() == null) {
+            throw new OperationNotPermittedException("La reserva no tiene un ítem de carrito asociado; no se puede cancelar.");
+        }
+
         // Verificar que la reserva pertenece al usuario
         ShoppingCartItem item = shoppingCartItemRepository.findById(reservation.getItemId())
                 .orElseThrow(() -> new ResourceNotFoundException("Shopping cart item not found"));
-        
+
         if (!item.getShoppingCart().getUser().getId().equals(user.getId())) {
-            throw new OperationNotPermittedException("You don't have permission to cancel this reservation");
+            throw new OperationNotPermittedException("No tienes permiso para cancelar esta reserva.");
         }
-        
+
         // Validar que la reserva no esté ya cancelada
         if (reservation.getDeliveryStatus() == DeliveryStatusEnum.CANCELED) {
-            throw new OperationNotPermittedException("Reservation is already canceled");
+            throw new OperationNotPermittedException("La reserva ya está cancelada.");
         }
-        
-        // Obtener información del tour para validaciones
+
+        if (reservation.getDeliveryStatus() == DeliveryStatusEnum.DELIVERED) {
+            throw new OperationNotPermittedException("No se puede cancelar una reserva completada.");
+        }
+
+        if (Boolean.FALSE.equals(reservation.getCanCancel())) {
+            throw new OperationNotPermittedException("La cancelación no está permitida para esta reserva.");
+        }
+
+        // RESCHEDULED: el cliente puede cancelar si la política / ventana aún aplica (no se bloquea aquí).
         TourSchedule schedule = item.getTourSchedule();
         if (schedule == null || schedule.getTourId() == null) {
-            throw new OperationNotPermittedException("Cannot cancel reservation: tour information not found");
+            throw new OperationNotPermittedException("No se puede cancelar: falta información del tour en la reserva.");
         }
-        
+
         Tour tour = tourRepository.findById(schedule.getTourId())
                 .orElseThrow(() -> new ResourceNotFoundException("Tour not found"));
-        
+
         List<TourCancellationPolicy> policies = tourCancellationPolicyRepository.findByTourId(tour.getId());
         if (policies.isEmpty()) {
-            throw new OperationNotPermittedException("Cancellation policy not found for this tour");
+            throw new OperationNotPermittedException("No se encontró política de cancelación para este tour.");
         }
-        
+
         TourCancellationPolicy policy = policies.get(0);
         LocalDate today = LocalDate.now();
-        
+
         // Obtener la fecha seleccionada por el usuario desde ShoppingCartItem
         LocalDate tourDate = (item.getScheduleDate() != null)
-                ? item.getScheduleDate() 
+                ? item.getScheduleDate()
                 : schedule.getScheduleDate(); // Fallback si no hay fecha en ShoppingCartItem
-        
+
         // Validar según el motivo de cancelación
         boolean canCancel = false;
-        
+
         if (request.getCancellationReason() == CancellationReasonEnum.CANNOT_ATTEND) {
             // Alineado con validateCancelReservation: si no hay fecha máxima persistida, no bloqueamos por ventana
             if (reservation.getMaxCancellationDate() == null) {
@@ -863,40 +1038,39 @@ public class ReservationService {
 
             if (!canCancel) {
                 throw new OperationNotPermittedException(
-                        "Cannot cancel reservation: maximum cancellation date (" +
-                        reservation.getMaxCancellationDate() + ") has passed");
+                        "No se puede cancelar: la fecha máxima de cancelación ("
+                                + reservation.getMaxCancellationDate() + ") ya pasó.");
             }
         } else if (request.getCancellationReason() == CancellationReasonEnum.RAIN) {
-            // Validar: allows_rain_refund = true, fecha del tour es hoy, y hay alerta DIMAR
             if (!policy.isAllowsRainRefund()) {
-                throw new OperationNotPermittedException("Rain refund is not allowed for this tour");
+                throw new OperationNotPermittedException("La cancelación por lluvia no está habilitada para este tour.");
             }
-            
+            if (tourDate == null) {
+                throw new OperationNotPermittedException("No se pudo determinar la fecha del tour para validar la cancelación por lluvia.");
+            }
             if (!today.equals(tourDate)) {
-                throw new OperationNotPermittedException("Rain cancellation is only allowed on the tour date");
+                throw new OperationNotPermittedException(
+                        "La cancelación por lluvia solo es permitida el día del tour.");
             }
-            
-            // Si allowsRainRefund = true, el tour es acuático, buscar reporte DIMAR del día
+            if (tour.getSubCategory() == null) {
+                throw new OperationNotPermittedException(
+                        "El tour no tiene subcategoría definida; no aplica la cancelación por lluvia con reporte DIMAR.");
+            }
             List<MaritimActivityReport> reports = maritimActivityReportRepository.findByReportDate(today);
-            
             if (reports.isEmpty()) {
-                throw new OperationNotPermittedException(
-                        "Cannot cancel for rain: no DIMAR report found for today");
+                throw new OperationNotPermittedException("No hay reporte marítimo (DIMAR) registrado para hoy.");
             }
-            
-            // Verificar que la bandera sea amarilla o roja
-            boolean hasRainAlert = reports.stream()
-                    .anyMatch(r -> r.getFlag() == MaritimeFlagEnum.YELLOW || 
-                                  r.getFlag() == MaritimeFlagEnum.RED);
-            
-            if (!hasRainAlert) {
+            boolean hasMatchingRed = reports.stream()
+                    .anyMatch(r -> r.getFlag() == MaritimeFlagEnum.RED
+                            && maritimReportActivityMatchesTourSubcategory(r, tour));
+            if (!hasMatchingRed) {
                 throw new OperationNotPermittedException(
-                        "Cannot cancel for rain: DIMAR report for today has green flag (normal conditions)");
+                        "No aplica cancelación por lluvia: se requiere un reporte de hoy con bandera roja "
+                                + "y una actividad que coincida con la subcategoría del tour.");
             }
-            
             canCancel = true;
         }
-        
+
         // Si todas las validaciones pasan, cancelar la reserva y crear crédito
         Credit credit = null;
         if (canCancel) {
@@ -982,11 +1156,19 @@ public class ReservationService {
                     .build();
         }
 
-        // Validar que la reserva no esté re-agendada previamente
+        if (Boolean.FALSE.equals(reservation.getCanReschedule())) {
+            return RescheduleValidationResponse.builder()
+                    .canReschedule(false)
+                    .message("El reagendamiento no está permitido para esta reserva")
+                    .reason("RESCHEDULE_NOT_ALLOWED")
+                    .build();
+        }
+
+        // Validar que la reserva no esté re-agendada previamente (un solo reagendamiento por reserva)
         if (reservation.getDeliveryStatus() == DeliveryStatusEnum.RESCHEDULED) {
             return RescheduleValidationResponse.builder()
                     .canReschedule(false)
-                    .message("No se puede reagendar una reserva ya reagendada")
+                    .message("No se puede volver a reagendar: esta reserva ya fue reagendada una vez.")
                     .reason("ALREADY_RESCHEDULED")
                     .build();
         }
@@ -1046,11 +1228,9 @@ public class ReservationService {
 
     /**
      * Valida si una reserva puede ser cancelada (sin hacer cambios).
-     * Regla principal: hoy <= maxCancellationDate (según políticas del tour) y la reserva no está cancelada,
-     * ni completada (DELIVERED), ni reagendada (RESCHEDULED). También valida pertenencia al usuario del token.
-     *
-     * Nota: esta validación corresponde al flujo estándar de cancelación (por ventana de cancelación).
-     * La cancelación por lluvia (DIMAR) se valida en el endpoint de cancelación cuando se envía ese motivo.
+     * Bloquea canceladas y completadas (DELIVERED). Una reserva en {@code RESCHEDULED} puede cancelarse
+     * si la ventana {@code maxCancellationDate} aún aplica (o política equivalente).
+     * La cancelación por lluvia (DIMAR) se valida en el endpoint de cancelación con motivo RAIN.
      */
     @Transactional(readOnly = true)
     public com.tourya.api.models.responses.CancelValidationResponse validateCancelReservation(Long reservationId, Authentication authentication) {
@@ -1088,7 +1268,13 @@ public class ReservationService {
                     .build();
         }
 
-        // Nota: una reserva puede estar RESCHEDULED y aún ser cancelable si la ventana/política lo permite.
+        if (Boolean.FALSE.equals(reservation.getCanCancel())) {
+            return com.tourya.api.models.responses.CancelValidationResponse.builder()
+                    .canCancel(false)
+                    .message("La cancelación no está permitida para esta reserva")
+                    .reason("CANCELLATION_NOT_ALLOWED")
+                    .build();
+        }
 
         // Validar que exista política de cancelación para el tour del item
         TourSchedule schedule = item.getTourSchedule();
@@ -1153,7 +1339,17 @@ public class ReservationService {
         
         // Validar que la reserva no esté cancelada
         if (reservation.getDeliveryStatus() == DeliveryStatusEnum.CANCELED) {
-            throw new OperationNotPermittedException("Cannot reschedule a canceled reservation");
+            throw new OperationNotPermittedException("No se puede reagendar una reserva cancelada.");
+        }
+
+        if (reservation.getDeliveryStatus() == DeliveryStatusEnum.DELIVERED) {
+            throw new OperationNotPermittedException("No se puede reagendar una reserva completada.");
+        }
+
+        // Solo un reagendamiento por reserva: tras RESCHEDULED no se permite otro.
+        if (reservation.getDeliveryStatus() == DeliveryStatusEnum.RESCHEDULED) {
+            throw new OperationNotPermittedException(
+                    "No se puede volver a reagendar: esta reserva ya fue reagendada una vez.");
         }
         
         // Verificar que la reserva tenga un item_id (necesario para re-agendar)
@@ -1309,6 +1505,12 @@ public class ReservationService {
      * @return El crédito creado
      */
     private Credit createCreditForReservation(Reservation reservation, Tour tour) {
+        List<Credit> existingActive = creditRepository.findActiveCreditsByReservationId(reservation.getReservationId());
+        if (!existingActive.isEmpty()) {
+            log.warn("Crédito CREATED ya existía para reservationId={}; se evita duplicado.", reservation.getReservationId());
+            return existingActive.get(0);
+        }
+
         // Obtener el monto total desde el item del carrito asociado a la reserva
         ShoppingCartItem cartItem = shoppingCartItemRepository.findById(reservation.getItemId())
                 .orElseThrow(() -> new ResourceNotFoundException("Shopping cart item not found for reservation"));
@@ -1320,14 +1522,14 @@ public class ReservationService {
         // Obtener userId del usuario que tiene el carrito
         Integer userId = cartItem.getShoppingCart().getUser().getId();
         
-        // Crear crédito con fecha de vencimiento de 1 año desde hoy
+        // Crear crédito con fecha de vencimiento de 6 meses desde hoy
         Credit credit = Credit.builder()
                 .reservationId(reservation.getReservationId())
                 .userId(userId)
                 .amount(creditAmount)
                 .reservedAmount(BigDecimal.ZERO)
                 .creationDate(LocalDate.now())
-                .expirationDate(LocalDate.now().plusYears(1))
+                .expirationDate(LocalDate.now().plusMonths(6))
                 .status(CreditStatusEnum.CREATED)
                 .build();
         
@@ -1551,7 +1753,7 @@ public class ReservationService {
                     .amount(priceDifference)
                     .reservedAmount(BigDecimal.ZERO)
                     .creationDate(LocalDate.now())
-                    .expirationDate(LocalDate.now().plusYears(1))
+                    .expirationDate(LocalDate.now().plusMonths(6))
                     .status(CreditStatusEnum.CREATED)
                     .build();
             credit = creditRepository.save(credit);
@@ -1652,7 +1854,7 @@ public class ReservationService {
                 .amount(currentPrice)
                 .reservedAmount(BigDecimal.ZERO)
                 .creationDate(LocalDate.now())
-                .expirationDate(LocalDate.now().plusYears(1))
+                .expirationDate(LocalDate.now().plusMonths(6))
                 .status(CreditStatusEnum.CREATED)
                 .build();
         credit = creditRepository.save(credit);

@@ -11,6 +11,7 @@ import lombok.experimental.SuperBuilder;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * Entidad que representa un crédito generado por cancelación o re-agendamiento de una reserva.
@@ -62,6 +63,12 @@ public class Credit extends BaseEntity {
      */
     @Column(name = "shopping_cart_item_id")
     private Long shoppingCartItemId;
+
+    @Column(name = "transferred_from_user_id")
+    private Integer transferredFromUserId;
+
+    @Column(name = "transferred_at")
+    private LocalDateTime transferredAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reservation_id", insertable = false, updatable = false)
