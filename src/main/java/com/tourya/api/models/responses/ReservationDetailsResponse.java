@@ -10,6 +10,7 @@ public class ReservationDetailsResponse {
 
     // --- Reservation ---
     private Long reservationId;
+    private String bookingId;
     private String reservationDate;
     private String reservationDeliveryStatus;
     private String reservationCreatedDate;
@@ -22,6 +23,9 @@ public class ReservationDetailsResponse {
     private String payerPhone;
     private String payerDocumentType;
     private String payerDocumentNumber;
+
+    /** Foto de perfil del cliente (titular del carrito / {@code tourist_profile.photo_url}). */
+    private String customerProfileImageUrl;
 
     // --- Shopping Item ---
     private Integer shoppingItemId;
@@ -38,6 +42,7 @@ public class ReservationDetailsResponse {
     private Integer tourId;
     private TranslatedField tourName;
     private Integer tourCategoryId;
+    private String tourSubCategory;
     private Integer tourProviderId;
 
     // --- Schedule ---

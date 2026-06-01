@@ -102,5 +102,7 @@ public class TourFullDataRequest {
     @Schema(description = "IDs de tags seleccionados para el tour", example = "[61,66,62]")
     private List<Integer> tagIds;
 
+    @Schema(description = "Comisión Tourya como fracción (0.15 = 15%). Solo backoffice Tourya.", example = "0.15")
+
     private ModifiedArrayListRequest  modifiedArrayList;
 }

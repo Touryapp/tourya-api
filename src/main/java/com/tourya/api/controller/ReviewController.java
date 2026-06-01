@@ -96,16 +96,17 @@ public class ReviewController {
     public ResponseEntity<PageResponse<ReviewResponse>> getReviews(
             @Parameter(description = "Tamaño de la página", required = true) @RequestParam(required = true) Integer pageSize,
             @Parameter(description = "Número de página **base 0** (0 = primera página)", required = true) @RequestParam(required = true) Integer pageNumber,
-            @Parameter(description = "Filtrar por calificación mínima") @RequestParam(required = false) BigDecimal rating,
+            @Parameter(description = "Filtrar por estrellas (1–5): solo reseñas con esa calificación entera. Otro valor: calificación mínima (>=).") @RequestParam(required = false) BigDecimal rating,
             @Parameter(description = "Filtrar por tour. Proveedor: solo reseñas de tours que le pertenecen; si el tour no es suyo, lista vacía.") @RequestParam(required = false) Integer tourId,
             @Parameter(description = "Filtrar por estado. Omitido: admin = todos; cliente/proveedor = solo PUBLISHED salvo `includeAllStatuses=true`.") @RequestParam(required = false) ReviewStatusEnum status,
             @Parameter(description = "Solo no admin: si true y no envía `status`, listar todos los estados (p. ej. ver PENDING).") @RequestParam(required = false) Boolean includeAllStatuses,
+            @Parameter(description = "Filtrar por nombre del cliente (contiene, sin distinguir mayúsculas).") @RequestParam(required = false) String customerName,
             @Nullable Authentication authentication) {
-        log.info("Getting reviews with filters - pageSize: {}, pageNumber: {}, rating: {}, tourId: {}, status: {}, includeAllStatuses: {}",
-                pageSize, pageNumber, rating, tourId, status, includeAllStatuses);
+        log.info("Getting reviews with filters - pageSize: {}, pageNumber: {}, rating: {}, tourId: {}, status: {}, includeAllStatuses: {}, customerName: {}",
+                pageSize, pageNumber, rating, tourId, status, includeAllStatuses, customerName);
 
         PageResponse<ReviewResponse> response = reviewService.getReviews(
-                pageSize, pageNumber, rating, tourId, status, includeAllStatuses, authentication);
+                pageSize, pageNumber, rating, tourId, status, includeAllStatuses, customerName, authentication);
         return ResponseEntity.ok(response);
     }
 
@@ -148,7 +149,7 @@ public class ReviewController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Reseña creada exitosamente"),
             @ApiResponse(responseCode = "401", description = "No autenticado - se requiere token Bearer"),
-            @ApiResponse(responseCode = "400", description = "Datos inválidos o más de 5 imágenes"),
+            @ApiResponse(responseCode = "400", description = "Datos inválidos, más de 5 imágenes o reseña ya existe para la reserva"),
             @ApiResponse(responseCode = "404", description = "Reserva no encontrada")
     })
     public ResponseEntity<ReviewResponse> createReview(

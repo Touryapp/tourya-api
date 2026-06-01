@@ -2,11 +2,13 @@ package com.tourya.api.services;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tourya.api.models.*;
+import com.tourya.api._utils.TourDurationUtils;
 import com.tourya.api.models.request.CreatePaymentRequest;
+import com.tourya.api.models.mapper.ReservationMapper;
+import com.tourya.api.models.mapper.ReservationPriceBreakdownMapper;
 import com.tourya.api.models.responses.PaymentCreditItemResponse;
 import com.tourya.api.models.responses.PaymentResponse;
 import com.tourya.api.models.responses.ReservationResponse;
-import com.tourya.api.models.responses.ServiceResponsibleResponse;
 import com.tourya.api.models.responses.PayerResponse;
 import com.tourya.api.repository.*;
 import com.tourya.api.constans.enums.IncludeExcludeTypeEnum;
@@ -57,6 +59,8 @@ public class PaymentService {
     private final CreditRepository creditRepository;
     private final PaymentCreditRepository paymentCreditRepository;
     private final EmailService emailService;
+    private final ReservationPriceBreakdownMapper reservationPriceBreakdownMapper;
+    private final ReservationMapper reservationMapper;
 
     /**
      * Crea un pago y automáticamente genera la reserva con sus items.
@@ -284,16 +288,16 @@ public class PaymentService {
     }
 
     private void setWindowsFromTourPolicy(Reservation reservation, LocalDate tourDate) {
+        reservation.setCanCancel(false);
+        reservation.setCanReschedule(false);
         if (tourDate == null) {
             reservation.setMaxCancellationDate(null);
             reservation.setMaxReschedulingDate(null);
             return;
         }
 
-        // maxReschedulingDate: regla actual del servicio de reservas
         reservation.setMaxReschedulingDate(tourDate.minusDays(2));
 
-        // maxCancellationDate: usar política del tour si existe; fallback a null si no se puede inferir
         ShoppingCartItem item = shoppingCartItemRepository.findById(reservation.getItemId()).orElse(null);
         Integer tourId = item != null && item.getTourSchedule() != null ? item.getTourSchedule().getTourId() : null;
         if (tourId == null) {
@@ -305,8 +309,15 @@ public class PaymentService {
             reservation.setMaxCancellationDate(null);
             return;
         }
-        CancellationPolicyTypeEnum type = policies.get(0).getCancellationPolicyType();
-        reservation.setMaxCancellationDate(defaultMaxCancellationDate(type, tourDate));
+        TourCancellationPolicy policy = policies.get(0);
+        CancellationPolicyTypeEnum type = policy.getCancellationPolicyType();
+        LocalDate maxCancel = defaultMaxCancellationDate(type, tourDate);
+        reservation.setMaxCancellationDate(maxCancel);
+
+        boolean allowsStandardCancel = maxCancel != null;
+        boolean allowsRainCancel = policy.isAllowsRainRefund();
+        reservation.setCanCancel(allowsStandardCancel || allowsRainCancel);
+        reservation.setCanReschedule(policy.isAllowsRescheduling());
     }
 
     private LocalDate defaultMaxCancellationDate(CancellationPolicyTypeEnum policyType, LocalDate tourDate) {
@@ -359,7 +370,7 @@ public class PaymentService {
 
             if (allItemsInactive) {
                 // Desactivar el carrito
-                cart.setStatus(ShoppingCartStatusEnum.COMPLETED);
+                cart.setStatus(ShoppingCartStatusEnum.PAID);
                 shoppingCartRepository.save(cart);
                 log.info("Cart {} deactivated - all items are inactive", cart.getId());
             }
@@ -416,49 +427,18 @@ public class PaymentService {
     }
 
     /**
-     * Construye la respuesta de una reserva.
+     * Construye la respuesta de una reserva (mismo contrato que {@link ReservationService}).
      */
     private ReservationResponse buildReservationResponse(Reservation reservation, Payment payment) {
-        // Construir respuesta del responsable del servicio
-        ServiceResponsibleResponse serviceResponsible = null;
-        if (reservation.getServiceResponsibleName() != null ||
-                reservation.getServiceResponsibleEmail() != null ||
-                reservation.getServiceResponsiblePhone() != null) {
-            serviceResponsible = ServiceResponsibleResponse.builder()
-                    .name(reservation.getServiceResponsibleName())
-                    .email(reservation.getServiceResponsibleEmail())
-                    .phone(reservation.getServiceResponsiblePhone() != null ?
-                            Long.parseLong(reservation.getServiceResponsiblePhone().replaceAll("[^0-9]", "")) : null)
-                    .build();
+        ReservationResponse response = reservationMapper.toResponse(reservation);
+        if (payment != null) {
+            response.setPayerName(payment.getPayerName());
+            response.setPayerEmail(payment.getPayerEmail());
+            response.setPayerPhone(payment.getPayerPhone());
+            response.setPayerDocumentType(payment.getPayerDocumentType());
+            response.setPayerDocumentNumber(payment.getPayerDocumentNumber());
         }
-
-        ReservationResponse response = ReservationResponse.builder()
-                .reservationId(reservation.getReservationId())
-                .paymentId(reservation.getPaymentId())
-                .itemId(reservation.getItemId())
-                .qrUrl(reservation.getQrUrl()) // URL del QR en S3
-                .reservationDate(reservation.getReservationDate())
-                .deliveryStatus(reservation.getDeliveryStatus())
-                .serviceResponsible(serviceResponsible)
-                .createdDate(reservation.getCreatedDate())
-                .lastModifiedDate(reservation.getLastModifiedDate())
-                .createdBy(reservation.getCreatedBy())
-                .lastModifiedBy(reservation.getLastModifiedBy())
-                // Campos de cancelación y re-agendamiento
-                .maxCancellationDate(reservation.getMaxCancellationDate())
-                .maxReschedulingDate(reservation.getMaxReschedulingDate())
-                .cancellationReason(reservation.getCancellationReason())
-                .cancellationDate(reservation.getCancellationDate())
-                .payerName(payment != null ? payment.getPayerName() : null)
-                .payerEmail(payment != null ? payment.getPayerEmail() : null)
-                .payerPhone(payment != null ? payment.getPayerPhone() : null)
-                .payerDocumentType(payment != null ? payment.getPayerDocumentType() : null)
-                .payerDocumentNumber(payment != null ? payment.getPayerDocumentNumber() : null)
-                .build();
-
-        // Enriquecer con información del tour (y payer desde BD si hiciera falta vía paymentId en otro flujo)
         enrichReservationResponse(response, reservation);
-
         return response;
     }
     
@@ -511,40 +491,13 @@ public class PaymentService {
         if (tour.getTourCategory() != null && tour.getTourCategory().getName() != null) {
             response.setTourType(tour.getTourCategory().getName());
         }
-        response.setDuration(tour.getDuration());
-        
-        // checkInDate = fecha del tour que el usuario seleccionó (scheduleDate del request)
-        // returnDate = checkInDate + duration (número de días del tour)
+        response.setDuration(TourDurationUtils.resolveDurationLabel(tour));
+
         if (item.getScheduleDate() != null) {
             response.setCheckInDate(item.getScheduleDate().atStartOfDay());
-            // Calcular returnDate basado en duration
-            if (tour.getDuration() != null && response.getCheckInDate() != null) {
-                try {
-                    String durationStr = tour.getDuration().trim();
-                    int days = 0;
-                    
-                    // Intentar parsear directamente si es solo un número
-                    try {
-                        days = Integer.parseInt(durationStr);
-                    } catch (NumberFormatException e) {
-                        // Si no es solo un número, buscar "Days" o "Day" en el string
-                        String[] parts = durationStr.split(" ");
-                        for (int i = 0; i < parts.length; i++) {
-                            if (parts[i].equalsIgnoreCase("Days") || parts[i].equalsIgnoreCase("Day")) {
-                                if (i > 0) {
-                                    days = Integer.parseInt(parts[i-1]);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    
-                    if (days > 0) {
-                        response.setReturnDate(response.getCheckInDate().plusDays(days));
-                    }
-                } catch (Exception e) {
-                    log.warn("Could not parse duration: {}", tour.getDuration());
-                }
+            LocalDateTime returnDate = TourDurationUtils.computeReturnDate(response.getCheckInDate(), tour);
+            if (returnDate != null) {
+                response.setReturnDate(returnDate);
             }
         }
         
@@ -577,6 +530,8 @@ public class PaymentService {
                 response.setTravellers(String.join(", ", travellerParts));
             }
         }
+
+        reservationPriceBreakdownMapper.applyToReservationResponse(response, item);
         
         // Actividades (main attractions) - USANDO .toList() como ReservationService
         List<String> activities = tourMainAttractionRepository.findByTourId(tourId).stream()

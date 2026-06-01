@@ -6,6 +6,7 @@ import com.tourya.api.constans.enums.ProviderDocumentTypeEnum;
 import com.tourya.api.constans.enums.ProviderServiceTypeEnum;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
@@ -49,6 +50,7 @@ public class RequestProviderRequest {
 
     @NotEmpty(message = "address is mandatory")
     @NotNull(message = "address is mandatory")
+    @Size(max = 255, message = "address must not exceed 255 characters")
     private String address;
 
     @NotEmpty(message = "phone is mandatory")

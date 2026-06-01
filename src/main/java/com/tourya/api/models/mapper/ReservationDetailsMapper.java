@@ -1,6 +1,7 @@
 package com.tourya.api.models.mapper;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tourya.api._utils.ReservationDisplayId;
 import com.tourya.api.models.TranslatedField;
 import com.tourya.api.models.responses.ReservationDetailsResponse;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +16,14 @@ public class ReservationDetailsMapper {
 
     private final ObjectMapper objectMapper;
 
+    private static String readOptionalString(ResultSet rs, String column) throws SQLException {
+        try {
+            return rs.getString(column);
+        } catch (SQLException ex) {
+            return null;
+        }
+    }
+
     public ReservationDetailsResponse map(ResultSet rs) throws SQLException {
         // Parse JSONB tourname to TranslatedField
         TranslatedField tourName = null;
@@ -28,8 +37,10 @@ public class ReservationDetailsMapper {
             }
         }
 
+        long reservationId = rs.getLong("reservationid");
         return ReservationDetailsResponse.builder()
-                .reservationId(rs.getLong("reservationid"))
+                .reservationId(reservationId)
+                .bookingId(ReservationDisplayId.format(reservationId))
                 .reservationDate(rs.getString("reservationdate"))
                 .reservationDeliveryStatus(rs.getString("reservationdeliverystatus"))
                 .reservationCreatedDate(rs.getString("reservationcreateddate"))
@@ -55,6 +66,7 @@ public class ReservationDetailsMapper {
                 .tourId(rs.getInt("tourid"))
                 .tourName(tourName)
                 .tourCategoryId(rs.getInt("tourcategoryid"))
+                .tourSubCategory(readOptionalString(rs, "toursubcategory"))
                 .tourProviderId(rs.getInt("tourproviderid"))
 
                 .tourScheduleId(rs.getInt("tourscheduleid"))

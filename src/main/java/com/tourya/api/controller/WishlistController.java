@@ -64,7 +64,7 @@ public class WishlistController {
         if (filters == null) filters = new PublicTourScheduleSearchRequest();
         filters.setType("wishlist");
         filters.setTourIds(wishlistService.getMyWishlistTourIds(connectedUser));
-        return ResponseEntity.ok(searchTourScheduleFullService.searchTourSchedule(filters, pageable));
+        return ResponseEntity.ok(searchTourScheduleFullService.searchTourSchedule(filters, pageable, connectedUser));
     }
 }
 

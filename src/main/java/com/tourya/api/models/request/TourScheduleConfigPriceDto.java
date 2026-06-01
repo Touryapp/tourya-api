@@ -13,7 +13,7 @@ public class TourScheduleConfigPriceDto {
     @NotNull(message = "El tipo de edad no puede ser nulo")
     private AgePriceType ageType;
 
-    @NotNull(message = "El precio no puede ser nulo")
+    /** Precio de venta (calculado en backend si el proveedor solo envía providerPrice). */
     @PositiveOrZero(message = "El precio debe ser un número no negativo")
     private BigDecimal price;
     @PositiveOrZero(message = "El precio del proveedor debe ser un número no negativo")

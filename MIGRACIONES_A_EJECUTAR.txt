@@ -1,0 +1,59 @@
+## Migraciones a ejecutar (en orden)
+## Proyecto: tourya-api
+## Fecha: 2026-04-26
+
+### Importante
+- Ejecuta estas migraciones en tu DB (DEV/QA/PROD según corresponda) **antes** de probar los endpoints nuevos.
+- El orden importa porque hay funciones (SP) y tablas nuevas.
+
+### 1) Pagos a proveedores
+1. `database/migrations/031_provider_payout_orders_and_reservation_available_date.sql`
+   - Agrega `reservation.payout_available_date`
+   - Crea tablas:
+     - `provider_payout_order`
+     - `provider_payout_order_reservation`
+     - `provider_payout_attachment`
+
+2. `database/migrations/032_add_reservation_payout_status_and_paid_at.sql`
+   - Agrega:
+     - `reservation.payout_status`
+     - `reservation.payout_paid_at`
+
+### 2) Perfil de turista
+3. `database/migrations/033_create_tourist_profile.sql`
+   - Crea tabla `tourist_profile`
+
+### 3) Wishlist
+4. `database/migrations/034_create_wishlist.sql`
+   - Crea tabla `user_wishlist`
+
+### 4) Search: soporte tourIds (wishlist)
+5. `database/migrations/035_update_sp_get_tour_schedule_json_add_tour_ids_filter.sql`
+   - Re-crea `public.sp_get_tour_schedule_json(filters jsonb)` agregando filtro `tourIds`
+
+### 5) Reviews: motivo (reasonId/reasonType) + soporte stats
+6. `database/migrations/036_add_review_reason_and_review_stats_support.sql`
+   - Agrega columnas en `review`:
+     - `reason_type`
+     - `reason_id`
+
+### 6) Ajustes back 27/05/2026
+7. `database/migrations/045_add_must_change_password_to_user.sql`
+   - Columna `_user.must_change_password` (operadores con clave temporal)
+
+8. `database/migrations/046_sp_count_tour_schedule_json.sql`
+   - Función `sp_count_tour_schedule_json` (paginación correcta en search)
+
+9. `database/migrations/047_sp_provider_reservations_filters_sort.sql`
+   - SP `sp_get_provider_reservations` con filtro `p_sub_category` y columna `tourSubcategory`
+
+10. `database/migrations/048_credit_transfer_fields.sql`
+    - Columnas `credit.transferred_from_user_id`, `credit.transferred_at`
+
+11. `database/migrations/049_alter_provider_address_length.sql`
+    - `provider.address` de varchar(50) a varchar(255) (registro proveedor / requestProvider)
+
+12. `database/migrations/050_reservation_flags_and_cart_checkout.sql`
+    - `reservation.can_cancel`, `reservation.can_reschedule`
+    - Campos checkout en `shopping_cart` (hospedaje + facturación electrónica)
+

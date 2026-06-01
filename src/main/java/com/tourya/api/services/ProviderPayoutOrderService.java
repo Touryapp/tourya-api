@@ -12,14 +12,21 @@ import com.tourya.api.models.ProviderPayoutOrder;
 import com.tourya.api.models.ProviderPayoutOrderReservation;
 import com.tourya.api.models.Reservation;
 import com.tourya.api.models.Role;
+import com.tourya.api.models.ShoppingCartItem;
+import com.tourya.api.models.ShoppingCartItemDetail;
+import com.tourya.api.models.TourCancellationPolicy;
+import com.tourya.api.models.TourScheduleConfigSlot;
 import com.tourya.api.models.User;
 import com.tourya.api.models.responses.ProviderPayoutOrderDetailsResponse;
 import com.tourya.api.models.responses.ProviderPayoutOrderListItemResponse;
+import com.tourya.api.models.responses.ProviderPayoutOrderListPageResponse;
 import com.tourya.api.repository.AccountPayableRepository;
 import com.tourya.api.repository.ProviderPayoutAttachmentRepository;
 import com.tourya.api.repository.ProviderPayoutOrderRepository;
 import com.tourya.api.repository.ProviderPayoutOrderReservationRepository;
 import com.tourya.api.repository.ReservationRepository;
+import com.tourya.api.repository.ShoppingCartItemRepository;
+import com.tourya.api.repository.TourCancellationPolicyRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -28,8 +35,10 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import org.springframework.lang.Nullable;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -51,45 +60,65 @@ public class ProviderPayoutOrderService {
 
     private final AccountPayableRepository accountPayableRepository;
     private final ReservationRepository reservationRepository;
+    private final ShoppingCartItemRepository shoppingCartItemRepository;
+    private final TourCancellationPolicyRepository tourCancellationPolicyRepository;
 
     @Transactional(readOnly = true)
-    public List<ProviderPayoutOrderListItemResponse> listForProvider(Authentication connectedUser) {
+    public ProviderPayoutOrderListPageResponse listForProvider(
+            Authentication connectedUser,
+            @Nullable ProviderPayoutOrderStatusEnum status,
+            @Nullable LocalDate fromDate,
+            @Nullable LocalDate toDate) {
         User user = (User) connectedUser.getPrincipal();
         Provider provider = providerService.findByUserAndStatusActive(user);
-
-        List<ProviderPayoutOrder> orders = payoutOrderRepository.findAll().stream()
-                .filter(o -> o.getProviderId().equals(provider.getId()))
-                .toList();
-        Map<Long, String> proofUrlByOrderId = latestProofUrlByOrderIds(
-                orders.stream().map(ProviderPayoutOrder::getId).toList());
-
-        return orders.stream()
-                .map(o -> ProviderPayoutOrderListItemResponse.builder()
-                        .id(o.getId())
-                        .providerId(o.getProviderId())
-                        .createdAt(o.getCreatedAt())
-                        .payDate(o.getPayDate())
-                        .status(o.getStatus())
-                        .amountTotal(o.getAmountTotal())
-                        .reservationsCount(payoutOrderReservationRepository.findByPayoutOrderId(o.getId()).size())
-                        .proofUrl(proofUrlByOrderId.get(o.getId()))
-                        .build())
-                .toList();
+        return buildListPage(
+                payoutOrderRepository.findFiltered(
+                        provider.getId(),
+                        status,
+                        toStartOfDay(fromDate),
+                        toEndOfDay(toDate)));
     }
 
     @Transactional(readOnly = true)
-    public List<ProviderPayoutOrderListItemResponse> listForAdmin(Authentication connectedUser) {
+    public ProviderPayoutOrderListPageResponse listForAdmin(
+            Authentication connectedUser,
+            @Nullable Integer providerId,
+            @Nullable ProviderPayoutOrderStatusEnum status,
+            @Nullable LocalDate fromDate,
+            @Nullable LocalDate toDate) {
         User user = (User) connectedUser.getPrincipal();
         List<Role> roles = user.getRoles();
         if (!Utils.isAdmin(roles)) {
             throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
         }
+        return buildListPage(
+                payoutOrderRepository.findFiltered(
+                        providerId,
+                        status,
+                        toStartOfDay(fromDate),
+                        toEndOfDay(toDate)));
+    }
 
-        List<ProviderPayoutOrder> orders = payoutOrderRepository.findAll().stream().toList();
+    private ProviderPayoutOrderListPageResponse buildListPage(List<ProviderPayoutOrder> orders) {
         Map<Long, String> proofUrlByOrderId = latestProofUrlByOrderIds(
                 orders.stream().map(ProviderPayoutOrder::getId).toList());
 
-        return orders.stream()
+        BigDecimal paidTotal = BigDecimal.ZERO;
+        BigDecimal pendingTotal = BigDecimal.ZERO;
+        BigDecimal canceledTotal = BigDecimal.ZERO;
+
+        for (ProviderPayoutOrder o : orders) {
+            if (o.getAmountTotal() == null) {
+                continue;
+            }
+            switch (o.getStatus()) {
+                case PAID -> paidTotal = paidTotal.add(o.getAmountTotal());
+                case PENDING -> pendingTotal = pendingTotal.add(o.getAmountTotal());
+                case CANCELED -> canceledTotal = canceledTotal.add(o.getAmountTotal());
+            }
+        }
+
+        List<ProviderPayoutOrderListItemResponse> items = orders.stream()
                 .map(o -> ProviderPayoutOrderListItemResponse.builder()
                         .id(o.getId())
                         .providerId(o.getProviderId())
@@ -101,6 +130,22 @@ public class ProviderPayoutOrderService {
                         .proofUrl(proofUrlByOrderId.get(o.getId()))
                         .build())
                 .toList();
+
+        return ProviderPayoutOrderListPageResponse.builder()
+                .orders(items)
+                .paidTotal(paidTotal)
+                .pendingTotal(pendingTotal)
+                .canceledTotal(canceledTotal)
+                .totalIncome(paidTotal.add(pendingTotal))
+                .build();
+    }
+
+    private OffsetDateTime toStartOfDay(LocalDate date) {
+        return date != null ? date.atStartOfDay(ZONE).toOffsetDateTime() : null;
+    }
+
+    private OffsetDateTime toEndOfDay(LocalDate date) {
+        return date != null ? date.atTime(23, 59, 59).atZone(ZONE).toOffsetDateTime() : null;
     }
 
     @Transactional(readOnly = true)
@@ -198,13 +243,17 @@ public class ProviderPayoutOrderService {
         List<ProviderPayoutOrderDetailsResponse.Item> items = links.stream()
                 .map(l -> {
                     Reservation r = reservationRepository.findById(l.getReservationId()).orElse(null);
-                    return ProviderPayoutOrderDetailsResponse.Item.builder()
+                    ProviderPayoutOrderDetailsResponse.Item.ItemBuilder builder =
+                            ProviderPayoutOrderDetailsResponse.Item.builder()
                             .reservationId(l.getReservationId())
                             .accountPayableId(l.getAccountPayableId())
                             .amount(l.getAmount() != null ? l.getAmount() : BigDecimal.ZERO)
                             .payoutAvailableDate(r != null ? r.getPayoutAvailableDate() : null)
-                            .payoutStatus(r != null ? r.getPayoutStatus() : null)
-                            .build();
+                            .payoutStatus(r != null ? r.getPayoutStatus() : null);
+                    if (r != null) {
+                        enrichPayoutReservationItem(builder, r);
+                    }
+                    return builder.build();
                 })
                 .toList();
 
@@ -218,6 +267,42 @@ public class ProviderPayoutOrderService {
                 .attachments(attDtos)
                 .reservations(items)
                 .build();
+    }
+
+    private void enrichPayoutReservationItem(
+            ProviderPayoutOrderDetailsResponse.Item.ItemBuilder builder, Reservation reservation) {
+        builder.reservationCreatedDate(reservation.getCreatedDate());
+        builder.maxCancellationDate(reservation.getMaxCancellationDate());
+        builder.maxReschedulingDate(reservation.getMaxReschedulingDate());
+
+        if (reservation.getItemId() == null) {
+            return;
+        }
+        ShoppingCartItem item = shoppingCartItemRepository.findById(reservation.getItemId()).orElse(null);
+        if (item == null) {
+            return;
+        }
+        builder.scheduleDate(item.getScheduleDate());
+        TourScheduleConfigSlot slot = item.getSlot();
+        if (slot != null) {
+            builder.slotTimeStart(slot.getStartTime());
+            builder.slotTimeEnd(slot.getEndTime());
+        }
+        if (item.getDetails() != null && !item.getDetails().isEmpty()) {
+            long total = item.getDetails().stream()
+                    .map(ShoppingCartItemDetail::getQuantity)
+                    .filter(q -> q != null && q > 0)
+                    .mapToLong(Integer::longValue)
+                    .sum();
+            builder.totalTourists(total);
+        }
+        Integer tourId = item.getProductId();
+        if (tourId != null) {
+            tourCancellationPolicyRepository.findByTourId(tourId).stream()
+                    .findFirst()
+                    .map(TourCancellationPolicy::isAllowsRainRefund)
+                    .ifPresent(builder::allowsRainRefund);
+        }
     }
 
     /**

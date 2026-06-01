@@ -1,0 +1,306 @@
+## cURLs (Bash) — Import en Postman (Raw text)
+## Variables: {{baseUrl}}  {{token}}  {{tokenProvider}}  {{tokenOperator}}  {{tokenBackoffice}}
+## Ejemplo: http://34.160.22.16/api/v1
+## tokenBackoffice = JWT rol ADMIN o BACKOFFICE_OPERATION
+##
+## Migraciones BD (ajustes 27/05/2026):
+##   045_add_must_change_password_to_user.sql
+##   046_sp_count_tour_schedule_json.sql
+##   047_sp_provider_reservations_filters_sort.sql
+##   048_credit_transfer_fields.sql
+##   049_alter_provider_address_length.sql
+##   050_reservation_flags_and_cart_checkout.sql
+
+## =========================
+## Auth
+## =========================
+
+# Login (respuesta incluye mustChangePassword si aplica)
+curl --location --request POST "{{baseUrl}}/auth/authenticate" \
+  --header "Content-Type: application/json" \
+  --data-raw '{
+    "email": "operador@ejemplo.com",
+    "password": "ClaveTemp123"
+  }'
+
+# Cambiar contraseña (obligatorio si mustChangePassword=true)
+curl --location --request PATCH "{{baseUrl}}/users" \
+  --header "Authorization: Bearer {{token}}" \
+  --header "Content-Type: application/json" \
+  --data-raw '{
+    "currentPassword": "ClaveTemp123",
+    "newPassword": "MiClaveSegura123",
+    "confirmationPassword": "MiClaveSegura123"
+  }'
+
+## =========================
+## Provider Users — operadores
+## =========================
+
+# Crear operador (proveedor define contraseña temporal)
+curl --location --request POST "{{baseUrl}}/provider/users" \
+  --header "Authorization: Bearer {{tokenProvider}}" \
+  --header "Content-Type: application/json" \
+  --data-raw '{
+    "firstname": "Ana",
+    "lastname": "Operadora",
+    "email": "ana.operadora@ejemplo.com",
+    "temporaryPassword": "ClaveTemp123",
+    "tourIds": [1, 2],
+    "principalTourId": 1
+  }'
+
+# Listar operadores
+curl --location "{{baseUrl}}/provider/users" \
+  --header "Authorization: Bearer {{tokenProvider}}"
+
+# Restablecer contraseña temporal
+curl --location --request PUT "{{baseUrl}}/provider/users/3/reset-password" \
+  --header "Authorization: Bearer {{tokenProvider}}" \
+  --header "Content-Type: application/json" \
+  --data-raw '{ "temporaryPassword": "OtraClaveTemp99" }'
+
+## =========================
+## Tourist Profile (auth)
+## =========================
+
+curl --location "{{baseUrl}}/tourist/profile" \
+  --header "Authorization: Bearer {{token}}"
+
+curl --location --request PUT "{{baseUrl}}/tourist/profile" \
+  --header "Authorization: Bearer {{token}}" \
+  --header "Content-Type: application/json" \
+  --data-raw '{
+    "firstName": "Donna",
+    "lastName": "Gonzalez",
+    "documentNumber": "1020304050",
+    "phone": "+57 3001234567",
+    "email": "donna@example.com",
+    "city": "Cartagena",
+    "state": "Bolivar",
+    "country": "Colombia"
+  }'
+
+curl --location "{{baseUrl}}/tourist/profile/address-complete" \
+  --header "Authorization: Bearer {{token}}"
+
+curl --location --request PUT "{{baseUrl}}/tourist/profile/photo" \
+  --header "Authorization: Bearer {{token}}" \
+  --form "file=@/path/to/photo.jpg"
+
+## =========================
+## Tour Schedules — % Tourya en slots (solo backoffice)
+## Request: slotPercentageTourya en PUNTOS (15 = 15%)
+## GET: slotPorcentajeTourya en PUNTOS (solo con token backoffice)
+## NO enviar % en POST/PUT /tour-schedules/config
+## Eliminado: PUT /tour/admin/porcentajeTourya/{tourId}
+## =========================
+
+# % masivo por rango de fechas (actualiza todos los slots de schedules en el rango + recalcula price)
+curl --location --request PUT "{{baseUrl}}/tour-schedules/tours/36/percentage" \
+  --header "Authorization: Bearer {{tokenBackoffice}}" \
+  --header "Content-Type: application/json" \
+  --data-raw '{
+    "slotPercentageTourya": 15,
+    "startDate": "2026-05-30",
+    "endDate": "2026-06-02"
+  }'
+
+# % en un slot puntual
+curl --location --request PUT "{{baseUrl}}/tour-schedules/tours/36/percentage/123" \
+  --header "Authorization: Bearer {{tokenBackoffice}}" \
+  --header "Content-Type: application/json" \
+  --data-raw '{ "slotPercentageTourya": 10 }'
+
+# Listar schedules del tour (proveedor: sin slotPorcentajeTourya; backoffice: con %)
+curl --location "{{baseUrl}}/tour-schedules/tours/36" \
+  --header "Authorization: Bearer {{tokenProvider}}"
+
+curl --location "{{baseUrl}}/tour-schedules/tours/36" \
+  --header "Authorization: Bearer {{tokenBackoffice}}"
+
+# Detalle de config (slots + precios; % solo backoffice en respuesta)
+curl --location "{{baseUrl}}/tour-schedules/config/10" \
+  --header "Authorization: Bearer {{tokenBackoffice}}"
+
+## =========================
+## Shopping Cart — checkout (auth)
+## Hospedaje + facturación electrónica en shopping_cart
+## =========================
+
+# Carrito activo del usuario
+curl --location "{{baseUrl}}/shopping-cart/user" \
+  --header "Authorization: Bearer {{token}}"
+
+# Datos de checkout (antes del pago)
+curl --location --request PATCH "{{baseUrl}}/shopping-cart/1/checkout-data" \
+  --header "Authorization: Bearer {{token}}" \
+  --header "Content-Type: application/json" \
+  --data-raw '{
+    "accommodationName": "Hotel Caribe",
+    "accommodationLatitude": 10.3932,
+    "accommodationLongitude": -75.4832,
+    "electronicBilling": true,
+    "billingDocumentType": "CC",
+    "billingDocumentNumber": "1020304050",
+    "billingEmail": "factura@ejemplo.com",
+    "billingCustomerName": "Juan Pérez",
+    "billingPhone": "+57 3001234567"
+  }'
+
+# Solo hospedaje (sin factura electrónica)
+curl --location --request PATCH "{{baseUrl}}/shopping-cart/1/checkout-data" \
+  --header "Authorization: Bearer {{token}}" \
+  --header "Content-Type: application/json" \
+  --data-raw '{
+    "accommodationName": "Airbnb Centro Histórico",
+    "accommodationLatitude": 10.4210,
+    "accommodationLongitude": -75.5501,
+    "electronicBilling": false
+  }'
+
+## =========================
+## Wishlist (auth)
+## =========================
+
+curl --location "{{baseUrl}}/wishlist" \
+  --header "Authorization: Bearer {{token}}"
+
+curl --location --request POST "{{baseUrl}}/wishlist" \
+  --header "Authorization: Bearer {{token}}" \
+  --header "Content-Type: application/json" \
+  --data-raw '{ "tourId": 43 }'
+
+curl --location --request POST "{{baseUrl}}/wishlist/search?page=0&size=10" \
+  --header "Authorization: Bearer {{token}}" \
+  --header "Content-Type: application/json" \
+  --data-raw '{
+    "startDate": "2026-04-24",
+    "endDate": "2026-04-30"
+  }'
+
+## =========================
+## Provider Payout Orders (auth)
+## Respuesta: { orders, paidTotal, pendingTotal, canceledTotal, totalIncome }
+## =========================
+
+# Proveedor: listar con filtros
+curl --location "{{baseUrl}}/provider/payout-orders?status=PENDING&fromDate=2026-01-01&toDate=2026-12-31" \
+  --header "Authorization: Bearer {{tokenProvider}}"
+
+curl --location "{{baseUrl}}/provider/payout-orders/1" \
+  --header "Authorization: Bearer {{tokenProvider}}"
+
+# Admin: listar con filtros
+curl --location "{{baseUrl}}/provider/payout-orders/admin?providerId=5&status=PAID" \
+  --header "Authorization: Bearer {{token}}"
+
+curl --location "{{baseUrl}}/provider/payout-orders/admin/1" \
+  --header "Authorization: Bearer {{token}}"
+
+curl --location --request POST "{{baseUrl}}/provider/payout-orders/admin/1/proof" \
+  --header "Authorization: Bearer {{token}}" \
+  --form "file=@/path/to/proof.pdf"
+
+## =========================
+## Reservas — gestión proveedor (auth)
+## bookingId = TB-{reservationId}
+## =========================
+
+curl --location "{{baseUrl}}/reservations?page=0&size=10&status=PENDING&subCategory=ADVENTURE&sortBy=scheduleDate&sortDirection=DESC" \
+  --header "Authorization: Bearer {{tokenProvider}}"
+
+curl --location "{{baseUrl}}/reservations?page=0&size=10&sortBy=reservationCreatedDate&sortDirection=DESC" \
+  --header "Authorization: Bearer {{tokenProvider}}"
+
+curl --location "{{baseUrl}}/reservations/250" \
+  --header "Authorization: Bearer {{token}}"
+
+# Validar reagendamiento (respeta canReschedule de la reserva)
+curl --location "{{baseUrl}}/reservations/250/reschedule/validate" \
+  --header "Authorization: Bearer {{token}}"
+
+## =========================
+## Créditos (auth)
+## Vencimiento: 6 meses desde creación
+## =========================
+
+curl --location "{{baseUrl}}/credits" \
+  --header "Authorization: Bearer {{token}}"
+
+curl --location "{{baseUrl}}/credits?status=CREATED" \
+  --header "Authorization: Bearer {{token}}"
+
+# Buscar turista por documento (antes de transferir)
+curl --location "{{baseUrl}}/credits/tourist-lookup?documentNumber=1020304050" \
+  --header "Authorization: Bearer {{token}}"
+
+# Transferir crédito (solo una vez por crédito)
+curl --location --request POST "{{baseUrl}}/credits/12/transfer" \
+  --header "Authorization: Bearer {{token}}" \
+  --header "Content-Type: application/json" \
+  --data-raw '{ "targetUserId": 99 }'
+
+curl --location --request POST "{{baseUrl}}/credits/reserve" \
+  --header "Authorization: Bearer {{token}}" \
+  --header "Content-Type: application/json" \
+  --data-raw '{
+    "shoppingCartItemId": 100,
+    "amountToReserve": 50.00,
+    "creditIds": [12, 13]
+  }'
+
+## =========================
+## Reviews (público / auth)
+## Respuesta incluye: reservationId, bookingId (TB-xxx), customerImage
+## =========================
+
+curl --location "{{baseUrl}}/public/review/reasons"
+
+curl --location "{{baseUrl}}/public/review/reasons/by-rating?rating=5"
+
+curl --location "{{baseUrl}}/public/tour/36/reviews/summary"
+
+curl --location "{{baseUrl}}/public/tour/36/reviews?pageSize=10&pageNumber=0&stars=4"
+
+# Buscar reseñas (rating=4 filtra solo 4 estrellas enteras)
+curl --location "{{baseUrl}}/public/search/reviews?pageSize=5&pageNumber=0&tourId=36&rating=4" \
+  --header "Authorization: Bearer {{token}}"
+
+# Crear reseña (400 si ya existe reseña para la reserva)
+curl --location "{{baseUrl}}/public/save/review" \
+  --header "Authorization: Bearer {{token}}" \
+  --form 'reviewData={"reservationId":250,"rating":5,"comment":{"es":"Excelente"},"reasonId":2};type=application/json' \
+  --form "files=@/path/to/photo1.jpg"
+
+## =========================
+## Público — search y booking
+## =========================
+
+curl --location --request POST "{{baseUrl}}/public/tours/schedule/search?page=0&size=10" \
+  --header "Content-Type: application/json" \
+  --data-raw '{
+    "startDate": "2026-04-24",
+    "endDate": "2026-04-30"
+  }'
+
+# Mismo search con tourId; backoffice ve slotPorcentajeTourya en cada slot (con JWT)
+curl --location --request POST "{{baseUrl}}/public/tours/schedule/search?page=0&size=10" \
+  --header "Authorization: Bearer {{tokenBackoffice}}" \
+  --header "Content-Type: application/json" \
+  --data-raw '{
+    "tourId": 36,
+    "language": "es",
+    "startDate": "2026-05-30",
+    "endDate": "2026-06-02"
+  }'
+
+# Booking por id numérico o TB-250
+curl --location "{{baseUrl}}/public/bookings/250"
+curl --location "{{baseUrl}}/public/bookings/TB-250"
+
+## =========================
+## Postman — una línea (search reviews)
+## =========================
+
+curl --request GET --url '{{baseUrl}}/public/search/reviews?pageSize=5&pageNumber=0&tourId=36&rating=4' --header 'Accept: application/json' --header 'Authorization: Bearer YOUR_TOKEN_HERE'
