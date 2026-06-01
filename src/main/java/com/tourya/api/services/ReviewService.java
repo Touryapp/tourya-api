@@ -116,7 +116,8 @@ public class ReviewService {
             java.math.BigDecimal max = new java.math.BigDecimal(stars + 1).setScale(2);
             page = reviewRepository.findPublishedByTourIdAndStars(tourId, min, max, pageable);
         } else {
-            page = reviewRepository.findWithFiltersForAdmin(tourId, null, null, ReviewStatusEnum.PUBLISHED, pageable);
+            page = reviewRepository.findWithFiltersForAdmin(
+                    tourId, null, null, null, ReviewStatusEnum.PUBLISHED, null, pageable);
         }
 
         List<ReviewResponse> responses = page.getContent().stream()
@@ -216,9 +217,10 @@ public class ReviewService {
             Integer tourId,
             ReviewStatusEnum status,
             Boolean includeAllStatuses,
+            @Nullable String customerName,
             @Nullable Authentication authentication) {
-        log.info("Getting reviews with filters - pageSize: {}, pageNumber: {}, rating: {}, tourId: {}, status: {}, includeAllStatuses: {}",
-                pageSize, pageNumber, rating, tourId, status, includeAllStatuses);
+        log.info("Getting reviews with filters - pageSize: {}, pageNumber: {}, rating: {}, tourId: {}, status: {}, includeAllStatuses: {}, customerName: {}",
+                pageSize, pageNumber, rating, tourId, status, includeAllStatuses, customerName);
 
         // Validar que pageSize y pageNumber sean proporcionados
         if (pageSize == null || pageNumber == null) {
@@ -270,35 +272,41 @@ public class ReviewService {
 
         Pageable pageable = PageRequest.of(pageNumber, pageSize);
         ReviewRatingFilterBounds ratingBounds = ReviewRatingFilterBounds.fromRatingParam(rating);
+        String customerNameFilter = normalizeCustomerNameFilter(customerName);
 
         Page<Review> reviewsPage;
         if (isAdmin) {
-            // Admin: usar query sin filtro de userId
             reviewsPage = reviewRepository.findWithFiltersForAdmin(
-                    tourId, ratingBounds.minRating(), ratingBounds.maxRating(), effectiveStatus, pageable);
+                    tourId,
+                    ratingBounds.exactStars(),
+                    ratingBounds.minRating(),
+                    ratingBounds.maxRating(),
+                    effectiveStatus,
+                    customerNameFilter,
+                    pageable);
         } else if (providerTourIds != null && !providerTourIds.isEmpty()) {
-            // Proveedor: sin tourId → reseñas de todos sus tours. Con tourId suyo → ese tour.
-            // Con tourId que no es suyo → mismo listado público que un cliente (ficha del tour / USER+PROVIDER).
             if (tourId != null && providerTourIds.contains(tourId)) {
                 reviewsPage = reviewRepository.findWithFiltersAndTourIds(
-                        List.of(tourId), null, ratingBounds.minRating(), ratingBounds.maxRating(),
-                        effectiveStatus, pageable);
+                        List.of(tourId), null, ratingBounds.exactStars(), ratingBounds.minRating(),
+                        ratingBounds.maxRating(), effectiveStatus, customerNameFilter, pageable);
             } else if (tourId != null) {
                 reviewsPage = reviewRepository.findWithFilters(
-                        tourId, null, ratingBounds.minRating(), ratingBounds.maxRating(), effectiveStatus, pageable);
+                        tourId, null, ratingBounds.exactStars(), ratingBounds.minRating(),
+                        ratingBounds.maxRating(), effectiveStatus, customerNameFilter, pageable);
             } else {
                 reviewsPage = reviewRepository.findWithFiltersAndTourIds(
-                        providerTourIds, null, ratingBounds.minRating(), ratingBounds.maxRating(),
-                        effectiveStatus, pageable);
+                        providerTourIds, null, ratingBounds.exactStars(), ratingBounds.minRating(),
+                        ratingBounds.maxRating(), effectiveStatus, customerNameFilter, pageable);
             }
         } else {
-            // Cliente u operador sin catálogo propio: con tourId se listan reseñas publicadas del tour (no filtrar por userId del token).
             if (tourId != null) {
                 reviewsPage = reviewRepository.findWithFilters(
-                        tourId, null, ratingBounds.minRating(), ratingBounds.maxRating(), effectiveStatus, pageable);
+                        tourId, null, ratingBounds.exactStars(), ratingBounds.minRating(),
+                        ratingBounds.maxRating(), effectiveStatus, customerNameFilter, pageable);
             } else {
                 reviewsPage = reviewRepository.findWithFilters(
-                        null, finalUserId, ratingBounds.minRating(), ratingBounds.maxRating(), effectiveStatus, pageable);
+                        null, finalUserId, ratingBounds.exactStars(), ratingBounds.minRating(),
+                        ratingBounds.maxRating(), effectiveStatus, customerNameFilter, pageable);
             }
         }
 
@@ -942,20 +950,25 @@ public class ReviewService {
      * Entero 1–5: filtro por estrellas ({@code rating >= N AND rating < N+1}), igual que {@code /tour/{id}/reviews?stars=N}.
      * Otro valor: solo calificación mínima ({@code rating >= valor}).
      */
-    private record ReviewRatingFilterBounds(BigDecimal minRating, BigDecimal maxRating) {
+    private static String normalizeCustomerNameFilter(String customerName) {
+        if (customerName == null || customerName.isBlank()) {
+            return null;
+        }
+        return customerName.trim();
+    }
+
+    private record ReviewRatingFilterBounds(BigDecimal minRating, BigDecimal maxRating, Integer exactStars) {
         static ReviewRatingFilterBounds fromRatingParam(BigDecimal rating) {
             if (rating == null) {
-                return new ReviewRatingFilterBounds(null, null);
+                return new ReviewRatingFilterBounds(null, null, null);
             }
             int stars = rating.setScale(0, RoundingMode.DOWN).intValue();
             boolean isWholeStar = rating.compareTo(BigDecimal.valueOf(stars)) == 0
                     && stars >= 1 && stars <= 5;
             if (isWholeStar) {
-                return new ReviewRatingFilterBounds(
-                        BigDecimal.valueOf(stars).setScale(2, RoundingMode.UNNECESSARY),
-                        BigDecimal.valueOf(stars + 1).setScale(2, RoundingMode.UNNECESSARY));
+                return new ReviewRatingFilterBounds(null, null, stars);
             }
-            return new ReviewRatingFilterBounds(rating, null);
+            return new ReviewRatingFilterBounds(rating, null, null);
         }
     }
 }

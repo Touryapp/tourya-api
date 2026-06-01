@@ -95,6 +95,7 @@ public class ReservationService {
     private final TourScheduleSlotAvailabilityService tourScheduleSlotAvailabilityService;
     private final ReviewRepository reviewRepository;
     private final ReservationPriceBreakdownMapper reservationPriceBreakdownMapper;
+    private final TouristProfileRepository touristProfileRepository;
 
     /**
      * Método createReservation removido - las reservas se crean automáticamente con los pagos
@@ -626,6 +627,21 @@ public class ReservationService {
                 .build();
     }
 
+    private void enrichCustomerProfileImage(ReservationDetailsResponse reservation) {
+        if (reservation.getShoppingItemId() == null) {
+            return;
+        }
+        shoppingCartItemRepository.findById(reservation.getShoppingItemId().longValue()).ifPresent(item -> {
+            if (item.getShoppingCart() == null || item.getShoppingCart().getUser() == null) {
+                return;
+            }
+            touristProfileRepository.findByUserId(item.getShoppingCart().getUser().getId())
+                    .map(TouristProfile::getPhotoUrl)
+                    .filter(url -> url != null && !url.isBlank())
+                    .ifPresent(reservation::setCustomerProfileImageUrl);
+        });
+    }
+
     /**
      * Consulta una reserva por su URL QR.
      * 
@@ -912,8 +928,8 @@ public class ReservationService {
                         size
                 );
 
-        // Agregar canReschedule y canCancel a cada reserva
         for (ReservationDetailsResponse reservation : content) {
+            enrichCustomerProfileImage(reservation);
             try {
                 RescheduleValidationResponse validation = validateRescheduleReservation(
                         reservation.getReservationId(), connectedUser);

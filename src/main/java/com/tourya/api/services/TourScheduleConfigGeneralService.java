@@ -319,6 +319,13 @@ public class TourScheduleConfigGeneralService {
                 .orElse(null);
     }
 
+    /** El front a veces envía solo {@code price}; para proveedor se usa como {@code providerPrice}. */
+    private void normalizeProviderPriceDto(TourScheduleConfigPriceDto priceDto) {
+        if (priceDto != null && priceDto.getProviderPrice() == null && priceDto.getPrice() != null) {
+            priceDto.setProviderPrice(priceDto.getPrice());
+        }
+    }
+
     private void validateSlotPrices(Set<TourScheduleConfigPriceDto> prices, List<Role> roleList) {
         if (prices == null || prices.isEmpty()) {
             return;
@@ -326,6 +333,7 @@ public class TourScheduleConfigGeneralService {
 
         Set<AgePriceType> existingAgeTypes = new HashSet<>();
         for (TourScheduleConfigPriceDto priceDto : prices) {
+            normalizeProviderPriceDto(priceDto);
             if (!existingAgeTypes.add(priceDto.getAgeType())) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "Duplicate ageType found for the same slot: " + priceDto.getAgeType());
@@ -349,6 +357,7 @@ public class TourScheduleConfigGeneralService {
 
     private void applyPriceDtoToEntity(TourScheduleConfigPrice price, TourScheduleConfigPriceDto priceDto,
             BigDecimal slotPorcentajeTourya, List<Role> roleList) {
+        normalizeProviderPriceDto(priceDto);
         price.setAgeType(priceDto.getAgeType());
         if (Utils.isTouryaBackoffice(roleList)) {
             price.setProviderPrice(priceDto.getProviderPrice());

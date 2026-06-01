@@ -100,12 +100,13 @@ public class ReviewController {
             @Parameter(description = "Filtrar por tour. Proveedor: solo reseñas de tours que le pertenecen; si el tour no es suyo, lista vacía.") @RequestParam(required = false) Integer tourId,
             @Parameter(description = "Filtrar por estado. Omitido: admin = todos; cliente/proveedor = solo PUBLISHED salvo `includeAllStatuses=true`.") @RequestParam(required = false) ReviewStatusEnum status,
             @Parameter(description = "Solo no admin: si true y no envía `status`, listar todos los estados (p. ej. ver PENDING).") @RequestParam(required = false) Boolean includeAllStatuses,
+            @Parameter(description = "Filtrar por nombre del cliente (contiene, sin distinguir mayúsculas).") @RequestParam(required = false) String customerName,
             @Nullable Authentication authentication) {
-        log.info("Getting reviews with filters - pageSize: {}, pageNumber: {}, rating: {}, tourId: {}, status: {}, includeAllStatuses: {}",
-                pageSize, pageNumber, rating, tourId, status, includeAllStatuses);
+        log.info("Getting reviews with filters - pageSize: {}, pageNumber: {}, rating: {}, tourId: {}, status: {}, includeAllStatuses: {}, customerName: {}",
+                pageSize, pageNumber, rating, tourId, status, includeAllStatuses, customerName);
 
         PageResponse<ReviewResponse> response = reviewService.getReviews(
-                pageSize, pageNumber, rating, tourId, status, includeAllStatuses, authentication);
+                pageSize, pageNumber, rating, tourId, status, includeAllStatuses, customerName, authentication);
         return ResponseEntity.ok(response);
     }
 

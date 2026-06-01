@@ -24,6 +24,9 @@ public class ReservationDetailsResponse {
     private String payerDocumentType;
     private String payerDocumentNumber;
 
+    /** Foto de perfil del cliente (titular del carrito / {@code tourist_profile.photo_url}). */
+    private String customerProfileImageUrl;
+
     // --- Shopping Item ---
     private Integer shoppingItemId;
     private Double shoppingTotalPrice;
