@@ -12,6 +12,10 @@ import com.tourya.api.models.ProviderPayoutOrder;
 import com.tourya.api.models.ProviderPayoutOrderReservation;
 import com.tourya.api.models.Reservation;
 import com.tourya.api.models.Role;
+import com.tourya.api.models.ShoppingCartItem;
+import com.tourya.api.models.ShoppingCartItemDetail;
+import com.tourya.api.models.TourCancellationPolicy;
+import com.tourya.api.models.TourScheduleConfigSlot;
 import com.tourya.api.models.User;
 import com.tourya.api.models.responses.ProviderPayoutOrderDetailsResponse;
 import com.tourya.api.models.responses.ProviderPayoutOrderListItemResponse;
@@ -21,6 +25,8 @@ import com.tourya.api.repository.ProviderPayoutAttachmentRepository;
 import com.tourya.api.repository.ProviderPayoutOrderRepository;
 import com.tourya.api.repository.ProviderPayoutOrderReservationRepository;
 import com.tourya.api.repository.ReservationRepository;
+import com.tourya.api.repository.ShoppingCartItemRepository;
+import com.tourya.api.repository.TourCancellationPolicyRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -54,6 +60,8 @@ public class ProviderPayoutOrderService {
 
     private final AccountPayableRepository accountPayableRepository;
     private final ReservationRepository reservationRepository;
+    private final ShoppingCartItemRepository shoppingCartItemRepository;
+    private final TourCancellationPolicyRepository tourCancellationPolicyRepository;
 
     @Transactional(readOnly = true)
     public ProviderPayoutOrderListPageResponse listForProvider(
@@ -235,13 +243,17 @@ public class ProviderPayoutOrderService {
         List<ProviderPayoutOrderDetailsResponse.Item> items = links.stream()
                 .map(l -> {
                     Reservation r = reservationRepository.findById(l.getReservationId()).orElse(null);
-                    return ProviderPayoutOrderDetailsResponse.Item.builder()
+                    ProviderPayoutOrderDetailsResponse.Item.ItemBuilder builder =
+                            ProviderPayoutOrderDetailsResponse.Item.builder()
                             .reservationId(l.getReservationId())
                             .accountPayableId(l.getAccountPayableId())
                             .amount(l.getAmount() != null ? l.getAmount() : BigDecimal.ZERO)
                             .payoutAvailableDate(r != null ? r.getPayoutAvailableDate() : null)
-                            .payoutStatus(r != null ? r.getPayoutStatus() : null)
-                            .build();
+                            .payoutStatus(r != null ? r.getPayoutStatus() : null);
+                    if (r != null) {
+                        enrichPayoutReservationItem(builder, r);
+                    }
+                    return builder.build();
                 })
                 .toList();
 
@@ -255,6 +267,42 @@ public class ProviderPayoutOrderService {
                 .attachments(attDtos)
                 .reservations(items)
                 .build();
+    }
+
+    private void enrichPayoutReservationItem(
+            ProviderPayoutOrderDetailsResponse.Item.ItemBuilder builder, Reservation reservation) {
+        builder.reservationCreatedDate(reservation.getCreatedDate());
+        builder.maxCancellationDate(reservation.getMaxCancellationDate());
+        builder.maxReschedulingDate(reservation.getMaxReschedulingDate());
+
+        if (reservation.getItemId() == null) {
+            return;
+        }
+        ShoppingCartItem item = shoppingCartItemRepository.findById(reservation.getItemId()).orElse(null);
+        if (item == null) {
+            return;
+        }
+        builder.scheduleDate(item.getScheduleDate());
+        TourScheduleConfigSlot slot = item.getSlot();
+        if (slot != null) {
+            builder.slotTimeStart(slot.getStartTime());
+            builder.slotTimeEnd(slot.getEndTime());
+        }
+        if (item.getDetails() != null && !item.getDetails().isEmpty()) {
+            long total = item.getDetails().stream()
+                    .map(ShoppingCartItemDetail::getQuantity)
+                    .filter(q -> q != null && q > 0)
+                    .mapToLong(Integer::longValue)
+                    .sum();
+            builder.totalTourists(total);
+        }
+        Integer tourId = item.getProductId();
+        if (tourId != null) {
+            tourCancellationPolicyRepository.findByTourId(tourId).stream()
+                    .findFirst()
+                    .map(TourCancellationPolicy::isAllowsRainRefund)
+                    .ifPresent(builder::allowsRainRefund);
+        }
     }
 
     /**

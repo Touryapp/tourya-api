@@ -6,6 +6,8 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -42,6 +44,14 @@ public class ProviderPayoutOrderDetailsResponse {
         private BigDecimal amount;
         private LocalDate payoutAvailableDate;
         private String payoutStatus;
+        private LocalDate scheduleDate;
+        private LocalTime slotTimeStart;
+        private LocalTime slotTimeEnd;
+        private Long totalTourists;
+        private LocalDateTime reservationCreatedDate;
+        private LocalDate maxCancellationDate;
+        private LocalDate maxReschedulingDate;
+        private Boolean allowsRainRefund;
     }
 }
 
