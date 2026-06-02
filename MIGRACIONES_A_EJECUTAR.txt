@@ -57,3 +57,8 @@
     - `reservation.can_cancel`, `reservation.can_reschedule`
     - Campos checkout en `shopping_cart` (hospedaje + facturación electrónica)
 
+### 7) Temas Back 01/06/2026 (fixes 500 / filtros / reservas cliente)
+13. `database/migrations/051_sp_provider_reservations_user_and_provider_price.sql`
+    - SP `sp_get_provider_reservations`: filtro `p_customer_user_id`, columna `providerprice`
+    - Reemplaza firma de 4 parámetros (ejecutar en EC2 antes del deploy del API)
+

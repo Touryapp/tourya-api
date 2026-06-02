@@ -8,6 +8,7 @@ public interface ReservationNativeRepository {
 
     List<ReservationDetailsResponse> getProviderReservations(
             Integer providerId,
+            Integer customerUserId,
             Long reservationId,
             String deliveryStatus,
             String subCategory,
@@ -19,6 +20,7 @@ public interface ReservationNativeRepository {
 
     long countProviderReservations(
             Integer providerId,
+            Integer customerUserId,
             Long reservationId,
             String deliveryStatus,
             String subCategory
