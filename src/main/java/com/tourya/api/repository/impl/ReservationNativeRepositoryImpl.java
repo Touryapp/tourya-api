@@ -30,6 +30,7 @@ public class ReservationNativeRepositoryImpl implements ReservationNativeReposit
     @Override
     public List<ReservationDetailsResponse> getProviderReservations(
             Integer providerId,
+            Integer customerUserId,
             Long reservationId,
             String deliveryStatus,
             String subCategory,
@@ -44,18 +45,19 @@ public class ReservationNativeRepositoryImpl implements ReservationNativeReposit
 
         String sql = """
             SELECT *
-            FROM sp_get_provider_reservations(?, ?, ?, ?)
+            FROM sp_get_provider_reservations(?, ?, ?, ?, ?)
             ORDER BY %s %s
             LIMIT ? OFFSET ?
             """.formatted(orderColumn, orderDir);
 
-        log.info("getProviderReservations providerId={}, reservationId={}, status={}, subCategory={}, sort={} {}, page={}, size={}",
-                providerId, reservationId, deliveryStatus, subCategory, orderColumn, orderDir, page, size);
+        log.info("getProviderReservations providerId={}, customerUserId={}, reservationId={}, status={}, subCategory={}, sort={} {}, page={}, size={}",
+                providerId, customerUserId, reservationId, deliveryStatus, subCategory, orderColumn, orderDir, page, size);
 
         return jdbcTemplate.query(
                 sql,
                 (rs, rowNum) -> mapRow(rs),
                 providerId,
+                customerUserId,
                 reservationId,
                 deliveryStatus,
                 subCategory,
@@ -67,18 +69,20 @@ public class ReservationNativeRepositoryImpl implements ReservationNativeReposit
     @Override
     public long countProviderReservations(
             Integer providerId,
+            Integer customerUserId,
             Long reservationId,
             String deliveryStatus,
             String subCategory) {
         String sql = """
             SELECT COUNT(*)
-            FROM sp_get_provider_reservations(?, ?, ?, ?)
+            FROM sp_get_provider_reservations(?, ?, ?, ?, ?)
             """;
 
         Long result = jdbcTemplate.queryForObject(
                 sql,
                 Long.class,
                 providerId,
+                customerUserId,
                 reservationId,
                 deliveryStatus,
                 subCategory

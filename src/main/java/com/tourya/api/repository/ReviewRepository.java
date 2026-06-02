@@ -38,21 +38,19 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
         LEFT JOIN r.user u
         WHERE (:tourId IS NULL OR r.tourId = :tourId)
         AND (:userId IS NULL OR r.userId = :userId)
-        AND (:exactStars IS NULL OR FUNCTION('FLOOR', r.rating) = :exactStars)
         AND (:minRating IS NULL OR r.rating >= :minRating)
         AND (:maxRating IS NULL OR r.rating < :maxRating)
         AND (:status IS NULL OR r.status = :status)
-        AND (:customerName IS NULL OR :customerName = '' OR LOWER(CONCAT(COALESCE(u.firstname, ''), ' ', COALESCE(u.lastname, ''))) LIKE LOWER(CONCAT('%', :customerName, '%')))
+        AND (:customerNamePattern IS NULL OR LOWER(CONCAT(COALESCE(u.firstname, ''), ' ', COALESCE(u.lastname, ''))) LIKE :customerNamePattern)
         ORDER BY r.reviewDate DESC
         """)
     Page<Review> findWithFilters(
             @Param("tourId") Integer tourId,
             @Param("userId") Integer userId,
-            @Param("exactStars") Integer exactStars,
             @Param("minRating") BigDecimal minRating,
             @Param("maxRating") BigDecimal maxRating,
             @Param("status") ReviewStatusEnum status,
-            @Param("customerName") String customerName,
+            @Param("customerNamePattern") String customerNamePattern,
             Pageable pageable
     );
 
@@ -61,21 +59,19 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
         LEFT JOIN r.user u
         WHERE (:tourIds IS NULL OR r.tourId IN :tourIds)
         AND (:userId IS NULL OR r.userId = :userId)
-        AND (:exactStars IS NULL OR FUNCTION('FLOOR', r.rating) = :exactStars)
         AND (:minRating IS NULL OR r.rating >= :minRating)
         AND (:maxRating IS NULL OR r.rating < :maxRating)
         AND (:status IS NULL OR r.status = :status)
-        AND (:customerName IS NULL OR :customerName = '' OR LOWER(CONCAT(COALESCE(u.firstname, ''), ' ', COALESCE(u.lastname, ''))) LIKE LOWER(CONCAT('%', :customerName, '%')))
+        AND (:customerNamePattern IS NULL OR LOWER(CONCAT(COALESCE(u.firstname, ''), ' ', COALESCE(u.lastname, ''))) LIKE :customerNamePattern)
         ORDER BY r.reviewDate DESC
         """)
     Page<Review> findWithFiltersAndTourIds(
             @Param("tourIds") List<Integer> tourIds,
             @Param("userId") Integer userId,
-            @Param("exactStars") Integer exactStars,
             @Param("minRating") BigDecimal minRating,
             @Param("maxRating") BigDecimal maxRating,
             @Param("status") ReviewStatusEnum status,
-            @Param("customerName") String customerName,
+            @Param("customerNamePattern") String customerNamePattern,
             Pageable pageable
     );
 
@@ -83,20 +79,18 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
         SELECT r FROM Review r
         LEFT JOIN r.user u
         WHERE (:tourId IS NULL OR r.tourId = :tourId)
-        AND (:exactStars IS NULL OR FUNCTION('FLOOR', r.rating) = :exactStars)
         AND (:minRating IS NULL OR r.rating >= :minRating)
         AND (:maxRating IS NULL OR r.rating < :maxRating)
         AND (:status IS NULL OR r.status = :status)
-        AND (:customerName IS NULL OR :customerName = '' OR LOWER(CONCAT(COALESCE(u.firstname, ''), ' ', COALESCE(u.lastname, ''))) LIKE LOWER(CONCAT('%', :customerName, '%')))
+        AND (:customerNamePattern IS NULL OR LOWER(CONCAT(COALESCE(u.firstname, ''), ' ', COALESCE(u.lastname, ''))) LIKE :customerNamePattern)
         ORDER BY r.reviewDate DESC
         """)
     Page<Review> findWithFiltersForAdmin(
             @Param("tourId") Integer tourId,
-            @Param("exactStars") Integer exactStars,
             @Param("minRating") BigDecimal minRating,
             @Param("maxRating") BigDecimal maxRating,
             @Param("status") ReviewStatusEnum status,
-            @Param("customerName") String customerName,
+            @Param("customerNamePattern") String customerNamePattern,
             Pageable pageable
     );
 

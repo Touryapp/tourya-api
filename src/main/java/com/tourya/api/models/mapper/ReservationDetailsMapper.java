@@ -24,6 +24,15 @@ public class ReservationDetailsMapper {
         }
     }
 
+    private static Double readOptionalDouble(ResultSet rs, String column) throws SQLException {
+        try {
+            double value = rs.getDouble(column);
+            return rs.wasNull() ? null : value;
+        } catch (SQLException ex) {
+            return null;
+        }
+    }
+
     public ReservationDetailsResponse map(ResultSet rs) throws SQLException {
         // Parse JSONB tourname to TranslatedField
         TranslatedField tourName = null;
@@ -56,6 +65,7 @@ public class ReservationDetailsMapper {
                 .shoppingItemId(rs.getInt("shoppingitemid"))
                 .shoppingTotalPrice(rs.getDouble("shoppingtotalprice"))
                 .shoppingUnitPrice(rs.getDouble("shoppingunitprice"))
+                .providerPrice(readOptionalDouble(rs, "providerprice"))
                 .shoppingQuantity(rs.getInt("shoppingquantity"))
 
                 .productType(rs.getString("producttype"))

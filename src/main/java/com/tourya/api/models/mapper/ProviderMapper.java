@@ -41,6 +41,9 @@ public class ProviderMapper {
         providerResponse.setDepartment(provider.getDepartment());
         providerResponse.setAddress(provider.getAddress());
         providerResponse.setPhone(provider.getPhone());
+        if (provider.getUser() != null) {
+            providerResponse.setEmail(provider.getUser().getEmail());
+        }
         providerResponse.setStatus(provider.getStatus());
         return  providerResponse;
     }

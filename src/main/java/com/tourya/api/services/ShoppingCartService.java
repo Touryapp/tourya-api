@@ -104,6 +104,7 @@ public class ShoppingCartService {
         ShoppingCart cart = ShoppingCart.builder()
                 .user(user)
                 .status(ShoppingCartStatusEnum.ACTIVE)
+                .electronicBilling(Boolean.FALSE)
                 .items(new ArrayList<>())
                 .build();
 

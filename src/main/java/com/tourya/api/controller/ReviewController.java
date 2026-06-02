@@ -86,9 +86,9 @@ public class ReviewController {
     @Operation(
             summary = "Buscar reseñas",
             description = "Obtiene reseñas según rol (Cliente/Proveedor/Admin). Requiere autenticación. "
-                    + "**Admin:** sin `status` se listan todos los estados (moderación). "
-                    + "**No admin:** sin `status` solo **PUBLISHED** (coherente con summary, detalle del tour y catálogo). "
-                    + "Use `includeAllStatuses=true` (no admin) o `status=...` para ver otros estados (p. ej. pendientes propias con `status=PENDING`).")
+                    + "**Admin y proveedor:** sin `status` ni otros filtros → todas las reseñas de sus tours (todos los estados). "
+                    + "**Cliente:** sin `status` → solo **PUBLISHED**; use `includeAllStatuses=true` o `status=PENDING`, etc. "
+                    + "Filtros opcionales: `rating`, `tourId`, `customerName`.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Lista de reseñas obtenida exitosamente"),
             @ApiResponse(responseCode = "401", description = "No autenticado - se requiere token Bearer")

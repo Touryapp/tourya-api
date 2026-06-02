@@ -49,6 +49,8 @@ import java.util.Map;
 public class ProviderPayoutOrderService {
 
     private static final ZoneId ZONE = ZoneId.of("America/Bogota");
+    private static final OffsetDateTime FILTER_FROM_MIN = OffsetDateTime.parse("1970-01-01T00:00:00Z");
+    private static final OffsetDateTime FILTER_TO_MAX = OffsetDateTime.parse("9999-12-31T23:59:59Z");
     private static final String NOT_PRIVILEGES = "You have no privileges to perform this action.";
 
     private final ProviderService providerService;
@@ -141,11 +143,11 @@ public class ProviderPayoutOrderService {
     }
 
     private OffsetDateTime toStartOfDay(LocalDate date) {
-        return date != null ? date.atStartOfDay(ZONE).toOffsetDateTime() : null;
+        return date != null ? date.atStartOfDay(ZONE).toOffsetDateTime() : FILTER_FROM_MIN;
     }
 
     private OffsetDateTime toEndOfDay(LocalDate date) {
-        return date != null ? date.atTime(23, 59, 59).atZone(ZONE).toOffsetDateTime() : null;
+        return date != null ? date.atTime(23, 59, 59).atZone(ZONE).toOffsetDateTime() : FILTER_TO_MAX;
     }
 
     @Transactional(readOnly = true)

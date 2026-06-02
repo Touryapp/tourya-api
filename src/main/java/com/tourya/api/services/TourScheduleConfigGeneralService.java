@@ -5,6 +5,8 @@ import com.tourya.api._utils.Utils;
 import com.tourya.api.common.PageResponse;
 import com.tourya.api.constans.enums.AgePriceType;
 import com.tourya.api.constans.enums.TourScheduleStatusEnum;
+import com.tourya.api.constans.enums.TourStatusEnum;
+import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.models.*;
@@ -71,6 +73,7 @@ public class TourScheduleConfigGeneralService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "tourId is required.");
         }
         Tour tour = getTour(request.getTourId(), provider.getId());
+        requireTourAcceptedForProviderSchedule(tour, roleList);
 
         // 1. Construir el grafo de entidades a partir del DTO
         TourScheduleConfig config = buildConfigFromRequest(request, provider, tour);
@@ -165,6 +168,10 @@ public class TourScheduleConfigGeneralService {
         TourScheduleConfig existingConfig = tourScheduleConfigRepository.findByIdWithSlots(configId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Tour configuration with ID " + configId + " not found."));
+        if (existingConfig.getTourId() != null) {
+            Tour tour = tourRepository.findById(existingConfig.getTourId()).orElse(null);
+            requireTourAcceptedForProviderSchedule(tour, roleList);
+        }
 
         // 3. Actualizar las propiedades y colecciones de la entidad
         updateConfigProperties(existingConfig, request);
@@ -626,7 +633,7 @@ public class TourScheduleConfigGeneralService {
             Authentication connectedUser) {
         requireTouryaBackoffice(connectedUser);
         BigDecimal fraction = TouryaPriceCalculator.fromApiPercentPoints(request.getSlotPercentageTourya());
-        TourScheduleConfigSlot slot = tourScheduleConfigSlotRepository.findByIdAndTourIdWithPrices(tourId, slotId)
+        TourScheduleConfigSlot slot = tourScheduleConfigSlotRepository.findByIdAndTourIdWithPrices(slotId, tourId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Slot not found for tour. tourId=" + tourId + ", slotId=" + slotId));
         int pricesUpdated = applyPercentageToSlots(List.of(slot), fraction);
@@ -638,9 +645,27 @@ public class TourScheduleConfigGeneralService {
     }
 
     private void requireTouryaBackoffice(Authentication connectedUser) {
-        User user = (User) connectedUser.getPrincipal();
-        if (!Utils.isTouryaBackoffice(user.getRoles())) {
-            throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
+        if (Utils.isTouryaBackoffice(connectedUser)) {
+            return;
+        }
+        String roles = connectedUser != null
+                ? connectedUser.getAuthorities().stream()
+                        .map(a -> a.getAuthority())
+                        .reduce((a, b) -> a + ", " + b)
+                        .orElse("(ninguno)")
+                : "(sin autenticación)";
+        throw new InsufficientPrivilegesException(
+                NOT_PRIVILEGES + " Se requiere ADMIN o BACKOFFICE_OPERATION. Roles actuales: " + roles);
+    }
+
+    /** Proveedor solo configura horarios si el tour ya está publicado (ACCEPTED). */
+    private void requireTourAcceptedForProviderSchedule(Tour tour, List<Role> roles) {
+        if (tour == null || Utils.isTouryaBackoffice(roles)) {
+            return;
+        }
+        if (Utils.isProviderSide(roles) && tour.getStatus() != TourStatusEnum.ACCEPTED) {
+            throw new OperationNotPermittedException(
+                    "Solo puede configurar horarios cuando el tour está en estado ACCEPTED");
         }
     }
 
@@ -783,6 +808,10 @@ public class TourScheduleConfigGeneralService {
         List<TourScheduleBulkResponse> responses = new ArrayList<>();
 
         for (TourScheduleRequest dto : scheduleRequests) {
+            Tour tourForSchedule = tourRepository.findById(dto.getTourId()).orElse(null);
+            requireTourAcceptedForProviderSchedule(tourForSchedule,
+                    ((User) connectedUser.getPrincipal()).getRoles());
+
             Optional<TourSchedule> existingScheduleOpt = tourScheduleRepository.findByTourIdAndScheduleDate(
                     dto.getTourId(),
                     dto.getScheduleDate());
