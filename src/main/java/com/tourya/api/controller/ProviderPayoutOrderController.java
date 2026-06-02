@@ -42,16 +42,19 @@ public class ProviderPayoutOrderController {
                     + "Filtros opcionales: status, fromDate, toDate.")
     public ResponseEntity<ProviderPayoutOrderListPageResponse> listForProvider(
             Authentication connectedUser,
-            @Parameter(description = "PAID | PENDING | CANCELED") @RequestParam(required = false) ProviderPayoutOrderStatusEnum status,
-            @Parameter(description = "Fecha inicio (inclusive)") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
-            @Parameter(description = "Fecha fin (inclusive)") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
+            @Parameter(description = "PAID | PENDING | CANCELED")
+            @RequestParam(value = "status", required = false) ProviderPayoutOrderStatusEnum status,
+            @Parameter(description = "Fecha inicio (inclusive)")
+            @RequestParam(value = "fromDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @Parameter(description = "Fecha fin (inclusive)")
+            @RequestParam(value = "toDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
         return ResponseEntity.ok(providerPayoutOrderService.listForProvider(connectedUser, status, fromDate, toDate));
     }
 
     @GetMapping("/{orderId}")
     @Operation(operationId = "providerGetPayoutOrderDetails", summary = "Detalle de orden de pago (proveedor)")
     public ResponseEntity<ProviderPayoutOrderDetailsResponse> detailsForProvider(
-            @PathVariable Long orderId,
+            @PathVariable("orderId") Long orderId,
             Authentication connectedUser) {
         return ResponseEntity.ok(providerPayoutOrderService.getDetailsForProvider(orderId, connectedUser));
     }
@@ -64,10 +67,11 @@ public class ProviderPayoutOrderController {
             description = "Igual que proveedor, con filtro opcional providerId y totales por estado.")
     public ResponseEntity<ProviderPayoutOrderListPageResponse> listForAdmin(
             Authentication connectedUser,
-            @RequestParam(required = false) Integer providerId,
-            @Parameter(description = "PAID | PENDING | CANCELED") @RequestParam(required = false) ProviderPayoutOrderStatusEnum status,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
+            @RequestParam(value = "providerId", required = false) Integer providerId,
+            @Parameter(description = "PAID | PENDING | CANCELED")
+            @RequestParam(value = "status", required = false) ProviderPayoutOrderStatusEnum status,
+            @RequestParam(value = "fromDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(value = "toDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
         return ResponseEntity.ok(
                 providerPayoutOrderService.listForAdmin(connectedUser, providerId, status, fromDate, toDate));
     }
@@ -75,7 +79,7 @@ public class ProviderPayoutOrderController {
     @GetMapping("/admin/{orderId}")
     @Operation(operationId = "adminGetPayoutOrderDetails", summary = "Detalle de orden de pago (backoffice)")
     public ResponseEntity<ProviderPayoutOrderDetailsResponse> detailsForAdmin(
-            @PathVariable Long orderId,
+            @PathVariable("orderId") Long orderId,
             Authentication connectedUser) {
         return ResponseEntity.ok(providerPayoutOrderService.getDetailsForAdmin(orderId, connectedUser));
     }
@@ -83,7 +87,7 @@ public class ProviderPayoutOrderController {
     @PostMapping(value = "/admin/{orderId}/proof", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(operationId = "adminUploadPayoutProofAndMarkPaid", summary = "Subir comprobante y marcar orden como pagada (backoffice)")
     public ResponseEntity<ProviderPayoutOrderDetailsResponse> uploadProofAndMarkPaid(
-            @PathVariable Long orderId,
+            @PathVariable("orderId") Long orderId,
             @RequestPart("file") MultipartFile file,
             Authentication connectedUser) throws IOException {
         return ResponseEntity.ok(providerPayoutOrderService.uploadAttachmentAndMarkPaid(orderId, file, connectedUser));

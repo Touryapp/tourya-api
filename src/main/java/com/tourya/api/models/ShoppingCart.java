@@ -4,6 +4,7 @@ import com.tourya.api.common.BaseEntity;
 import com.tourya.api.constans.enums.ShoppingCartStatusEnum;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -41,6 +42,7 @@ public class ShoppingCart extends BaseEntity {
     @Column(name = "accommodation_longitude")
     private Double accommodationLongitude;
 
+    @Builder.Default
     @Column(name = "electronic_billing", nullable = false)
     private Boolean electronicBilling = false;
 
@@ -61,4 +63,11 @@ public class ShoppingCart extends BaseEntity {
 
     @OneToMany(mappedBy = "shoppingCart", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ShoppingCartItem> items;
+
+    @PrePersist
+    void ensureDefaults() {
+        if (electronicBilling == null) {
+            electronicBilling = Boolean.FALSE;
+        }
+    }
 }

@@ -39,5 +39,8 @@ public class ProviderResponse {
 
     private String phone;
 
+    /** Correo del usuario vinculado al proveedor. */
+    private String email;
+
     private ProviderStatusEnum status;
 }

@@ -45,8 +45,10 @@ public class ReservationController {
 
     @GetMapping
     @Operation(
-            summary = "Listar reservas (proveedor / backoffice)",
-            description = "Filtros: status (delivery), subCategory (enum tour), reservationId. "
+            summary = "Listar reservas (proveedor / backoffice / cliente)",
+            description = "Proveedor/backoffice: filtros por providerId, status, subCategory, reservationId. "
+                    + "Cliente (rol USER sin proveedor): solo sus reservas. "
+                    + "Incluye providerPrice (suma neto proveedor). "
                     + "Orden: sortBy=scheduleDate|reservationCreatedDate|reservationDate, sortDirection=ASC|DESC. "
                     + "Cada ítem incluye reservationId y bookingId (TB-{id}).")
     public ResponseEntity<PageResponse<ReservationDetailsResponse>> getProviderReservations(

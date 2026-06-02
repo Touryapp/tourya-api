@@ -903,12 +903,15 @@ public class ReservationService {
         User user = (User) connectedUser.getPrincipal();
         List<Role> roles = user.getRoles();
         Integer finalProviderId = null;
+        Integer customerUserId = null;
 
         if (Utils.isProviderSide(roles)) {
             Provider provider = providerService.findByUserAndStatusActive(user);
             finalProviderId = provider.getId();
         } else if (Utils.isTouryaBackoffice(roles)) {
             finalProviderId = requestedProviderId;
+        } else if (!Utils.isTouryaBackoffice(roles) && !Utils.isProviderSide(roles)) {
+            customerUserId = user.getId();
         } else {
             throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
         }
@@ -919,6 +922,7 @@ public class ReservationService {
         List<ReservationDetailsResponse> content =
                 reservationNativeRepository.getProviderReservations(
                         finalProviderId,
+                        customerUserId,
                         reservationId,
                         status,
                         subCategory,
@@ -954,6 +958,7 @@ public class ReservationService {
         Long total =
                 reservationNativeRepository.countProviderReservations(
                         finalProviderId,
+                        customerUserId,
                         reservationId,
                         status,
                         subCategory

@@ -25,6 +25,8 @@ public interface RequestProviderRepository extends JpaRepository<RequestProvider
     @Query("""
         SELECT rp
         FROM RequestProvider rp
+        JOIN FETCH rp.provider p
+        JOIN FETCH p.user
         WHERE (:status IS NULL AND rp.status != 'CREATED')
            OR (rp.status = :status)
         """)

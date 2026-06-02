@@ -31,6 +31,8 @@ public class ReservationDetailsResponse {
     private Integer shoppingItemId;
     private Double shoppingTotalPrice;
     private Double shoppingUnitPrice;
+    /** Suma de precios netos del proveedor al momento de la reserva. */
+    private Double providerPrice;
     private Integer shoppingQuantity;
 
     private String productType;
