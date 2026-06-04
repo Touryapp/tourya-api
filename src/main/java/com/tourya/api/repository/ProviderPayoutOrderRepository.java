@@ -17,8 +17,8 @@ public interface ProviderPayoutOrderRepository extends JpaRepository<ProviderPay
             SELECT o FROM ProviderPayoutOrder o
             WHERE (:providerId IS NULL OR o.providerId = :providerId)
               AND (:status IS NULL OR o.status = :status)
-              AND (:fromDate IS NULL OR o.createdAt >= :fromDate)
-              AND (:toDate IS NULL OR o.createdAt <= :toDate)
+              AND o.createdAt >= :fromDate
+              AND o.createdAt <= :toDate
             ORDER BY o.createdAt DESC
             """)
     List<ProviderPayoutOrder> findFiltered(

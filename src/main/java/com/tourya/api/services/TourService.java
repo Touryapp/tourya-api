@@ -650,6 +650,9 @@ public class TourService {
     public TourFullDataResponse consultDataTourById(Integer tourId, Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
+        if (Utils.isTouryaBackoffice(roleList)) {
+            return consultDataTourByIdToAdmin(tourId, connectedUser);
+        }
         if(Utils.isProviderSide(roleList)){
             Provider provider = providerService.findByUserAndStatusActive(user);
             Tour tour = tourRepository.findTourByIdAndProviderId(tourId, provider.getId());

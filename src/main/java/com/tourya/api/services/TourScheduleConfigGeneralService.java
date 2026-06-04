@@ -5,6 +5,8 @@ import com.tourya.api._utils.Utils;
 import com.tourya.api.common.PageResponse;
 import com.tourya.api.constans.enums.AgePriceType;
 import com.tourya.api.constans.enums.TourScheduleStatusEnum;
+import com.tourya.api.constans.enums.TourStatusEnum;
+import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.models.*;
@@ -49,6 +51,7 @@ public class TourScheduleConfigGeneralService {
     private final TourAddressRepository tourAddressRepository;
     private final AgeRangeConfigService ageRangeConfigService; // Servicio para obtener rangos de edad
     private final TourScheduleSlotAvailabilityService tourScheduleSlotAvailabilityService;
+    private final TourScheduleOverrideService tourScheduleOverrideService;
     private static final String NOT_PRIVILEGES = "You have no privileges to perform this action.";
 
     private Tour getTour(Integer tourId, Integer providerId) {
@@ -71,6 +74,7 @@ public class TourScheduleConfigGeneralService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "tourId is required.");
         }
         Tour tour = getTour(request.getTourId(), provider.getId());
+        requireTourAcceptedForProviderSchedule(tour, roleList);
 
         // 1. Construir el grafo de entidades a partir del DTO
         TourScheduleConfig config = buildConfigFromRequest(request, provider, tour);
@@ -165,6 +169,10 @@ public class TourScheduleConfigGeneralService {
         TourScheduleConfig existingConfig = tourScheduleConfigRepository.findByIdWithSlots(configId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Tour configuration with ID " + configId + " not found."));
+        if (existingConfig.getTourId() != null) {
+            Tour tour = tourRepository.findById(existingConfig.getTourId()).orElse(null);
+            requireTourAcceptedForProviderSchedule(tour, roleList);
+        }
 
         // 3. Actualizar las propiedades y colecciones de la entidad
         updateConfigProperties(existingConfig, request);
@@ -319,6 +327,13 @@ public class TourScheduleConfigGeneralService {
                 .orElse(null);
     }
 
+    /** El front a veces envía solo {@code price}; para proveedor se usa como {@code providerPrice}. */
+    private void normalizeProviderPriceDto(TourScheduleConfigPriceDto priceDto) {
+        if (priceDto != null && priceDto.getProviderPrice() == null && priceDto.getPrice() != null) {
+            priceDto.setProviderPrice(priceDto.getPrice());
+        }
+    }
+
     private void validateSlotPrices(Set<TourScheduleConfigPriceDto> prices, List<Role> roleList) {
         if (prices == null || prices.isEmpty()) {
             return;
@@ -326,6 +341,7 @@ public class TourScheduleConfigGeneralService {
 
         Set<AgePriceType> existingAgeTypes = new HashSet<>();
         for (TourScheduleConfigPriceDto priceDto : prices) {
+            normalizeProviderPriceDto(priceDto);
             if (!existingAgeTypes.add(priceDto.getAgeType())) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "Duplicate ageType found for the same slot: " + priceDto.getAgeType());
@@ -349,6 +365,7 @@ public class TourScheduleConfigGeneralService {
 
     private void applyPriceDtoToEntity(TourScheduleConfigPrice price, TourScheduleConfigPriceDto priceDto,
             BigDecimal slotPorcentajeTourya, List<Role> roleList) {
+        normalizeProviderPriceDto(priceDto);
         price.setAgeType(priceDto.getAgeType());
         if (Utils.isTouryaBackoffice(roleList)) {
             price.setProviderPrice(priceDto.getProviderPrice());
@@ -479,7 +496,11 @@ public class TourScheduleConfigGeneralService {
      */
 
     private TourScheduleConfigResponse mapToTourScheduleConfigResponse(TourScheduleConfig config, List<Role> roleList) {
-        Map<AgePriceType, AgeRangeConfig> ageConfigMap = ageRangeConfigService.getAllAsMap();
+        return mapToTourScheduleConfigResponse(config, roleList, ageRangeConfigService.getAllAsMap());
+    }
+
+    private TourScheduleConfigResponse mapToTourScheduleConfigResponse(TourScheduleConfig config, List<Role> roleList,
+            Map<AgePriceType, AgeRangeConfig> ageConfigMap) {
         boolean showTouryaFields = roleList != null && Utils.isTouryaBackoffice(roleList);
 
         TourScheduleConfigResponse responseDto = new TourScheduleConfigResponse();
@@ -558,31 +579,54 @@ public class TourScheduleConfigGeneralService {
             throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
         }
 
-        {
-            List<TourSchedule> tourSchedules = tourScheduleRepository.findByTourId(tour.getId());
-            
-            List<TourScheduleResponse> content = tourSchedules.stream()
-                    .map(schedule -> {
-                        TourScheduleResponse dto = new TourScheduleResponse();
-                        dto.setId(schedule.getId());
-                        dto.setTourId(schedule.getTourId());
-                        dto.setScheduleDate(schedule.getScheduleDate());
-                        dto.setStatus(schedule.getStatus());
-                        dto.setConfigId(schedule.getConfigId());
-                        if (schedule.getConfigId() != null) {
-                            Optional<TourScheduleConfig> configOpt = tourScheduleConfigRepository
-                                    .findByIdWithSlots(schedule.getConfigId());
-                            configOpt.ifPresent(config -> {
-                                TourScheduleConfigResponse configResponse =
-                                        convertToTourScheduleConfigResponse(config, roleList);
-                                dto.setConfig(configResponse);
-                            });
-                        }
-                        return dto;
-                    }).collect(Collectors.toList());
-            
-            return content;
+        List<TourSchedule> tourSchedules = tourScheduleRepository.findByTourId(tour.getId());
+        if (tourSchedules.isEmpty()) {
+            return List.of();
         }
+
+        Set<Integer> configIds = tourSchedules.stream()
+                .map(TourSchedule::getConfigId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        Map<Integer, TourScheduleConfig> configById = configIds.isEmpty()
+                ? Map.of()
+                : tourScheduleConfigRepository.findByIdInWithSlots(configIds).stream()
+                        .collect(Collectors.toMap(TourScheduleConfig::getId, Function.identity()));
+
+        List<Integer> scheduleIds = tourSchedules.stream()
+                .map(TourSchedule::getId)
+                .collect(Collectors.toList());
+        TourScheduleOverrideService.OverrideBatchData overrideBatch =
+                tourScheduleOverrideService.loadOverrideBatch(scheduleIds);
+
+        Map<AgePriceType, AgeRangeConfig> ageConfigMap = ageRangeConfigService.getAllAsMap();
+        boolean showSlotPercentage = roleList != null && Utils.isTouryaBackoffice(roleList);
+
+        return tourSchedules.stream()
+                .map(schedule -> {
+                    TourScheduleResponse dto = new TourScheduleResponse();
+                    dto.setId(schedule.getId());
+                    dto.setTourId(schedule.getTourId());
+                    dto.setScheduleDate(schedule.getScheduleDate());
+                    dto.setStatus(schedule.getStatus());
+                    dto.setConfigId(schedule.getConfigId());
+                    if (schedule.getConfigId() != null) {
+                        TourScheduleConfig config = configById.get(schedule.getConfigId());
+                        if (config != null) {
+                            TourScheduleConfigResponse configResponse =
+                                    mapToTourScheduleConfigResponse(config, roleList, ageConfigMap);
+                            tourScheduleOverrideService.applyToConfigResponse(
+                                    schedule.getId(),
+                                    configResponse,
+                                    overrideBatch,
+                                    showSlotPercentage);
+                            dto.setConfig(configResponse);
+                        }
+                    }
+                    return dto;
+                })
+                .collect(Collectors.toList());
     }
 
     @Transactional
@@ -598,14 +642,35 @@ public class TourScheduleConfigGeneralService {
             throw new ResourceNotFoundException("Tour not found with id = " + tourId);
         }
         BigDecimal fraction = TouryaPriceCalculator.fromApiPercentPoints(request.getSlotPercentageTourya());
-        List<TourScheduleConfigSlot> slots = tourScheduleConfigSlotRepository
-                .findSlotsWithPricesByTourIdAndScheduleDateBetween(
-                        tourId, request.getStartDate(), request.getEndDate());
-        int pricesUpdated = applyPercentageToSlots(slots, fraction);
+        List<TourSchedule> schedules = tourScheduleRepository.findByTourIdAndScheduleDateBetween(
+                tourId, request.getStartDate(), request.getEndDate());
+
+        int schedulesProcessed = 0;
+        int slotsUpdated = 0;
+        int pricesRecalculated = 0;
+
+        for (TourSchedule schedule : schedules) {
+            if (schedule.getConfigId() == null) {
+                continue;
+            }
+            TourScheduleConfig config = tourScheduleConfigRepository.findByIdWithSlots(schedule.getConfigId())
+                    .orElse(null);
+            if (config == null || config.getSlots() == null || config.getSlots().isEmpty()) {
+                continue;
+            }
+            schedulesProcessed++;
+            for (TourScheduleConfigSlot slot : config.getSlots()) {
+                slotsUpdated++;
+            }
+            pricesRecalculated += tourScheduleOverrideService.applyPercentageToScheduleSlots(
+                    schedule.getId(), config.getSlots(), fraction);
+        }
+
         return UpdateSlotPercentageResultResponse.builder()
                 .tourId(tourId)
-                .slotsUpdated(slots.size())
-                .pricesRecalculated(pricesUpdated)
+                .schedulesProcessed(schedulesProcessed)
+                .slotsUpdated(slotsUpdated)
+                .pricesRecalculated(pricesRecalculated)
                 .build();
     }
 
@@ -617,40 +682,58 @@ public class TourScheduleConfigGeneralService {
             Authentication connectedUser) {
         requireTouryaBackoffice(connectedUser);
         BigDecimal fraction = TouryaPriceCalculator.fromApiPercentPoints(request.getSlotPercentageTourya());
-        TourScheduleConfigSlot slot = tourScheduleConfigSlotRepository.findByIdAndTourIdWithPrices(tourId, slotId)
+
+        TourSchedule schedule = tourScheduleRepository.findById(request.getScheduleId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Schedule not found with id = " + request.getScheduleId()));
+        if (!tourId.equals(schedule.getTourId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Schedule " + request.getScheduleId() + " does not belong to tour " + tourId);
+        }
+
+        TourScheduleConfigSlot slot = tourScheduleConfigSlotRepository.findByIdAndTourIdWithPrices(slotId, tourId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Slot not found for tour. tourId=" + tourId + ", slotId=" + slotId));
-        int pricesUpdated = applyPercentageToSlots(List.of(slot), fraction);
+
+        if (schedule.getConfigId() == null || !schedule.getConfigId().equals(slot.getConfigId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Slot " + slotId + " is not part of the config for schedule " + schedule.getId());
+        }
+
+        int pricesUpdated = tourScheduleOverrideService.applyPercentageToScheduleSlot(
+                schedule.getId(), slot, fraction);
+
         return UpdateSlotPercentageResultResponse.builder()
                 .tourId(tourId)
+                .schedulesProcessed(1)
                 .slotsUpdated(1)
                 .pricesRecalculated(pricesUpdated)
                 .build();
     }
 
     private void requireTouryaBackoffice(Authentication connectedUser) {
-        User user = (User) connectedUser.getPrincipal();
-        if (!Utils.isTouryaBackoffice(user.getRoles())) {
-            throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
+        if (Utils.isTouryaBackoffice(connectedUser)) {
+            return;
         }
+        String roles = connectedUser != null
+                ? connectedUser.getAuthorities().stream()
+                        .map(a -> a.getAuthority())
+                        .reduce((a, b) -> a + ", " + b)
+                        .orElse("(ninguno)")
+                : "(sin autenticación)";
+        throw new InsufficientPrivilegesException(
+                NOT_PRIVILEGES + " Se requiere ADMIN o BACKOFFICE_OPERATION. Roles actuales: " + roles);
     }
 
-    private int applyPercentageToSlots(List<TourScheduleConfigSlot> slots, BigDecimal fraction) {
-        int pricesUpdated = 0;
-        for (TourScheduleConfigSlot slot : slots) {
-            slot.setSlotPorcentajeTourya(fraction);
-            if (slot.getPrices() != null) {
-                for (TourScheduleConfigPrice price : slot.getPrices()) {
-                    if (price.getProviderPrice() != null) {
-                        price.setPrice(TouryaPriceCalculator.calculateSalePrice(
-                                price.getProviderPrice(), fraction));
-                        pricesUpdated++;
-                    }
-                }
-            }
-            tourScheduleConfigSlotRepository.save(slot);
+    /** Proveedor solo configura horarios si el tour ya está publicado (ACCEPTED). */
+    private void requireTourAcceptedForProviderSchedule(Tour tour, List<Role> roles) {
+        if (tour == null || Utils.isTouryaBackoffice(roles)) {
+            return;
         }
-        return pricesUpdated;
+        if (Utils.isProviderSide(roles) && tour.getStatus() != TourStatusEnum.ACCEPTED) {
+            throw new OperationNotPermittedException(
+                    "Solo puede configurar horarios cuando el tour está en estado ACCEPTED");
+        }
     }
 
     @Transactional(readOnly = true)
@@ -774,6 +857,10 @@ public class TourScheduleConfigGeneralService {
         List<TourScheduleBulkResponse> responses = new ArrayList<>();
 
         for (TourScheduleRequest dto : scheduleRequests) {
+            Tour tourForSchedule = tourRepository.findById(dto.getTourId()).orElse(null);
+            requireTourAcceptedForProviderSchedule(tourForSchedule,
+                    ((User) connectedUser.getPrincipal()).getRoles());
+
             Optional<TourSchedule> existingScheduleOpt = tourScheduleRepository.findByTourIdAndScheduleDate(
                     dto.getTourId(),
                     dto.getScheduleDate());

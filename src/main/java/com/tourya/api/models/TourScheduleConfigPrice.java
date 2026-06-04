@@ -14,10 +14,13 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
+
+import java.util.Objects;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -30,9 +33,11 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @Entity
 @Table(name = "tour_schedule_config_price")
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class TourScheduleConfigPrice extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY) // Auto-incrementing primary key
+    @EqualsAndHashCode.Include
     private Integer id;
 
     // MODIFICACIÓN: Esta propiedad ahora es solo de lectura para la columna
@@ -51,6 +56,7 @@ public class TourScheduleConfigPrice extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "age_type", length = 20, nullable = false)
+    @EqualsAndHashCode.Include
     private AgePriceType ageType;
 
     @Column(name = "price", nullable = false)

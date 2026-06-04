@@ -95,6 +95,7 @@ public class ReservationService {
     private final TourScheduleSlotAvailabilityService tourScheduleSlotAvailabilityService;
     private final ReviewRepository reviewRepository;
     private final ReservationPriceBreakdownMapper reservationPriceBreakdownMapper;
+    private final TouristProfileRepository touristProfileRepository;
 
     /**
      * Método createReservation removido - las reservas se crean automáticamente con los pagos
@@ -626,6 +627,21 @@ public class ReservationService {
                 .build();
     }
 
+    private void enrichCustomerProfileImage(ReservationDetailsResponse reservation) {
+        if (reservation.getShoppingItemId() == null) {
+            return;
+        }
+        shoppingCartItemRepository.findById(reservation.getShoppingItemId().longValue()).ifPresent(item -> {
+            if (item.getShoppingCart() == null || item.getShoppingCart().getUser() == null) {
+                return;
+            }
+            touristProfileRepository.findByUserId(item.getShoppingCart().getUser().getId())
+                    .map(TouristProfile::getPhotoUrl)
+                    .filter(url -> url != null && !url.isBlank())
+                    .ifPresent(reservation::setCustomerProfileImageUrl);
+        });
+    }
+
     /**
      * Consulta una reserva por su URL QR.
      * 
@@ -887,12 +903,15 @@ public class ReservationService {
         User user = (User) connectedUser.getPrincipal();
         List<Role> roles = user.getRoles();
         Integer finalProviderId = null;
+        Integer customerUserId = null;
 
         if (Utils.isProviderSide(roles)) {
             Provider provider = providerService.findByUserAndStatusActive(user);
             finalProviderId = provider.getId();
         } else if (Utils.isTouryaBackoffice(roles)) {
             finalProviderId = requestedProviderId;
+        } else if (!Utils.isTouryaBackoffice(roles) && !Utils.isProviderSide(roles)) {
+            customerUserId = user.getId();
         } else {
             throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
         }
@@ -903,6 +922,7 @@ public class ReservationService {
         List<ReservationDetailsResponse> content =
                 reservationNativeRepository.getProviderReservations(
                         finalProviderId,
+                        customerUserId,
                         reservationId,
                         status,
                         subCategory,
@@ -912,8 +932,8 @@ public class ReservationService {
                         size
                 );
 
-        // Agregar canReschedule y canCancel a cada reserva
         for (ReservationDetailsResponse reservation : content) {
+            enrichCustomerProfileImage(reservation);
             try {
                 RescheduleValidationResponse validation = validateRescheduleReservation(
                         reservation.getReservationId(), connectedUser);
@@ -938,6 +958,7 @@ public class ReservationService {
         Long total =
                 reservationNativeRepository.countProviderReservations(
                         finalProviderId,
+                        customerUserId,
                         reservationId,
                         status,
                         subCategory

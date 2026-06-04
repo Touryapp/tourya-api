@@ -57,6 +57,7 @@ public class ShoppingCartService {
     private final TourReservationService tourReservationService;
     private final AgeRangeConfigService ageRangeConfigService;
     private final TourScheduleSlotAvailabilityService tourScheduleSlotAvailabilityService;
+    private final TourScheduleOverrideService tourScheduleOverrideService;
 
     /**
      * Crea un nuevo carrito de compras para un usuario.
@@ -104,6 +105,7 @@ public class ShoppingCartService {
         ShoppingCart cart = ShoppingCart.builder()
                 .user(user)
                 .status(ShoppingCartStatusEnum.ACTIVE)
+                .electronicBilling(Boolean.FALSE)
                 .items(new ArrayList<>())
                 .build();
 
@@ -214,7 +216,8 @@ public class ShoppingCartService {
                 // Obtener configuración de rango de edad desde age_range_config
                 AgeRangeConfig ageRangeConfig = ageRangeConfigService.getByAgeType(ageType);
                 
-                BigDecimal unitPrice = priceConfig.getPrice();
+                BigDecimal unitPrice = tourScheduleOverrideService.resolveSalePrice(
+                        request.getTourScheduleId(), priceConfig.getId(), priceConfig.getPrice());
                 BigDecimal providerUnitPrice = priceConfig.getProviderPrice() != null 
                         ? priceConfig.getProviderPrice() 
                         : BigDecimal.ZERO;
@@ -370,7 +373,8 @@ public class ShoppingCartService {
                 // Esto permite acceder a minAge y maxAge para validaciones futuras
                 AgeRangeConfig ageRangeConfig = ageRangeConfigService.getByAgeType(ageType);
                 
-                BigDecimal unitPrice = priceConfig.getPrice();
+                BigDecimal unitPrice = tourScheduleOverrideService.resolveSalePrice(
+                        request.getTourScheduleId(), priceConfig.getId(), priceConfig.getPrice());
                 BigDecimal providerUnitPrice = priceConfig.getProviderPrice() != null 
                         ? priceConfig.getProviderPrice() 
                         : BigDecimal.ZERO;

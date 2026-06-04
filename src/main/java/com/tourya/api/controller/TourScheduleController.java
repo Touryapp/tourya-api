@@ -173,8 +173,9 @@ public class TourScheduleController {
     @PutMapping("/tours/{tourId}/percentage")
     @Operation(
             summary = "Actualizar % Tourya por rango de fechas",
-            description = "Solo backoffice (ADMIN / BACKOFFICE_OPERATION). Actualiza slotPercentageTourya en todos los slots "
-                    + "de schedules del tour entre startDate y endDate, y recalcula price = providerPrice + (providerPrice × %)."
+            description = "Solo backoffice (ADMIN / BACKOFFICE_OPERATION). Itera cada schedule (día) entre startDate "
+                    + "y endDate; por cada schedule actualiza todos sus slots y recalcula price por día sin afectar "
+                    + "otros schedules fuera del rango."
     )
     public ResponseEntity<UpdateSlotPercentageResultResponse> updateSlotPercentageByDateRange(
             @PathVariable Integer tourId,
@@ -186,8 +187,9 @@ public class TourScheduleController {
 
     @PutMapping("/tours/{tourId}/percentage/{slotId}")
     @Operation(
-            summary = "Actualizar % Tourya de un slot",
-            description = "Solo backoffice. Actualiza el porcentaje de un slot y recalcula sus precios de venta."
+            summary = "Actualizar % Tourya de un slot en un schedule",
+            description = "Solo backoffice. Requiere scheduleId en el body: actualiza % y precios solo para ese día, "
+                    + "sin afectar otros schedules que compartan el mismo slotId."
     )
     public ResponseEntity<UpdateSlotPercentageResultResponse> updateSlotPercentageForSlot(
             @PathVariable Integer tourId,
