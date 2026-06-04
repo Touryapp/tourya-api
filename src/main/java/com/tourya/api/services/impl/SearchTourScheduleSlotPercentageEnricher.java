@@ -4,6 +4,7 @@ import com.tourya.api._utils.TouryaPriceCalculator;
 import com.tourya.api.models.TourScheduleConfigSlot;
 import com.tourya.api.models.responses.SearchTourScheduleFullResponse;
 import com.tourya.api.repository.TourScheduleConfigSlotRepository;
+import com.tourya.api.services.TourScheduleOverrideService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -15,27 +16,33 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Enriquece resultados de búsqueda con {@code slotPorcentajeTourya} (solo backoffice).
+ * Aplica {@code slotPorcentajeTourya} y precios efectivos por schedule (override por día)
+ * y, si no hay override, el valor base del slot de config (solo backoffice para el %).
  */
 @Component
 @RequiredArgsConstructor
 public class SearchTourScheduleSlotPercentageEnricher {
 
     private final TourScheduleConfigSlotRepository tourScheduleConfigSlotRepository;
+    private final TourScheduleOverrideService tourScheduleOverrideService;
 
     public void enrich(List<SearchTourScheduleFullResponse> rows, boolean showSlotPercentage) {
-        if (!showSlotPercentage || rows == null || rows.isEmpty()) {
+        if (rows == null || rows.isEmpty()) {
             return;
         }
-        Set<Integer> slotIds = collectSlotIds(rows);
+        tourScheduleOverrideService.enrichSearchRows(rows, showSlotPercentage);
+        if (!showSlotPercentage) {
+            return;
+        }
+        Set<Integer> slotIds = collectSlotIdsWithoutOverride(rows);
         if (slotIds.isEmpty()) {
             return;
         }
         Map<Integer, BigDecimal> slotPercentById = loadSlotPercentPointsBySlotIds(slotIds);
-        applyPercentToRows(rows, slotPercentById);
+        applyBasePercentToRows(rows, slotPercentById);
     }
 
-    private Set<Integer> collectSlotIds(List<SearchTourScheduleFullResponse> rows) {
+    private Set<Integer> collectSlotIdsWithoutOverride(List<SearchTourScheduleFullResponse> rows) {
         Set<Integer> ids = new HashSet<>();
         for (SearchTourScheduleFullResponse row : rows) {
             if (row == null || row.getSchedules() == null) {
@@ -46,7 +53,7 @@ public class SearchTourScheduleSlotPercentageEnricher {
                     continue;
                 }
                 for (SearchTourScheduleFullResponse.TourScheduleSlotResponse slot : sch.getConfig().getSlots()) {
-                    if (slot != null && slot.getSlotId() != null) {
+                    if (slot != null && slot.getSlotId() != null && slot.getSlotPorcentajeTourya() == null) {
                         ids.add(slot.getSlotId());
                     }
                 }
@@ -63,7 +70,8 @@ public class SearchTourScheduleSlotPercentageEnricher {
         return out;
     }
 
-    private void applyPercentToRows(List<SearchTourScheduleFullResponse> rows, Map<Integer, BigDecimal> slotPercentById) {
+    private void applyBasePercentToRows(List<SearchTourScheduleFullResponse> rows,
+            Map<Integer, BigDecimal> slotPercentById) {
         for (SearchTourScheduleFullResponse row : rows) {
             if (row == null || row.getSchedules() == null) {
                 continue;
@@ -73,7 +81,7 @@ public class SearchTourScheduleSlotPercentageEnricher {
                     continue;
                 }
                 for (SearchTourScheduleFullResponse.TourScheduleSlotResponse slot : sch.getConfig().getSlots()) {
-                    if (slot != null && slot.getSlotId() != null) {
+                    if (slot != null && slot.getSlotId() != null && slot.getSlotPorcentajeTourya() == null) {
                         slot.setSlotPorcentajeTourya(slotPercentById.get(slot.getSlotId()));
                     }
                 }
