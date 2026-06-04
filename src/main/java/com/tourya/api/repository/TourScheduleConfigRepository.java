@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,6 +17,11 @@ public interface TourScheduleConfigRepository extends JpaRepository<TourSchedule
             "LEFT JOIN FETCH tsc.slots s LEFT JOIN FETCH s.prices " +
             "WHERE tsc.id = :id")
     Optional<TourScheduleConfig> findByIdWithSlots(@Param("id") Integer id);
+
+    @Query("SELECT DISTINCT tsc FROM TourScheduleConfig tsc " +
+            "LEFT JOIN FETCH tsc.slots s LEFT JOIN FETCH s.prices " +
+            "WHERE tsc.id IN :ids")
+    List<TourScheduleConfig> findByIdInWithSlots(@Param("ids") Collection<Integer> ids);
 
     Page<TourScheduleConfig> findByTourId(@Param("tourId") Integer tourId, Pageable pageable);
 

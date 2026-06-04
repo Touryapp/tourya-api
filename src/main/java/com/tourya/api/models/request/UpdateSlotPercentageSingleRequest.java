@@ -10,6 +10,10 @@ import java.math.BigDecimal;
 @Data
 public class UpdateSlotPercentageSingleRequest {
 
+    /** Schedule (día) concreto; el % solo aplica a esa instancia, no a otros días con el mismo slot. */
+    @NotNull
+    private Integer scheduleId;
+
     @NotNull
     @DecimalMin("0")
     @DecimalMax("100")

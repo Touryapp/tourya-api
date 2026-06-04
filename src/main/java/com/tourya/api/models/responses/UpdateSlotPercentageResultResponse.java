@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class UpdateSlotPercentageResultResponse {
     private Integer tourId;
+    private int schedulesProcessed;
     private int slotsUpdated;
     private int pricesRecalculated;
 }

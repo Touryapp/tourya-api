@@ -19,6 +19,19 @@ public interface TourScheduleRepository extends JpaRepository<TourSchedule, Inte
 
     //Page<TourSchedule> findByTourId(@Param("tourId") Integer tourId, Pageable pageable);
     List <TourSchedule> findByTourId(@Param("tourId") Integer tourId);
+
+    @Query("""
+            SELECT ts FROM TourSchedule ts
+            WHERE ts.tourId = :tourId
+              AND ts.scheduleDate >= :startDate
+              AND ts.scheduleDate <= :endDate
+            ORDER BY ts.scheduleDate ASC
+            """)
+    List<TourSchedule> findByTourIdAndScheduleDateBetween(
+            @Param("tourId") Integer tourId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
+
     Optional<TourSchedule> findByTourIdAndScheduleDate(Integer tourId, LocalDate scheduleDate);
 
     void deleteByConfigId(Integer configId);

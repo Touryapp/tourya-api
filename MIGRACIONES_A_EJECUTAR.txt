@@ -62,3 +62,10 @@
     - SP `sp_get_provider_reservations`: filtro `p_customer_user_id`, columna `providerprice`
     - Reemplaza firma de 4 parámetros (ejecutar en EC2 antes del deploy del API)
 
+14. `database/migrations/052_tour_schedule_slot_price_override.sql`
+    - Overrides de % Tourya y precio de venta **por schedule (día)** y slot/price
+    - Requerido para PUT `/tour-schedules/tours/{tourId}/percentage` por rango de fechas
+
+15. `database/migrations/053_fix_tour_schedule_override_audit_columns.sql`
+    - Si 052 ya se ejecutó: agrega `last_modified_by` y ajusta auditoría JPA
+
