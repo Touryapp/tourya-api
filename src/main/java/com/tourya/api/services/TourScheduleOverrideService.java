@@ -41,7 +41,7 @@ public class TourScheduleOverrideService {
                         .slotId(slotId)
                         .build());
         row.setSlotPorcentajeTourya(fraction);
-        slotOverrideRepository.save(row);
+        slotOverrideRepository.saveAndFlush(row);
     }
 
     @Transactional
@@ -52,7 +52,7 @@ public class TourScheduleOverrideService {
                         .priceId(priceId)
                         .build());
         row.setPrice(price);
-        priceOverrideRepository.save(row);
+        priceOverrideRepository.saveAndFlush(row);
     }
 
     @Transactional
@@ -175,10 +175,10 @@ public class TourScheduleOverrideService {
         Map<Integer, BigDecimal> slotPct = slotPctBySchedule.getOrDefault(sch.getId(), Map.of());
         for (SearchTourScheduleFullResponse.TourScheduleSlotResponse slot : sch.getConfig().getSlots()) {
             Integer slotId = slot.getSlotId();
-            if (slotId == null || !slotPct.containsKey(slotId)) {
+            if (slotId == null) {
                 continue;
             }
-            BigDecimal fraction = slotPct.get(slotId);
+            BigDecimal fraction = slotPct.getOrDefault(slotId, BigDecimal.ZERO);
             if (showSlotPercentage) {
                 slot.setSlotPorcentajeTourya(TouryaPriceCalculator.toApiPercentPoints(fraction));
             }
@@ -207,11 +207,11 @@ public class TourScheduleOverrideService {
         if (slot == null) {
             return;
         }
-        if (slot.getId() != null && slotFractionById.containsKey(slot.getId())) {
-            if (showSlotPercentage) {
-                slot.setSlotPorcentajeTourya(
-                        TouryaPriceCalculator.toApiPercentPoints(slotFractionById.get(slot.getId())));
-            }
+        BigDecimal fraction = slot.getId() != null && slotFractionById.containsKey(slot.getId())
+                ? slotFractionById.get(slot.getId())
+                : BigDecimal.ZERO;
+        if (showSlotPercentage) {
+            slot.setSlotPorcentajeTourya(TouryaPriceCalculator.toApiPercentPoints(fraction));
         }
         if (slot.getPrices() == null) {
             return;
@@ -219,10 +219,8 @@ public class TourScheduleOverrideService {
         for (TourSchedulePriceResponse price : slot.getPrices()) {
             if (price.getId() != null && priceById.containsKey(price.getId())) {
                 price.setPrice(priceById.get(price.getId()));
-            } else if (slot.getId() != null && slotFractionById.containsKey(slot.getId())
-                    && price.getProviderPrice() != null) {
-                price.setPrice(TouryaPriceCalculator.calculateSalePrice(
-                        price.getProviderPrice(), slotFractionById.get(slot.getId())));
+            } else if (price.getProviderPrice() != null) {
+                price.setPrice(TouryaPriceCalculator.calculateSalePrice(price.getProviderPrice(), fraction));
             }
         }
     }
