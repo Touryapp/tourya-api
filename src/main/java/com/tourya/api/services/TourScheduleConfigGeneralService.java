@@ -501,6 +501,11 @@ public class TourScheduleConfigGeneralService {
 
     private TourScheduleConfigResponse mapToTourScheduleConfigResponse(TourScheduleConfig config, List<Role> roleList,
             Map<AgePriceType, AgeRangeConfig> ageConfigMap) {
+        return mapToTourScheduleConfigResponse(config, roleList, ageConfigMap, true);
+    }
+
+    private TourScheduleConfigResponse mapToTourScheduleConfigResponse(TourScheduleConfig config, List<Role> roleList,
+            Map<AgePriceType, AgeRangeConfig> ageConfigMap, boolean includeConfigSlotPercentage) {
         boolean showTouryaFields = roleList != null && Utils.isTouryaBackoffice(roleList);
 
         TourScheduleConfigResponse responseDto = new TourScheduleConfigResponse();
@@ -510,7 +515,7 @@ public class TourScheduleConfigGeneralService {
         responseDto.setDaysOfWeek(config.getDaysOfWeek());
 
         Set<TourScheduleSlotResponse> slotDtos = config.getSlots().stream()
-                .map(slot -> mapSlotToResponse(slot, ageConfigMap, showTouryaFields))
+                .map(slot -> mapSlotToResponse(slot, ageConfigMap, showTouryaFields, includeConfigSlotPercentage))
                 .collect(Collectors.toSet());
         responseDto.setSlots(slotDtos);
         return responseDto;
@@ -518,6 +523,12 @@ public class TourScheduleConfigGeneralService {
 
     private TourScheduleSlotResponse mapSlotToResponse(TourScheduleConfigSlot slot,
             Map<AgePriceType, AgeRangeConfig> ageConfigMap, boolean showTouryaFields) {
+        return mapSlotToResponse(slot, ageConfigMap, showTouryaFields, true);
+    }
+
+    private TourScheduleSlotResponse mapSlotToResponse(TourScheduleConfigSlot slot,
+            Map<AgePriceType, AgeRangeConfig> ageConfigMap, boolean showTouryaFields,
+            boolean includeConfigSlotPercentage) {
         TourScheduleSlotResponse slotDto = new TourScheduleSlotResponse();
         slotDto.setId(slot.getId());
         slotDto.setStartTime(slot.getStartTime());
@@ -527,7 +538,7 @@ public class TourScheduleConfigGeneralService {
         slotDto.setAvailability(slot.getAvailability());
         slotDto.setMinCapacityCalc(slot.getMinCapacityCalc());
         slotDto.setCheckAvailability(slot.getCheckAvailability());
-        if (showTouryaFields) {
+        if (showTouryaFields && includeConfigSlotPercentage) {
             slotDto.setSlotPorcentajeTourya(
                     TouryaPriceCalculator.toApiPercentPoints(slot.getSlotPorcentajeTourya()));
         }
@@ -615,7 +626,7 @@ public class TourScheduleConfigGeneralService {
                         TourScheduleConfig config = configById.get(schedule.getConfigId());
                         if (config != null) {
                             TourScheduleConfigResponse configResponse =
-                                    mapToTourScheduleConfigResponse(config, roleList, ageConfigMap);
+                                    mapToTourScheduleConfigResponse(config, roleList, ageConfigMap, false);
                             tourScheduleOverrideService.applyToConfigResponse(
                                     schedule.getId(),
                                     configResponse,
@@ -668,6 +679,9 @@ public class TourScheduleConfigGeneralService {
 
         return UpdateSlotPercentageResultResponse.builder()
                 .tourId(tourId)
+                .savedSlotPercentageTourya(request.getSlotPercentageTourya())
+                .startDate(request.getStartDate())
+                .endDate(request.getEndDate())
                 .schedulesProcessed(schedulesProcessed)
                 .slotsUpdated(slotsUpdated)
                 .pricesRecalculated(pricesRecalculated)
@@ -705,6 +719,8 @@ public class TourScheduleConfigGeneralService {
 
         return UpdateSlotPercentageResultResponse.builder()
                 .tourId(tourId)
+                .savedSlotPercentageTourya(request.getSlotPercentageTourya())
+                .scheduleId(schedule.getId())
                 .schedulesProcessed(1)
                 .slotsUpdated(1)
                 .pricesRecalculated(pricesUpdated)
