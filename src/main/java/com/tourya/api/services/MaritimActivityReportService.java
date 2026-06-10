@@ -1,11 +1,20 @@
 package com.tourya.api.services;
 
 import com.tourya.api.common.PageResponse;
+import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
+import com.tourya.api.models.City;
+import com.tourya.api.models.Country;
 import com.tourya.api.models.MaritimActivityReport;
+import com.tourya.api.models.State;
 import com.tourya.api.models.request.MaritimActivityReportRequest;
 import com.tourya.api.models.responses.MaritimActivityReportResponse;
+import com.tourya.api.repository.CityRepository;
+import com.tourya.api.repository.CountryRepository;
 import com.tourya.api.repository.MaritimActivityReportRepository;
+import com.tourya.api.repository.StateRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -20,12 +29,6 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * Servicio para gestión de reportes de actividades marítimas DIMAR.
- * 
- * @author Tourya API Team
- * @version 1.0
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -33,50 +36,42 @@ import java.util.stream.Collectors;
 public class MaritimActivityReportService {
 
     private final MaritimActivityReportRepository maritimActivityReportRepository;
+    private final CountryRepository countryRepository;
+    private final StateRepository stateRepository;
+    private final CityRepository cityRepository;
 
-    /**
-     * Crea un nuevo reporte DIMAR.
-     * 
-     * @param request Datos del reporte
-     * @param authentication Usuario autenticado
-     * @return MaritimActivityReportResponse con el reporte creado
-     */
+    @PersistenceContext
+    private EntityManager entityManager;
+
     @Transactional
     public MaritimActivityReportResponse create(MaritimActivityReportRequest request, Authentication authentication) {
-        log.info("Creating maritime activity report: country={}, city={}, activity={}, flag={}, date={}", 
-                request.getCountry(), request.getCity(), request.getActivity(), request.getFlag(), request.getReportDate());
-        
+        validateReportDates(request.getReportStartDate(), request.getReportEndDate());
+        LocationRefs location = resolveAndValidateLocation(request);
+        validateCategoryAndSubcategory(request.getBusinessCategoryId(), request.getSubcategoryCode());
+
         MaritimActivityReport report = MaritimActivityReport.builder()
-                .country(request.getCountry())
-                .city(request.getCity())
-                .activity(request.getActivity())
+                .country(location.country())
+                .state(location.state())
+                .city(location.city())
+                .businessCategoryId(request.getBusinessCategoryId())
+                .subcategoryCode(request.getSubcategoryCode())
                 .flag(request.getFlag())
-                .reportDate(request.getReportDate())
+                .reportStartDate(request.getReportStartDate())
+                .reportEndDate(request.getReportEndDate())
                 .build();
-        
-        report = maritimActivityReportRepository.save(report);
-        
-        return toResponse(report);
+
+        return toResponse(maritimActivityReportRepository.save(report));
     }
 
-    /**
-     * Obtiene todos los reportes con paginación.
-     * 
-     * @param page Número de página (0-based)
-     * @param size Tamaño de página
-     * @return PageResponse con los reportes
-     */
     @Transactional(readOnly = true)
     public PageResponse<MaritimActivityReportResponse> findAll(Integer page, Integer size) {
-        log.info("Getting all maritime activity reports - page: {}, size: {}", page, size);
-        
-        Pageable pageable = PageRequest.of(page, size, Sort.by("reportDate").descending());
+        Pageable pageable = PageRequest.of(page, size, Sort.by("reportStartDate").descending());
         Page<MaritimActivityReport> reportsPage = maritimActivityReportRepository.findAll(pageable);
-        
+
         List<MaritimActivityReportResponse> responses = reportsPage.getContent().stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
-        
+
         return PageResponse.<MaritimActivityReportResponse>builder()
                 .content(responses)
                 .number(reportsPage.getNumber())
@@ -88,109 +83,129 @@ public class MaritimActivityReportService {
                 .build();
     }
 
-    /**
-     * Obtiene un reporte por su ID.
-     * 
-     * @param id ID del reporte
-     * @return MaritimActivityReportResponse
-     */
     @Transactional(readOnly = true)
     public MaritimActivityReportResponse findById(Long id) {
-        log.info("Getting maritime activity report by id: {}", id);
-        
         MaritimActivityReport report = maritimActivityReportRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Maritime activity report not found with id: " + id));
-        
         return toResponse(report);
     }
 
-    /**
-     * Actualiza un reporte existente.
-     * 
-     * @param id ID del reporte a actualizar
-     * @param request Datos actualizados del reporte
-     * @return MaritimActivityReportResponse con el reporte actualizado
-     */
     @Transactional
     public MaritimActivityReportResponse update(Long id, MaritimActivityReportRequest request) {
-        log.info("Updating maritime activity report id: {}", id);
-        
         MaritimActivityReport report = maritimActivityReportRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Maritime activity report not found with id: " + id));
-        
-        report.setCountry(request.getCountry());
-        report.setCity(request.getCity());
-        report.setActivity(request.getActivity());
+
+        validateReportDates(request.getReportStartDate(), request.getReportEndDate());
+        LocationRefs location = resolveAndValidateLocation(request);
+        validateCategoryAndSubcategory(request.getBusinessCategoryId(), request.getSubcategoryCode());
+
+        report.setCountry(location.country());
+        report.setState(location.state());
+        report.setCity(location.city());
+        report.setBusinessCategoryId(request.getBusinessCategoryId());
+        report.setSubcategoryCode(request.getSubcategoryCode());
         report.setFlag(request.getFlag());
-        report.setReportDate(request.getReportDate());
-        
-        report = maritimActivityReportRepository.save(report);
-        
-        return toResponse(report);
+        report.setReportStartDate(request.getReportStartDate());
+        report.setReportEndDate(request.getReportEndDate());
+
+        return toResponse(maritimActivityReportRepository.save(report));
     }
 
-    /**
-     * Elimina un reporte por su ID.
-     * 
-     * @param id ID del reporte a eliminar
-     */
     @Transactional
     public void delete(Long id) {
-        log.info("Deleting maritime activity report id: {}", id);
-        
         if (!maritimActivityReportRepository.existsById(id)) {
             throw new ResourceNotFoundException("Maritime activity report not found with id: " + id);
         }
-        
         maritimActivityReportRepository.deleteById(id);
     }
 
-    /**
-     * Busca reportes por fecha.
-     * 
-     * @param reportDate Fecha del reporte
-     * @return Lista de reportes de esa fecha
-     */
     @Transactional(readOnly = true)
-    public List<MaritimActivityReportResponse> findByReportDate(LocalDate reportDate) {
-        log.info("Getting maritime activity reports by date: {}", reportDate);
-        
-        return maritimActivityReportRepository.findByReportDate(reportDate).stream()
+    public List<MaritimActivityReportResponse> findActiveOnDate(LocalDate reportDate) {
+        return maritimActivityReportRepository.findActiveOnDate(reportDate).stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Busca reportes por país y ciudad.
-     * 
-     * @param country País
-     * @param city Ciudad
-     * @return Lista de reportes
-     */
     @Transactional(readOnly = true)
-    public List<MaritimActivityReportResponse> findByCountryAndCity(String country, String city) {
-        log.info("Getting maritime activity reports by country: {} and city: {}", country, city);
-        
-        return maritimActivityReportRepository.findByCountryAndCity(country, city).stream()
+    public List<MaritimActivityReportResponse> findByLocation(
+            Integer countryId, Integer stateId, Integer cityId) {
+        return maritimActivityReportRepository.findByLocationIds(countryId, stateId, cityId).stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Convierte una entidad a Response DTO.
-     */
+    private void validateReportDates(LocalDate reportStartDate, LocalDate reportEndDate) {
+        LocalDate today = LocalDate.now();
+        if (reportStartDate.isBefore(today)) {
+            throw new OperationNotPermittedException(
+                    "La fecha de inicio del reporte no puede ser anterior a hoy.");
+        }
+        if (reportEndDate.isBefore(today)) {
+            throw new OperationNotPermittedException(
+                    "La fecha de fin del reporte no puede ser anterior a hoy.");
+        }
+        if (reportEndDate.isBefore(reportStartDate)) {
+            throw new OperationNotPermittedException(
+                    "La fecha de fin del reporte no puede ser anterior a la fecha de inicio.");
+        }
+    }
+
+    private LocationRefs resolveAndValidateLocation(MaritimActivityReportRequest request) {
+        Country country = countryRepository.findById(request.getCountryId())
+                .orElseThrow(() -> new ResourceNotFoundException("Country not found with id: " + request.getCountryId()));
+        State state = stateRepository.findById(request.getStateId())
+                .orElseThrow(() -> new ResourceNotFoundException("State not found with id: " + request.getStateId()));
+        City city = cityRepository.findById(request.getCityId())
+                .orElseThrow(() -> new ResourceNotFoundException("City not found with id: " + request.getCityId()));
+
+        if (!state.getCountry().getId().equals(country.getId())) {
+            throw new OperationNotPermittedException("El departamento no pertenece al país indicado.");
+        }
+        if (!city.getState().getId().equals(state.getId())) {
+            throw new OperationNotPermittedException("La ciudad no pertenece al departamento indicado.");
+        }
+
+        return new LocationRefs(country, state, city);
+    }
+
+    private void validateCategoryAndSubcategory(Integer businessCategoryId, String subcategoryCode) {
+        Number categoryCount = (Number) entityManager.createNativeQuery(
+                        "SELECT COUNT(*) FROM public.tour_business_category WHERE id = :id")
+                .setParameter("id", businessCategoryId)
+                .getSingleResult();
+        if (categoryCount.longValue() == 0) {
+            throw new ResourceNotFoundException("Business category not found with id: " + businessCategoryId);
+        }
+
+        Number mappingCount = (Number) entityManager.createNativeQuery("""
+                        SELECT COUNT(*)
+                        FROM public.tour_business_subcategory_mapping
+                        WHERE subcategory_code = :code AND business_category_id = :categoryId
+                        """)
+                .setParameter("code", subcategoryCode)
+                .setParameter("categoryId", businessCategoryId)
+                .getSingleResult();
+        if (mappingCount.longValue() == 0) {
+            throw new OperationNotPermittedException(
+                    "La subcategoría no pertenece a la categoría indicada.");
+        }
+    }
+
     private MaritimActivityReportResponse toResponse(MaritimActivityReport report) {
         return MaritimActivityReportResponse.builder()
                 .id(report.getId())
-                .country(report.getCountry())
-                .city(report.getCity())
-                .activity(report.getActivity())
+                .countryId(report.getCountry().getId())
+                .stateId(report.getState().getId())
+                .cityId(report.getCity().getId())
+                .businessCategoryId(report.getBusinessCategoryId())
+                .subcategoryCode(report.getSubcategoryCode())
                 .flag(report.getFlag())
-                .reportDate(report.getReportDate())
+                .reportStartDate(report.getReportStartDate())
+                .reportEndDate(report.getReportEndDate())
                 .createdDate(report.getCreatedDate())
                 .lastModifiedDate(report.getLastModifiedDate())
                 .build();
     }
+
+    private record LocationRefs(Country country, State state, City city) {}
 }
-
-

@@ -82,4 +82,26 @@ public class TranslatedField implements Serializable {
     public static TranslatedField of(String spanish, String english, String portuguese) {
         return new TranslatedField(spanish, english, portuguese);
     }
+
+    /**
+     * Parsea un JSON de traducciones (jsonb de PostgreSQL o string JSON).
+     * Si el valor no es JSON, lo interpreta como texto en español.
+     */
+    public static TranslatedField fromDbValue(Object dbValue) {
+        if (dbValue == null) {
+            return null;
+        }
+        String raw = dbValue.toString().trim();
+        if (raw.isEmpty()) {
+            return null;
+        }
+        if (!raw.startsWith("{")) {
+            return ofSpanish(raw);
+        }
+        try {
+            return new com.fasterxml.jackson.databind.ObjectMapper().readValue(raw, TranslatedField.class);
+        } catch (Exception e) {
+            return ofSpanish(raw);
+        }
+    }
 }

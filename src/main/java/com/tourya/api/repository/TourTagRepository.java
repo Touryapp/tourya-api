@@ -15,7 +15,10 @@ public class TourTagRepository {
     public List<Object[]> getAllTourTags() {
         return entityManager
                 .createNativeQuery("""
-                    SELECT t.id, d.nombre AS dimension, t.nombre, t.slug
+                    SELECT t.id,
+                           d.nombre AS dimension,
+                           COALESCE(t.name, jsonb_build_object('es', t.nombre, 'en', '', 'pt', '')) AS name,
+                           t.slug
                     FROM tags t
                     JOIN tag_dimensions d ON d.id = t.dimension_id
                     ORDER BY d.display_order, t.nombre

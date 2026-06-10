@@ -62,10 +62,25 @@
     - SP `sp_get_provider_reservations`: filtro `p_customer_user_id`, columna `providerprice`
     - Reemplaza firma de 4 parámetros (ejecutar en EC2 antes del deploy del API)
 
+
+
+
+
+
+
+
 14. `database/migrations/052_tour_schedule_slot_price_override.sql`
     - Overrides de % Tourya y precio de venta **por schedule (día)** y slot/price
     - Requerido para PUT `/tour-schedules/tours/{tourId}/percentage` por rango de fechas
 
 15. `database/migrations/053_fix_tour_schedule_override_audit_columns.sql`
     - Si 052 ya se ejecutó: agrega `last_modified_by` y ajusta auditoría JPA
+
+### 8) Ajustes back 09/06/2026
+16. `database/migrations/055_maritime_department_and_filter_name_i18n.sql`
+    - i18n tags/categorías + columna subcategorías name (jsonb)
+17. `database/migrations/056_fix_filter_i18n_complete_translations.sql`
+    - Traducciones completas es/en/pt (Filtros tours)
+18. `database/migrations/057_maritime_activity_report_location_and_dates.sql`
+    - Reportes DIMAR: country_id, state_id, city_id, business_category_id, subcategory_code, report_start_date, report_end_date
 
