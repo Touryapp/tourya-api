@@ -73,4 +73,7 @@ public class ReservationDetailsResponse {
 
     // --- Validación de cancelación ---
     private Boolean canCancel;
+
+    /** Cancelación por lluvia (DIMAR): solo el día del tour si hay reporte rojo vigente. */
+    private Boolean canRainCancel;
 }

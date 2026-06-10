@@ -11,23 +11,22 @@ import java.time.LocalDateTime;
 
 /**
  * Response para un reporte de actividad marítima DIMAR.
- * 
- * @author Tourya API Team
- * @version 1.0
  */
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
 public class MaritimActivityReportResponse {
-    
+
     private Long id;
-    private String country;
-    private String city;
-    private String activity;
+    private Integer countryId;
+    private Integer stateId;
+    private Integer cityId;
+    private Integer businessCategoryId;
+    private String subcategoryCode;
     private MaritimeFlagEnum flag;
-    private LocalDate reportDate;
+    private LocalDate reportStartDate;
+    private LocalDate reportEndDate;
     private LocalDateTime createdDate;
     private LocalDateTime lastModifiedDate;
 }
-

@@ -1,5 +1,6 @@
 package com.tourya.api.services;
 
+import com.tourya.api.models.TranslatedField;
 import com.tourya.api.models.responses.TourTagResponse;
 import com.tourya.api.repository.TourTagRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +21,7 @@ public class TourTagService {
                 .map(row -> new TourTagResponse(
                         ((Number) row[0]).intValue(),
                         (String) row[1],
-                        (String) row[2],
+                        TranslatedField.fromDbValue(row[2]),
                         (String) row[3]
                 ))
                 .collect(Collectors.toList());

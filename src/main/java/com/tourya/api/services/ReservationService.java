@@ -427,22 +427,6 @@ public class ReservationService {
     }
 
     /**
-     * Coincidencia entre la actividad cargada en el reporte DIMAR y la subcategoría del tour (p. ej. {@code paseo_al_cayo}).
-     */
-    private boolean maritimReportActivityMatchesTourSubcategory(MaritimActivityReport report, Tour tour) {
-        if (report == null || report.getActivity() == null || tour.getSubCategory() == null) {
-            return false;
-        }
-        String sub = tour.getSubCategory().getValue();
-        String act = report.getActivity().trim();
-        if (act.equalsIgnoreCase(sub)) {
-            return true;
-        }
-        String normalized = act.toLowerCase().replace(' ', '_').replace('-', '_');
-        return normalized.equalsIgnoreCase(sub);
-    }
-
-    /**
      * Rellena en la respuesta los datos del pagador desde la entidad {@link Payment}.
      */
     private void enrichPayerFromPayment(ReservationResponse response, Reservation reservation) {
@@ -953,6 +937,14 @@ public class ReservationService {
                         reservation.getReservationId(), e.getMessage());
                 reservation.setCanCancel(false);
             }
+
+            try {
+                reservation.setCanRainCancel(computeCanRainCancel(reservation.getReservationId(), connectedUser));
+            } catch (Exception e) {
+                log.warn("Error validating rain cancel for reservation {}: {}",
+                        reservation.getReservationId(), e.getMessage());
+                reservation.setCanRainCancel(false);
+            }
         }
 
         Long total =
@@ -1038,18 +1030,12 @@ public class ReservationService {
             throw new OperationNotPermittedException("No se encontró política de cancelación para este tour.");
         }
 
-        TourCancellationPolicy policy = policies.get(0);
         LocalDate today = LocalDate.now();
-
-        // Obtener la fecha seleccionada por el usuario desde ShoppingCartItem
-        LocalDate tourDate = (item.getScheduleDate() != null)
-                ? item.getScheduleDate()
-                : schedule.getScheduleDate(); // Fallback si no hay fecha en ShoppingCartItem
 
         // Validar según el motivo de cancelación
         boolean canCancel = false;
 
-        if (request.getCancellationReason() == CancellationReasonEnum.CANNOT_ATTEND) {
+        if (isPolicyBasedCancellationReason(request.getCancellationReason())) {
             // Alineado con validateCancelReservation: si no hay fecha máxima persistida, no bloqueamos por ventana
             if (reservation.getMaxCancellationDate() == null) {
                 canCancel = true;
@@ -1063,33 +1049,10 @@ public class ReservationService {
                                 + reservation.getMaxCancellationDate() + ") ya pasó.");
             }
         } else if (request.getCancellationReason() == CancellationReasonEnum.RAIN) {
-            if (!policy.isAllowsRainRefund()) {
-                throw new OperationNotPermittedException("La cancelación por lluvia no está habilitada para este tour.");
-            }
-            if (tourDate == null) {
-                throw new OperationNotPermittedException("No se pudo determinar la fecha del tour para validar la cancelación por lluvia.");
-            }
-            if (!today.equals(tourDate)) {
-                throw new OperationNotPermittedException(
-                        "La cancelación por lluvia solo es permitida el día del tour.");
-            }
-            if (tour.getSubCategory() == null) {
-                throw new OperationNotPermittedException(
-                        "El tour no tiene subcategoría definida; no aplica la cancelación por lluvia con reporte DIMAR.");
-            }
-            List<MaritimActivityReport> reports = maritimActivityReportRepository.findByReportDate(today);
-            if (reports.isEmpty()) {
-                throw new OperationNotPermittedException("No hay reporte marítimo (DIMAR) registrado para hoy.");
-            }
-            boolean hasMatchingRed = reports.stream()
-                    .anyMatch(r -> r.getFlag() == MaritimeFlagEnum.RED
-                            && maritimReportActivityMatchesTourSubcategory(r, tour));
-            if (!hasMatchingRed) {
-                throw new OperationNotPermittedException(
-                        "No aplica cancelación por lluvia: se requiere un reporte de hoy con bandera roja "
-                                + "y una actividad que coincida con la subcategoría del tour.");
-            }
-            canCancel = true;
+            throw new OperationNotPermittedException(
+                    "La cancelación por lluvia debe realizarse con PUT /reservations/{reservationId}/cancel/rain");
+        } else {
+            throw new OperationNotPermittedException("Motivo de cancelación no válido.");
         }
 
         // Si todas las validaciones pasan, cancelar la reserva y crear crédito
@@ -1126,6 +1089,134 @@ public class ReservationService {
         }
         
         return response;
+    }
+
+    private boolean isPolicyBasedCancellationReason(CancellationReasonEnum reason) {
+        return reason == CancellationReasonEnum.CANNOT_ATTEND
+                || reason == CancellationReasonEnum.ILLNESS
+                || reason == CancellationReasonEnum.INABILITY_TO_TRAVEL;
+    }
+
+    /**
+     * Cancela una reserva por lluvia (DIMAR). Endpoint dedicado; no usa {@link #cancelReservation}.
+     */
+    @Transactional
+    public ReservationResponse cancelReservationByRain(Long reservationId, Authentication authentication) {
+        log.info("Canceling reservation {} by rain (DIMAR)", reservationId);
+
+        User user = (User) authentication.getPrincipal();
+        Reservation reservation = reservationRepository.findByIdForUpdate(reservationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Reservation not found with id: " + reservationId));
+
+        if (reservation.getItemId() == null) {
+            throw new OperationNotPermittedException("La reserva no tiene un ítem de carrito asociado; no se puede cancelar.");
+        }
+
+        ShoppingCartItem item = shoppingCartItemRepository.findById(reservation.getItemId())
+                .orElseThrow(() -> new ResourceNotFoundException("Shopping cart item not found"));
+
+        if (!item.getShoppingCart().getUser().getId().equals(user.getId())) {
+            throw new OperationNotPermittedException("No tienes permiso para cancelar esta reserva.");
+        }
+
+        if (reservation.getDeliveryStatus() == DeliveryStatusEnum.CANCELED) {
+            throw new OperationNotPermittedException("La reserva ya está cancelada.");
+        }
+        if (reservation.getDeliveryStatus() == DeliveryStatusEnum.DELIVERED) {
+            throw new OperationNotPermittedException("No se puede cancelar una reserva completada.");
+        }
+
+        if (!computeCanRainCancel(reservationId, authentication)) {
+            throw new OperationNotPermittedException(
+                    "No aplica cancelación por lluvia: se requiere política habilitada, tour el día de hoy "
+                            + "y reporte DIMAR vigente con bandera roja para la subcategoría y ubicación del tour.");
+        }
+
+        TourSchedule schedule = item.getTourSchedule();
+        Tour tour = tourRepository.findById(schedule.getTourId())
+                .orElseThrow(() -> new ResourceNotFoundException("Tour not found"));
+
+        reservation.setDeliveryStatus(DeliveryStatusEnum.CANCELED);
+        reservation.setCancellationReason(CancellationReasonEnum.RAIN);
+        reservation.setCancellationDate(LocalDateTime.now());
+        reservation = reservationRepository.save(reservation);
+
+        if (item.getSlot() != null && item.getSlot().getId() != null) {
+            tourScheduleSlotAvailabilityService.recalculate(item.getSlot().getId());
+        }
+
+        Credit credit = createCreditForReservation(reservation, tour);
+        log.info("Reservation {} canceled by rain successfully", reservationId);
+
+        ReservationResponse response = reservationMapper.toResponse(reservation);
+        enrichReservationResponse(response, reservation);
+        if (credit != null) {
+            response.setCredit(CreditResponse.builder()
+                    .id(credit.getId())
+                    .reservationId(credit.getReservationId())
+                    .amount(credit.getAmount())
+                    .creationDate(credit.getCreationDate())
+                    .expirationDate(credit.getExpirationDate())
+                    .status(credit.getStatus())
+                    .build());
+        }
+        return response;
+    }
+
+    private boolean computeCanRainCancel(Long reservationId, Authentication authentication) {
+        User user = (User) authentication.getPrincipal();
+
+        Reservation reservation = reservationRepository.findById(reservationId).orElse(null);
+        if (reservation == null || reservation.getItemId() == null) {
+            return false;
+        }
+
+        ShoppingCartItem item = shoppingCartItemRepository.findById(reservation.getItemId()).orElse(null);
+        if (item == null || item.getShoppingCart() == null
+                || !item.getShoppingCart().getUser().getId().equals(user.getId())) {
+            return false;
+        }
+
+        if (reservation.getDeliveryStatus() == DeliveryStatusEnum.CANCELED
+                || reservation.getDeliveryStatus() == DeliveryStatusEnum.DELIVERED) {
+            return false;
+        }
+
+        TourSchedule schedule = item.getTourSchedule();
+        if (schedule == null || schedule.getTourId() == null) {
+            return false;
+        }
+
+        Tour tour = tourRepository.findById(schedule.getTourId()).orElse(null);
+        if (tour == null || tour.getSubCategory() == null) {
+            return false;
+        }
+
+        List<TourCancellationPolicy> policies = tourCancellationPolicyRepository.findByTourId(tour.getId());
+        if (policies.isEmpty() || !policies.get(0).isAllowsRainRefund()) {
+            return false;
+        }
+
+        LocalDate tourDate = item.getScheduleDate() != null ? item.getScheduleDate() : schedule.getScheduleDate();
+        LocalDate today = LocalDate.now();
+        if (tourDate == null || !today.equals(tourDate)) {
+            return false;
+        }
+
+        List<TourAddress> addresses = tourAddressRepository.findByTourId(tour.getId());
+        if (addresses.isEmpty()) {
+            return false;
+        }
+        TourAddress address = addresses.get(0);
+
+        return !maritimActivityReportRepository.findActiveRedReportsForSubcategoryAndLocation(
+                MaritimeFlagEnum.RED,
+                tour.getSubCategory().getValue(),
+                today,
+                address.getCountry().getId(),
+                address.getState().getId(),
+                address.getCity().getId()
+        ).isEmpty();
     }
     
     /**
@@ -1251,7 +1342,6 @@ public class ReservationService {
      * Valida si una reserva puede ser cancelada (sin hacer cambios).
      * Bloquea canceladas y completadas (DELIVERED). Una reserva en {@code RESCHEDULED} puede cancelarse
      * si la ventana {@code maxCancellationDate} aún aplica (o política equivalente).
-     * La cancelación por lluvia (DIMAR) se valida en el endpoint de cancelación con motivo RAIN.
      */
     @Transactional(readOnly = true)
     public com.tourya.api.models.responses.CancelValidationResponse validateCancelReservation(Long reservationId, Authentication authentication) {

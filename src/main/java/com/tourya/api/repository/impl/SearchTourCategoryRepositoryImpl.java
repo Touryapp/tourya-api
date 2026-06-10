@@ -1,4 +1,5 @@
 package com.tourya.api.repository.impl;
+import com.tourya.api.models.TranslatedField;
 import com.tourya.api.models.responses.SearchTourCategoryResponse;
 import com.tourya.api.models.responses.SearchTourSubCategoryResponse;
 import com.tourya.api.repository.SearchTourCategoryRepository;
@@ -22,7 +23,8 @@ public class SearchTourCategoryRepositoryImpl implements SearchTourCategoryRepos
     @Override
     public List<SearchTourCategoryResponse> getTourCategories() {
         String sql = """
-                SELECT c.id, c.name, c.display_order, m.subcategory_code, m.display_name
+                SELECT c.id, c.name, c.display_order, m.subcategory_code,
+                       COALESCE(m.name, jsonb_build_object('es', m.display_name, 'en', '', 'pt', '')) AS sub_name
                 FROM public.tour_business_category c
                 LEFT JOIN public.tour_business_subcategory_mapping m
                     ON m.business_category_id = c.id
@@ -37,14 +39,15 @@ public class SearchTourCategoryRepositoryImpl implements SearchTourCategoryRepos
             SearchTourCategoryResponse category = grouped.computeIfAbsent(categoryId, ignored -> {
                 SearchTourCategoryResponse response = new SearchTourCategoryResponse();
                 response.setId(categoryId);
-                response.setName((String) row[1]);
+                response.setName(TranslatedField.fromDbValue(row[1]));
                 response.setSubCategories(new ArrayList<>());
                 return response;
             });
 
             if (row[3] != null) {
                 category.getSubCategories().add(
-                        new SearchTourCategoryResponse.SubCategoryResponse((String) row[3], (String) row[4]));
+                        new SearchTourCategoryResponse.SubCategoryResponse(
+                                (String) row[3], TranslatedField.fromDbValue(row[4])));
             }
         }
 
@@ -54,7 +57,8 @@ public class SearchTourCategoryRepositoryImpl implements SearchTourCategoryRepos
     @Override
     public List<SearchTourSubCategoryResponse> getTourSubCategories() {
         String sql = """
-                SELECT m.subcategory_code, m.display_name
+                SELECT m.subcategory_code,
+                       COALESCE(m.name, jsonb_build_object('es', m.display_name, 'en', '', 'pt', '')) AS sub_name
                 FROM public.tour_business_subcategory_mapping m
                 JOIN public.tour_business_category c
                     ON c.id = m.business_category_id
@@ -65,7 +69,8 @@ public class SearchTourCategoryRepositoryImpl implements SearchTourCategoryRepos
 
         List<SearchTourSubCategoryResponse> response = new ArrayList<>();
         for (Object[] row : results) {
-            response.add(new SearchTourSubCategoryResponse((String) row[0], (String) row[1]));
+            response.add(new SearchTourSubCategoryResponse(
+                    (String) row[0], TranslatedField.fromDbValue(row[1])));
         }
         return response;
     }

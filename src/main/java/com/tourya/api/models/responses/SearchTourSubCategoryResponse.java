@@ -1,5 +1,6 @@
 package com.tourya.api.models.responses;
 
+import com.tourya.api.models.TranslatedField;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -7,5 +8,5 @@ import lombok.Data;
 @AllArgsConstructor
 public class SearchTourSubCategoryResponse {
     private String code;
-    private String name;
+    private TranslatedField name;
 }

@@ -291,7 +291,10 @@ public class ReservationController {
      * @return ReservationResponse con la reserva cancelada
      */
     @PutMapping("/{reservationId}/cancel")
-    @Operation(summary = "Cancelar reserva", description = "Cancela una reserva según el motivo proporcionado (no puede asistir o por lluvia)")
+    @Operation(
+            summary = "Cancelar reserva",
+            description = "Cancela una reserva según el motivo: CANNOT_ATTEND, ILLNESS o INABILITY_TO_TRAVEL. "
+                    + "La cancelación por lluvia usa PUT /reservations/{reservationId}/cancel/rain")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Reserva cancelada exitosamente"),
             @ApiResponse(responseCode = "404", description = "Reserva no encontrada"),
@@ -305,6 +308,23 @@ public class ReservationController {
         
         ReservationResponse response = reservationService.cancelReservation(reservationId, request, authentication);
         return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{reservationId}/cancel/rain")
+    @Operation(
+            summary = "Cancelar reserva por lluvia (DIMAR)",
+            description = "Cancela la reserva el día del tour cuando existe un reporte marítimo vigente con bandera roja "
+                    + "que coincida con la subcategoría y ubicación del tour. Requiere canRainCancel=true en el listado.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Reserva cancelada por lluvia"),
+            @ApiResponse(responseCode = "404", description = "Reserva no encontrada"),
+            @ApiResponse(responseCode = "400", description = "No aplica cancelación por lluvia")
+    })
+    public ResponseEntity<ReservationResponse> cancelReservationByRain(
+            @Parameter(description = "ID de la reserva") @PathVariable Long reservationId,
+            Authentication authentication) {
+        log.info("Canceling reservation {} by rain", reservationId);
+        return ResponseEntity.ok(reservationService.cancelReservationByRain(reservationId, authentication));
     }
 
     /**

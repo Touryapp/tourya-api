@@ -48,14 +48,14 @@ public class PublicController {
     @GetMapping("/state/getAllStateByCountryIdList/{countryId}")
     @Operation(operationId = "publicGetStatesByCountry", summary = "Listar estados por país (público)")
     public ResponseEntity<List<StateResponse>> getAllStateByCountryIdList(
-            @PathVariable Integer countryId) {
+            @PathVariable("countryId") Integer countryId) {
         return ResponseEntity.ok(stateService.getAllStateByCountryIdList(countryId));
     }
 
     @GetMapping("/city/getAllCityByStateIdList/{stateId}")
     @Operation(operationId = "publicGetCitiesByState", summary = "Listar ciudades por estado (público)")
     public ResponseEntity<List<CityResponse>> getAllCityByStateIdList(
-            @PathVariable Integer stateId) {
+            @PathVariable("stateId") Integer stateId) {
         return ResponseEntity.ok(cityService.getAllCityByStateIdList(stateId));
     }
 

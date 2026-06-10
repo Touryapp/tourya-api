@@ -13,9 +13,6 @@ import java.time.LocalDate;
 
 /**
  * Entidad que representa un reporte de actividades marítimas de DIMAR.
- * 
- * @author Tourya API Team
- * @version 1.0
  */
 @Getter
 @Setter
@@ -31,20 +28,31 @@ public class MaritimActivityReport extends BaseEntity {
     @Column(name = "id")
     private Long id;
 
-    @Column(name = "country", nullable = false, length = 100)
-    private String country;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "country_id", nullable = false)
+    private Country country;
 
-    @Column(name = "city", nullable = false, length = 100)
-    private String city;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "state_id", nullable = false)
+    private State state;
 
-    @Column(name = "activity", nullable = false, length = 255)
-    private String activity;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "city_id", nullable = false)
+    private City city;
+
+    @Column(name = "business_category_id", nullable = false)
+    private Integer businessCategoryId;
+
+    @Column(name = "subcategory_code", nullable = false, length = 120)
+    private String subcategoryCode;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "flag", nullable = false, length = 20)
     private MaritimeFlagEnum flag;
 
-    @Column(name = "report_date", nullable = false)
-    private LocalDate reportDate;
-}
+    @Column(name = "report_start_date", nullable = false)
+    private LocalDate reportStartDate;
 
+    @Column(name = "report_end_date", nullable = false)
+    private LocalDate reportEndDate;
+}

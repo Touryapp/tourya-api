@@ -1,7 +1,7 @@
 package com.tourya.api.repository;
 
-import com.tourya.api.models.MaritimActivityReport;
 import com.tourya.api.constans.enums.MaritimeFlagEnum;
+import com.tourya.api.models.MaritimActivityReport;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -9,46 +9,43 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 
-/**
- * Repositorio para la entidad MaritimActivityReport.
- * 
- * @author Tourya API Team
- * @version 1.0
- */
 @Repository
 public interface MaritimActivityReportRepository extends JpaRepository<MaritimActivityReport, Long> {
 
-    /**
-     * Busca reportes por fecha
-     */
-    List<MaritimActivityReport> findByReportDate(LocalDate reportDate);
+    @Query("""
+            SELECT m FROM MaritimActivityReport m
+            WHERE :reportDate BETWEEN m.reportStartDate AND m.reportEndDate
+            ORDER BY m.reportStartDate DESC
+            """)
+    List<MaritimActivityReport> findActiveOnDate(@Param("reportDate") LocalDate reportDate);
 
-    /**
-     * Busca reportes por país y ciudad
-     */
-    List<MaritimActivityReport> findByCountryAndCity(String country, String city);
+    @Query("""
+            SELECT m FROM MaritimActivityReport m
+            WHERE m.country.id = :countryId
+              AND m.state.id = :stateId
+              AND m.city.id = :cityId
+            ORDER BY m.reportStartDate DESC
+            """)
+    List<MaritimActivityReport> findByLocationIds(
+            @Param("countryId") Integer countryId,
+            @Param("stateId") Integer stateId,
+            @Param("cityId") Integer cityId);
 
-    /**
-     * Busca reportes por país, ciudad y fecha
-     */
-    Optional<MaritimActivityReport> findByCountryAndCityAndReportDate(String country, String city, LocalDate reportDate);
-
-    /**
-     * Busca reportes por país, ciudad, actividad y fecha
-     */
-    @Query("SELECT m FROM MaritimActivityReport m WHERE m.country = :country AND m.city = :city AND m.activity = :activity AND m.reportDate = :reportDate")
-    Optional<MaritimActivityReport> findByCountryAndCityAndActivityAndReportDate(
-            @Param("country") String country,
-            @Param("city") String city,
-            @Param("activity") String activity,
-            @Param("reportDate") LocalDate reportDate
-    );
-
-    /**
-     * Busca reportes por bandera
-     */
-    List<MaritimActivityReport> findByFlag(MaritimeFlagEnum flag);
+    @Query("""
+            SELECT m FROM MaritimActivityReport m
+            WHERE m.flag = :flag
+              AND m.subcategoryCode = :subcategoryCode
+              AND :reportDate BETWEEN m.reportStartDate AND m.reportEndDate
+              AND m.country.id = :countryId
+              AND m.state.id = :stateId
+              AND m.city.id = :cityId
+            """)
+    List<MaritimActivityReport> findActiveRedReportsForSubcategoryAndLocation(
+            @Param("flag") MaritimeFlagEnum flag,
+            @Param("subcategoryCode") String subcategoryCode,
+            @Param("reportDate") LocalDate reportDate,
+            @Param("countryId") Integer countryId,
+            @Param("stateId") Integer stateId,
+            @Param("cityId") Integer cityId);
 }
-

@@ -11,9 +11,19 @@ public enum CancellationReasonEnum {
      * No podrá disfrutar el tour
      */
     CANNOT_ATTEND,
-    
+
     /**
-     * Cancelación por lluvia
+     * Enfermedades
+     */
+    ILLNESS,
+
+    /**
+     * Imposibilidad de viajar
+     */
+    INABILITY_TO_TRAVEL,
+
+    /**
+     * Cancelación por lluvia (DIMAR). Solo vía {@code PUT /reservations/{id}/cancel/rain}.
      */
     RAIN
 }
