@@ -42,7 +42,18 @@ public class ShoppingCart extends BaseEntity {
     @Column(name = "accommodation_longitude")
     private Double accommodationLongitude;
 
-    @Builder.Default
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "origin_country_id")
+    private Country originCountry;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "origin_state_id")
+    private State originState;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "origin_city_id")
+    private City originCity;
+
     @Column(name = "electronic_billing", nullable = false)
     private Boolean electronicBilling = false;
 

@@ -85,11 +85,13 @@ public class ReservationController {
 
     @PostMapping
     @Operation(
-            summary = "Crear reservas temporales (hold)",
-            description = "Crea reservas en estado TEMPORAL asociadas a `shoppingCartItemIds` y asigna `expiresAt` " +
-                    "(duración configurable por variable de entorno `tourya.reservations.holdMinutes`, default 15). " +
-                    "Retorna los `reservationIds` creados. Estas reservas deben confirmarse por `POST /payment` " +
-                    "enviando `reservationIds` antes de expirar."
+            summary = "Checkout seguro — crear holds temporales",
+            description = "Crea reservas TEMPORAL (hold) y opcionalmente persiste datos de checkout en el carrito " +
+                    "(hospedaje, originCountryId/originStateId/originCityId, facturación electrónica). " +
+                    "Obligatorios: shoppingCartItemIds y serviceResponsible. " +
+                    "Checkout: campos opcionales; si envía procedencia, los tres IDs juntos. " +
+                    "`expiresAt` configurable con `tourya.reservations.holdMinutes` (default 15). " +
+                    "Confirmar con `POST /payment` antes de expirar."
     )
     public ResponseEntity<CreateTemporalReservationHoldResponse> createTemporalHoldOnRoot(
             @Valid @RequestBody CreateTemporalReservationHoldRequest request,
