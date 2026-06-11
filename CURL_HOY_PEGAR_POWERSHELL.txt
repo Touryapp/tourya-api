@@ -1,0 +1,148 @@
+# PowerShell (Windows) — pegar tal cual
+# Reemplaza BASE/TOKEN/IDs según tu caso.
+
+$BASE = "http://localhost:8088/api/v1"
+$TOKEN = "YOUR_TOKEN_HERE"
+
+# ============================
+# 1) TOUR (saveAll) + details
+# ============================
+
+curl.exe --location "$BASE/tour/user/saveAll" --header "Content-Type: application/json" --header "Authorization: Bearer $TOKEN" --data '{
+  "tour": {
+    "id": null,
+    "name": "tour_bahia_diurno",
+    "description": "Demo",
+    "priceType": "INDIVIDUAL",
+    "isUnlimitedCapacity": false,
+    "subCategory": "BAHIA",
+    "durationEnum": "1_A_2_HORAS",
+    "timeOfDay": ["manana"],
+    "status": "DRAFT"
+  },
+  "prices": [
+    { "ageType": "ADULT", "price": 120.00 }
+  ],
+  "tags": [4]
+}'
+
+curl.exe --location "$BASE/public/tour/details/36"
+
+curl.exe --location "$BASE/tour/details/36" --header "Authorization: Bearer $TOKEN"
+
+# ==========================================
+# 2) TOUR SCHEDULE CONFIG (slot capacity)
+# ==========================================
+
+curl.exe --location "$BASE/tour-schedules/config?isTemplate=false" --header "Content-Type: application/json" --header "Authorization: Bearer $TOKEN" --data '{
+  "tourId": 36,
+  "startDate": "2026-04-01",
+  "endDate": "2026-04-30",
+  "daysOfWeek": ["MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY","SUNDAY"],
+  "slots": [
+    { "startTime": "08:00:00", "endTime": "10:00:00", "capacity": 20 }
+  ],
+  "prices": [
+    { "ageType": "ADULT", "price": 120.00 }
+  ]
+}'
+
+curl.exe --location "$BASE/tour-schedules/config/123"
+
+# ==================================
+# 3) SEARCH PUBLIC (filtros nuevos)
+# ==================================
+
+curl.exe --location "$BASE/public/tours/schedule/search?page=0&size=10" --header "Content-Type: application/json" --data '{
+  "categoryId": 102,
+  "subCategory": "BAHIA",
+  "durationEnum": "1_A_2_HORAS",
+  "timeOfDay": ["manana"],
+  "startDate": "2026-04-01",
+  "endDate": "2026-04-30",
+  "minPrice": 50,
+  "maxPrice": 200,
+  "tags": [4]
+}'
+
+# ==========================================
+# 4) CHECKOUT NUEVO: HOLD + PAYMENT CONFIRM
+# ==========================================
+
+# 4.1 Crear hold TEMPORAL (POST /reservations)
+curl.exe --location "$BASE/reservations" --header "Content-Type: application/json" --header "Authorization: Bearer $TOKEN" --data '{
+  "shoppingCartItemIds": [456],
+  "serviceResponsible": {
+    "name": "Juan Pérez",
+    "email": "juan@example.com",
+    "phone": "+1234567890"
+  },
+  "accommodationName": "Hotel Caribe Cartagena",
+  "accommodationLatitude": 10.39972,
+  "accommodationLongitude": -75.55944,
+  "originCountryId": 1,
+  "originStateId": 5,
+  "originCityId": 12,
+  "electronicBilling": true,
+  "billingDocumentType": "CC",
+  "billingDocumentNumber": "123456789",
+  "billingEmail": "juan@example.com",
+  "billingCustomerName": "Juan Pérez",
+  "billingPhone": "+57 3001234567"
+}'
+
+# 4.2 Confirmar hold(s) pagando (POST /payment) - PLATFORM
+curl.exe --location "$BASE/payment" --header "Content-Type: application/json" --header "Authorization: Bearer $TOKEN" --data '{
+  "transactionId": "TXN-PLATFORM-001",
+  "transactionData": "{}",
+  "reservationIds": [12345],
+  "paymentType": "PLATFORM",
+  "amountPlatform": 120.00,
+  "payer": {
+    "id": 1,
+    "name": "María García",
+    "email": "maria@example.com",
+    "phone": "+0987654321",
+    "documentType": "PASSPORT",
+    "documentNumber": "AB123456"
+  }
+}'
+
+# 4.3 Confirmar hold(s) pagando (POST /payment) - CREDIT
+curl.exe --location "$BASE/payment" --header "Content-Type: application/json" --header "Authorization: Bearer $TOKEN" --data '{
+  "transactionId": "TXN-CREDIT-001",
+  "transactionData": "{}",
+  "reservationIds": [12345],
+  "paymentType": "CREDIT",
+  "amountCredit": 120.00,
+  "amountPlatform": 0,
+  "creditData": { "creditIds": [789] },
+  "payer": {
+    "id": 1,
+    "name": "María García",
+    "email": "maria@example.com",
+    "phone": "+0987654321",
+    "documentType": "PASSPORT",
+    "documentNumber": "AB123456"
+  }
+}'
+
+# 4.4 Confirmar hold(s) pagando (POST /payment) - CREDIT_AND_PLATFORM
+curl.exe --location "$BASE/payment" --header "Content-Type: application/json" --header "Authorization: Bearer $TOKEN" --data '{
+  "transactionId": "TXN-MIX-001",
+  "transactionData": "{}",
+  "reservationIds": [12345],
+  "paymentType": "CREDIT_AND_PLATFORM",
+  "amountCredit": 70.00,
+  "amountPlatform": 50.00,
+  "creditData": { "creditIds": [789, 790] },
+  "payer": {
+    "id": 1,
+    "name": "María García",
+    "email": "maria@example.com",
+    "phone": "+0987654321",
+    "documentType": "PASSPORT",
+    "documentNumber": "AB123456"
+  }
+}'
+

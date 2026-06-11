@@ -9,11 +9,13 @@ import com.tourya.api.models.request.AddItemToCartRequest;
 import com.tourya.api.models.request.AddMultipleItemsToCartRequest;
 import com.tourya.api.models.request.ConfigQuantityRequest;
 import com.tourya.api.models.responses.ClearCartResponse;
+import com.tourya.api.models.mapper.TourGalleryMapper;
 import com.tourya.api.models.responses.ShoppingCartItemDetailResponse;
 import com.tourya.api.models.responses.ShoppingCartItemResponse;
 import com.tourya.api.models.responses.ShoppingCartResponse;
+import com.tourya.api.models.responses.TourGalleryResponse;
 import com.tourya.api.models.request.CreateShoppingCartRequest;
-import com.tourya.api.models.request.UpdateShoppingCartCheckoutRequest;
+import com.tourya.api.models.request.CreateTemporalReservationHoldRequest;
 import com.tourya.api.models.request.ReservationItemRequest;
 import com.tourya.api.models.request.ReservationRequest;
 import com.tourya.api.models.request.SlotRequest;
@@ -58,6 +60,11 @@ public class ShoppingCartService {
     private final AgeRangeConfigService ageRangeConfigService;
     private final TourScheduleSlotAvailabilityService tourScheduleSlotAvailabilityService;
     private final TourScheduleOverrideService tourScheduleOverrideService;
+    private final TourGalleryRepository tourGalleryRepository;
+    private final TourGalleryMapper tourGalleryMapper;
+    private final CountryRepository countryRepository;
+    private final StateRepository stateRepository;
+    private final CityRepository cityRepository;
 
     /**
      * Crea un nuevo carrito de compras para un usuario.
@@ -672,7 +679,8 @@ public class ShoppingCartService {
                     String productName = null;
                     Integer tourScheduleId = null;
                     String tourName = null;
-                    
+                    TourGalleryResponse profilePicture = null;
+
                     if ("SERVICE".equalsIgnoreCase(item.getProductType())) {
                         // Cuando es SERVICE, obtener el nombre del servicio
                         TouryaService service = serviceRepository.findById(item.getProductId()).orElse(null);
@@ -688,6 +696,9 @@ public class ShoppingCartService {
                                     productName = item.getTourSchedule().getTour().getName().getEs();
                                     tourName = productName; // tourName es igual a productName para TOUR
                                 }
+                                profilePicture = resolveProfilePicture(item.getTourSchedule().getTour().getId());
+                            } else if (item.getTourSchedule().getTourId() != null) {
+                                profilePicture = resolveProfilePicture(item.getTourSchedule().getTourId());
                             }
                         }
                     }
@@ -701,6 +712,7 @@ public class ShoppingCartService {
                             .tourScheduleId(tourScheduleId)
                             .tourName(tourName)
                             .slotId(item.getSlot() != null ? item.getSlot().getId() : null)
+                            .profilePicture(profilePicture)
                             .totalPrice(item.getTotalPrice())
                             .providerTotalPrice(itemProviderTotal)
                             .status(item.getStatus())
@@ -730,6 +742,9 @@ public class ShoppingCartService {
                 .accommodationName(cart.getAccommodationName())
                 .accommodationLatitude(cart.getAccommodationLatitude())
                 .accommodationLongitude(cart.getAccommodationLongitude())
+                .originCountryId(cart.getOriginCountry() != null ? cart.getOriginCountry().getId() : null)
+                .originStateId(cart.getOriginState() != null ? cart.getOriginState().getId() : null)
+                .originCityId(cart.getOriginCity() != null ? cart.getOriginCity().getId() : null)
                 .electronicBilling(cart.getElectronicBilling())
                 .billingDocumentType(cart.getBillingDocumentType())
                 .billingDocumentNumber(cart.getBillingDocumentNumber())
@@ -739,17 +754,11 @@ public class ShoppingCartService {
                 .build();
     }
 
-    @Transactional
-    public ShoppingCartResponse updateCheckoutData(
-            Long cartId,
-            UpdateShoppingCartCheckoutRequest request,
-            Authentication connectedUser) {
-        User user = (User) connectedUser.getPrincipal();
-        ShoppingCart cart = shoppingCartRepository.findById(cartId)
-                .orElseThrow(() -> new ResourceNotFoundException("Carrito no encontrado"));
-        if (!cart.getUser().getId().equals(user.getId())) {
-            throw new OperationNotPermittedException("No tienes permisos para actualizar este carrito");
-        }
+    /**
+     * Persiste hospedaje, lugar de procedencia y facturación electrónica en el carrito
+     * (POST /reservations — checkout seguro).
+     */
+    public void applyCheckoutFromHoldRequest(ShoppingCart cart, CreateTemporalReservationHoldRequest request) {
         if (request.getAccommodationName() != null) {
             cart.setAccommodationName(request.getAccommodationName());
         }
@@ -759,24 +768,75 @@ public class ShoppingCartService {
         if (request.getAccommodationLongitude() != null) {
             cart.setAccommodationLongitude(request.getAccommodationLongitude());
         }
+
+        if (request.getOriginCountryId() != null
+                || request.getOriginStateId() != null
+                || request.getOriginCityId() != null) {
+            if (request.getOriginCountryId() == null
+                    || request.getOriginStateId() == null
+                    || request.getOriginCityId() == null) {
+                throw new OperationNotPermittedException(
+                        "Lugar de procedencia incompleto: envíe originCountryId, originStateId y originCityId.");
+            }
+            OriginLocationRefs origin = resolveAndValidateOrigin(
+                    request.getOriginCountryId(),
+                    request.getOriginStateId(),
+                    request.getOriginCityId());
+            cart.setOriginCountry(origin.country());
+            cart.setOriginState(origin.state());
+            cart.setOriginCity(origin.city());
+        }
+
         if (request.getElectronicBilling() != null) {
             cart.setElectronicBilling(request.getElectronicBilling());
+            if (Boolean.TRUE.equals(request.getElectronicBilling())) {
+                cart.setBillingDocumentType(request.getBillingDocumentType());
+                cart.setBillingDocumentNumber(request.getBillingDocumentNumber());
+                cart.setBillingEmail(request.getBillingEmail());
+                cart.setBillingCustomerName(request.getBillingCustomerName());
+                cart.setBillingPhone(request.getBillingPhone());
+            } else {
+                cart.setBillingDocumentType(null);
+                cart.setBillingDocumentNumber(null);
+                cart.setBillingEmail(null);
+                cart.setBillingCustomerName(null);
+                cart.setBillingPhone(null);
+            }
         }
-        if (Boolean.TRUE.equals(request.getElectronicBilling())) {
-            cart.setBillingDocumentType(request.getBillingDocumentType());
-            cart.setBillingDocumentNumber(request.getBillingDocumentNumber());
-            cart.setBillingEmail(request.getBillingEmail());
-            cart.setBillingCustomerName(request.getBillingCustomerName());
-            cart.setBillingPhone(request.getBillingPhone());
-        } else if (Boolean.FALSE.equals(request.getElectronicBilling())) {
-            cart.setBillingDocumentType(null);
-            cart.setBillingDocumentNumber(null);
-            cart.setBillingEmail(null);
-            cart.setBillingCustomerName(null);
-            cart.setBillingPhone(null);
+    }
+
+    private OriginLocationRefs resolveAndValidateOrigin(Integer countryId, Integer stateId, Integer cityId) {
+        Country country = countryRepository.findById(countryId)
+                .orElseThrow(() -> new ResourceNotFoundException("Country not found with id: " + countryId));
+        State state = stateRepository.findById(stateId)
+                .orElseThrow(() -> new ResourceNotFoundException("State not found with id: " + stateId));
+        City city = cityRepository.findById(cityId)
+                .orElseThrow(() -> new ResourceNotFoundException("City not found with id: " + cityId));
+
+        if (!state.getCountry().getId().equals(country.getId())) {
+            throw new OperationNotPermittedException("El departamento no pertenece al país de procedencia indicado.");
         }
-        shoppingCartRepository.save(cart);
-        return buildShoppingCartResponse(cart);
+        if (!city.getState().getId().equals(state.getId())) {
+            throw new OperationNotPermittedException("La ciudad no pertenece al departamento de procedencia indicado.");
+        }
+        return new OriginLocationRefs(country, state, city);
+    }
+
+    private record OriginLocationRefs(Country country, State state, City city) {}
+
+    private TourGalleryResponse resolveProfilePicture(Integer tourId) {
+        if (tourId == null) {
+            return null;
+        }
+        List<TourGallery> gallery = tourGalleryRepository.findByTourIdOrderByOrderIndexAsc(tourId);
+        if (gallery == null || gallery.isEmpty()) {
+            return null;
+        }
+        TourGallery chosen = gallery.stream()
+                .filter(g -> g.getOrderIndex() != null && g.getOrderIndex() == 1)
+                .findFirst()
+                .orElse(gallery.get(0));
+        return tourGalleryMapper.toTourGalleryResponse(chosen);
     }
 
     @Transactional

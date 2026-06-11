@@ -124,39 +124,36 @@ curl --location "{{baseUrl}}/tour-schedules/config/10" \
   --header "Authorization: Bearer {{tokenBackoffice}}"
 
 ## =========================
-## Shopping Cart — checkout (auth)
-## Hospedaje + facturación electrónica en shopping_cart
+## Checkout seguro — POST /reservations (auth)
+## Un solo endpoint: hold + hospedaje + procedencia + facturación
 ## =========================
 
 # Carrito activo del usuario
 curl --location "{{baseUrl}}/shopping-cart/user" \
   --header "Authorization: Bearer {{token}}"
 
-# Datos de checkout (antes del pago)
-curl --location --request PATCH "{{baseUrl}}/shopping-cart/1/checkout-data" \
+curl --location --request POST "{{baseUrl}}/reservations" \
   --header "Authorization: Bearer {{token}}" \
   --header "Content-Type: application/json" \
   --data-raw '{
-    "accommodationName": "Hotel Caribe",
-    "accommodationLatitude": 10.3932,
-    "accommodationLongitude": -75.4832,
+    "shoppingCartItemIds": [456],
+    "serviceResponsible": {
+      "name": "Doraly Gimenez",
+      "email": "doraly.gimenez@gmail.com",
+      "phone": "+57 3001234567"
+    },
+    "accommodationName": "Hotel Caribe Cartagena",
+    "accommodationLatitude": 10.39972,
+    "accommodationLongitude": -75.55944,
+    "originCountryId": 1,
+    "originStateId": 5,
+    "originCityId": 12,
     "electronicBilling": true,
     "billingDocumentType": "CC",
-    "billingDocumentNumber": "1020304050",
-    "billingEmail": "factura@ejemplo.com",
-    "billingCustomerName": "Juan Pérez",
+    "billingDocumentNumber": "123456789",
+    "billingEmail": "doraly.gimenez@gmail.com",
+    "billingCustomerName": "Doraly Gimenez",
     "billingPhone": "+57 3001234567"
-  }'
-
-# Solo hospedaje (sin factura electrónica)
-curl --location --request PATCH "{{baseUrl}}/shopping-cart/1/checkout-data" \
-  --header "Authorization: Bearer {{token}}" \
-  --header "Content-Type: application/json" \
-  --data-raw '{
-    "accommodationName": "Airbnb Centro Histórico",
-    "accommodationLatitude": 10.4210,
-    "accommodationLongitude": -75.5501,
-    "electronicBilling": false
   }'
 
 ## =========================

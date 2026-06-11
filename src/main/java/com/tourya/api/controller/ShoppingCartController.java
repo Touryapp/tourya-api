@@ -6,7 +6,6 @@ import com.tourya.api.models.responses.ClearCartResponse;
 import com.tourya.api.models.responses.ShoppingCartResponse;
 import com.tourya.api.models.request.CreateShoppingCartRequest;
 import com.tourya.api.models.request.UpdateItemStatusRequest;
-import com.tourya.api.models.request.UpdateShoppingCartCheckoutRequest;
 import com.tourya.api.services.ShoppingCartService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -192,19 +191,6 @@ public class ShoppingCartController {
             Authentication connectedUser
     ) {
         return ResponseEntity.ok(shoppingCartService.updateItemStatus(cartId, itemId, request, connectedUser));
-    }
-
-    @Operation(
-            summary = "Datos de checkout",
-            description = "Hospedaje y facturación electrónica del carrito antes del pago"
-    )
-    @SecurityRequirement(name = "bearerAuth")
-    @PatchMapping("/{cartId}/checkout-data")
-    public ResponseEntity<ShoppingCartResponse> updateCheckoutData(
-            @PathVariable Long cartId,
-            @Valid @RequestBody UpdateShoppingCartCheckoutRequest request,
-            Authentication connectedUser) {
-        return ResponseEntity.ok(shoppingCartService.updateCheckoutData(cartId, request, connectedUser));
     }
 
     @Operation(

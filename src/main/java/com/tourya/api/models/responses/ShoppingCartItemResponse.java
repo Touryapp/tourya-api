@@ -30,6 +30,7 @@ public class ShoppingCartItemResponse {
     private Integer tourScheduleId;
     private String tourName;
     private Integer slotId;
+    private TourGalleryResponse profilePicture;
     private BigDecimal totalPrice;
     private BigDecimal providerTotalPrice;
     private ShoppingCartStatusEnum status;

@@ -1,0 +1,310 @@
+# cURLs de HOY (para Postman)
+# Pégalos tal cual o usa Postman: Import -> Raw text
+# Reemplaza: YOUR_TOKEN_HERE, IDs (tourId/configId/itemId/reservationId/creditIds/tags)
+
+# ============================
+# 1) TOUR (saveAll) + details
+# ============================
+
+curl --location "http://localhost:8088/api/v1/tour/user/saveAll" \
+--header "Content-Type: application/json" \
+--header "Authorization: Bearer YOUR_TOKEN_HERE" \
+--data '{
+          "name": {
+            "es": "Tour Cristian Testing Nombre",
+            "en": "",
+            "pt": ""
+          },
+          "description": {
+            "es": "<p>Tour Cristian Testing <strong><span style=\"color:rgb(17, 24, 39);\"><span style=\"background-color:rgb(255, 255, 255);\">Descripción</span></span></strong></p>",
+            "en": "",
+            "pt": ""
+          },
+          "tourCategoryId": 1,
+          "priceType": "individual",
+          "durationEnum": "1_a_2_horas",
+          "maxPeople": 0,
+          "isUnlimitedCapacity": false,
+          "subCategory": "tour_bahia_diurno",
+          "timeOfDay": [
+            "tarde"
+          ],
+          "minAge": 12,
+          "locations": [
+            {
+              "countryId": 1,
+              "stateId": 1,
+              "cityId": 1,
+              "latitude": 4.7527532,
+              "longitude": -74.0508591,
+              "address": "Tour Cristian Testing Dirección",
+              "location": {
+                "es": "calle",
+                "en": "",
+                "pt": ""
+              },
+              "addressType": "Meeting Point"
+            }
+          ],
+          "mainAttractions": [
+            {
+              "description": {
+                "es": "Tour Cristian Testing Atracción",
+                "en": "",
+                "pt": ""
+              }
+            }
+          ],
+          "includes": [
+            {
+              "description": {
+                "es": "Tour Cristian Testing Incluye",
+                "en": "",
+                "pt": ""
+              },
+              "type": "Include"
+            }
+          ],
+          "excludes": [
+            {
+              "description": {
+                "es": "Tour Cristian Testing Excluye",
+                "en": "",
+                "pt": ""
+              },
+              "type": "Exclude"
+            }
+          ],
+          "faq": [
+            {
+              "question": {
+                "es": "Tour Cristian Testing Question",
+                "en": "",
+                "pt": ""
+              },
+              "answer": {
+                "es": "Tour Cristian Testing Answer",
+                "en": "",
+                "pt": ""
+              }
+            }
+          ],
+          "itineraries": [
+            {
+              "title": {
+                "es": "Tour Cristian Testing Title",
+                "en": "",
+                "pt": ""
+              },
+              "day": 5,
+              "time": "21:00",
+              "description": {
+                "es": "Tour Cristian Testing Description",
+                "en": "",
+                "pt": ""
+              }
+            }
+          ],
+          "cancellationPolicies": [
+            {
+              "id": null,
+              "observations": {
+                "es": "Tour Cristian Testing Observations",
+                "en": "",
+                "pt": ""
+              },
+              "allowsRainRefund": true,
+              "allowsRescheduling": true,
+              "cancellationPolicyType": "Flexible"
+            }
+          ]
+        }'
+
+curl --location "http://localhost:8088/api/v1/public/tour/details/36"
+
+curl --location "http://localhost:8088/api/v1/tour/details/36" \
+--header "Authorization: Bearer YOUR_TOKEN_HERE"
+
+# ==========================================
+# 2) TOUR SCHEDULE CONFIG (slot capacity)
+# ==========================================
+
+curl --location "http://localhost:8088/api/v1/tour-schedules/config?isTemplate=false" \
+--header "Content-Type: application/json" \
+--header "Authorization: Bearer YOUR_TOKEN_HERE" \
+--data '{
+           "label": "Config marzo",
+           "tourId": 43,
+           "daysOfWeek": ["MONDAY","TUESDAY"],
+           "isUnlimitedCapacity": false,
+           "slots": [
+             {
+               "startTime": "08:00:00",
+               "endTime": "10:00:00",
+               "capacity": 20,
+               "prices": [
+                 { "ageType": "ADULT", "price": 100000, "providerPrice": 80000 }
+               ]
+             }
+           ]
+         }'
+
+curl --location --request PUT 'http://localhost:8088/api/v1/tour-schedules/config/400' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzM4NCJ9.eyJmdWxsTmFtZSI6IkRvbm5hbHkgR2ltZW5leiIsInN1YiI6ImRvbm5hbHkuZ2ltZW5lekBnbWFpbC5jb20iLCJpYXQiOjE3NzQ5Mjc3OTgsImV4cCI6MTc3NTAxNDE5OCwiYXV0aG9yaXRpZXMiOlsiVVNFUiIsIlBST1ZJREVSIl19.eIQV5dMgsOPB0wSvlHpmcv9NzbWgZ32Pq-SztDeJsEhFYH1gKr5q2LSMpUcMWB-M' \
+--data '{
+   "id": 400,
+   "label": "Config actualizada",
+   "tourId": 43,
+   "daysOfWeek": ["MONDAY","WEDNESDAY"],
+   "isUnlimitedCapacity": false,
+   "slots": [
+     {
+       "id": 522,
+       "startTime": "09:00:00",
+       "endTime": "11:00:00",
+       "capacity": 25,
+       "prices": [
+         { "id": 789, "ageType": "ADULT", "price": 110000, "providerPrice": 85000 }
+       ]
+     }
+   ]
+ }'
+
+# ==================================
+# 3) SEARCH PUBLIC (filtros nuevos)
+# ==================================
+
+curl --location "http://localhost:8088/api/v1/public/search/categories"
+
+curl --location "http://localhost:8088/api/v1/public/search/subcategories"
+
+curl --location "http://localhost:8088/api/v1/public/tag/categories"
+
+curl --location "http://localhost:8088/api/v1/public/tags"
+
+curl --location "http://localhost:8088/api/v1/public/tours/schedule/search?page=0&size=10" \
+--header "Content-Type: application/json" \
+--data '{
+            "startDate": "2026-04-01",
+            "endDate": "2026-04-30",
+            "categoryId": "1",
+            "subCategory": "tour_bahia_diurno",
+            "durationEnum": "1_a_2_horas",
+            "timeOfDay": "manana",
+            "minPrice": 1000,
+            "maxPrice": 2000000,
+            "tag": "Motos acuáticas",
+            "participants": 4,
+            "language": "es"
+        }'
+
+curl --location "http://localhost:8088/api/v1/public/tours/schedule/search?page=0&size=10" \
+--header "Content-Type: application/json" \
+--data '{
+  "startDate": "2026-04-01",
+  "endDate": "2026-04-30",
+  "categoryIds": [1, 4],
+  "subCategories": ["tour_bahia_diurno", "jet_ski"],
+  "durationEnums": ["1_a_2_horas", "2_a_4_horas"],
+  "timeOfDay": ["manana", "tarde"],
+  "tagIds": [2, 9, 15],
+  "minPrice": 30000,
+  "maxPrice": 100000,
+  "requestedUnits": 4,
+  "language": "es"
+}'
+
+# ==========================================
+# 4) CHECKOUT NUEVO: HOLD + PAYMENT CONFIRM
+# ==========================================
+
+# 4.1 Crear hold TEMPORAL (POST /reservations)
+curl --location "http://localhost:8088/api/v1/reservations" \
+--header "Content-Type: application/json" \
+--header "Authorization: Bearer YOUR_TOKEN_HERE" \
+--data '{
+  "shoppingCartItemIds": [456],
+  "serviceResponsible": {
+    "name": "Juan Pérez",
+    "email": "juan@example.com",
+    "phone": "+1234567890"
+  },
+  "accommodationName": "Hotel Caribe Cartagena",
+  "accommodationLatitude": 10.39972,
+  "accommodationLongitude": -75.55944,
+  "originCountryId": 1,
+  "originStateId": 5,
+  "originCityId": 12,
+  "electronicBilling": true,
+  "billingDocumentType": "CC",
+  "billingDocumentNumber": "123456789",
+  "billingEmail": "juan@example.com",
+  "billingCustomerName": "Juan Pérez",
+  "billingPhone": "+57 3001234567"
+}'
+
+# 4.2 Confirmar hold(s) pagando (POST /payment) - PLATFORM
+curl --location "http://localhost:8088/api/v1/payment" \
+--header "Content-Type: application/json" \
+--header "Authorization: Bearer YOUR_TOKEN_HERE" \
+--data '{
+  "transactionId": "TXN-PLATFORM-001",
+  "transactionData": "{}",
+  "reservationIds": [12345],
+  "paymentType": "PLATFORM",
+  "amountPlatform": 120.00,
+  "payer": {
+    "id": 1,
+    "name": "María García",
+    "email": "maria@example.com",
+    "phone": "+0987654321",
+    "documentType": "PASSPORT",
+    "documentNumber": "AB123456"
+  }
+}'
+
+# 4.3 Confirmar hold(s) pagando (POST /payment) - CREDIT
+curl --location "http://localhost:8088/api/v1/payment" \
+--header "Content-Type: application/json" \
+--header "Authorization: Bearer YOUR_TOKEN_HERE" \
+--data '{
+  "transactionId": "TXN-CREDIT-001",
+  "transactionData": "{}",
+  "reservationIds": [12345],
+  "paymentType": "CREDIT",
+  "amountCredit": 120.00,
+  "amountPlatform": 0,
+  "creditData": { "creditIds": [789] },
+  "payer": {
+    "id": 1,
+    "name": "María García",
+    "email": "maria@example.com",
+    "phone": "+0987654321",
+    "documentType": "PASSPORT",
+    "documentNumber": "AB123456"
+  }
+}'
+
+# 4.4 Confirmar hold(s) pagando (POST /payment) - CREDIT_AND_PLATFORM
+curl --location "http://localhost:8088/api/v1/payment" \
+--header "Content-Type: application/json" \
+--header "Authorization: Bearer YOUR_TOKEN_HERE" \
+--data '{
+  "transactionId": "TXN-MIX-001",
+  "transactionData": "{}",
+  "reservationIds": [12345],
+  "paymentType": "CREDIT_AND_PLATFORM",
+  "amountCredit": 70.00,
+  "amountPlatform": 50.00,
+  "creditData": { "creditIds": [789, 790] },
+  "payer": {
+    "id": 1,
+    "name": "María García",
+    "email": "maria@example.com",
+    "phone": "+0987654321",
+    "documentType": "PASSPORT",
+    "documentNumber": "AB123456"
+  }
+}'
+

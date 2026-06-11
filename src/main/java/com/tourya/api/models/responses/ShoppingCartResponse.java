@@ -34,6 +34,9 @@ public class ShoppingCartResponse {
     private String accommodationName;
     private Double accommodationLatitude;
     private Double accommodationLongitude;
+    private Integer originCountryId;
+    private Integer originStateId;
+    private Integer originCityId;
     private Boolean electronicBilling;
     private String billingDocumentType;
     private String billingDocumentNumber;

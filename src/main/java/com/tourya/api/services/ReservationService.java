@@ -130,6 +130,15 @@ public class ReservationService {
             }
         }
 
+        ShoppingCart cart = items.get(0).getShoppingCart();
+        for (ShoppingCartItem item : items) {
+            if (!item.getShoppingCart().getId().equals(cart.getId())) {
+                throw new IllegalArgumentException("Todos los items deben pertenecer al mismo carrito");
+            }
+        }
+        shoppingCartService.applyCheckoutFromHoldRequest(cart, request);
+        shoppingCartRepository.save(cart);
+
         // Validar disponibilidad por slot (si tour limitado)
         for (ShoppingCartItem item : items) {
             validateSlotAvailabilityForItem(item);

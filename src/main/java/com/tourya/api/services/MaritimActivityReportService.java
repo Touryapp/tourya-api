@@ -194,9 +194,9 @@ public class MaritimActivityReportService {
     private MaritimActivityReportResponse toResponse(MaritimActivityReport report) {
         return MaritimActivityReportResponse.builder()
                 .id(report.getId())
-                .countryId(report.getCountry().getId())
-                .stateId(report.getState().getId())
-                .cityId(report.getCity().getId())
+                .countryId(report.getCountry() != null ? report.getCountry().getId() : null)
+                .stateId(report.getState() != null ? report.getState().getId() : null)
+                .cityId(report.getCity() != null ? report.getCity().getId() : null)
                 .businessCategoryId(report.getBusinessCategoryId())
                 .subcategoryCode(report.getSubcategoryCode())
                 .flag(report.getFlag())

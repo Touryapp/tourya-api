@@ -1,0 +1,166 @@
+## =============================================================================
+## PRUEBAS — Fixes 16, 17, 18 y 19
+## Base EC2: http://34.160.22.16/api/v1
+## Local:     http://localhost:8088/api/v1
+##
+## Reemplaza:
+##   {{baseUrl}}  → http://34.160.22.16/api/v1
+##   {{token}}    → JWT usuario turista (rol USER)
+##   {{tokenAdmin}} → JWT ADMIN / BACKOFFICE (reportes DIMAR)
+##
+## Migraciones necesarias en BD (si no corrieron):
+##   058_cleanup_maritime_reports_and_cart_origin.sql  (origin_* en shopping_cart)
+## =============================================================================
+
+
+## --- 0) LOGIN (obtener token) ---
+curl --location --request POST "{{baseUrl}}/auth/authenticate" \
+  --header "Content-Type: application/json" \
+  --data-raw '{
+    "email": "TU_EMAIL@ejemplo.com",
+    "password": "TU_PASSWORD"
+  }'
+
+
+## --- AUX) Catálogos geográficos (PUBLIC — sin token) para armar IDs del punto 19 ---
+curl --location "{{baseUrl}}/public/country/getAllCountryList"
+
+curl --location "{{baseUrl}}/public/state/getAllStateByCountryIdList/1"
+
+curl --location "{{baseUrl}}/public/city/getAllCityByStateIdList/5"
+
+
+## =============================================================================
+## 16) REPORTES DIMAR — GET ya no debe dar 500
+## =============================================================================
+
+# Listar (esperado: 200, content [] si vacío o lista con countryId/stateId/cityId)
+curl --location "{{baseUrl}}/maritime-activity-reports?page=0&size=10" \
+  --header "Authorization: Bearer {{tokenAdmin}}"
+
+# Crear reporte (ajusta IDs reales de country/state/city y businessCategoryId)
+# businessCategoryId: 1 = ACUATICO (tour_business_category)
+# subcategoryCode: ver tour_business_subcategory_mapping (ej. tour_bahia_diurno)
+curl --location --request POST "{{baseUrl}}/maritime-activity-reports" \
+  --header "Authorization: Bearer {{tokenAdmin}}" \
+  --header "Content-Type: application/json" \
+  --data-raw '{
+    "countryId": 1,
+    "stateId": 5,
+    "cityId": 12,
+    "businessCategoryId": 1,
+    "subcategoryCode": "tour_bahia_diurno",
+    "flag": "GREEN",
+    "reportStartDate": "2026-06-11",
+    "reportEndDate": "2026-06-18"
+  }'
+
+# Volver a listar (debe aparecer el reporte creado)
+curl --location "{{baseUrl}}/maritime-activity-reports?page=0&size=10" \
+  --header "Authorization: Bearer {{tokenAdmin}}"
+
+
+## =============================================================================
+## 17) CARRITO — imagen del tour en items[].profilePicture
+## =============================================================================
+
+curl --location "{{baseUrl}}/shopping-cart/user" \
+  --header "Authorization: Bearer {{token}}"
+
+# En la respuesta, cada item TOUR debe traer algo como:
+# "profilePicture": { "id": 227, "imageUrl": "https://...", "description": {...}, "orderIndex": 1 }
+
+
+## =============================================================================
+## 18 + 19) CHECKOUT SEGURO — TODO en POST /reservations (sin checkout-data)
+## =============================================================================
+
+# --- 18a) Mínimo (compatible con front actual — solo hold + responsable) ---
+curl --location --request POST "{{baseUrl}}/reservations" \
+  --header "Authorization: Bearer {{token}}" \
+  --header "Content-Type: application/json" \
+  --data-raw '{
+    "shoppingCartItemIds": [REEMPLAZA_ITEM_ID],
+    "serviceResponsible": {
+      "name": "Luis Daniel Mendoza",
+      "email": "turista@ejemplo.com",
+      "phone": "+57 3001234567"
+    }
+  }'
+
+# --- 18b + 19) Completo — hospedaje + procedencia (país/depto/ciudad) + facturación ---
+curl --location --request POST "{{baseUrl}}/reservations" \
+  --header "Authorization: Bearer {{token}}" \
+  --header "Content-Type: application/json" \
+  --data-raw '{
+    "shoppingCartItemIds": [REEMPLAZA_ITEM_ID],
+    "serviceResponsible": {
+      "name": "Doraly Gimenez",
+      "email": "doraly.gimenez@gmail.com",
+      "phone": "+57 3001234567"
+    },
+    "accommodationName": "Hotel Caribe Cartagena",
+    "accommodationLatitude": 10.39972,
+    "accommodationLongitude": -75.55944,
+    "originCountryId": 1,
+    "originStateId": 5,
+    "originCityId": 12,
+    "electronicBilling": true,
+    "billingDocumentType": "CC",
+    "billingDocumentNumber": "123456789",
+    "billingEmail": "doraly.gimenez@gmail.com",
+    "billingCustomerName": "Doraly Gimenez",
+    "billingPhone": "+57 3001234567"
+  }'
+
+# Respuesta esperada:
+# { "reservationIds": [ ... ], "expiresAt": "..." }
+
+# Verificar que checkout quedó guardado en carrito:
+curl --location "{{baseUrl}}/shopping-cart/user" \
+  --header "Authorization: Bearer {{token}}"
+
+# Debe incluir: accommodationName, originCountryId, originStateId, originCityId,
+# electronicBilling, billingDocumentType, etc.
+
+
+## =============================================================================
+## SIGUIENTE PASO (flujo completo checkout) — confirmar pago
+## =============================================================================
+
+curl --location --request POST "{{baseUrl}}/payment" \
+  --header "Authorization: Bearer {{token}}" \
+  --header "Content-Type: application/json" \
+  --data-raw '{
+    "transactionId": "TXN-TEST-001",
+    "transactionData": "{}",
+    "reservationIds": [REEMPLAZA_RESERVATION_ID],
+    "paymentType": "PLATFORM",
+    "amountPlatform": 140000.00,
+    "payer": {
+      "id": 1,
+      "name": "Doraly Gimenez",
+      "email": "doraly.gimenez@gmail.com",
+      "phone": "+57 3001234567",
+      "documentType": "CC",
+      "documentNumber": "123456789"
+    }
+  }'
+
+
+## =============================================================================
+## POWERSHELL (pegar en una sola línea o usar variables)
+## =============================================================================
+##
+## $BASE = "http://34.160.22.16/api/v1"
+## $TOKEN = "eyJ..."
+##
+## Invoke-RestMethod -Uri "$BASE/maritime-activity-reports?page=0&size=10" -Headers @{ Authorization = "Bearer $TOKEN" }
+##
+## $body = @{
+##   shoppingCartItemIds = @(456)
+##   serviceResponsible = @{ name="Test"; email="a@b.com"; phone="+57" }
+##   originCountryId = 1; originStateId = 5; originCityId = 12
+##   electronicBilling = $false
+## } | ConvertTo-Json -Depth 5
+## Invoke-RestMethod -Method Post -Uri "$BASE/reservations" -Headers @{ Authorization="Bearer $TOKEN"; "Content-Type"="application/json" } -Body $body
