@@ -90,3 +90,12 @@
     - shopping_cart: origin_country_id, origin_state_id, origin_city_id (lugar de procedencia checkout)
     - Script rápido solo para reportes: `database/scripts/FIX_maritime_reports_RUN_ME.sql`
 
+20. `database/migrations/059_fix_sp_provider_reservations_provider_price_fallback.sql`
+    - YA EJECUTADA EN EC2. Histórico; no re-ejecutar si aplicas 061.
+
+21. `database/migrations/060_backfill_provider_price_from_price.sql`
+    - Rellena provider_price = price donde quedó NULL (debió hacerse en la migración 006)
+
+22. `database/migrations/061_sp_get_provider_reservations_cleanup_overloads.sql`
+    - LOCAL: si GET /reservations falla con bad SQL grammar. Borra firmas viejas del SP y deja la de 5 params.
+

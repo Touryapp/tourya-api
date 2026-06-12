@@ -47,6 +47,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -115,8 +116,23 @@ public class ReservationService {
         // Usar una referencia consistente (UTC) para evitar expiraciones inmediatas por desfase de zona horaria
         LocalDateTime expiresAt = LocalDateTime.now(java.time.ZoneId.of("UTC")).plusMinutes(defaultHoldMinutes);
 
-        List<ShoppingCartItem> items = shoppingCartItemRepository.findAllById(request.getShoppingCartItemIds());
-        if (items.size() != request.getShoppingCartItemIds().size()) {
+        List<Long> requestedItemIds = new ArrayList<>();
+        Map<Long, CreateTemporalReservationHoldRequest.ServiceResponsibleRequest> responsibleByItemId =
+                new HashMap<>();
+        if (request.getItems() != null && !request.getItems().isEmpty()) {
+            for (CreateTemporalReservationHoldRequest.HoldItemRequest holdItem : request.getItems()) {
+                requestedItemIds.add(holdItem.getShoppingCartItemId());
+                responsibleByItemId.put(holdItem.getShoppingCartItemId(), holdItem.getServiceResponsible());
+            }
+        } else {
+            requestedItemIds.addAll(request.getShoppingCartItemIds());
+            for (Long itemId : request.getShoppingCartItemIds()) {
+                responsibleByItemId.put(itemId, request.getServiceResponsible());
+            }
+        }
+
+        List<ShoppingCartItem> items = shoppingCartItemRepository.findAllById(requestedItemIds);
+        if (items.size() != requestedItemIds.size()) {
             throw new IllegalArgumentException("Algunos items del carrito no fueron encontrados");
         }
 
@@ -146,6 +162,12 @@ public class ReservationService {
 
         List<Long> reservationIds = new ArrayList<>();
         for (ShoppingCartItem item : items) {
+            CreateTemporalReservationHoldRequest.ServiceResponsibleRequest serviceResponsible =
+                    responsibleByItemId.get(item.getId());
+            if (serviceResponsible == null) {
+                throw new IllegalArgumentException(
+                        "Falta responsable del servicio para el item del carrito: " + item.getId());
+            }
             java.math.BigDecimal totalAmount = item.getTotalPrice() != null ? item.getTotalPrice() : java.math.BigDecimal.ZERO;
             LocalDateTime reservationDateUtc = LocalDateTime.now(java.time.ZoneId.of("UTC"));
             Reservation reservation = Reservation.builder()
@@ -158,9 +180,9 @@ public class ReservationService {
                     .deliveryStatus(DeliveryStatusEnum.TEMPORAL)
                     .expiresAt(expiresAt)
                     .totalAmount(totalAmount)
-                    .serviceResponsibleName(request.getServiceResponsible().getName())
-                    .serviceResponsibleEmail(request.getServiceResponsible().getEmail())
-                    .serviceResponsiblePhone(request.getServiceResponsible().getPhone())
+                    .serviceResponsibleName(serviceResponsible.getName())
+                    .serviceResponsibleEmail(serviceResponsible.getEmail())
+                    .serviceResponsiblePhone(serviceResponsible.getPhone())
                     .maxCancellationDate(null)
                     .maxReschedulingDate(null)
                     .build();

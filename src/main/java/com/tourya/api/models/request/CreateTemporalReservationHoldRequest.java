@@ -1,6 +1,7 @@
 package com.tourya.api.models.request;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -16,7 +17,7 @@ import java.util.List;
 
 /**
  * Request para crear reservas TEMPORAL (holds) en checkout seguro.
- * Incluye responsable del servicio, hospedaje, lugar de procedencia y facturación electrónica.
+ * Cada item puede tener su propio responsable del servicio; payer es común en el pago.
  */
 @Getter
 @Setter
@@ -25,11 +26,21 @@ import java.util.List;
 @NoArgsConstructor
 public class CreateTemporalReservationHoldRequest {
 
-    @NotEmpty(message = "Debe incluir al menos un item del carrito")
+    /**
+     * Preferido: un responsable por item del carrito.
+     */
+    @Valid
+    private List<HoldItemRequest> items;
+
+    /**
+     * @deprecated Usar {@link #items}. Se mantiene por compatibilidad.
+     */
     private List<@Positive(message = "El ID del item debe ser positivo") Long> shoppingCartItemIds;
 
+    /**
+     * @deprecated Usar {@link #items}. Se mantiene por compatibilidad (mismo responsable para todos).
+     */
     @Valid
-    @NotNull(message = "Los datos del responsable del servicio son obligatorios")
     private ServiceResponsibleRequest serviceResponsible;
 
     @Size(max = 255)
@@ -62,6 +73,31 @@ public class CreateTemporalReservationHoldRequest {
 
     @Size(max = 30)
     private String billingPhone;
+
+    @AssertTrue(message = "Debe enviar items (con responsable por item) o shoppingCartItemIds con serviceResponsible")
+    public boolean isHoldItemsValid() {
+        if (items != null && !items.isEmpty()) {
+            return true;
+        }
+        return shoppingCartItemIds != null
+                && !shoppingCartItemIds.isEmpty()
+                && serviceResponsible != null;
+    }
+
+    @Getter
+    @Setter
+    @SuperBuilder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class HoldItemRequest {
+        @NotNull(message = "El ID del item del carrito es obligatorio")
+        @Positive(message = "El ID del item debe ser positivo")
+        private Long shoppingCartItemId;
+
+        @Valid
+        @NotNull(message = "Los datos del responsable del servicio son obligatorios")
+        private ServiceResponsibleRequest serviceResponsible;
+    }
 
     @Getter
     @Setter
