@@ -88,7 +88,9 @@ public class ReservationController {
             summary = "Checkout seguro — crear holds temporales",
             description = "Crea reservas TEMPORAL (hold) y opcionalmente persiste datos de checkout en el carrito " +
                     "(hospedaje, originCountryId/originStateId/originCityId, facturación electrónica). " +
-                    "Obligatorios: shoppingCartItemIds y serviceResponsible. " +
+                    "Obligatorios: items[] (shoppingCartItemId + serviceResponsible por item) "
+                    + "o shoppingCartItemIds + serviceResponsible (mismo responsable). "
+                    + "Payer es común en POST /payment. " +
                     "Checkout: campos opcionales; si envía procedencia, los tres IDs juntos. " +
                     "`expiresAt` configurable con `tourya.reservations.holdMinutes` (default 15). " +
                     "Confirmar con `POST /payment` antes de expirar."
