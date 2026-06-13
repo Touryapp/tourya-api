@@ -22,6 +22,15 @@ public interface ProviderUserTourRepository extends JpaRepository<ProviderUserTo
 
     Optional<ProviderUserTour> findByProviderUserIdAndTourId(Integer providerUserId, Integer tourId);
 
+    @Query("""
+            SELECT put FROM ProviderUserTour put
+            JOIN FETCH put.providerUser pu
+            JOIN FETCH pu.user
+            JOIN FETCH pu.provider
+            WHERE put.tour.id = :tourId AND put.isPrincipal = true
+            """)
+    Optional<ProviderUserTour> findPrincipalByTourId(@Param("tourId") Integer tourId);
+
     @Modifying
     @Query("""
             UPDATE ProviderUserTour put

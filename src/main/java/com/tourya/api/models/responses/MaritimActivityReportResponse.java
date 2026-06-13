@@ -20,8 +20,11 @@ public class MaritimActivityReportResponse {
 
     private Long id;
     private Integer countryId;
+    private String countryName;
     private Integer stateId;
+    private String stateName;
     private Integer cityId;
+    private String cityName;
     private Integer businessCategoryId;
     private String subcategoryCode;
     private MaritimeFlagEnum flag;

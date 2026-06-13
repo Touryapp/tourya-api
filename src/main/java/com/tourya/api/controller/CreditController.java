@@ -10,7 +10,6 @@ import com.tourya.api.services.CreditReservationService;
 import com.tourya.api.services.CreditService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -65,7 +64,7 @@ public class CreditController {
     public ResponseEntity<List<CreditResponse>> getAllCredits(
             Authentication authentication,
             @Parameter(description = "Estado del crédito para filtrar (opcional: CREATED, CANCELED, DELETED)")
-            @RequestParam(required = false) CreditStatusEnum status) {
+            @RequestParam(value = "status", required = false) CreditStatusEnum status) {
         log.info("Getting credits for user with status filter: {}", status);
         
         List<CreditResponse> credits = creditService.getAllCredits(authentication, status);
@@ -92,7 +91,7 @@ public class CreditController {
     @Operation(summary = "Buscar turista por documento", description = "Retorna userId para usar en transferencia de crédito.")
     public ResponseEntity<TouristLookupResponse> lookupTouristByDocument(
             @Parameter(description = "Número de documento del turista destino", required = true)
-            @RequestParam String documentNumber) {
+            @RequestParam("documentNumber") String documentNumber) {
         return ResponseEntity.ok(creditService.lookupTouristByDocument(documentNumber));
     }
 
