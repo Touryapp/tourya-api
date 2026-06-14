@@ -51,7 +51,7 @@ public class ProviderUserController {
     @PutMapping("/{providerUserId}")
     @Operation(summary = "Actualizar operador", description = "Nombre, tours asignados y/o tour principal.")
     public ResponseEntity<ProviderOperatorResponse> updateOperator(
-            @PathVariable Integer providerUserId,
+            @PathVariable("providerUserId") Integer providerUserId,
             @Valid @RequestBody UpdateProviderOperatorRequest request,
             Authentication connectedUser) {
         return ResponseEntity.ok(providerUserService.updateOperator(providerUserId, request, connectedUser));
@@ -60,8 +60,8 @@ public class ProviderUserController {
     @PutMapping("/{providerUserId}/principal-tour")
     @Operation(summary = "Cambiar tour principal del operador")
     public ResponseEntity<ProviderOperatorResponse> updatePrincipalTour(
-            @PathVariable Integer providerUserId,
-            @RequestParam Integer tourId,
+            @PathVariable("providerUserId") Integer providerUserId,
+            @RequestParam("tourId") Integer tourId,
             Authentication connectedUser) {
         return ResponseEntity.ok(
                 providerUserService.updatePrincipalTour(providerUserId, tourId, connectedUser));
@@ -71,7 +71,7 @@ public class ProviderUserController {
     @Operation(summary = "Restablecer contraseña temporal",
             description = "El proveedor asigna una nueva contraseña temporal; el operador deberá cambiarla en el próximo login.")
     public ResponseEntity<Map<String, String>> resetTemporaryPassword(
-            @PathVariable Integer providerUserId,
+            @PathVariable("providerUserId") Integer providerUserId,
             @Valid @RequestBody ResetProviderOperatorPasswordRequest request,
             Authentication connectedUser) {
         providerUserService.resetTemporaryPassword(providerUserId, request, connectedUser);

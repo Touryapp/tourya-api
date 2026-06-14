@@ -41,29 +41,29 @@ public class TourController {
     }
     @GetMapping("/admin/consultDataTourById/{tourId}")
     public ResponseEntity<TourFullDataResponse> consultDataTourByIdToAdmin (
-            @PathVariable Integer tourId, Authentication connectedUser){
+            @PathVariable("tourId") Integer tourId, Authentication connectedUser){
         return ResponseEntity.ok(tourService.consultDataTourByIdToAdmin(tourId, connectedUser));
     }
     @PutMapping("/admin/acceptTourById/{tourId}")
     public ResponseEntity<TourFullDataResponse> acceptTourById (
-            @PathVariable Integer tourId, Authentication connectedUser){
+            @PathVariable("tourId") Integer tourId, Authentication connectedUser){
         return ResponseEntity.ok(tourService.acceptTourByIdToAdmin(tourId, connectedUser));
     }
     @PutMapping("/admin/returnedTourById/{tourId}")
     public ResponseEntity<TourFullDataResponse> returnedTourById (
-            @PathVariable Integer tourId, Authentication connectedUser){
+            @PathVariable("tourId") Integer tourId, Authentication connectedUser){
         return ResponseEntity.ok(tourService.returnedTourByIdToAdmin(tourId, connectedUser));
     }
 
     @PutMapping("/user/submitTourById/{tourId}")
     public ResponseEntity<TourFullDataResponse> submitTourById (
-            @PathVariable Integer tourId, Authentication connectedUser){
+            @PathVariable("tourId") Integer tourId, Authentication connectedUser){
         return ResponseEntity.ok(tourService.submitTourByIdToProvider(tourId, connectedUser));
     }
 
     @PutMapping("/admin/cancelTourById/{tourId}")
     public ResponseEntity<TourFullDataResponse> cancelTourById (
-            @PathVariable Integer tourId, Authentication connectedUser){
+            @PathVariable("tourId") Integer tourId, Authentication connectedUser){
         return ResponseEntity.ok(tourService.cancelTourByIdToAdmin(tourId, connectedUser));
     }
 
@@ -88,7 +88,7 @@ public class TourController {
     }
     @GetMapping("/user/consultDataTourById/{tourId}")
     public ResponseEntity<TourFullDataResponse> consultDataTourById (
-            @PathVariable Integer tourId, Authentication connectedUser){
+            @PathVariable("tourId") Integer tourId, Authentication connectedUser){
         return ResponseEntity.ok(tourService.consultDataTourById(tourId, connectedUser));
     }
 
@@ -96,7 +96,7 @@ public class TourController {
     @GetMapping("/details/{tourId}")
     @Operation(summary = "Detalle unificado del Tour", description = "Retorna el detalle del tour (para público o autenticado).")
     public ResponseEntity<TourFullDataResponse> getTourDetails(
-            @PathVariable Integer tourId,
+            @PathVariable("tourId") Integer tourId,
             @Nullable Authentication connectedUser
     ) {
         return ResponseEntity.ok(tourService.getTourDetailsById(tourId, connectedUser));

@@ -57,10 +57,13 @@ public class ReservationDetailsResponse {
 
     // minCapacity y maxCapacity eliminados - la capacidad ahora se maneja a nivel de TourSchedule
 
-    // --- Responsible ---
+    // --- Responsable del servicio (quien asiste al tour) ---
     private String serviceResponsibleName;
     private String serviceResponsibleEmail;
     private String serviceResponsiblePhone;
+
+    /** Operario principal del tour por parte del operador turístico. */
+    private TourOperatorResponse tourOperator;
     
     // --- Campos de cancelación y re-agendamiento ---
     private java.time.LocalDate maxCancellationDate;
@@ -76,4 +79,7 @@ public class ReservationDetailsResponse {
 
     /** Cancelación por lluvia (DIMAR): solo el día del tour si hay reporte rojo vigente. */
     private Boolean canRainCancel;
+
+    /** Confirmar entrega: true si la fecha del tour es hoy. */
+    private Boolean canConfirmReservation;
 }

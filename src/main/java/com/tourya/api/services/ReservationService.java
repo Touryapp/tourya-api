@@ -97,6 +97,7 @@ public class ReservationService {
     private final ReviewRepository reviewRepository;
     private final ReservationPriceBreakdownMapper reservationPriceBreakdownMapper;
     private final TouristProfileRepository touristProfileRepository;
+    private final TourPrincipalOperatorService tourPrincipalOperatorService;
 
     /**
      * Método createReservation removido - las reservas se crean automáticamente con los pagos
@@ -329,6 +330,8 @@ public class ReservationService {
         if (!extraServices.isEmpty()) {
             response.setExtraServices(extraServices);
         }
+
+        response.setTourOperator(tourPrincipalOperatorService.resolveForTour(tour));
         
         // maxCancellationDate y maxReschedulingDate vienen directamente de la BD (ya están en el mapper)
         // No se calculan dinámicamente porque se guardan en la tabla reservation
@@ -976,6 +979,9 @@ public class ReservationService {
                         reservation.getReservationId(), e.getMessage());
                 reservation.setCanRainCancel(false);
             }
+
+            reservation.setCanConfirmReservation(computeCanConfirmReservation(reservation.getScheduleDate()));
+            reservation.setTourOperator(tourPrincipalOperatorService.resolveForTourId(reservation.getTourId()));
         }
 
         Long total =
@@ -1192,6 +1198,18 @@ public class ReservationService {
                     .build());
         }
         return response;
+    }
+
+    private boolean computeCanConfirmReservation(String scheduleDate) {
+        if (scheduleDate == null || scheduleDate.isBlank()) {
+            return false;
+        }
+        try {
+            String datePart = scheduleDate.length() >= 10 ? scheduleDate.substring(0, 10) : scheduleDate.trim();
+            return LocalDate.parse(datePart).isEqual(LocalDate.now());
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private boolean computeCanRainCancel(Long reservationId, Authentication authentication) {
