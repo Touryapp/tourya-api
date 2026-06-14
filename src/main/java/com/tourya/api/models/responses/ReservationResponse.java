@@ -34,6 +34,8 @@ public class ReservationResponse {
     private LocalDateTime reservationDate;
     private DeliveryStatusEnum deliveryStatus;
     private ServiceResponsibleResponse serviceResponsible;
+    /** Operario principal del tour (operador turístico / agencia). */
+    private TourOperatorResponse tourOperator;
     private LocalDateTime createdDate;
     private LocalDateTime lastModifiedDate;
     private Integer createdBy;

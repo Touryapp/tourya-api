@@ -10,7 +10,6 @@ import com.tourya.api.models.responses.PaymentCreditItemResponse;
 import com.tourya.api.models.responses.PaymentResponse;
 import com.tourya.api.models.responses.ReservationResponse;
 import com.tourya.api.models.responses.PayerResponse;
-import com.tourya.api.models.responses.ServiceResponsibleResponse;
 import com.tourya.api.repository.*;
 import com.tourya.api.constans.enums.IncludeExcludeTypeEnum;
 import com.tourya.api.constans.enums.CancellationPolicyTypeEnum;
@@ -62,7 +61,7 @@ public class PaymentService {
     private final EmailService emailService;
     private final ReservationPriceBreakdownMapper reservationPriceBreakdownMapper;
     private final ReservationMapper reservationMapper;
-    private final ProviderUserTourRepository providerUserTourRepository;
+    private final TourPrincipalOperatorService tourPrincipalOperatorService;
 
     /**
      * Crea un pago y automáticamente genera la reserva con sus items.
@@ -556,52 +555,8 @@ public class PaymentService {
         enrichTourOperator(response, tour);
     }
 
-    /**
-     * Expone el operador del tour en {@code serviceResponsible}.
-     * Prioriza el operador principal asignado al tour; si no existe, conserva el hold o usa datos del proveedor.
-     */
     private void enrichTourOperator(ReservationResponse response, Tour tour) {
-        if (tour == null || tour.getId() == null) {
-            return;
-        }
-
-        providerUserTourRepository.findPrincipalByTourId(tour.getId()).ifPresentOrElse(
-                link -> response.setServiceResponsible(buildServiceResponsibleFromOperator(link)),
-                () -> {
-                    if (response.getServiceResponsible() == null) {
-                        enrichTourOperatorFromProvider(response, tour.getProvider());
-                    }
-                }
-        );
-    }
-
-    private void enrichTourOperatorFromProvider(ReservationResponse response, Provider provider) {
-        if (provider == null) {
-            return;
-        }
-        response.setServiceResponsible(ServiceResponsibleResponse.builder()
-                .name(provider.getName())
-                .email(provider.getUser() != null ? provider.getUser().getEmail() : null)
-                .phone(parsePhoneDigits(provider.getPhone()))
-                .build());
-    }
-
-    private ServiceResponsibleResponse buildServiceResponsibleFromOperator(ProviderUserTour link) {
-        User user = link.getProviderUser().getUser();
-        Provider provider = link.getProviderUser().getProvider();
-        return ServiceResponsibleResponse.builder()
-                .name(user != null ? user.fullName() : null)
-                .email(user != null ? user.getEmail() : null)
-                .phone(parsePhoneDigits(provider != null ? provider.getPhone() : null))
-                .build();
-    }
-
-    private Long parsePhoneDigits(String phone) {
-        if (phone == null || phone.isBlank()) {
-            return null;
-        }
-        String digits = phone.replaceAll("[^0-9]", "");
-        return digits.isEmpty() ? null : Long.parseLong(digits);
+        response.setTourOperator(tourPrincipalOperatorService.resolveForTour(tour));
     }
 
     /**

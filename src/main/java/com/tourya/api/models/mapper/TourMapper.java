@@ -5,6 +5,7 @@ import com.tourya.api.models.responses.*;
 import com.tourya.api.models.request.TourCreateRequest;
 import com.tourya.api.models.request.TourFullDataRequest;
 import com.tourya.api.models.request.TourRequest;
+import com.tourya.api.services.TourPrincipalOperatorService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -16,6 +17,7 @@ import java.util.List;
 public class TourMapper {
     private final ProviderMapper providerMapper;
     private final TourCategoryMapper tourCategoryMapper;
+    private final TourPrincipalOperatorService tourPrincipalOperatorService;
 
     public Tour toTour(TourRequest tourRequest){
         Tour tour = new Tour();
@@ -82,6 +84,7 @@ public class TourMapper {
         tourResponse.setStatus(tour.getStatus());
         tourResponse.setTourCategory(tourCategoryMapper.toTourCategoryResponse(tour.getTourCategory()));
         tourResponse.setProvider(providerMapper.toProviderResponse(tour.getProvider()));
+        tourResponse.setTourOperator(tourPrincipalOperatorService.resolveForTour(tour));
         return tourResponse;
     }
     public TourFullDataResponse toTourFullDataResponse(Tour tour, List<TourAddressResponse> tourAddressResponseList,
@@ -144,6 +147,7 @@ public class TourMapper {
         tourFullDataResponse.setRating(tour.getRating());
         tourFullDataResponse.setStatus(tour.getStatus());
         tourFullDataResponse.setProvider(providerMapper.toProviderResponse(tour.getProvider()));
+        tourFullDataResponse.setTourOperator(tourPrincipalOperatorService.resolveForTour(tour));
         tourFullDataResponse.setLocations(tourAddressResponseList);
         tourFullDataResponse.setMainAttractions(tourMainAttractionResponseList);
         tourFullDataResponse.setIncludes(tourIncludesResponseList);

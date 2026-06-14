@@ -31,6 +31,8 @@ public class TourFullDataResponse {
     private BigDecimal rating;
     private TourStatusEnum status;
     private ProviderResponse provider;
+    /** Operario principal asignado al tour (operador turístico). */
+    private TourOperatorResponse tourOperator;
     private List<TourAddressResponse> locations = new ArrayList<>();
     private List<TourMainAttractionResponse> mainAttractions = new ArrayList<>();
     private List<TourIncludesExcludesResponse>  includes = new ArrayList<>();

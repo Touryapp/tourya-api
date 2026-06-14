@@ -30,6 +30,8 @@ public class TourResponse {
     private TourStatusEnum status;
     private TourCategoryResponse tourCategory;
     private ProviderResponse provider;
+    /** Operario principal asignado al tour (operador turístico). */
+    private TourOperatorResponse tourOperator;
     private TourGalleryResponse profilePicture;
 
 }

@@ -50,7 +50,8 @@ public class ReservationController {
                     + "Cliente (rol USER sin proveedor): solo sus reservas. "
                     + "Incluye providerPrice (suma neto proveedor). "
                     + "Orden: sortBy=scheduleDate|reservationCreatedDate|reservationDate, sortDirection=ASC|DESC. "
-                    + "Cada ítem incluye reservationId y bookingId (TB-{id}).")
+                    + "Cada ítem incluye reservationId y bookingId (TB-{id}). "
+                    + "canConfirmReservation=true cuando scheduleDate es hoy.")
     public ResponseEntity<PageResponse<ReservationDetailsResponse>> getProviderReservations(
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "10") int size,
