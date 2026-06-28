@@ -1,6 +1,7 @@
 package com.tourya.api.models.responses;
 
 import com.tourya.api.constans.enums.ReviewReasonTypeEnum;
+import com.tourya.api.models.TranslatedField;
 import lombok.Builder;
 import lombok.Data;
 
@@ -21,7 +22,7 @@ public class ReviewReasonCatalogResponse {
     @Builder
     public static class Item {
         private Integer id; // 1..7 dentro de su tipo
-        private String label;
+        private TranslatedField label;
         private ReviewReasonTypeEnum type;
     }
 }

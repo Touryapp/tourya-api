@@ -9,6 +9,7 @@ import lombok.experimental.SuperBuilder;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -56,7 +57,13 @@ public class ReservationResponse {
     private String duration;
     private LocalDateTime checkInDate;
     private LocalDateTime returnDate;
+    /** Hora inicio del slot reservado (ej. 09:00). */
+    private LocalTime slotStartTime;
+    /** Hora fin del slot reservado (ej. 17:00). */
+    private LocalTime slotEndTime;
     private String destination;
+    /** Puntos de encuentro configurados en el tour (incluye {@code address}). */
+    private List<TourAddressResponse> locations = new ArrayList<>();
     private Double price;
     /** Total que recibe el proveedor (suma de subtotales por ageType). */
     private BigDecimal providerTotalAmount;
@@ -65,6 +72,10 @@ public class ReservationResponse {
     private String travellers;
     private List<String> activities;
     private List<String> extraServices;
+    /** Actividades incluidas en el tour (i18n). Usar este campo, no {@code activities}. */
+    private List<TourIncludesExcludesResponse> includes = new ArrayList<>();
+    /** Actividades excluidas del tour (i18n). */
+    private List<TourIncludesExcludesResponse> excludes = new ArrayList<>();
     
     // Campos de cancelación y re-agendamiento
     private java.time.LocalDate maxCancellationDate;

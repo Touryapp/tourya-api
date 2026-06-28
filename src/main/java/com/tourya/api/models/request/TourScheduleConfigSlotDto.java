@@ -1,5 +1,7 @@
 package com.tourya.api.models.request;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.tourya.api.config.EmptyStringAsNullIntegerDeserializer;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -10,6 +12,7 @@ import java.util.List;
 
 @Data
 public class TourScheduleConfigSlotDto {
+    @JsonDeserialize(using = EmptyStringAsNullIntegerDeserializer.class)
     private Integer id; // Agregado para permitir actualizaciones (identificar slots existentes)
     @NotNull(message = "La hora de inicio del slot no puede ser nula")
     private LocalTime startTime;

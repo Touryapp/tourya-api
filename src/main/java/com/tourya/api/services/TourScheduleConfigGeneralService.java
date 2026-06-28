@@ -1,5 +1,6 @@
 package com.tourya.api.services;
 
+import com.tourya.api._utils.PayloadIdUtils;
 import com.tourya.api._utils.TouryaPriceCalculator;
 import com.tourya.api._utils.Utils;
 import com.tourya.api.common.PageResponse;
@@ -70,11 +71,17 @@ public class TourScheduleConfigGeneralService {
         List<Role> roleList = user.getRoles();
         Provider provider = providerService.findByUserAndStatusActive(user);
 
-        if (request.getTourId() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "tourId is required.");
+        boolean isTemplate = Boolean.TRUE.equals(request.getIsTemplate());
+
+        if (!isTemplate && request.getTourId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "tourId is required when isTemplate is false.");
         }
-        Tour tour = getTour(request.getTourId(), provider.getId());
-        requireTourAcceptedForProviderSchedule(tour, roleList);
+
+        Tour tour = null;
+        if (request.getTourId() != null) {
+            tour = getTour(request.getTourId(), provider.getId());
+            requireTourAcceptedForProviderSchedule(tour, roleList);
+        }
 
         // 1. Construir el grafo de entidades a partir del DTO
         TourScheduleConfig config = buildConfigFromRequest(request, provider, tour);
@@ -97,8 +104,12 @@ public class TourScheduleConfigGeneralService {
         config.setLabel(request.getLabel());
         config.setProvider(provider);
         config.setProviderId(provider.getId());
-        config.setTour(tour);
-        config.setTourId(tour.getId());
+        if (tour != null) {
+            config.setTour(tour);
+            config.setTourId(tour.getId());
+        } else {
+            config.setTourId(null);
+        }
 
         config.setDaysOfWeek(new ArrayList<>(request.getDaysOfWeek()));
         config.setIsTemplate(request.getIsTemplate());
@@ -216,26 +227,42 @@ public class TourScheduleConfigGeneralService {
     private void manageSlotsUpdate(TourScheduleConfig existingConfig, Set<TourScheduleConfigSlotDto> requestedSlots,
             List<Role> roleList) {
         Map<Integer, TourScheduleConfigSlot> existingSlotsMap = existingConfig.getSlots().stream()
-                .filter(s -> s.getId() != null)
+                .filter(s -> PayloadIdUtils.isPersistedId(s.getId()))
                 .collect(Collectors.toMap(TourScheduleConfigSlot::getId, Function.identity()));
 
         Set<TourScheduleConfigSlot> newOrUpdatedSlots = new HashSet<>();
+        Set<Integer> handledSlotIds = new HashSet<>();
         Tour tourForConfig = existingConfig.getTourId() != null
                 ? tourRepository.findById(existingConfig.getTourId()).orElse(null)
                 : null;
 
         if (requestedSlots != null) {
             for (TourScheduleConfigSlotDto slotDto : requestedSlots) {
-                TourScheduleConfigSlot currentSlot;
-                boolean isNewSlot = slotDto.getId() == null || !existingSlotsMap.containsKey(slotDto.getId());
-                if (!isNewSlot) {
-                    currentSlot = existingSlotsMap.get(slotDto.getId());
+                Integer requestedSlotId = PayloadIdUtils.normalizeId(slotDto.getId());
+                TourScheduleConfigSlot currentSlot = null;
+                boolean isNewSlot;
+
+                if (PayloadIdUtils.isPersistedId(requestedSlotId)
+                        && existingSlotsMap.containsKey(requestedSlotId)) {
+                    currentSlot = existingSlotsMap.get(requestedSlotId);
+                    isNewSlot = false;
                 } else {
-                    currentSlot = new TourScheduleConfigSlot();
-                    currentSlot.setConfig(existingConfig);
-                    currentSlot.setBookings(0);
-                    currentSlot.setAvailability(0);
+                    currentSlot = findExistingSlotByTime(existingConfig, slotDto, handledSlotIds);
+                    if (currentSlot != null) {
+                        isNewSlot = false;
+                    } else {
+                        currentSlot = new TourScheduleConfigSlot();
+                        currentSlot.setConfig(existingConfig);
+                        currentSlot.setBookings(0);
+                        currentSlot.setAvailability(0);
+                        isNewSlot = true;
+                    }
                 }
+
+                if (currentSlot.getId() != null) {
+                    handledSlotIds.add(currentSlot.getId());
+                }
+
                 currentSlot.setStartTime(slotDto.getStartTime());
                 currentSlot.setEndTime(slotDto.getEndTime());
                 currentSlot.setCapacity(slotDto.getCapacity());
@@ -263,6 +290,23 @@ public class TourScheduleConfigGeneralService {
         existingConfig.getSlots().addAll(newOrUpdatedSlots);
     }
 
+    private TourScheduleConfigSlot findExistingSlotByTime(
+            TourScheduleConfig config,
+            TourScheduleConfigSlotDto slotDto,
+            Set<Integer> alreadyHandled) {
+        if (slotDto.getStartTime() == null || slotDto.getEndTime() == null || config.getSlots() == null) {
+            return null;
+        }
+        return config.getSlots().stream()
+                .filter(s -> s.getStartTime() != null
+                        && s.getEndTime() != null
+                        && s.getStartTime().equals(slotDto.getStartTime())
+                        && s.getEndTime().equals(slotDto.getEndTime())
+                        && (s.getId() == null || !alreadyHandled.contains(s.getId())))
+                .findFirst()
+                .orElse(null);
+    }
+
     private void updateSlotPrices(TourScheduleConfigSlot slot, Set<TourScheduleConfigPriceDto> incomingPriceDtos,
             BigDecimal slotPorcentajeTourya, List<Role> roleList) {
         validateSlotPrices(incomingPriceDtos, roleList);
@@ -276,6 +320,7 @@ public class TourScheduleConfigGeneralService {
 
         Set<Integer> incomingPriceIds = incomingPriceDtos.stream()
                 .map(TourScheduleConfigPriceDto::getId)
+                .map(PayloadIdUtils::normalizeId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
         Set<AgePriceType> incomingAgeTypes = incomingPriceDtos.stream()
@@ -309,9 +354,10 @@ public class TourScheduleConfigGeneralService {
 
     private static TourScheduleConfigPrice findExistingPrice(TourScheduleConfigSlot slot,
             TourScheduleConfigPriceDto priceDto) {
-        if (priceDto.getId() != null) {
+        Integer requestedPriceId = PayloadIdUtils.normalizeId(priceDto.getId());
+        if (PayloadIdUtils.isPersistedId(requestedPriceId)) {
             TourScheduleConfigPrice byId = slot.getPrices().stream()
-                    .filter(p -> Objects.equals(p.getId(), priceDto.getId()))
+                    .filter(p -> Objects.equals(p.getId(), requestedPriceId))
                     .findFirst()
                     .orElse(null);
             if (byId != null) {
@@ -871,6 +917,7 @@ public class TourScheduleConfigGeneralService {
     public List<TourScheduleBulkResponse> saveOrUpdateTourSchedules(List<TourScheduleRequest> scheduleRequests,
             Authentication connectedUser) {
         List<TourScheduleBulkResponse> responses = new ArrayList<>();
+        Set<Integer> configsUpdatedInBatch = new HashSet<>();
 
         for (TourScheduleRequest dto : scheduleRequests) {
             Tour tourForSchedule = tourRepository.findById(dto.getTourId()).orElse(null);
@@ -887,11 +934,11 @@ public class TourScheduleConfigGeneralService {
             if (existingScheduleOpt.isPresent()) {
                 schedule = existingScheduleOpt.get();
                 config = resolveConfigForBulk(
-                        dto.getConfig(), dto.getTourId(), schedule.getConfigId(), connectedUser);
+                        dto.getConfig(), dto.getTourId(), schedule.getConfigId(), connectedUser, configsUpdatedInBatch);
                 schedule.setConfig(config);
                 updateScheduleProperties(schedule, dto);
             } else {
-                config = resolveConfigForBulk(dto.getConfig(), dto.getTourId(), null, connectedUser);
+                config = resolveConfigForBulk(dto.getConfig(), dto.getTourId(), null, connectedUser, configsUpdatedInBatch);
                 schedule = createScheduleFromDto(dto, config);
             }
 
@@ -912,12 +959,14 @@ public class TourScheduleConfigGeneralService {
             TourScheduleConfigDto configDto,
             Integer tourId,
             Integer currentScheduleConfigId,
-            Authentication connectedUser) {
+            Authentication connectedUser,
+            Set<Integer> configsUpdatedInBatch) {
         if (configDto == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "config is required.");
         }
 
-        Integer targetConfigId = configDto.getId() != null ? configDto.getId() : currentScheduleConfigId;
+        Integer normalizedConfigId = PayloadIdUtils.normalizeId(configDto.getId());
+        final Integer targetConfigId = normalizedConfigId != null ? normalizedConfigId : currentScheduleConfigId;
 
         if (targetConfigId != null) {
             TourScheduleConfig config = tourScheduleConfigRepository.findByIdWithSlots(targetConfigId)
@@ -927,9 +976,10 @@ public class TourScheduleConfigGeneralService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "Config " + targetConfigId + " does not belong to tour " + tourId);
             }
-            if (hasConfigPayload(configDto)) {
+            if (hasConfigPayload(configDto) && !configsUpdatedInBatch.contains(targetConfigId)) {
                 TourScheduleConfigCreationRequest request = mapDtoToCreationRequest(configDto, tourId);
                 TourScheduleConfigResponse updated = updateTourScheduleConfig(targetConfigId, request, connectedUser);
+                configsUpdatedInBatch.add(targetConfigId);
                 return tourScheduleConfigRepository.findByIdWithSlots(updated.getId())
                         .orElseThrow(() -> new ResourceNotFoundException(
                                 "Config not found after update: " + updated.getId()));

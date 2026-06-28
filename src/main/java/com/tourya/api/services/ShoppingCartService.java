@@ -32,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
@@ -65,6 +66,7 @@ public class ShoppingCartService {
     private final CountryRepository countryRepository;
     private final StateRepository stateRepository;
     private final CityRepository cityRepository;
+    private final TourAddressRepository tourAddressRepository;
 
     /**
      * Crea un nuevo carrito de compras para un usuario.
@@ -680,6 +682,15 @@ public class ShoppingCartService {
                     Integer tourScheduleId = null;
                     String tourName = null;
                     TourGalleryResponse profilePicture = null;
+                    LocalTime slotStartTime = null;
+                    LocalTime slotEndTime = null;
+                    String city = null;
+                    String department = null;
+
+                    if (item.getSlot() != null) {
+                        slotStartTime = item.getSlot().getStartTime();
+                        slotEndTime = item.getSlot().getEndTime();
+                    }
 
                     if ("SERVICE".equalsIgnoreCase(item.getProductType())) {
                         // Cuando es SERVICE, obtener el nombre del servicio
@@ -701,6 +712,19 @@ public class ShoppingCartService {
                                 profilePicture = resolveProfilePicture(item.getTourSchedule().getTourId());
                             }
                         }
+                        Integer tourId = resolveTourIdFromCartItem(item);
+                        if (tourId != null) {
+                            List<TourAddress> addresses = tourAddressRepository.findByTourId(tourId);
+                            if (addresses != null && !addresses.isEmpty()) {
+                                TourAddress first = addresses.get(0);
+                                if (first.getCity() != null) {
+                                    city = first.getCity().getName();
+                                    if (first.getCity().getState() != null) {
+                                        department = first.getCity().getState().getName();
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     return ShoppingCartItemResponse.builder()
@@ -712,6 +736,10 @@ public class ShoppingCartService {
                             .tourScheduleId(tourScheduleId)
                             .tourName(tourName)
                             .slotId(item.getSlot() != null ? item.getSlot().getId() : null)
+                            .slotStartTime(slotStartTime)
+                            .slotEndTime(slotEndTime)
+                            .city(city)
+                            .department(department)
                             .profilePicture(profilePicture)
                             .totalPrice(item.getTotalPrice())
                             .providerTotalPrice(itemProviderTotal)
@@ -888,5 +916,17 @@ public class ShoppingCartService {
                 totalDeleted, user.getId(), activeCarts.size());
         
         return totalDeleted;
+    }
+
+    private Integer resolveTourIdFromCartItem(ShoppingCartItem item) {
+        if (item.getTourSchedule() != null && item.getTourSchedule().getTourId() != null) {
+            return item.getTourSchedule().getTourId();
+        }
+        if (item.getProductType() != null
+                && "TOUR".equalsIgnoreCase(item.getProductType())
+                && item.getProductId() != null) {
+            return item.getProductId();
+        }
+        return null;
     }
 }

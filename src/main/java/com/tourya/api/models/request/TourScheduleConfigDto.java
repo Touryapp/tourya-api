@@ -1,5 +1,7 @@
 package com.tourya.api.models.request;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.tourya.api.config.EmptyStringAsNullIntegerDeserializer;
 import jakarta.validation.Valid;
 import lombok.Data;
 
