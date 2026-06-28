@@ -1,0 +1,337 @@
+# 13 — Despliegue GCP y CI/CD
+
+Cómo está montada la infraestructura y los pipelines de Tourya. Estado actual: **híbrido AWS (legacy) + GCP (actual)**.
+
+---
+
+## Estado actual del despliegue
+
+| Componente | Producción actual | Notas |
+|------------|-------------------|-------|
+| Backend (`tourya-api`) | GCP Cloud Run (`tourya-dev-api`) | Migrado desde AWS EC2 |
+| Frontend (`tourya-front`) develop branch | AWS EC2 | Pipeline GitHub Actions |
+| Frontend (`tourya-front`) develop_ftmg branch | GCP Cloud Run (`tourya-front`) | Landing del cliente |
+| Frontend (`tourya-front`) main branch | (pendiente) | Cloud Build trigger pendiente |
+| Mobile | Sin pipeline. Build manual a APK | Sin Play Store ni distribución oficial |
+
+---
+
+## Infraestructura GCP
+
+### Proyecto
+- **Project ID**: `wass-project`
+- **Región**: `us-east1`
+- **Owners**: `franklinmarcano1970@gmail.com`, `luis.mendoza@wass.com.co`
+
+### Servicios
+
+| Servicio | Uso |
+|----------|-----|
+| **Cloud Run** | Backend y frontend serverless |
+| **Cloud SQL** | PostgreSQL (privado vía VPC) |
+| **Cloud Storage (GCS)** | Imágenes, comprobantes, documentos KYB, QRs |
+| **Cloud Build** | CI/CD pipeline |
+| **Artifact Registry** | Docker images |
+| **VPC Connector** | Cloud Run ↔ Cloud SQL privado |
+| **Load Balancer (HTTPS)** | Routing + dominio |
+| **Secret Manager** | ❓ ❗ Hoy NO está siendo usado — debería usarse para secretos |
+
+### Dominios
+
+| Dominio | Apunta a | DNS |
+|---------|----------|-----|
+| `tourya.co` | Load Balancer `34.160.22.16` | GoDaddy (cliente) |
+| `tourya-dev-api-5j2nd2oflq-ue.a.run.app` | Cloud Run backend | GCP |
+| `tourya-front-24ohzuhvrq-ue.a.run.app` | Cloud Run frontend | GCP |
+
+📌 PENDIENTE — confirmar si hay subdominios planeados (`api.tourya.co`, `admin.tourya.co`).
+
+---
+
+## Configuración Cloud Run del backend
+
+### Servicio: `tourya-dev-api`
+- **Imagen**: del Artifact Registry tras build.
+- **Puerto**: 8088 (interno).
+- **CPU throttling**: ⚠️ **DESACTIVADO** (`--no-cpu-throttling`). Razón: SMTP `@Async` fallaba con throttling durante TLS handshake.
+- **Memoria / CPU**: ❓ — verificar.
+- **Min instances**: ❓ (probable 0).
+- **Max instances**: ❓.
+- **VPC Connector**: sí (para Cloud SQL privado).
+
+### Variables de entorno críticas
+```
+DB_HOST, DB_PORT, DB_USER, DB_PASSWORD
+MAIL_HOST, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD, MAIL_STARTTLS, MAIL_LOCALHOST, MAIL_TLS_PROTOCOLS
+ACTIVATION_URL
+STORAGE_PROVIDER=GCP
+GCS_BUCKET, GCP_PROJECT_ID
+GOOGLE_CLIENT_ID
+WOMPI_PUBLIC_KEY, WOMPI_INTEGRITY_SECRET   ← debería ir a Secret Manager
+JWT_SECRET                                  ← debería ir a Secret Manager
+```
+
+### Histórico relevante
+
+- ⚠️ 19 revisiones acumuladas → se limpió a 2 (revisión activa `00021-dtf` + rollback `00020-f94`).
+- ✅ Migración SMTP de `eowkin@gmail.com` (Gmail personal) → `noreply@wass.com.co` (Workspace SMTP Relay).
+
+---
+
+## CI/CD
+
+### 1. AWS EC2 (legacy, branch `develop`)
+
+✅ Pipeline GitHub Actions: `.github/workflows/build_deploy_develop.yml`.
+
+Flow:
+1. Push a `develop`.
+2. GitHub Actions builds Docker image.
+3. Push a AWS ECR vía CodeBuild.
+4. Deploy a EC2 vía AWS CodeDeploy (`appspec.yml`).
+
+Usado para mantener el entorno AWS de turistas legacy.
+
+### 2. GCP Cloud Build (frontend en `develop_ftmg`)
+
+✅ Trigger configurado: push a `develop_ftmg` → Cloud Build → deploy a Cloud Run `tourya-front`.
+
+### 3. GCP Cloud Build (backend en `main`)
+
+📌 PENDIENTE — comando de creación del trigger:
+```bash
+gcloud beta builds triggers create github \
+  --repo-name=tourya-api \
+  --repo-owner=Touryapp \
+  --branch-pattern='^main$' \
+  --build-config=cloudbuild.yaml \
+  --name=tourya-front-deploy-main
+```
+
+### 4. Mobile
+
+❌ Sin pipeline. Build manual a APK.
+
+📌 PENDIENTE — definir flujo de release mobile (Play Store).
+
+---
+
+## Ramas Git por repo
+
+### `tourya-api` (GitHub `Touryapp/tourya-api`)
+
+| Rama | Para qué |
+|------|----------|
+| `develop` | Desarrollo, deploy a AWS EC2 |
+| `develop_infra` | Cambios de infra |
+| `feature/gcp-migration` | Trabajos de migración a GCP |
+| `feature/reschedule` | Trabajo en feature de reschedule |
+| `feature/reschedule-overrides-fix` | (rama nueva en remoto) |
+| `main` | (atrasada de develop por 2 commits) |
+
+### `tourya-front` (GitHub `Touryapp/tourya-front`)
+
+| Rama | Para qué |
+|------|----------|
+| `develop` | Desarrollo, deploy a AWS EC2 |
+| `develop_ftmg` | **Landing page** (versión deployed a GCP). Cambios visuales temporales para presentación cliente |
+| `develop_infra` | Workflows GitHub Actions |
+| `feature/gcp-migration` | Migración GCP |
+| `feature/homeCardsRefactor` | (en desarrollo) |
+| `feature/lastRequirementsDocument` y `...2` | (nuevas en remoto, posiblemente de otro dev) |
+| `main` | (atrasada) |
+
+### `tourya-mobile`
+
+⚠️ Solo `master` local. **Sin remoto GitHub**.
+
+---
+
+## Dockerfile (`tourya-api`)
+
+Multi-stage build:
+
+```Dockerfile
+# Stage 1: Build
+FROM maven:3.9.4-amazoncorretto-17 AS build
+COPY . /app
+WORKDIR /app
+RUN ./mvnw clean package -DskipTests
+
+# Stage 2: Runtime
+FROM openjdk:17-jdk-slim
+COPY --from=build /app/target/*.jar /app/app.jar
+COPY nginx.conf.template /etc/nginx/conf.d/default.conf.template
+EXPOSE ${PORT:-8088}
+CMD ["sh", "-c", "envsubst < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && java -jar /app/app.jar"]
+```
+
+### Nota sobre `PORT` env var
+
+✅ El Dockerfile usa `${PORT}` para que sea compatible con:
+- **AWS EC2**: `PORT=80` (default).
+- **GCP Cloud Run**: GCP inyecta `PORT=8080`.
+
+`nginx.conf` también usa `${PORT}` template, con `envsubst` al startup.
+
+---
+
+## Frontend deploy
+
+### Para web Angular
+
+Build: `npm run build` → genera `dist/`.
+
+Servido vía Nginx en Cloud Run.
+
+### Para landing temporal (`develop_ftmg`)
+
+✅ Cambios visuales en esta rama (temporales para presentación cliente):
+- **Footer**: agregado "Touya Marketplace S.A.S" y "RNT: 263565 - NIT: 901.961.052-4".
+- **Navbar**: removidos todos los links de navegación y user profile.
+- **Hero**: reemplazado el search form por "Próximamente".
+- **Top Tours**: oculto (display: none).
+
+⚠️ Estos cambios son temporales — luego se revierten para volver a la app completa.
+
+---
+
+## Migraciones de base de datos
+
+✅ Manuales: `psql -f database/migrations/XXX_*.sql`.
+
+Hay un archivo `MIGRACIONES_A_EJECUTAR.txt` que mantiene la lista de migraciones pendientes para cada entorno.
+
+📌 PENDIENTE — definir si se quiere automatizar (Flyway, Liquibase).
+
+---
+
+## Logs y monitoreo
+
+| Sistema | Servicio |
+|---------|----------|
+| Logs backend | Cloud Logging (auto-stream desde Cloud Run) |
+| Métricas | Cloud Monitoring (auto) |
+| Alertas | ❓ — no configuradas |
+| Tracing | ❓ — no configurado |
+| APM | ❌ Sentry / Datadog no integrados |
+
+📌 PENDIENTE LUIS — ¿se quieren alertas? (errores 5xx, latencia alta, base de datos full).
+
+---
+
+## CI/CD propuesto (futuro)
+
+> Plan completo en `cicd-improvement-plan.md` (interno).
+
+Fases:
+
+1. **JaCoCo + SpotBugs + PMD**: análisis estático + coverage gate (80%).
+2. **Snyk Free**: scanning de vulnerabilidades en dependencias (100 tests/mes).
+3. **Branch Protection**: bloquear merge a `develop` / `main` si CI falla.
+4. **Webhook Wompi** (si se implementa).
+5. **Mobile pipeline**: GitHub Actions → build APK → upload a Play Store internal track.
+
+---
+
+## Variables de entorno por archivo `.env.example`
+
+✅ Tourya tiene un `.env.example` en `tourya-api/`:
+
+```
+DB_HOST=
+DB_PORT=
+DB_USER=
+DB_PASSWORD=
+
+AWS_BUCKET=
+AWS_REGION=
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+
+GOOGLE_CLIENT_ID=
+```
+
+📌 Falta: variables de Wompi, JWT, SMTP, GCS — agregar al template.
+
+---
+
+## Backups
+
+| Recurso | Backup |
+|---------|--------|
+| Cloud SQL PostgreSQL | ❓ — verificar si está habilitado |
+| GCS bucket | versioning ❓ |
+| Repos GitHub | GitHub mismo (snapshots por commits) |
+| Mobile code | ⚠️ **NO** — solo local |
+
+📌 PENDIENTE — confirmar política de backup de Cloud SQL.
+
+---
+
+## Acceso
+
+| Recurso | Quién tiene acceso |
+|---------|--------------------|
+| GCP Console | Franklin, Luis |
+| GitHub `Touryapp/` | ❓ — varios devs (verificar) |
+| Wompi Dashboard | ❓ — el cliente |
+| GoDaddy DNS | El cliente |
+| Google Cloud Console Firebase | ❓ |
+| Workspace `wass.com.co` | Luis (admin) |
+
+📌 PENDIENTE LUIS — confirmar lista de accesos.
+
+---
+
+## Riesgos operacionales identificados
+
+| # | Riesgo | Severidad |
+|---|--------|-----------|
+| 1 | `tourya-mobile` no tiene remoto Git → pérdida si falla disco | HIGH |
+| 2 | `develop_ftmg` tiene 10 commits sin pushear → pérdida si falla disco | HIGH |
+| 3 | Sin webhook Wompi → pagos huérfanos posibles | HIGH |
+| 4 | Service account key commiteado en repo | HIGH |
+| 5 | Sin alertas de Cloud Monitoring | MEDIUM |
+| 6 | Sin retry policy en jobs | MEDIUM |
+| 7 | Sin política clara de backup PG | MEDIUM |
+| 8 | Migraciones manuales (sin Flyway/Liquibase) | LOW (es decisión consciente) |
+
+---
+
+## Acciones inmediatas recomendadas
+
+1. **Crear repo `tourya-mobile` en GitHub** y subir el código.
+2. **Pushear `develop_ftmg` de tourya-front** (10 commits sin respaldo).
+3. **Rotar el service account key** y eliminarlo del repo.
+4. **Configurar Cloud Build trigger** para `main` de tourya-api.
+5. **Verificar backups de Cloud SQL** habilitados con retention 30 días.
+6. **Configurar alertas** en Cloud Monitoring (errores 5xx, latencia, DB connections).
+7. **Migrar secretos a Secret Manager**.
+
+---
+
+## Comandos útiles
+
+### Ver revisiones de Cloud Run
+```bash
+gcloud run revisions list --service=tourya-dev-api --region=us-east1
+```
+
+### Forzar deploy de la última imagen
+```bash
+gcloud run services update tourya-dev-api --no-cpu-throttling --region=us-east1
+```
+
+### Ver logs en vivo
+```bash
+gcloud logging read 'resource.type=cloud_run_revision AND resource.labels.service_name=tourya-dev-api' --limit 50 --order desc
+```
+
+### Conectarse a Cloud SQL
+```bash
+gcloud sql connect tourya-db --user=postgres
+```
+
+### Probar SMTP desde Cloud Shell (script de diagnóstico)
+Usado para resolver el problema de `@Async` con throttling.
