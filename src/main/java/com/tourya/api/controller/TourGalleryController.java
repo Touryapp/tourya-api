@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tourya.api.models.request.TourGalleryRequest;
 import com.tourya.api.models.responses.TourGalleryResponse;
 import com.tourya.api.services.TourGalleryService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +20,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/tours/{tourId}/gallery")
 @RequiredArgsConstructor
+@Tag(name = "TourGallery")
 public class TourGalleryController {
 
     private final TourGalleryService tourGalleryService;

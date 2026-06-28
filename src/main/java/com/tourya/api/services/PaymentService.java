@@ -6,10 +6,14 @@ import com.tourya.api._utils.TourDurationUtils;
 import com.tourya.api.models.request.CreatePaymentRequest;
 import com.tourya.api.models.mapper.ReservationMapper;
 import com.tourya.api.models.mapper.ReservationPriceBreakdownMapper;
+import com.tourya.api.models.mapper.TourAddressMapper;
+import com.tourya.api.models.mapper.TourIncludesExcludesMapper;
 import com.tourya.api.models.responses.PaymentCreditItemResponse;
 import com.tourya.api.models.responses.PaymentResponse;
 import com.tourya.api.models.responses.ReservationResponse;
 import com.tourya.api.models.responses.PayerResponse;
+import com.tourya.api.models.responses.TourAddressResponse;
+import com.tourya.api.models.responses.TourIncludesExcludesResponse;
 import com.tourya.api.repository.*;
 import com.tourya.api.constans.enums.IncludeExcludeTypeEnum;
 import com.tourya.api.constans.enums.CancellationPolicyTypeEnum;
@@ -62,6 +66,8 @@ public class PaymentService {
     private final ReservationPriceBreakdownMapper reservationPriceBreakdownMapper;
     private final ReservationMapper reservationMapper;
     private final TourPrincipalOperatorService tourPrincipalOperatorService;
+    private final TourAddressMapper tourAddressMapper;
+    private final TourIncludesExcludesMapper tourIncludesExcludesMapper;
 
     /**
      * Crea un pago y automáticamente genera la reserva con sus items.
@@ -501,17 +507,15 @@ public class PaymentService {
                 response.setReturnDate(returnDate);
             }
         }
-        
-        // Destination
-        List<TourAddress> addresses = tourAddressRepository.findByTourId(tourId);
-        if (addresses != null && !addresses.isEmpty()) {
-            TourAddress firstAddress = addresses.get(0);
-            if (firstAddress.getCity() != null && firstAddress.getCity().getName() != null) {
-                response.setDestination(firstAddress.getCity().getName());
-            } else if (firstAddress.getLocation() != null && firstAddress.getLocation().getEs() != null) {
-                response.setDestination(firstAddress.getLocation().getEs());
-            }
+
+        if (item.getSlot() != null) {
+            response.setSlotStartTime(item.getSlot().getStartTime());
+            response.setSlotEndTime(item.getSlot().getEndTime());
         }
+        
+        // Destination y puntos de encuentro
+        List<TourAddress> addresses = tourAddressRepository.findByTourId(tourId);
+        applyTourLocations(response, addresses);
         
         // Precio
         if (item.getTotalPrice() != null) {
@@ -543,7 +547,7 @@ public class PaymentService {
             response.setActivities(activities);
         }
         
-        // Servicios extra (includes) - USANDO .toList() como ReservationService
+        // Servicios extra (includes) - compatibilidad legacy en español
         List<String> extraServices = tourIncludesExcludesRepository.findByTourIdAndType(tourId, IncludeExcludeTypeEnum.INCLUDE).stream()
                 .filter(inc -> inc.getDescription() != null && inc.getDescription().getEs() != null)
                 .map(inc -> inc.getDescription().getEs())
@@ -552,7 +556,41 @@ public class PaymentService {
             response.setExtraServices(extraServices);
         }
 
+        applyIncludesExcludes(response, tourId);
+
         enrichTourOperator(response, tour);
+    }
+
+    private void applyIncludesExcludes(ReservationResponse response, Integer tourId) {
+        List<TourIncludesExcludesResponse> includes = tourIncludesExcludesRepository
+                .findByTourIdAndType(tourId, IncludeExcludeTypeEnum.INCLUDE).stream()
+                .map(tourIncludesExcludesMapper::tourIncludesExcludesResponse)
+                .toList();
+        List<TourIncludesExcludesResponse> excludes = tourIncludesExcludesRepository
+                .findByTourIdAndType(tourId, IncludeExcludeTypeEnum.EXCLUDE).stream()
+                .map(tourIncludesExcludesMapper::tourIncludesExcludesResponse)
+                .toList();
+        if (!includes.isEmpty()) {
+            response.setIncludes(includes);
+        }
+        if (!excludes.isEmpty()) {
+            response.setExcludes(excludes);
+        }
+    }
+
+    private void applyTourLocations(ReservationResponse response, List<TourAddress> addresses) {
+        if (addresses == null || addresses.isEmpty()) {
+            return;
+        }
+        response.setLocations(addresses.stream()
+                .map(tourAddressMapper::toTourAddressResponse)
+                .toList());
+        TourAddress firstAddress = addresses.get(0);
+        if (firstAddress.getCity() != null && firstAddress.getCity().getName() != null) {
+            response.setDestination(firstAddress.getCity().getName());
+        } else if (firstAddress.getLocation() != null && firstAddress.getLocation().getEs() != null) {
+            response.setDestination(firstAddress.getLocation().getEs());
+        }
     }
 
     private void enrichTourOperator(ReservationResponse response, Tour tour) {

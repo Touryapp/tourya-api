@@ -99,3 +99,16 @@
 22. `database/migrations/061_sp_get_provider_reservations_cleanup_overloads.sql`
     - LOCAL: si GET /reservations falla con bad SQL grammar. Borra firmas viejas del SP y deja la de 5 params.
 
+### 9) Ajustes front Luis — i18n motivos reseña + subcategorías (25/06/2026)
+23. `database/migrations/062_subcategory_i18n_remove_parentheses.sql`
+    - Quita textos entre paréntesis en subcategorías (naranja en doc Luis)
+    - Requiere 055 y 056 ya ejecutadas
+
+24. `database/migrations/063_review_reason_catalog_i18n.sql`
+    - Tabla `review_reason_catalog` con motivos positivos/negativos en es/en/pt
+    - Alimenta GET `/public/review/reasons` y `/public/review/reasons/by-rating`
+
+25. `database/migrations/064_subcategory_remove_all_parentheses.sql`
+    - **EJECUTAR EN EC2** si siguen viéndose paréntesis en subcategorías
+    - Corrige `vuelta_a_la_isla_city_tour`, `aquanautas`, `display_name` y limpia el resto
+    - (062 tenía error: dejó "(City Tour)" en ES)

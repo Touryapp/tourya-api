@@ -25,6 +25,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.OffsetDateTime;
 import java.util.HashMap;
@@ -129,6 +130,15 @@ public class GlobalExceptionHandler {
                 .error(VALIDATION_FAILURE.getDescription())
                 .build();
         return buildErrorResponse(exceptionResponse, BAD_REQUEST);
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Object> handleResponseStatusException(ResponseStatusException exp) {
+        ExceptionResponse exceptionResponse = ExceptionResponse.builder()
+                .message(exp.getReason() != null ? exp.getReason() : exp.getStatusCode().toString())
+                .error(exp.getReason())
+                .build();
+        return buildErrorResponse(exceptionResponse, org.springframework.http.HttpStatus.valueOf(exp.getStatusCode().value()));
     }
 
     @ExceptionHandler(Exception.class)

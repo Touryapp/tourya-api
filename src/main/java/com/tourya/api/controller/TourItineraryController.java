@@ -4,6 +4,7 @@ package com.tourya.api.controller;
 import com.tourya.api.models.responses.TourItineraryResponse;
 import com.tourya.api.models.request.TourItineraryRequest;
 import com.tourya.api.services.TourItineraryService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -14,6 +15,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/tours/{tourId}/itinerary")
 @RequiredArgsConstructor
+@Tag(name = "TourItinerary")
 public class TourItineraryController {
 
     private final TourItineraryService tourItineraryService;

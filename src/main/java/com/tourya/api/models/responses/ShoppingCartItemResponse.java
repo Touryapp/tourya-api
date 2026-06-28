@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 /**
@@ -30,6 +31,10 @@ public class ShoppingCartItemResponse {
     private Integer tourScheduleId;
     private String tourName;
     private Integer slotId;
+    private LocalTime slotStartTime;
+    private LocalTime slotEndTime;
+    private String city;
+    private String department;
     private TourGalleryResponse profilePicture;
     private BigDecimal totalPrice;
     private BigDecimal providerTotalPrice;

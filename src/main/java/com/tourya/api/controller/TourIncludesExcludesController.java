@@ -4,6 +4,7 @@ import com.tourya.api.constans.enums.IncludeExcludeTypeEnum;
 import com.tourya.api.models.request.TourIncludesExcludesRequest;
 import com.tourya.api.models.responses.TourIncludesExcludesResponse;
 import com.tourya.api.services.TourIncludesExcludesService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -14,6 +15,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/tours/{tourId}/includes-excludes")
 @RequiredArgsConstructor
+@Tag(name = "TourIncludesExcludes")
 public class TourIncludesExcludesController {
 
     private final TourIncludesExcludesService tourIncludesExcludesService;

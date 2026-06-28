@@ -1,5 +1,7 @@
 package com.tourya.api.models.request;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.tourya.api.config.EmptyStringAsNullIntegerDeserializer;
 import com.tourya.api.constans.enums.AgePriceType;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -9,6 +11,7 @@ import java.math.BigDecimal;
 
 @Data
 public class TourScheduleConfigPriceDto {
+    @JsonDeserialize(using = EmptyStringAsNullIntegerDeserializer.class)
     private Integer id; // Agregado para permitir actualizaciones (identificar precios existentes)
     @NotNull(message = "El tipo de edad no puede ser nulo")
     private AgePriceType ageType;

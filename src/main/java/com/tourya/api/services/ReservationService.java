@@ -19,6 +19,8 @@ import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.models.*;
 import com.tourya.api.models.mapper.ReservationMapper;
 import com.tourya.api.models.mapper.ReservationPriceBreakdownMapper;
+import com.tourya.api.models.mapper.TourAddressMapper;
+import com.tourya.api.models.mapper.TourIncludesExcludesMapper;
 import com.tourya.api.models.responses.ReservationPriceBreakdownResponse;
 import com.tourya.api._utils.TourDurationUtils;
 import com.tourya.api._utils.Utils;
@@ -28,6 +30,7 @@ import com.tourya.api.models.request.RescheduleReservationRequest;
 import com.tourya.api.models.responses.ReservationDetailsResponse;
 import com.tourya.api.models.responses.ReservationResponse;
 import com.tourya.api.models.responses.CreditResponse;
+import com.tourya.api.models.responses.TourIncludesExcludesResponse;
 import com.tourya.api.models.responses.CreateTemporalReservationHoldResponse;
 import com.tourya.api.models.responses.RescheduleValidationResponse;
 import com.tourya.api.models.responses.RescheduleResponse;
@@ -98,6 +101,8 @@ public class ReservationService {
     private final ReservationPriceBreakdownMapper reservationPriceBreakdownMapper;
     private final TouristProfileRepository touristProfileRepository;
     private final TourPrincipalOperatorService tourPrincipalOperatorService;
+    private final TourAddressMapper tourAddressMapper;
+    private final TourIncludesExcludesMapper tourIncludesExcludesMapper;
 
     /**
      * Método createReservation removido - las reservas se crean automáticamente con los pagos
@@ -280,17 +285,15 @@ public class ReservationService {
                 response.setReturnDate(ret);
             }
         }
-        
-        // Destination
-        List<TourAddress> addresses = tourAddressRepository.findByTourId(tourId);
-        if (addresses != null && !addresses.isEmpty()) {
-            TourAddress firstAddress = addresses.get(0);
-            if (firstAddress.getCity() != null && firstAddress.getCity().getName() != null) {
-                response.setDestination(firstAddress.getCity().getName());
-            } else if (firstAddress.getLocation() != null && firstAddress.getLocation().getEs() != null) {
-                response.setDestination(firstAddress.getLocation().getEs());
-            }
+
+        if (item.getSlot() != null) {
+            response.setSlotStartTime(item.getSlot().getStartTime());
+            response.setSlotEndTime(item.getSlot().getEndTime());
         }
+        
+        // Destination y puntos de encuentro
+        List<TourAddress> addresses = tourAddressRepository.findByTourId(tourId);
+        applyTourLocations(response, addresses);
         
         // Precio
         if (item.getTotalPrice() != null) {
@@ -322,7 +325,7 @@ public class ReservationService {
             response.setActivities(activities);
         }
         
-        // Servicios extra (includes)
+        // Servicios extra (includes) - compatibilidad legacy en español
         List<String> extraServices = tourIncludesExcludesRepository.findByTourIdAndType(tourId, IncludeExcludeTypeEnum.INCLUDE).stream()
                 .filter(inc -> inc.getDescription() != null && inc.getDescription().getEs() != null)
                 .map(inc -> inc.getDescription().getEs())
@@ -331,12 +334,46 @@ public class ReservationService {
             response.setExtraServices(extraServices);
         }
 
+        applyIncludesExcludes(response, tourId);
+
         response.setTourOperator(tourPrincipalOperatorService.resolveForTour(tour));
         
         // maxCancellationDate y maxReschedulingDate vienen directamente de la BD (ya están en el mapper)
         // No se calculan dinámicamente porque se guardan en la tabla reservation
 
         logIfPaymentPayerDiffersFromCartUser(reservation, item);
+    }
+
+    private void applyTourLocations(ReservationResponse response, List<TourAddress> addresses) {
+        if (addresses == null || addresses.isEmpty()) {
+            return;
+        }
+        response.setLocations(addresses.stream()
+                .map(tourAddressMapper::toTourAddressResponse)
+                .toList());
+        TourAddress firstAddress = addresses.get(0);
+        if (firstAddress.getCity() != null && firstAddress.getCity().getName() != null) {
+            response.setDestination(firstAddress.getCity().getName());
+        } else if (firstAddress.getLocation() != null && firstAddress.getLocation().getEs() != null) {
+            response.setDestination(firstAddress.getLocation().getEs());
+        }
+    }
+
+    private void applyIncludesExcludes(ReservationResponse response, Integer tourId) {
+        List<TourIncludesExcludesResponse> includes = tourIncludesExcludesRepository
+                .findByTourIdAndType(tourId, IncludeExcludeTypeEnum.INCLUDE).stream()
+                .map(tourIncludesExcludesMapper::tourIncludesExcludesResponse)
+                .toList();
+        List<TourIncludesExcludesResponse> excludes = tourIncludesExcludesRepository
+                .findByTourIdAndType(tourId, IncludeExcludeTypeEnum.EXCLUDE).stream()
+                .map(tourIncludesExcludesMapper::tourIncludesExcludesResponse)
+                .toList();
+        if (!includes.isEmpty()) {
+            response.setIncludes(includes);
+        }
+        if (!excludes.isEmpty()) {
+            response.setExcludes(excludes);
+        }
     }
 
     private Integer resolveTourIdFromCartItem(ShoppingCartItem item) {
@@ -389,14 +426,8 @@ public class ReservationService {
                 }
                 response.setDuration(TourDurationUtils.resolveDurationLabel(tour));
                 List<TourAddress> addresses = tourAddressRepository.findByTourId(tid);
-                if (addresses != null && !addresses.isEmpty()) {
-                    TourAddress firstAddress = addresses.get(0);
-                    if (firstAddress.getCity() != null && firstAddress.getCity().getName() != null) {
-                        response.setDestination(firstAddress.getCity().getName());
-                    } else if (firstAddress.getLocation() != null && firstAddress.getLocation().getEs() != null) {
-                        response.setDestination(firstAddress.getLocation().getEs());
-                    }
-                }
+                applyTourLocations(response, addresses);
+                applyIncludesExcludes(response, tid);
                 List<String> activities = tourMainAttractionRepository.findByTourId(tid).stream()
                         .filter(attr -> attr.getDescription() != null && attr.getDescription().getEs() != null)
                         .map(attr -> attr.getDescription().getEs())

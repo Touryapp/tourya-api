@@ -3,6 +3,7 @@ package com.tourya.api.controller;
 import com.tourya.api.models.request.TourMainAttractionRequest;
 import com.tourya.api.models.responses.TourMainAttractionResponse;
 import com.tourya.api.services.TourMainAttractionService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -13,6 +14,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/tours/{tourId}/main-attractions")
 @RequiredArgsConstructor
+@Tag(name = "TourMainAttraction")
 public class TourMainAttractionController {
 
     private final TourMainAttractionService tourMainAttractionService;
