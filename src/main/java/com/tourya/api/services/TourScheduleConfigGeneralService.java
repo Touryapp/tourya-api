@@ -189,13 +189,13 @@ public class TourScheduleConfigGeneralService {
         updateConfigProperties(existingConfig, request);
         manageSlotsUpdate(existingConfig, request.getSlots(), roleList);
 
-        // 4. Guardar la entidad actualizada
-        TourScheduleConfig savedConfig = tourScheduleConfigRepository.save(existingConfig);
+        // 4. Guardar y flush antes de recalcular (evita TransientObjectException al aplicar plantilla)
+        TourScheduleConfig savedConfig = tourScheduleConfigRepository.saveAndFlush(existingConfig);
 
-        // 5. Sincronizar bookings/availability con reservas reales (p. ej. al cambiar capacity en batch)
-        recalculateAvailabilityForAllSlots(savedConfig);
+        // 5. Recargar desde BD; no recalcular sobre la entidad en memoria con slots huérfanos/transient
         TourScheduleConfig refreshed = tourScheduleConfigRepository.findByIdWithSlots(savedConfig.getId())
                 .orElse(savedConfig);
+        recalculateAvailabilityForAllSlots(refreshed);
 
         // Validar días de la semana (lanza 400 si son inválidos)
         getValidDaysOfWeek(request.getDaysOfWeek());
@@ -211,10 +211,12 @@ public class TourScheduleConfigGeneralService {
         if (config == null || config.getSlots() == null) {
             return;
         }
-        for (TourScheduleConfigSlot slot : config.getSlots()) {
-            if (slot.getId() != null) {
-                tourScheduleSlotAvailabilityService.recalculate(slot.getId());
-            }
+        List<Integer> slotIds = config.getSlots().stream()
+                .map(TourScheduleConfigSlot::getId)
+                .filter(PayloadIdUtils::isPersistedId)
+                .toList();
+        for (Integer slotId : slotIds) {
+            tourScheduleSlotAvailabilityService.recalculate(slotId);
         }
     }
 
@@ -224,70 +226,78 @@ public class TourScheduleConfigGeneralService {
         existingConfig.setIsTemplate(request.getIsTemplate()); // <-- Mapear isTemplate
     }
 
+    /**
+     * Actualiza slots de la config. Ids de slot/precio que no pertenecen a esta config
+     * (p. ej. copiados desde una plantilla) se ignoran: se matchea por horario o se crea nuevo.
+     */
     private void manageSlotsUpdate(TourScheduleConfig existingConfig, Set<TourScheduleConfigSlotDto> requestedSlots,
             List<Role> roleList) {
+        if (requestedSlots == null || requestedSlots.isEmpty()) {
+            return;
+        }
+
         Map<Integer, TourScheduleConfigSlot> existingSlotsMap = existingConfig.getSlots().stream()
                 .filter(s -> PayloadIdUtils.isPersistedId(s.getId()))
                 .collect(Collectors.toMap(TourScheduleConfigSlot::getId, Function.identity()));
 
-        Set<TourScheduleConfigSlot> newOrUpdatedSlots = new HashSet<>();
+        Set<TourScheduleConfigSlot> handledSlots = new HashSet<>();
         Set<Integer> handledSlotIds = new HashSet<>();
         Tour tourForConfig = existingConfig.getTourId() != null
                 ? tourRepository.findById(existingConfig.getTourId()).orElse(null)
                 : null;
 
-        if (requestedSlots != null) {
-            for (TourScheduleConfigSlotDto slotDto : requestedSlots) {
-                Integer requestedSlotId = PayloadIdUtils.normalizeId(slotDto.getId());
-                TourScheduleConfigSlot currentSlot = null;
-                boolean isNewSlot;
+        for (TourScheduleConfigSlotDto slotDto : requestedSlots) {
+            Integer requestedSlotId = PayloadIdUtils.normalizeId(slotDto.getId());
+            TourScheduleConfigSlot currentSlot;
+            boolean isNewSlot;
 
-                if (PayloadIdUtils.isPersistedId(requestedSlotId)
-                        && existingSlotsMap.containsKey(requestedSlotId)) {
-                    currentSlot = existingSlotsMap.get(requestedSlotId);
+            if (PayloadIdUtils.isPersistedId(requestedSlotId)
+                    && existingSlotsMap.containsKey(requestedSlotId)) {
+                currentSlot = existingSlotsMap.get(requestedSlotId);
+                isNewSlot = false;
+            } else {
+                currentSlot = findExistingSlotByTime(existingConfig, slotDto, handledSlotIds);
+                if (currentSlot != null) {
                     isNewSlot = false;
                 } else {
-                    currentSlot = findExistingSlotByTime(existingConfig, slotDto, handledSlotIds);
-                    if (currentSlot != null) {
-                        isNewSlot = false;
-                    } else {
-                        currentSlot = new TourScheduleConfigSlot();
-                        currentSlot.setConfig(existingConfig);
-                        currentSlot.setBookings(0);
-                        currentSlot.setAvailability(0);
-                        isNewSlot = true;
-                    }
-                }
-
-                if (currentSlot.getId() != null) {
-                    handledSlotIds.add(currentSlot.getId());
-                }
-
-                currentSlot.setStartTime(slotDto.getStartTime());
-                currentSlot.setEndTime(slotDto.getEndTime());
-                currentSlot.setCapacity(slotDto.getCapacity());
-                if (currentSlot.getBookings() == null) {
+                    currentSlot = new TourScheduleConfigSlot();
+                    currentSlot.setConfig(existingConfig);
                     currentSlot.setBookings(0);
+                    currentSlot.setAvailability(0);
+                    isNewSlot = true;
+                    existingConfig.getSlots().add(currentSlot);
                 }
-                int booked = currentSlot.getBookings();
-                Integer capVal = currentSlot.getCapacity();
-                currentSlot.setAvailability(capVal != null ? Math.max(0, capVal - booked) : 0);
-                tourScheduleSlotAvailabilityService.applyMinCapacityAndCheckAvailability(currentSlot, tourForConfig);
-
-                BigDecimal slotPct = isNewSlot
-                        ? BigDecimal.ZERO
-                        : TouryaPriceCalculator.normalizePercentage(currentSlot.getSlotPorcentajeTourya());
-                if (isNewSlot) {
-                    currentSlot.setSlotPorcentajeTourya(BigDecimal.ZERO);
-                }
-
-                updateSlotPrices(currentSlot, new HashSet<>(slotDto.getPrices()), slotPct, roleList);
-                newOrUpdatedSlots.add(currentSlot);
             }
+
+            if (currentSlot.getId() != null) {
+                handledSlotIds.add(currentSlot.getId());
+            }
+            handledSlots.add(currentSlot);
+
+            currentSlot.setStartTime(slotDto.getStartTime());
+            currentSlot.setEndTime(slotDto.getEndTime());
+            currentSlot.setCapacity(slotDto.getCapacity());
+            if (currentSlot.getBookings() == null) {
+                currentSlot.setBookings(0);
+            }
+            int booked = currentSlot.getBookings();
+            Integer capVal = currentSlot.getCapacity();
+            currentSlot.setAvailability(capVal != null ? Math.max(0, capVal - booked) : 0);
+            tourScheduleSlotAvailabilityService.applyMinCapacityAndCheckAvailability(currentSlot, tourForConfig);
+
+            BigDecimal slotPct = isNewSlot
+                    ? BigDecimal.ZERO
+                    : TouryaPriceCalculator.normalizePercentage(currentSlot.getSlotPorcentajeTourya());
+            if (isNewSlot) {
+                currentSlot.setSlotPorcentajeTourya(BigDecimal.ZERO);
+            }
+
+            updateSlotPrices(currentSlot, new HashSet<>(slotDto.getPrices()), slotPct, roleList);
         }
 
-        existingConfig.getSlots().clear();
-        existingConfig.getSlots().addAll(newOrUpdatedSlots);
+        // Quitar solo slots que no vinieron en el request (reemplazo total). No usar clear()+addAll:
+        // con orphanRemoval Hibernate marca como huérfanos slots que se reutilizan y revienta en flush.
+        existingConfig.getSlots().removeIf(slot -> !handledSlots.contains(slot));
     }
 
     private TourScheduleConfigSlot findExistingSlotByTime(
@@ -322,6 +332,7 @@ public class TourScheduleConfigGeneralService {
                 .map(TourScheduleConfigPriceDto::getId)
                 .map(PayloadIdUtils::normalizeId)
                 .filter(Objects::nonNull)
+                .filter(id -> slot.getPrices().stream().anyMatch(p -> Objects.equals(p.getId(), id)))
                 .collect(Collectors.toSet());
         Set<AgePriceType> incomingAgeTypes = incomingPriceDtos.stream()
                 .map(TourScheduleConfigPriceDto::getAgeType)
