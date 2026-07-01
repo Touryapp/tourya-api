@@ -16,40 +16,33 @@ El sistema cobra una **comisión por transacción** sobre cada venta (`slotPerce
 
 ✅ Confirmado en código:
 
-1. **Web app de turista** (Angular 19): buscar tours, ver detalles, valida disponibilidad del tour y si hay disponibilidad gregar el tour al carrito, pagar con Wompi, ver reservas, dejar reseñas, transferir créditos.
-2. **Panel del proveedor** (Angular 19): crear tours, definir horarios y precios, gestionar reservas, ver pagos, responder reseñas, gestionar sub-usuarios (operadores).
+1. **Web app de turista** (Angular 19): buscar tours, ver detalles, valida disponibilidad del tour y si hay disponibilidad permitir agregar el tour al carrito, pagar con Wompi, utilizar creditos como parte del pago, ver reservas, dejar reseñas, Reagendar o cancerlar de acuerdo a politicas del tour, transferir créditos.
+2. **Panel del proveedor** (Angular 19): crear tours, definir horarios y precios (adulto, niño, bebe, cualquiera) por cada tour, gestionar reservas, ver pagos, responder reseñas, gestionar sub-usuarios (operadores).
 3. **App móvil Android** (.NET MAUI 10): explorar tours, carrito, checkout, reservas, perfil, panel proveedor (incluyendo escáner QR para fulfillment).
-4. **Backoffice** (Angular 19): aprobar proveedores (KYB), ajustar % comisión Tourya, ver reportes, gestionar reportes marítimos DIMAR.
+4. **Backoffice** (Angular 19): aprobar proveedores (KYB), aprobar tour de proveedores, ajustar % comisión Tourya, ver reportes, gestionar reportes marítimos DIMAR, gestionar pagos a proveedores.
 
 ---
 
 ## Mercado objetivo
 
-📌 PENDIENTE LUIS.
-
-❓ ASUNCIÓN basada en el código:
-- **Geografía**: Colombia (mucha evidencia: campo RNT, soporte DIMAR, departamentos colombianos en la BD, Wompi como pasarela, tourya.co como dominio).
-- **Idiomas soportados**: español (default), inglés, portugués de Brasil → ❓ sugiere apuntar también a turista extranjero (brasileros/anglosajones).
-- **Tipo de operadores**: nicho marítimo / acuático visible (módulo "Maritime Activity Reports" para DIMAR), pero también categorías generales (Aventura, Cultura, Comida, Familias, Romántica, etc.).
-
-Preguntas pendientes para Luis:
-
-1. ¿Tourya opera en una sola ciudad / región, o nacional?
-2. ¿El foco inicial es Cartagena / Costa Caribe (sugerido por el módulo marítimo)?
-3. ¿Hay planes de expansión a otros países LATAM?
-4. ¿Quién es el "turista ideal"? ¿Local colombiano, expatriado, extranjero en vacaciones?
-5. ¿Hay convenios B2B con hoteles / agencias / cruceros?
+- **Geografía**: Colombia inicialmente (mucha evidencia: campo RNT, soporte DIMAR, departamentos colombianos en la BD, Wompi como pasarela, tourya.co como dominio). luego validaremos que otros paises podemos llevar el modelo de tourya
+- **Idiomas soportados**: español (default), inglés, portugués de Brasil. esto debido a que en la isla vienen principalmente turistas colombianos pero tambien bienen de latinoamerica (brasil y argentina principalmente) y otros de EEUU y europa.
+- **Tipo de operadores**: nicho marítimo / acuático visible (módulo "Maritime Activity Reports" para DIMAR), pero también categorías generales (Aventura, terrestre, Cultural, alquiler de transporte, Nocturno, Deportes, etc.).
+- **Ciudad donde opera Tourya**: Tourya inicialmente va a operar en la isla de san andres (Colombia). Luego de que el modelo ya este probado y listo para escalar se evaluaran otros lugares de latinoamerica.
+- **Foco inicial**: ciudades turisticas con mucha afluencia de turistas y que en esa ciudad no tengan apps locales para venta de tours y otros servicios requeridos por los turistas.
+- **Planes de expansión**: Se podría evaluar llevar a Tourya otros paises como panama, republica dominicana y mexico. esto siempre y cuando las ciudades de esos paises cumplan con las caracteristicas de nuestro foco inicial.
+- **Turista ideal**: Turista que le guste hacer compras por internet y/o teléfono móvil, y que no tenga problemas con pagar una comisión por la comodidad de adquirir productos y/o servicios desde su teléfono móvil.
+- **Convenios B2B**: Actualmente no hay convenios pero si necesitamos que la plataforma permita hacer convenios B2B que nos ayuden a aumentar nuestras ventas. ej que un hotel o crucero pueda ganar comisiones por cada transaccion realizada con el QR del establecimiento.
 
 ---
 
 ## Visión a futuro
 
-📌 PENDIENTE LUIS — definir.
-
-Preguntas guía:
-- ¿Cuál es el horizonte: 6 meses / 1 año / 2 años?
-- ¿Qué métricas son críticas: # operadores, # reservas/mes, GMV (gross merchandise value), comisión bruta?
-- ¿Hay módulos planeados que aún no están: marketplace B2B, white-label para hoteles, fidelización avanzada, tours con guía contratado, suscripciones?
+- **Horizonte a 6 Meses**: Establecer el modelo de negocio de Tourya en la isla de san andres. esto incluye optimizar la operación de manera que podemos operar con solo una persona pero apoyado por Agentes y Asistentes IA. se revisará habilitar publicidad para aquellas empresas que deseen publicitar sus productos o servicios en nuestra apps.
+- **Horizonte a 1 año**: habilitar nuevos servicios como transporte,Hospedaje(hoteles Boutique), domicilios (Licor, Comida a domicilios y farmacia) y venta de Souvenir en la isla de san andres.
+- **Horizonte a 2 años**: llevar nuestro modelo de negocio a otros lugares de colombia y de latinoamerica.
+- **Métricas críticas**: Costo de adquisicion de usuarios (CAC), Tasa de conversion, Tasa de cancelacion, Tasa de Abandono de Carrito, tasa pedidos no atendidos por un proveedor.
+- **Módulos planeados**: Marketplace B2B (para empresas que deseen dar beneficios a sus trabajadores), sistema de reserva apra hoteles, Fidelizacion avanzada.
 
 ---
 
