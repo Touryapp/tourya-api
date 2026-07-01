@@ -41,7 +41,7 @@ El sistema cobra una **comisión por transacción** sobre cada venta (`slotPerce
 - **Horizonte a 1 año**: En este plazo, Tourya ya debe haber habilitado otros servicios como Servicio de Transporte, Domicilios (Licor, Comida, Farmacia(productos basicos sin recipe medico)), Hospedaje y Souvenirs.
 - **Horizonte a 2 años**: en esta espacio ya debemos haber probado el modelo en otros destinos turisticos de colombia y latinoamerica.
 - **Métricas críticas**: Costo de adquisicion de usuario (CAC), Tasa de conversión, Tasa de abandono de Carritos, Tasa de compras recurrentes. tambien algunas metricas que nos permitan conocer la eficiencia de los proveedores registrados en la plataforma.
-- **Módulos planeados**: Marketplace B2B, modulo de reservas para hoteles, Fidelizacion Avanzada.
+- **Módulos planeados**: Marketplace B2B (para que las empresas ofrescan esos beneficios a sus colaboradores), modulo de reservas para hoteles, Fidelizacion Avanzada (para los turistas), Modulo de Black friday o hotsale donde el turista para el dia actual coloce lo que busca y los operadores puedan ofertar (tipo in driver) y el cliente la da clic a la oferta, modulo de publicidad (.
 
 ---
 
@@ -124,28 +124,24 @@ El backoffice luego **sube el comprobante de pago** (`POST /provider/payout-orde
 
 ### Otras formas de monetización (potenciales)
 
-❓ ASUNCIÓN — no implementadas hoy, pero el modelo de datos lo permite:
+- **Tours destacados / promoción pagada**: esta funcionalidad esta planeada para una version 2 del marketplace.
+- **Herramienta de Gestion de Reservas**: para los operadores turisticos que no tengan una herramienta de gestion de reservas (tours y hospedajes), el cual tenga un calendario de todas las reservas por tour o hospedaje, integracion a plataformas de reserva (viator, airbnb, booking, GetYourGuide, etc), modulos de reservas manuales, envio de reservas por correco electronico, gestion de asignacion de recursos, reportes y estadisticas financieros (Reporte de ingresos por canal,Ocupación promedio, cierre de caja).
+- **Publicidad para negocios locales**: esta funcionalidad permitira que negocios locales puedan pautar publicidad con la plataforma. estos videos se mostraran en 3 lugares: al iniciar (maximo 5 segundos y con boton para skip ad), luego del checkout (en el correo que llega con el QR de la reserva), y pestaña guia de la isla donde se podran colocar videos tipo tiktok con boton directa a whatsapp.
+- **Duty free**: esta funcionalidad permitirá que los negocios publiquen promociones y que el cliente al hacer la compra le llegue un QR. el cliente debe recoger en sitio su compra (Click & Collect) y presentar el QR el cual debe ser escaneado por el negocio local. en este caso tourya se quedara con una comision por la venta.
 
-- **Tours destacados / promoción pagada**: featured tours en home/search.
-- **Suscripción del operador**: free vs pro con más beneficios (mayor visibilidad, comisión menor, multi-usuario más operadores, etc.).
-- **Servicios adicionales** (transfer, guía, traducción): hay una entidad `TouryaService` y `ServiceType` no completamente explotada.
-- **Comisión por reschedule**: actualmente las reservas se pueden reagendar sin costo aparente.
 
-📌 PENDIENTE LUIS — ¿alguno de estos está en roadmap?
 
 ---
 
 ## Clientes / Operadores hoy
 
-📌 PENDIENTE LUIS.
-
 Necesario saber:
-- Número de operadores onboarded.
-- Número de tours publicados.
-- Número de turistas registrados.
-- Reservas mensuales actuales.
-- GMV mensual.
-- Comisión bruta mensual de Tourya.
+- Número de operadores onboarded: actualmente se tiene hablado 3 operadores turisticos entre ellos el mas grande.
+- Número de tours publicados: falta publicar Tourya en productivo para que esos 3 operadores incluyan sus tours (que serian en total unos 20 tours).
+- Número de turistas registrados: actualmente 0.
+- Reservas mensuales actuales: actualmente 0.
+- GMV mensual: actualmente 0.
+- Comisión bruta mensual de Tourya: actualemente 0.
 
 ---
 
@@ -154,7 +150,7 @@ Necesario saber:
 | Hoy turista usa... | Limitación | Tourya |
 |--------------------|------------|--------|
 | WhatsApp / llamada al operador | Sin reservas confirmadas, sin pago seguro | Reserva con pago integrado y QR |
-| Booking / TripAdvisor | Foco en hotelería; tours como "complemento", poca cobertura local | Foco 100% en experiencias colombianas |
+| Booking / TripAdvisor / viator | Foco en hotelería; tours como "complemento", poca cobertura local | Foco 100% en experiencias colombianas |
 | Instagram / búsqueda en redes | Sin estructura, sin comparación, sin reseñas reales | Estructura, reseñas verificadas, comparación |
 | Agencia tradicional | Comisión alta, intermediación lenta | Marketplace directo operador↔turista |
 | Excel / agenda en papel (operador) | Sin disponibilidad real, conflictos de booking | Capacity tracking automático, multi-operador |
@@ -163,34 +159,34 @@ Necesario saber:
 
 ## Métricas críticas (a definir)
 
-📌 PENDIENTE LUIS — definir KPIs:
+
 
 | Métrica | Hoy | Meta 12 meses |
 |---------|-----|----------------|
-| # Operadores activos | ? | ? |
-| # Tours publicados | ? | ? |
-| # Turistas registrados | ? | ? |
-| # Reservas/mes | ? | ? |
-| GMV mensual | ? | ? |
-| Comisión bruta Tourya/mes | ? | ? |
-| Tasa de cancelación | ? | ? |
-| NPS turistas | ? | ? |
-| NPS operadores | ? | ? |
-| % reservas que dejan reseña | ? | ? |
-| % tours con galería completa | ? | ? |
+| # Operadores activos | 3 (cuando salgamos en productivo) | 70 |
+| # Tours publicados | 20 (cuando salgamos en productivo) | 150 |
+| # Turistas registrados | 0 | 500 |
+| # Reservas/mes | 0 | 300 |
+| GMV mensual | 0 | 400.000.000 COP |
+| Comisión bruta Tourya/mes | 0 | 47.000.000 COP |
+| Tasa de cancelación | 0 | 18% |
+| NPS turistas | 0 | 55 |
+| NPS operadores | 0 | 30 |
+| % reservas que dejan reseña | 0 | 15% |
+| % tours con galería completa | 0 | 85% |
 
 ---
 
 ## Roadmap de producto (a definir)
-
-📌 PENDIENTE LUIS — definir.
 
 Sugerencias basadas en lo que está en código vs. lo que falta:
 
 ### Funcionalidades parcialmente implementadas (vale la pena terminar)
 - **Traducción automática de tours** (es → en, pt) — propuesta en `traduccion-automatica-tours.md`.
 - **Login social sin Firebase** (eliminar lock-in) — propuesta en `social-login-google-facebook.md`.
-- **Mobile iOS** (hoy solo Android) — el código MAUI lo soportaría con poco trabajo.
+- **Mobile iOS** (hoy solo Android) — el código MAUI lo soportaría con poco trabajo. tanto la version android como la iOS deben brindar la misma funcionalidad que brinda la WEB.
+- **Backoffice** (hoy solo Android) — se debe mejorar todo el backoffice. actualmente permite: gestionar aprobacion de proveedores (operadores turisticos), gestionar la aprobacion de tours, ver las reservas, ver las reseñas, ordenes de pago (subir comprobante de pago). actualmente faltan trabajar el dashboard (Financiero (GMV, Net revenue estimado, cuentas por pagar, costo de adquisicion de cliente) y operativo (Tasa de Conversión,Tasa de Cancelación, Tours de Alto Riesgo, Tiempo de Resolución de Soporte)), gestor de disputas,.
+
 
 ### Riesgos / tech debt a atender
 - ⚠️ Vulnerabilidades de seguridad documentadas en `security-remediation-plan.md` (5 CRITICAL, 7 HIGH).
