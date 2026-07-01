@@ -240,7 +240,8 @@ public class TourScheduleConfigGeneralService {
                 .filter(s -> PayloadIdUtils.isPersistedId(s.getId()))
                 .collect(Collectors.toMap(TourScheduleConfigSlot::getId, Function.identity()));
 
-        Set<TourScheduleConfigSlot> handledSlots = new HashSet<>();
+        Set<TourScheduleConfigSlot> handledSlots =
+                Collections.newSetFromMap(new IdentityHashMap<>());
         Set<Integer> handledSlotIds = new HashSet<>();
         Tour tourForConfig = existingConfig.getTourId() != null
                 ? tourRepository.findById(existingConfig.getTourId()).orElse(null)
@@ -928,7 +929,7 @@ public class TourScheduleConfigGeneralService {
     public List<TourScheduleBulkResponse> saveOrUpdateTourSchedules(List<TourScheduleRequest> scheduleRequests,
             Authentication connectedUser) {
         List<TourScheduleBulkResponse> responses = new ArrayList<>();
-        Set<Integer> configsUpdatedInBatch = new HashSet<>();
+        BulkConfigState bulkConfigState = new BulkConfigState(scheduleRequests);
 
         for (TourScheduleRequest dto : scheduleRequests) {
             Tour tourForSchedule = tourRepository.findById(dto.getTourId()).orElse(null);
@@ -945,11 +946,11 @@ public class TourScheduleConfigGeneralService {
             if (existingScheduleOpt.isPresent()) {
                 schedule = existingScheduleOpt.get();
                 config = resolveConfigForBulk(
-                        dto.getConfig(), dto.getTourId(), schedule.getConfigId(), connectedUser, configsUpdatedInBatch);
+                        dto.getConfig(), dto.getTourId(), schedule.getConfigId(), connectedUser, bulkConfigState);
                 schedule.setConfig(config);
                 updateScheduleProperties(schedule, dto);
             } else {
-                config = resolveConfigForBulk(dto.getConfig(), dto.getTourId(), null, connectedUser, configsUpdatedInBatch);
+                config = resolveConfigForBulk(dto.getConfig(), dto.getTourId(), null, connectedUser, bulkConfigState);
                 schedule = createScheduleFromDto(dto, config);
             }
 
@@ -963,15 +964,33 @@ public class TourScheduleConfigGeneralService {
     }
 
     /**
-     * Reutiliza una config existente cuando el DTO trae {@code config.id}; solo crea config nueva si no hay id.
-     * Si el body incluye slots/label/días, actualiza la config objetivo antes de vincularla al schedule.
+     * Estado compartido del batch: evita crear/actualizar la misma config varias veces y clona cuando
+     * el id del DTO apunta a una config ya usada por fechas fuera de este batch (p. ej. mes anterior).
+     */
+    private static final class BulkConfigState {
+        private final Set<LocalDate> batchDates;
+        private final Set<Integer> configsHandledInBatch = new HashSet<>();
+        private final Map<Integer, Integer> configsCreatedByTour = new HashMap<>();
+        private final Map<Integer, Integer> configRemapInBatch = new HashMap<>();
+
+        private BulkConfigState(List<TourScheduleRequest> scheduleRequests) {
+            this.batchDates = scheduleRequests.stream()
+                    .map(TourScheduleRequest::getScheduleDate)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+        }
+    }
+
+    /**
+     * Reutiliza una config existente cuando el DTO trae {@code config.id}; crea una sola config nueva
+     * por batch si no hay id. Si el id ya está ligado a fechas fuera del batch, clona en lugar de mutar.
      */
     private TourScheduleConfig resolveConfigForBulk(
             TourScheduleConfigDto configDto,
             Integer tourId,
             Integer currentScheduleConfigId,
             Authentication connectedUser,
-            Set<Integer> configsUpdatedInBatch) {
+            BulkConfigState bulkConfigState) {
         if (configDto == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "config is required.");
         }
@@ -979,26 +998,54 @@ public class TourScheduleConfigGeneralService {
         Integer normalizedConfigId = PayloadIdUtils.normalizeId(configDto.getId());
         final Integer targetConfigId = normalizedConfigId != null ? normalizedConfigId : currentScheduleConfigId;
 
-        if (targetConfigId != null) {
-            TourScheduleConfig config = tourScheduleConfigRepository.findByIdWithSlots(targetConfigId)
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                            "Tour configuration with ID " + targetConfigId + " not found."));
-            if (!Objects.equals(config.getTourId(), tourId)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Config " + targetConfigId + " does not belong to tour " + tourId);
-            }
-            if (hasConfigPayload(configDto) && !configsUpdatedInBatch.contains(targetConfigId)) {
-                TourScheduleConfigCreationRequest request = mapDtoToCreationRequest(configDto, tourId);
-                TourScheduleConfigResponse updated = updateTourScheduleConfig(targetConfigId, request, connectedUser);
-                configsUpdatedInBatch.add(targetConfigId);
-                return tourScheduleConfigRepository.findByIdWithSlots(updated.getId())
+        if (targetConfigId == null) {
+            Integer createdId = bulkConfigState.configsCreatedByTour.get(tourId);
+            if (createdId != null) {
+                return tourScheduleConfigRepository.findByIdWithSlots(createdId)
                         .orElseThrow(() -> new ResourceNotFoundException(
-                                "Config not found after update: " + updated.getId()));
+                                "Config not found after batch create: " + createdId));
             }
+            TourScheduleConfig created = createConfigFromDto(configDto, tourId, connectedUser);
+            bulkConfigState.configsCreatedByTour.put(tourId, created.getId());
+            return created;
+        }
+
+        Integer effectiveConfigId = bulkConfigState.configRemapInBatch.getOrDefault(targetConfigId, targetConfigId);
+        TourScheduleConfig config = tourScheduleConfigRepository.findByIdWithSlots(effectiveConfigId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Tour configuration with ID " + effectiveConfigId + " not found."));
+        if (!Objects.equals(config.getTourId(), tourId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Config " + targetConfigId + " does not belong to tour " + tourId);
+        }
+
+        if (bulkConfigState.configRemapInBatch.containsKey(targetConfigId)) {
             return config;
         }
 
-        return createConfigFromDto(configDto, tourId, connectedUser);
+        if (hasConfigPayload(configDto) && !bulkConfigState.configsHandledInBatch.contains(targetConfigId)) {
+            bulkConfigState.configsHandledInBatch.add(targetConfigId);
+            if (isConfigUsedOutsideBatchDates(targetConfigId, bulkConfigState.batchDates)) {
+                TourScheduleConfig cloned = createConfigFromDto(configDto, tourId, connectedUser);
+                bulkConfigState.configRemapInBatch.put(targetConfigId, cloned.getId());
+                return cloned;
+            }
+            TourScheduleConfigCreationRequest request = mapDtoToCreationRequest(configDto, tourId);
+            TourScheduleConfigResponse updated = updateTourScheduleConfig(targetConfigId, request, connectedUser);
+            return tourScheduleConfigRepository.findByIdWithSlots(updated.getId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Config not found after update: " + updated.getId()));
+        }
+
+        return config;
+    }
+
+    private boolean isConfigUsedOutsideBatchDates(Integer configId, Set<LocalDate> batchDates) {
+        if (batchDates == null || batchDates.isEmpty()) {
+            return false;
+        }
+        return tourScheduleRepository.findByConfigId(configId).stream()
+                .anyMatch(schedule -> !batchDates.contains(schedule.getScheduleDate()));
     }
 
     private boolean hasConfigPayload(TourScheduleConfigDto configDto) {
