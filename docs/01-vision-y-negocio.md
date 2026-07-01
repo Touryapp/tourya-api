@@ -16,7 +16,7 @@ El sistema cobra una **comisión por transacción** sobre cada venta (`slotPerce
 
 ✅ Confirmado en código:
 
-1. **Web app de turista** (Angular 19): buscar tours, ver detalles, agregar al carrito, pagar con Wompi, ver reservas, dejar reseñas, transferir créditos.
+1. **Web app de turista** (Angular 19): buscar tours, ver detalles, valida disponibilidad del tour y si hay disponibilidad gregar el tour al carrito, pagar con Wompi, ver reservas, dejar reseñas, transferir créditos.
 2. **Panel del proveedor** (Angular 19): crear tours, definir horarios y precios, gestionar reservas, ver pagos, responder reseñas, gestionar sub-usuarios (operadores).
 3. **App móvil Android** (.NET MAUI 10): explorar tours, carrito, checkout, reservas, perfil, panel proveedor (incluyendo escáner QR para fulfillment).
 4. **Backoffice** (Angular 19): aprobar proveedores (KYB), ajustar % comisión Tourya, ver reportes, gestionar reportes marítimos DIMAR.
