@@ -26,7 +26,7 @@ Actores humanos y sistemas que interactúan con Tourya, con sus responsabilidade
 - Dejar reseñas con fotos (tras la entrega).
 - Transferir créditos a otros turistas (por documento).
 - Gestionar wishlist.
-- Solicitar convertirse en PROVIDER (KYB).
+- Solicitar convertirse en PROVIDER (KYB). esto solo si como proveedor va a tener el mismo tipo y número de documento.
 
 **No puede**:
 - Crear tours.
@@ -55,8 +55,8 @@ Actores humanos y sistemas que interactúan con Tourya, con sus responsabilidade
 - Marcar reservas como entregadas (escaneando QR o manualmente).
 - Responder reseñas.
 - Ver sus payout orders y comprobantes de pago.
-- Crear sub-usuarios (operadores) con contraseña temporal.
-- Asignar tours específicos a sus sub-usuarios.
+- Crear sub-usuarios (operarios) con contraseña temporal.
+- Asignar tours específicos a sus sub-usuarios (operarios).
 - Definir un "tour principal" para cada sub-usuario.
 - Resetear la contraseña de sus sub-usuarios.
 - Subir documentos KYB para el RequestProvider.
@@ -76,8 +76,8 @@ Actores humanos y sistemas que interactúan con Tourya, con sus responsabilidade
 **Quién es**: empleado del operador (recepcionista, guía, supervisor) que necesita acceder al panel de Tourya sin tener la cuenta del titular.
 
 **Acceso**:
-- Web app: portal del proveedor con vistas limitadas (reservas + acción confirmar).
-- Mobile app: TabBar "provider" — pero con acceso limitado a los tours asignados.
+- Web app: portal del proveedor con vistas limitadas (reservas + acción confirmar (escanear QR)).
+- Mobile app: TabBar "provider" — pero con acceso limitado a los tours asignados (escanear QR).
 
 **Puede**:
 - Iniciar sesión con la contraseña temporal (`POST /auth/authenticate` devuelve `mustChangePassword: true`).
@@ -87,6 +87,7 @@ Actores humanos y sistemas que interactúan con Tourya, con sus responsabilidade
 - Escanear códigos QR de los turistas.
 
 **No puede**:
+- Acceder a los dashboard del operador
 - Crear ni editar tours.
 - Crear ni editar schedules.
 - Ver / modificar precios.
@@ -95,7 +96,7 @@ Actores humanos y sistemas que interactúan con Tourya, con sus responsabilidade
 - Crear o modificar otros sub-usuarios.
 - Acceder a tours NO asignados (scope automático por `provider_user_tour`).
 
-📌 PENDIENTE LUIS — confirmar el alcance exacto del `PROVIDER_OPERATOR`. ¿Puede solo ver reservas, o también escanear QR? ¿Tiene acceso a estadísticas / dashboard?
+El `PROVIDER_OPERATOR` solo puede ver las reservas de los tours que el tiene asignados y confirmar las reservas de forma manual o escaneando el QR.
 
 ---
 
@@ -123,7 +124,7 @@ Actores humanos y sistemas que interactúan con Tourya, con sus responsabilidade
 - Ver reseñas en cualquier estado (PENDING / PUBLISHED / CANCELED).
 - Acceso completo a actuator (Spring Boot Admin endpoints).
 
-📌 PENDIENTE LUIS — confirmar cuántas personas son ADMIN actualmente y si hay distinción entre "super admin" y otros roles.
+solo puede haber en la plataforma un usuario con el rol de ADMIN. ADMIN y Super ADMIN es lo mismo.
 
 ---
 
