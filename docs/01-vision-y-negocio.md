@@ -126,7 +126,7 @@ El backoffice luego **sube el comprobante de pago** (`POST /provider/payout-orde
 
 - **Tours destacados / promoción pagada**: esta funcionalidad esta planeada para una version 2 del marketplace.
 - **Herramienta de Gestion de Reservas**: para los operadores turisticos que no tengan una herramienta de gestion de reservas (tours y hospedajes), el cual tenga un calendario de todas las reservas por tour o hospedaje, integracion a plataformas de reserva (viator, airbnb, booking, GetYourGuide, etc), modulos de reservas manuales, envio de reservas por correco electronico, gestion de asignacion de recursos, reportes y estadisticas financieros (Reporte de ingresos por canal,Ocupación promedio, cierre de caja).
-- **Publicidad para negocios locales**: esta funcionalidad permitira que negocios locales puedan pautar publicidad con la plataforma. estos videos se mostraran en 3 lugares: al iniciar (maximo 5 segundos y con boton para skip ad), luego del checkout (en el correo que llega con el QR de la reserva), y pestaña guia de la isla donde se podran colocar videos tipo tiktok con boton directa a whatsapp.
+- **Publicidad para negocios locales**: esta funcionalidad permitira que negocios locales puedan pautar publicidad con la plataforma. estos videos se mostraran en 3 lugares: al iniciar (maximo 5 segundos y con boton para skip ad), luego del checkout (en el correo que llega con el QR de la reserva), y pestaña llamada "guia de la isla" donde se podran colocar videos tipo tiktok con boton directa a whatsapp.
 - **Duty free**: esta funcionalidad permitirá que los negocios publiquen promociones y que el cliente al hacer la compra le llegue un QR. el cliente debe recoger en sitio su compra (Click & Collect) y presentar el QR el cual debe ser escaneado por el negocio local. en este caso tourya se quedara con una comision por la venta.
 
 
@@ -197,15 +197,15 @@ Sugerencias basadas en lo que está en código vs. lo que falta:
 
 ## Preguntas para alinear con Luis
 
-1. **Visión a 12-24 meses**: ¿hacia dónde va Tourya?
-2. **Mercado**: ¿alcance geográfico hoy y meta?
-3. **Modelo de comisión**: ¿% promedio? ¿es negociable por operador?
-4. **Pricing strategy**: ¿hay tours destacados pagados? ¿planes para suscripción?
-5. **B2B**: ¿hay convenios con hoteles / agencias? ¿API pública para terceros?
-6. **Cumplimiento legal**: ¿más allá de DIMAR / RNT? (privacidad, facturación electrónica DIAN, etc.)
-7. **Equipo**: ¿cuántas personas en producto, ingeniería, operaciones?
-8. **Métricas actuales**: la lista de KPIs de arriba.
-9. **Prioridades de producto**: ¿qué es lo siguiente más importante?
+1. **Visión a 12-24 meses**: ¿hacia dónde va Tourya? Tourya debe haber validado su modelo y debe estar buscando escalar el modelo a otros destinos turisticos dentro de colombia y quizas en otras ciudades turisticas donde Tourya agregue valor.
+2. **Mercado**: ¿alcance geográfico hoy y meta? hoy estamos enfocados en san andres islas (Colombia). la meta es expandirlos a otras ciudades turisticas de latinoamerica.
+3. **Modelo de comisión**: ¿% promedio? ¿es negociable por operador? es un porcentaje por tour. este porcentaje es a discrecion del backoffice de Tourya.
+4. **Pricing strategy**: ¿hay tours destacados pagados? ¿planes para suscripción? actualmente no pero se esta revisando esta posibilidad.
+5. **B2B**: ¿hay convenios con hoteles / agencias? ¿API pública para terceros? actualmente no pero se esta revisando agregar dicha funcionalidad para tener dichos convenios.
+6. **Cumplimiento legal**: ¿más allá de DIMAR / RNT? (privacidad, facturación electrónica DIAN, etc.) los operadores deben tener RNT y polizas vigentes para poder publicar sus tours en Tourya.
+7. **Equipo**: ¿cuántas personas en producto, ingeniería, operaciones? producto (1 persona), desarrollo(1 persona), operaciones(1 persona).
+8. **Métricas actuales**: la lista de KPIs de arriba. qun no hemos salido en productivo.
+9. **Prioridades de producto**: ¿qué es lo siguiente más importante? terminar el minimo producto viable y salir en productivo.
 
 ---
 
