@@ -14,8 +14,8 @@ La plataforma misma. Marketplace de experiencias turísticas en Colombia. Cobra 
 ### Operador / Proveedor (`Provider`)
 Empresa o persona que publica tours y experiencias en Tourya. Tiene RNT, datos legales y bancarios. Recibe payouts periódicos por sus ventas. **Sinónimos del cliente**: "operador turístico", "prestador de servicios".
 
-### Operador del proveedor / Sub-usuario (`ProviderUser`, rol `PROVIDER_OPERATOR`)
-Sub-usuario que el operador titular crea para que su equipo (recepcionista, guía, supervisor) acceda al panel sin compartir contraseña del titular. Puede tener tours específicos asignados y un "tour principal". **Sinónimo**: "operario".
+### Operario del proveedor / Sub-usuario (`ProviderUser`, rol `PROVIDER_OPERATOR`)
+Sub-usuario que el operador titular crea para que su equipo (recepcionista, guía, supervisor) acceda al panel sin compartir contraseña del titular. Puede tener tours específicos asignados y un "tour principal".
 
 ### Tour (`Tour`)
 Producto principal de Tourya: una experiencia turística vendible (paseo en bote, tour gastronómico, city tour, etc.). Tiene categoría, descripciones multilingües, galería, atracciones, FAQ, itinerario, políticas de cancelación.
@@ -30,16 +30,16 @@ Clasificación del tour (Aventura, Cultura, Comida, Familias, etc.). Una categor
 Etiqueta secundaria que enriquece la búsqueda. Hay 11 categorías de tags: Actividades acuáticas, Naturaleza, Playas, Aventura, Cultura, Comida, Familias, Romántica, Momentos del día, Logística, Nocturnos.
 
 ### Atracción principal (`TourMainAttraction`)
-Texto destacado que aparece en la ficha del tour como gancho de venta (ej. "Avistamiento de delfines garantizado").
+Texto destacado que aparece en la ficha del tour como gancho de venta (ej. "Avistamiento de delfines garantizado"). el operador lo ingresa en español y la plataforma debe traducirlo a portugués e ingles.
 
 ### Incluye / No incluye (`TourIncludesExcludes`, `type` enum)
-Lista de qué cubre el precio del tour y qué no (ej. incluye: transporte, almuerzo; no incluye: bebidas alcohólicas).
+Lista de qué cubre el precio del tour y qué no (ej. incluye: transporte, almuerzo; no incluye: bebidas alcohólicas). el operador lo ingresa en español y la plataforma debe traducirlo a portugués e ingles.
 
 ### Itinerario (`TourItinerary`)
-Plan paso a paso del tour, con día/hora, título y descripción de cada paso.
+Plan paso a paso del tour, con día/hora, título y descripción de cada paso. el operador lo ingresa en español y la plataforma debe traducirlo a portugués e ingles.
 
 ### FAQ (`TourFaq`)
-Preguntas frecuentes del tour, con pregunta y respuesta en los 3 idiomas.
+Preguntas frecuentes del tour, con pregunta y respuesta en los 3 idiomas. el operador lo ingresa en español y la plataforma debe traducirlo a portugués e ingles.
 
 ### Política de cancelación (`TourCancellationPolicy`, `cancellationPolicyType` enum)
 Reglas que rigen los reembolsos y reagendamientos del tour: hasta cuántos días antes se permite cancelar, qué porcentaje se devuelve, etc. Puede permitir **reagendamiento por lluvia** (`allowsRainRefund`) — relevante en tours marítimos.
@@ -61,7 +61,7 @@ Instancia concreta de un tour en una fecha específica (ej. "Tour de Islas del R
 Plantilla reutilizable que define los días de la semana y franjas horarias en que se ofrece un tour. Al guardarse, genera automáticamente los `TourSchedule` correspondientes.
 
 ### Slot (`TourScheduleConfigSlot`)
-Franja horaria dentro de un schedule (ej. "9:00 - 12:00"). Tiene capacidad máxima, reservas actuales, y precios por tipo de persona. **Sinónimo**: "turno".
+Franja horaria dentro de un schedule (ej. "9:00 - 12:00"). Tiene capacidad máxima, reservas actuales, y precios por tipo de persona (Adulto, niño, bebe y cualquiera). **Sinónimo**: "turno".
 
 ### Tipo de persona / `ageType` (`AgeRangeConfig`, enum `ADULT` / `CHILD` / `INFANT`)
 Rango de edad usado para diferenciar precios. Cada slot tiene un precio por tipo. **Sinónimo del cliente**: "adulto / niño / bebé".
@@ -116,10 +116,10 @@ Saldo a favor del turista, generado por:
 - Cancelación por lluvia.
 - Transferencia desde otro turista.
 
-Tiene fecha de expiración (1 año desde creación). Puede usarse total o parcialmente en otra compra.
+Tiene fecha de expiración (1 año desde creación). Puede usarse total o parcialmente en otra compra. debe ser configurable.
 
 ### Transferencia de crédito
-Un turista puede ceder un crédito a otro turista, identificándolo por documento. Una vez transferido, no se puede revertir. Endpoint: `POST /credits/{creditId}/transfer`.
+Un turista puede ceder un crédito a otro turista, identificándolo por documento. Una vez transferido, no se puede revertir. Endpoint: `POST /credits/{creditId}/transfer`. un credito puede ser transferido solo una vez.
 
 ### Account Payable (`AccountPayable`)
 Cuenta por pagar al operador. Una por reserva entregada (`DELIVERED`). Lleva el monto que Tourya le debe (`providerPrice × quantity`, sin la comisión).
@@ -131,7 +131,7 @@ Cuenta por pagar al operador. Una por reserva entregada (`DELIVERED`). Lleva el 
 Fecha en que se efectúa el pago al operador. **Lunes** se paga el martes; **jueves** se paga el viernes.
 
 ### Payout Available Date (`payout_available_date`)
-Fecha desde la cual una reserva puede entrar al payout. Regla actual: `reservation_date + 2 días` (buffer para reclamos).
+Fecha desde la cual una reserva puede entrar al payout. Regla actual: `reservation_date + 2 días` (buffer para reclamos). los 2 dias debe ser configurable
 
 ### Comprobante de pago (`ProviderPayoutAttachment`)
 Archivo (PDF, imagen) que el backoffice sube al marcar una payout order como pagada.
@@ -162,7 +162,7 @@ Respuesta del operador a una reseña. También multilingüe, con hasta 5 fotos a
 6 opciones predefinidas (ej. "Excelente experiencia", "No cumplió expectativas") para clasificar la reseña.
 
 ### Likes / Dislikes / Hearts
-Reacciones de otros usuarios a una reseña, también disponibles en las respuestas. ❓ No es claro si están expuestas en UI.
+Reacciones de otros usuarios a una reseña, también disponibles en las respuestas. ❓ No es claro si están expuestas en UI. para esto se debe guardar el id del usuario (turistas). un usuario puede solo puede tener una reacción para una reseña en particular.
 
 ---
 
@@ -232,7 +232,7 @@ Catálogo de ubicaciones. Para Colombia: 32 departamentos (`State`) con sus muni
 
 ### Address del tour (`TourAddress`)
 Punto geográfico del tour (con `latitude`, `longitude`). Un tour puede tener varios:
-- Punto de encuentro
+- Punto de encuentro (debe ser obligatorio. todo tour debe tener al menos el punto de encuentro.)
 - Punto de finalización
 - Punto de recogida
 
@@ -285,8 +285,8 @@ Script SQL versionado en `database/migrations/`. Tourya va por la migración **0
 
 📌 Algunos términos del código no están del todo claros, vale la pena confirmar con Luis:
 
-- **¿"Operador" y "Operario" son lo mismo?** En el código: `PROVIDER` = titular, `PROVIDER_OPERATOR` = sub-usuario. En el negocio diario, ¿cómo se les dice?
-- **"Tour principal" (`principalTourId`) del PROVIDER_OPERATOR**: ¿qué significa exactamente? El código sugiere que es el tour donde el operario tiene prioridad/asignación principal.
-- **"Tourya percentage"** vs **"slot percentage Tourya"**: ¿son lo mismo o hay un % global vs % por slot?
+- **¿"Operador" y "Operario" son lo mismo?** En el código: `PROVIDER` = titular, `PROVIDER_OPERATOR` = sub-usuario. En el negocio diario, ¿cómo se les dice? el `PROVIDER` es el operador turistico quien presta el servicio de tour. el `PROVIDER_OPERATOR` es un trabajador del operador turistico y su nombre es operario. este usuario tiene asignado tours y es quien puede escanear el QR de la reserva para pasar la reserva a estado delivered.  
+- **"Tour principal" (`principalTourId`) del PROVIDER_OPERATOR**: ¿qué significa exactamente? El código sugiere que es el tour donde el operario tiene prioridad/asignación principal. cuando un PROVIDER_OPERATOR tiene el principalTourID quiere decir que es la persona que aparece como contacto (nombre, telefono y correo) cuando se genera una reserva para dicho tour. Pero todos los PROVIDER_OPERATOR asociados al tour van a poder ver las reservas del tour y van a poder escanear el QR presentado por el turista.
+- **"Tourya percentage"** vs **"slot percentage Tourya"**: ¿son lo mismo o hay un % global vs % por slot? "Tourya percentage" es el tour estandar del tour, por lo que al momento que un operador configure el Slot (disponibilidad, precio y horario) puede tomar (colcar el valor de "Tourya percentage" en "Slot percentage Tourya") "Tourya percentage" como el porcentaje para tomar el % de Tourya. el operador puede en cualquier momento asignar un porcentaje diferente para un slot en particular, y para esto debe configurar el Schedule del tour utilizando el "Slot percentage Tourya".
 - **`payout_status` en reservation** vs `status` en `provider_payout_order`: hay redundancia, vale aclarar.
 - **`Reservation` vs `TourReservation`**: hay dos modelos de reserva en el código. El más nuevo (y usado) es `Reservation`. `TourReservation` parece legacy. Confirmar si se puede deprecar.
