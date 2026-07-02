@@ -145,7 +145,7 @@ solo puede haber en la plataforma un usuario con el rol de ADMIN. ADMIN y Super 
 - Ver listados completos de reservas, proveedores, tours.
 - Gestionar payout orders (subir comprobantes).
 
-📌 PENDIENTE LUIS — ¿`BACKOFFICE_OPERATION` y `ADMIN` se diferencian en qué exactamente? ¿Hay otros roles de backoffice (ej. `BACKOFFICE_FINANCE`, `BACKOFFICE_CONTENT`)?
+📌 PENDIENTE LUIS — ¿`BACKOFFICE_OPERATION` y `ADMIN` se diferencian en qué exactamente? `BACKOFFICE_OPERATION` puede solo gestionar los % de las comisiones para cada tour aprobado y subir los pagos de las ordenes de pago. `ADMIN` puede hacer tanto lo que puede el usuario BACKOFFICE_OPERATION y adicional puede aprobar solicitudes de proveedores (Request_Provider) y puedo aprobar tours. ¿Hay otros roles de backoffice (ej. `BACKOFFICE_FINANCE`, `BACKOFFICE_CONTENT`)? esos son los unicos tipos de roles para el Backoffice en este momento
 
 ---
 
@@ -175,8 +175,8 @@ solo puede haber en la plataforma un usuario con el rol de ADMIN. ADMIN y Super 
 | Aceptar / devolver tour | ❌ | ❌ | ❌ | ❌ | ✅ |
 | Cancelar por lluvia | ❌ | ❌ | ❌ | ❌ | ✅ |
 | Reporte DIMAR | ❌ | ❌ | ❌ | ✅ | ✅ |
-| Bloquear usuarios | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Ver reseñas pendientes | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Bloquear usuarios | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Ver reseñas pendientes | ❌ | ✅ | ❌ | ❌ | ✅ |
 
 *El PROVIDER_OPERATOR usa el mismo login que cualquier User, pero su contraseña inicial la define el titular.
 
@@ -190,7 +190,7 @@ solo puede haber en la plataforma un usuario con el rol de ADMIN. ADMIN y Super 
   - Frontend abre el widget Wompi con una referencia firmada (`/reference/generate` la genera).
   - Tourya recibe el `transactionId` del frontend y lo guarda en `Payment.transaction_id`.
 - ⚠️ **NO hay webhook de Wompi implementado**: la confirmación es client-side. Si el front falla, el pago queda en limbo.
-- 📌 PENDIENTE LUIS — confirmar si el cliente ha pedido webhook server-side de Wompi.
+- 📌 PENDIENTE LUIS — confirmar si el cliente ha pedido webhook server-side de Wompi. Si es mejor hacerlo por Webhook de wompi entonces avanzar con esa integración. no debemos tener evitar al maximo problemas con los pagos.
 
 ### Firebase Authentication (Google + Facebook)
 - **Rol**: autenticación social.
@@ -219,14 +219,14 @@ solo puede haber en la plataforma un usuario con el rol de ADMIN. ADMIN y Super 
 - **Cómo interactúa con Tourya**:
   - No hay integración directa.
   - El equipo backoffice ingresa manualmente "Maritime Activity Reports" (`POST /maritime-activity-reports`) que sirven de soporte para cancelar reservas por mal tiempo.
-- 📌 PENDIENTE LUIS — ¿hay roadmap para integrar API DIMAR directamente?
+- 📌 PENDIENTE LUIS — ¿hay roadmap para integrar API DIMAR directamente? actualmente Dimar envia un PDF diariamente con el reporte. Se podria crear un servicio que lea la informacion del archivo y cree el reporte maritimo diario. voy a revisar si DIMAR tiene un API o un link donde se genere el archivo y podamos ver como integrarlo.
 
 ### Banco / sistema de pagos del operador
 - **Rol**: receptor de los payouts.
 - **Cómo interactúa con Tourya**:
   - No hay integración bancaria.
   - El backoffice hace la transferencia manualmente, sube el comprobante (`POST /provider/payout-orders/admin/{orderId}/proof`) y marca como pagada.
-- 📌 PENDIENTE LUIS — ¿hay planes de integrar Bre-B / nequi / transferencia automatizada?
+- 📌 PENDIENTE LUIS — ¿hay planes de integrar Bre-B / nequi / transferencia automatizada? se debe revisar si WOMPI y MERCADOPAGO tienen APIS para generar los pagos, pero que tenga total seguridad y trasabilidad del pago. revisar si es mejor que el pago lo haga un agente con trazabilidad y con reglas de hacer los pagos hasta cierto monto.   
 
 ---
 
