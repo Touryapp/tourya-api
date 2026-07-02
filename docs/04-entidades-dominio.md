@@ -272,7 +272,7 @@ Servicios adicionales no implementados completamente (transfer, guía, traducci�
 | `name`, `description`, `cancellationPolicy`, `status` | | |
 | `serviceType` | FK | → ServiceType |
 
-📌 ❓ PENDIENTE LUIS — confirmar si este módulo se usará. Hoy parece dormido.
+📌 ❓ PENDIENTE LUIS — confirmar si este módulo se usará. Hoy parece dormido. Este modulo se dejo para los otros servicios (transporte, souvenir, Duty free) a ofertar en tourya. estamos en el punto para redefinirlo.
 
 ---
 
