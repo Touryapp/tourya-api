@@ -825,7 +825,7 @@ public class ReservationService {
         String timestamp = LocalDateTime.now().toString();
         
         // Crear JSON con datos básicos del servicio
-        return String.format("{\"paymentId\":%d,\"timestamp\":\"%s\",\"serviceType\":\"tour_reservation\"}", 
+        return String.format("{\"paymentId\":%d,\"timestamp\":\"%s\",\"serviceType\":\"reservation\"}", 
                 paymentId, timestamp);
     }
 

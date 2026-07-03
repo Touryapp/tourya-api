@@ -16,8 +16,6 @@ import com.tourya.api.models.responses.ShoppingCartResponse;
 import com.tourya.api.models.responses.TourGalleryResponse;
 import com.tourya.api.models.request.CreateShoppingCartRequest;
 import com.tourya.api.models.request.CreateTemporalReservationHoldRequest;
-import com.tourya.api.models.request.ReservationItemRequest;
-import com.tourya.api.models.request.ReservationRequest;
 import com.tourya.api.models.request.SlotRequest;
 import com.tourya.api.models.request.UpdateItemStatusRequest;
 import com.tourya.api.repository.*;
@@ -57,7 +55,6 @@ public class ShoppingCartService {
     private final TourScheduleConfigSlotRepository tourScheduleConfigSlotRepository;
     private final TourRepository tourRepository;
     private final ServiceRepository serviceRepository;
-    private final TourReservationService tourReservationService;
     private final AgeRangeConfigService ageRangeConfigService;
     private final TourScheduleSlotAvailabilityService tourScheduleSlotAvailabilityService;
     private final TourScheduleOverrideService tourScheduleOverrideService;
@@ -551,67 +548,6 @@ public class ShoppingCartService {
         shoppingCartItemRepository.save(item);
         
         return buildShoppingCartResponse(cart);
-    }
-
-    /**
-     * Procesa el checkout del carrito de compras.
-     * 
-     * @param cartId ID del carrito a procesar
-     * @param connectedUser usuario autenticado
-     */
-    @Transactional
-    public void checkout(Long cartId, Authentication connectedUser) {
-        User user = (User) connectedUser.getPrincipal();
-        ShoppingCart cart = shoppingCartRepository.findById(cartId)
-                .orElseThrow(() -> new ResourceNotFoundException("Carrito no encontrado"));
-        
-        // Verificar que el carrito pertenece al usuario
-        if (!cart.getUser().getId().equals(user.getId())) {
-            throw new OperationNotPermittedException("No tienes permisos para procesar este carrito");
-        }
-
-        if (cart.getItems().isEmpty()) {
-            throw new OperationNotPermittedException("No se puede procesar un carrito vacío");
-        }
-
-        // Procesar solo items de tours para la reserva
-        List<ShoppingCartItem> tourItems = cart.getItems().stream()
-                .filter(item -> item.getTourSchedule() != null)
-                .collect(Collectors.toList());
-
-        if (!tourItems.isEmpty()) {
-        // Construir ReservationRequest a partir de los items del carrito
-            List<ReservationItemRequest> reservationItems = tourItems.stream()
-                    .map(item -> {
-                        // Calcular cantidad total desde los details
-                        int totalQuantity = item.getDetails().stream()
-                                .mapToInt(ShoppingCartItemDetail::getQuantity)
-                                .sum();
-                        
-                        return ReservationItemRequest.builder()
-                                .priceId(item.getProductId()) // Usar productId como priceId temporalmente
-                                .quantity(totalQuantity)
-                                .build();
-                    })
-                .collect(Collectors.toList());
-
-        ReservationRequest reservationRequest = ReservationRequest.builder()
-                    .scheduleId(tourItems.get(0).getTourSchedule().getId())
-                .clientName(user.fullName())
-                .clientEmail(user.getEmail())
-                .clientPhone("N/A")
-                .paymentMethod("CART_CHECKOUT")
-                .currency("USD")
-                .items(reservationItems)
-                .build();
-
-        tourReservationService.createReservation(reservationRequest, user);
-        }
-
-        // Marcar todos los items como completados
-        cart.getItems().forEach(item -> item.setStatus(ShoppingCartStatusEnum.COMPLETED));
-        cart.setStatus(ShoppingCartStatusEnum.COMPLETED);
-        shoppingCartRepository.save(cart);
     }
 
     /**

@@ -1,14 +1,12 @@
 package com.tourya.api.services;
 
 import com.tourya.api.constans.enums.DeliveryStatusEnum;
-import com.tourya.api.constans.enums.ReservationStatusEnum;
 import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.models.*;
 import com.tourya.api.repository.ReservationRepository;
 import com.tourya.api.repository.ShoppingCartItemRepository;
 import com.tourya.api.repository.TourRepository;
-import com.tourya.api.repository.TourReservationDetailRepository;
 import com.tourya.api.repository.TourScheduleConfigRepository;
 import com.tourya.api.repository.TourScheduleConfigSlotRepository;
 import lombok.RequiredArgsConstructor;
@@ -17,13 +15,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
  * Bookings y availability viven en {@link TourScheduleConfigSlot}.
- * Bookings = suma de unidades de reserva (TEMPORAL/PENDING/DELIVERED, sin canceladas) por slot.
+ * Bookings = suma de unidades de {@link Reservation} activas (TEMPORAL/PENDING/DELIVERED) por slot.
  */
 @Service
 @RequiredArgsConstructor
@@ -33,7 +30,6 @@ public class TourScheduleSlotAvailabilityService {
     private final ShoppingCartItemRepository shoppingCartItemRepository;
     private final ReservationRepository reservationRepository;
     private final TourRepository tourRepository;
-    private final TourReservationDetailRepository tourReservationDetailRepository;
     private final TourScheduleConfigRepository tourScheduleConfigRepository;
 
     /**
@@ -126,8 +122,6 @@ public class TourScheduleSlotAvailabilityService {
             }
         }
 
-        bookings += legacyTourReservationUnitsForSlot(slotId);
-
         slot.setBookings(bookings);
         if (slot.getCapacity() != null) {
             slot.setAvailability(Math.max(0, slot.getCapacity() - bookings));
@@ -135,49 +129,13 @@ public class TourScheduleSlotAvailabilityService {
             slot.setAvailability(0);
         }
 
-        Tour refTour = resolveTourForSlot(slotId, slot, itemsWithSlot);
+        Tour refTour = resolveTourForSlot(slot, itemsWithSlot);
         applyMinCapacityAndCheckAvailability(slot, refTour);
 
         tourScheduleConfigSlotRepository.save(slot);
     }
 
-    /**
-     * Reservas legacy ({@link com.tourya.api.models.TourReservation}) en PENDING que usan este slot.
-     */
-    private int legacyTourReservationUnitsForSlot(Integer slotId) {
-        List<TourReservationDetail> details = tourReservationDetailRepository.findByPrice_Slot_Id(slotId);
-        if (details.isEmpty()) {
-            return 0;
-        }
-        Map<Integer, List<TourReservationDetail>> byReservation = details.stream()
-                .filter(d -> d.getReservation() != null
-                        && d.getReservation().getStatus() != ReservationStatusEnum.CANCELED
-                        && d.getReservation().getStatus() != ReservationStatusEnum.COMPLETED)
-                .collect(Collectors.groupingBy(d -> d.getReservation().getId()));
-        int sum = 0;
-        for (List<TourReservationDetail> group : byReservation.values()) {
-            com.tourya.api.models.TourReservation res = group.get(0).getReservation();
-            if (res.getSchedule() == null || res.getSchedule().getTourId() == null) {
-                continue;
-            }
-            Tour tour = tourRepository.findById(res.getSchedule().getTourId()).orElse(null);
-            if (tour == null) {
-                continue;
-            }
-            int qtyOnSlot = group.stream().mapToInt(TourReservationDetail::getQuantity).sum();
-            if (tour.getPriceType() != null && "grupo".equalsIgnoreCase(tour.getPriceType().getValue())) {
-                sum += 1;
-            } else {
-                sum += qtyOnSlot;
-            }
-        }
-        return sum;
-    }
-
-    /**
-     * Tour de referencia para reglas de min capacity: carrito → config del slot → reserva legacy.
-     */
-    private Tour resolveTourForSlot(Integer slotId, TourScheduleConfigSlot slot, List<ShoppingCartItem> itemsWithSlot) {
+    private Tour resolveTourForSlot(TourScheduleConfigSlot slot, List<ShoppingCartItem> itemsWithSlot) {
         for (ShoppingCartItem i : itemsWithSlot) {
             if (i.getTourSchedule() != null && i.getTourSchedule().getTourId() != null) {
                 Tour t = tourRepository.findById(i.getTourSchedule().getTourId()).orElse(null);
@@ -193,23 +151,7 @@ public class TourScheduleSlotAvailabilityService {
         if (configId != null) {
             TourScheduleConfig cfg = tourScheduleConfigRepository.findById(configId).orElse(null);
             if (cfg != null && cfg.getTourId() != null) {
-                Tour t = tourRepository.findById(cfg.getTourId()).orElse(null);
-                if (t != null) {
-                    return t;
-                }
-            }
-        }
-        List<TourReservationDetail> details = tourReservationDetailRepository.findByPrice_Slot_Id(slotId);
-        for (TourReservationDetail d : details) {
-            if (d.getReservation() == null || d.getReservation().getSchedule() == null) {
-                continue;
-            }
-            Integer tid = d.getReservation().getSchedule().getTourId();
-            if (tid != null) {
-                Tour t = tourRepository.findById(tid).orElse(null);
-                if (t != null) {
-                    return t;
-                }
+                return tourRepository.findById(cfg.getTourId()).orElse(null);
             }
         }
         return null;
