@@ -112,3 +112,10 @@
     - **EJECUTAR EN EC2** si siguen viéndose paréntesis en subcategorías
     - Corrige `vuelta_a_la_isla_city_tour`, `aquanautas`, `display_name` y limpia el resto
     - (062 tenía error: dejó "(City Tour)" en ES)
+
+### 10) Eliminar tour_reservation legacy (02/07/2026)
+26. `database/migrations/065_drop_tour_reservation_tables.sql`
+    - Elimina tablas `tour_reservation`, `tour_reservation_detail`, `tour_reservation_status_history`
+    - Verificado BD: 1 fila tour_reservation (jul-2025), 208 reservas vía `reservation` + carrito
+    - Checkout activo: POST `/reservations` (hold) + POST `/payment`
+    - Código eliminado: `/tour-reservations`, `POST /shopping-cart/{cartId}/checkout` (legacy sin uso)

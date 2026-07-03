@@ -16,6 +16,7 @@ public class ProviderPayoutOrderListItemResponse {
     private Integer providerId;
     private OffsetDateTime createdAt;
     private LocalDate payDate;
+    @Schema(description = "Estado del lote/transferencia: PAID | PENDING | CANCELED")
     private ProviderPayoutOrderStatusEnum status;
     private BigDecimal amountTotal;
     private Integer reservationsCount;

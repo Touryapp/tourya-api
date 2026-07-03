@@ -54,9 +54,11 @@ public class Reservation extends BaseEntity {
     @Column(name = "payout_available_date")
     private LocalDate payoutAvailableDate;
 
+    /** Pago al proveedor por esta reserva. PENDING hasta que una provider_payout_order que la incluye se marca PAID. */
     @Column(name = "payout_status", nullable = false, length = 20)
     private String payoutStatus = PAYOUT_STATUS_PENDING;
 
+    /** Fecha/hora en que se marcó payout_status PAID (al subir comprobante de la orden). */
     @Column(name = "payout_paid_at")
     private OffsetDateTime payoutPaidAt;
 

@@ -1,6 +1,7 @@
 package com.tourya.api.models.responses;
 
 import com.tourya.api.constans.enums.ProviderPayoutOrderStatusEnum;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Data;
 
@@ -19,6 +20,7 @@ public class ProviderPayoutOrderDetailsResponse {
     private Integer providerId;
     private OffsetDateTime createdAt;
     private LocalDate payDate;
+    @Schema(description = "Estado del **lote/transferencia** al proveedor (no confundir con payoutStatus de cada reserva)")
     private ProviderPayoutOrderStatusEnum status;
     private BigDecimal amountTotal;
 
@@ -43,6 +45,7 @@ public class ProviderPayoutOrderDetailsResponse {
         private Long accountPayableId;
         private BigDecimal amount;
         private LocalDate payoutAvailableDate;
+        @Schema(description = "Pago al proveedor **por esta reserva** (PENDING | PAID). Pasa a PAID cuando la orden se marca pagada.")
         private String payoutStatus;
         private LocalDate scheduleDate;
         private LocalTime slotTimeStart;

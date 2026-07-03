@@ -193,28 +193,6 @@ public class ShoppingCartController {
         return ResponseEntity.ok(shoppingCartService.updateItemStatus(cartId, itemId, request, connectedUser));
     }
 
-    @Operation(
-            summary = "Procesar compra",
-            description = "Procesa la compra de todos los items de un carrito específico"
-    )
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "202", description = "Compra procesada exitosamente"),
-            @ApiResponse(responseCode = "401", description = "No autorizado"),
-            @ApiResponse(responseCode = "400", description = "Carrito vacío o datos inválidos"),
-            @ApiResponse(responseCode = "404", description = "Carrito no encontrado"),
-            @ApiResponse(responseCode = "403", description = "No tienes permisos para procesar este carrito")
-    })
-    @SecurityRequirement(name = "bearerAuth")
-    @PostMapping("/{cartId}/checkout")
-    public ResponseEntity<Void> checkout(
-            @Parameter(description = "ID del carrito a procesar") @PathVariable Long cartId,
-            Authentication connectedUser
-    ) {
-        shoppingCartService.checkout(cartId, connectedUser);
-        return ResponseEntity.accepted().build();
-    }
-
-
     @DeleteMapping("/{cartId}/clear")
     public ResponseEntity<ClearCartResponse> clearCart(@PathVariable Long cartId) {
         ClearCartResponse response = shoppingCartService.clearShoppingCart(cartId);
