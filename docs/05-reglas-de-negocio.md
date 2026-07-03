@@ -113,7 +113,7 @@ Donde:
 - `slotPercentageTourya` (en puntos, ej. `15` = 15%) lo define BACKOFFICE/ADMIN.
 
 ### RN-015 — Slot inicia con comisión 0
-✅ Al crear un slot nuevo, `slotPercentageTourya = 0`. Hasta que BACKOFFICE asigne %, el `price = providerPrice` (Tourya no gana nada).
+✅ Al crear un slot nuevo, `slotPercentageTourya = 0`. Hasta que BACKOFFICE asigne %, el `price = providerPrice` (Tourya no gana nada). Para evitar que Tourya no gane nada se debe crear en la tabla 'TOUR' llamado `PercentageTourya`, el cual debe ser diligenciado por el ADMIN del BACKOFFICE al momento de aprobar un tour. Cuando un PROVIDER configure un nuevo SLOT, se debe utilizar por default el valor que tiene el campo `PercentageTourya` de la tabla 'TOUR' para calcular el PRICE del SLOT. Si el PROVIDER decide cambiar el precio en un SLOT en especifico puede ir a actualizarlo.
 
 ### RN-016 — Asignación de comisión por rango de fechas
 ✅ `PUT /tour-schedules/tours/{tourId}/percentage` con `slotPercentageTourya + startDate + endDate` actualiza todos los slots de los `TourSchedule`s en ese rango.
