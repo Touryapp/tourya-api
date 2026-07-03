@@ -19,7 +19,7 @@ Catálogo de las reglas que rigen el comportamiento de Tourya. Marcadas según o
 ### RN-002 — Contraseña mínima 8 caracteres
 ✅ Validación `@Size(min=8)` en `RegistrationRequest` y `AuthenticationRequest`.
 
-📌 PENDIENTE LUIS — ¿hay requisitos adicionales que no están implementados? (mayúsculas, números, especiales).
+📌 PENDIENTE LUIS — ¿hay requisitos adicionales que no están implementados? (mayúsculas, números, especiales). hacer los ajustes utilizando las buenas practicas para la creacion de constraseñas.
 
 ---
 
@@ -34,7 +34,7 @@ Catálogo de las reglas que rigen el comportamiento de Tourya. Marcadas según o
 - Si el token es válido: `enabled = true`, `validatedAt = now()`.
 - Si el token expiró: se genera un nuevo token + se reenvía email + se lanza error.
 
-⚠️ Sin protección contra **replay**: un token validado podría reutilizarse (es un bug en `AuthenticationService.activateAccount`).
+⚠️ Sin protección contra **replay**: un token validado podría reutilizarse (es un bug en `AuthenticationService.activateAccount`). se debe resolver este bug y dejarlo de manera que un token valido no pueda ser reutilizado. 
 
 ---
 
@@ -46,12 +46,12 @@ Catálogo de las reglas que rigen el comportamiento de Tourya. Marcadas según o
 ### RN-005 — JWT de 24 horas
 ✅ Expiración: `application.security.jwt.expiration=86400000` ms = 24 horas.
 
-⚠️ Sin refresh token. El usuario debe volver a loguearse cada 24h.
+⚠️ Sin refresh token. El usuario debe volver a loguearse cada 24h. Definir una buena practica en este punto. deberiamos tener tanto access tolen como Refresh token. para el cliente el access token podria ser de 15 a 30 min y el refresh token podria ser de 14 a 30 dias sin expiracion de inactividad. para el proveedor el access token deberia ser de maximo 15 min, el refresh token de 1 a 7 dias y la expiracion por inactividad de 1 a 2 horas. para el backoffice el access token es de maximo 10 min, el refresh token es de 8 a 12 horas y la expiracion por inactivida de 15 minutos.
 
 ---
 
 ### RN-006 — Login social NO valida token
-⚠️ El backend confía ciegamente en el `uuidSocial` que envía el frontend. **Cualquiera puede suplantar a un usuario conociendo solo su email**.
+⚠️ El backend confía ciegamente en el `uuidSocial` que envía el frontend. **Cualquiera puede suplantar a un usuario conociendo solo su email**. esto debe solucionarse con la solución propuesta.e
 
 Solución propuesta: ver `social-login-google-facebook.md` (Token Exchange).
 
@@ -73,10 +73,10 @@ Solución propuesta: ver `social-login-google-facebook.md` (Token Exchange).
 - `USER` — auto, al registrarse.
 - `PROVIDER` — automático al aprobar `RequestProvider`.
 - `PROVIDER_OPERATOR` — el PROVIDER lo asigna al crear sub-usuario.
+- `BACKOFFICE_OPERATION`— el ADMIN lo asigna al crear sub-usuario.
 
 ⚠️ Roles NO asignables por API (manual en BD):
 - `ADMIN`
-- `BACKOFFICE_OPERATION`
 
 ---
 
@@ -91,13 +91,13 @@ Solución propuesta: ver `social-login-google-facebook.md` (Token Exchange).
 ### RN-011 — Todos los textos del tour requieren español
 ✅ La validación `@NotBlank` en `TranslatedField.es` se aplica al request de creación / update. Inglés y portugués son opcionales.
 
-### RN-012 — Tour debe tener al menos un Provider asignado
+### RN-012 — Tour debe solo un Provider asignado
 ✅ El backend resuelve el provider del JWT del PROVIDER que crea.
 
 ### RN-013 — Galería del tour ≤ 1MB por imagen (asunción)
-❓ ASUNCIÓN — verificar. El profile photo tiene límite 1MB; las imágenes del tour ❓.
+❓ ASUNCIÓN — verificar. El profile photo tiene límite 1MB; las imágenes del tour ❓. 
 
-📌 PENDIENTE LUIS — ¿cuántas imágenes máximo? ¿tamaño máximo por imagen?
+📌 PENDIENTE LUIS — ¿cuántas imágenes máximo? 7 imagenes ¿tamaño máximo por imagen? 5MB. usar imagenes de 1920 pixeles de ancho, siempre en formato horizontal (landscape) y nunca verticales (Portrait).
 
 ---
 
@@ -133,7 +133,7 @@ Donde:
 ### RN-021 — Capacidad ilimitada
 ✅ Un schedule puede tener `isUnlimitedCapacity = true`, lo que desactiva el control de capacidad por slot. ❓ — ASUNCIÓN: probablemente para tours sin restricción física.
 
-📌 PENDIENTE LUIS — ¿cuándo aplica `isUnlimitedCapacity`? ¿Solo en algunos tipos de tour?
+📌 PENDIENTE LUIS — ¿cuándo aplica `isUnlimitedCapacity`? ¿Solo en algunos tipos de tour? Esto se cambio, ya que la capacidad ilimitada es del tour y no del slot ni del schedule. por tanto, cuando un tour tiene capacidad ilimitada al momento de configurar el slot solo se debe ingresar el precio mas no la capacidad. por tanto los campos isUnlimitedCapacity se puede borrar de la tabla schedule.
 
 ---
 
@@ -142,10 +142,10 @@ Donde:
 ### RN-022 — Hold temporal de 15 minutos
 ✅ Al hacer checkout (POST `/reservations`), se crean `Reservation`s en estado `TEMPORAL` con `expiresAt = now + 15 minutos`. Si el usuario no paga en ese tiempo, el job `TemporalReservationExpiryJob` (corre cada 60s) las cancela y libera el slot.
 
-⚙️ Configurable: `tourya.reservations.holdMinutes` (default 15).
+⚙️ Configurable: `tourya.reservations.holdMinutes` (default 15). el usuario ADMIN debe poder configurar este campo.
 
 ### RN-023 — Validación de capacidad en checkout
-✅ Al agregar al carrito, se valida que el slot tenga capacidad suficiente (`requestedUnits <= availability`).
+✅ Al agregar al carrito, se valida que el slot tenga capacidad suficiente (`requestedUnits <= availability`). esto solo se debe realizar si el tour el campo `isUnlimitedCapacity= false`
 
 ### RN-024 — Validación de monto total en checkout
 ✅ Si el pago incluye créditos: `amountCredit + amountPlatform == totalAmount` debe cumplirse, sino error.
@@ -153,7 +153,7 @@ Donde:
 ### RN-025 — Una sola transacción Wompi por payment
 ✅ Cada `Payment` tiene un único `transactionId` de Wompi. Si Wompi retorna fallida la transacción, no se crea Payment ni se confirman reservas.
 
-⚠️ NO hay webhook server-side de Wompi: la confirmación es client-side. Si el cliente cierra la app entre Wompi success y POST `/payment`, queda en limbo.
+⚠️ NO hay webhook server-side de Wompi: la confirmación es client-side. Si el cliente cierra la app entre Wompi success y POST `/payment`, queda en limbo. esto se debe resolver.
 
 ---
 
@@ -192,8 +192,8 @@ Razones (`CancellationReasonEnum`):
 - `CANNOT_ATTEND`
 - `ILLNESS`
 - `INABILITY_TO_TRAVEL`
-
-📌 PENDIENTE LUIS — ¿hay otras razones permitidas? ¿"cambio de planes" es válida?
+- `Legal obligations`
+- `Change of plans`
 
 ### RN-031 — Refund por cancelación → Crédito
 ✅ El refund NO es devolución directa a la tarjeta. Se genera un `Credit` a favor del turista, según el % refundable de la política del tour:
@@ -201,7 +201,7 @@ Razones (`CancellationReasonEnum`):
 - Si cancela 8 días antes: crédito por 100%.
 - Si cancela 3 días antes: ❓ — depende de la política del operador.
 
-📌 PENDIENTE LUIS — confirmar las ventanas de cancelación y % de refund estándar.
+📌 PENDIENTE LUIS — confirmar las ventanas de cancelación y % de refund estándar. el operador al crear el tour especifica la politica de cancelacion. la politica de cancelacion puede ser: Flexible (hasta 24 hotas antes), Estandar (hasta 48 horas antes), Moderado (hasta 4 dias antes), Estricto (Hasta 7 dias antes).  si se cumple con la política de cancelación se hará la devolución del 100% del dinero en el credito.
 
 ### RN-032 — Cancelación por lluvia
 ✅ Solo ADMIN: `PUT /reservations/{id}/cancel/rain`. Requiere DIMAR flag (un `MaritimActivityReport` activo en la fecha + ubicación). Crédito 100%.
@@ -231,9 +231,7 @@ Razones (`CancellationReasonEnum`):
 - Transferencia desde otro turista.
 
 ### RN-036 — Expiración de créditos
-✅ `expirationDate = creationDate + 1 año`. Después de expirar, no se pueden usar.
-
-📌 PENDIENTE LUIS — ¿se notifica al turista antes de la expiración?
+✅ `expirationDate = creationDate + 1 año`. Después de expirar, no se pueden usar. enviar un correo al expirar un crédito.
 
 ### RN-037 — Reserva parcial de crédito
 ✅ En checkout, el turista puede pre-reservar parte del crédito (`POST /credits/reserve`). El monto queda en `reservedAmount` hasta que se confirme el pago o expire el hold.
@@ -255,10 +253,8 @@ Razones (`CancellationReasonEnum`):
 
 ### RN-041 — Cronograma de payouts
 ✅ `ProviderPayoutOrderJob` corre **lunes y jueves a las 7:00 AM (Bogotá)**:
-- **Lunes**: agrupa reservas ejecutadas Jueves-Sábado-Domingo → paga el martes.
+- **Lunes**: agrupa reservas ejecutadas Jueves-Viernes-Sábado-Domingo → paga el martes.
 - **Jueves**: agrupa reservas ejecutadas Lunes-Martes-Miércoles → paga el viernes.
-
-📌 PENDIENTE LUIS — confirmar.
 
 ### RN-042 — Cálculo del monto del payout
 ✅ Tourya paga al operador solo el `providerPrice`, no el `price` de venta:
@@ -268,9 +264,7 @@ amount retenido por Tourya = (price - providerPrice) × quantity
 ```
 
 ### RN-043 — Comprobante manual para marcar pagado
-✅ Tourya hace la transferencia bancaria manualmente (sin integración). El BACKOFFICE/ADMIN sube el comprobante (`POST /provider/payout-orders/admin/{orderId}/proof`) y marca como `PAID`.
-
-📌 PENDIENTE LUIS — ¿hay roadmap para integrar transferencia automatizada?
+✅ Tourya hace la transferencia bancaria manualmente (sin integración). El BACKOFFICE/ADMIN sube el comprobante (`POST /provider/payout-orders/admin/{orderId}/proof`) y marca como `PAID`. En el roadmap se tine planeado integrar tourya con las pasarelas de pago para hacer los pagos de forma automatica.
 
 ---
 
@@ -286,8 +280,7 @@ DRAFT → SUBMITTED → PRE_APPROVED → APPROVED
 
 ### RN-045 — Documentos obligatorios
 ✅ Los `RequestProviderDocumentType` con `mandatory = true` deben adjuntarse antes de SUBMITTED.
-
-📌 PENDIENTE LUIS — confirmar qué documentos son obligatorios (RUT, RNT, certificación bancaria, cédula representante legal, etc.).
+Los documentos son obligatorios (RUT, RNT, certificación bancaria, cédula representante legal, camara de comercio, Seguros etc.).
 
 ### RN-046 — Aprobación crea Provider + asigna rol
 ✅ Al aprobar `PUT /requestProvider/admin/approve/{id}`:
@@ -312,7 +305,7 @@ DRAFT → SUBMITTED → PRE_APPROVED → APPROVED
 ### RN-050 — Reseñas se publican directamente
 ✅ Desde la migración **040**, las nuevas reseñas se crean con `status = PUBLISHED` (sin moderación previa). Solo ADMIN puede ver reseñas en cualquier estado.
 
-📌 PENDIENTE LUIS — ¿por qué se quitó la moderación? ¿hay plan de reintroducirla?
+📌 PENDIENTE LUIS — ¿por qué se quitó la moderación? ¿hay plan de reintroducirla? en el roadmap las reseñas al crearse tendrán un estado de MODERACION. se construirá un agente IA que revise la reseña para analizar el texto, buscar spam, lenguaje ofensivo, enlaces sospechosos o patrones de fraude. si la reseña pasa la revisión del agente la reseña pasa a estado PUBLISHED. si no pasa a estado CANCELADA.
 
 ### RN-051 — Razones de reseña (1-7)
 ✅ Catálogo predefinido de motivos (`review_reason` enum) — 7 opciones (positivas para rating 4-5, negativas para 1-3).
@@ -334,28 +327,22 @@ DRAFT → SUBMITTED → PRE_APPROVED → APPROVED
 ## 11. DIMAR / Maritime Reports
 
 ### RN-054 — Reporte de actividad marítima por backoffice
-✅ El BACKOFFICE/ADMIN registra reportes (`POST /maritime-activity-reports`) con bandera (flag) — verde / amarilla / roja. Estos reportes sirven como soporte para cancelaciones por mal tiempo.
-
-📌 PENDIENTE LUIS — ¿hay alguna integración con DIMAR para traer banderas automáticamente?
+✅ El BACKOFFICE/ADMIN registra reportes (`POST /maritime-activity-reports`) con bandera (flag) — verde / amarilla / roja. Estos reportes sirven como soporte para cancelaciones por mal tiempo. en el roadmap se revisará como integrar el reporte de DIMAR a Tourya. 
 
 ---
 
 ## Cosas que no son reglas, pero son inferencias importantes
 
 ### Reservas pueden compartir Payment
-✅ Un `Payment` puede tener múltiples `Reservation`s (un solo pago para varios tours del carrito).
+✅ Un `Payment` puede tener múltiples `Reservation`s (un solo pago para varios tours del carrito). 
 
 ### Tourya cobra UVA a Wompi
-❓ ASUNCIÓN — Wompi cobra comisión por transacción (~2.99% + IVA). Esta comisión sale del `slotPercentageTourya`. No está documentado en código.
-
-📌 PENDIENTE LUIS — confirmar quién absorbe la comisión de Wompi.
+❓ ASUNCIÓN — Wompi cobra comisión por transacción (~2.99% + IVA). Esta comisión sale del `slotPercentageTourya`. No está documentado en código. inicialmente la comisión de las plataforma será absorbida por TOURYA (`slotPercentageTourya`). se revisará mas adelante si el costo lo asuma el proveedor.
 
 ### Sin sistema de promociones / cupones
-✅ No hay módulo de cupones / códigos de descuento. Los overrides de precio sirven, pero no hay UI ni concepto de "cupón".
-
-📌 PENDIENTE LUIS — ¿está en roadmap?
+✅ No hay módulo de cupones / códigos de descuento. Los overrides de precio sirven, pero no hay UI ni concepto de "cupón". en el roadmap esta previsto los cupones y codigos de descuento.
 
 ### Sin sistema de notificaciones push
-✅ No hay integración con Firebase Cloud Messaging u otras. Las notificaciones son solo email.
+✅ No hay integración con Firebase Cloud Messaging u otras. Las notificaciones son solo email. 
 
 📌 PENDIENTE LUIS — ¿está planeado para mobile?
