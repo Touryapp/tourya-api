@@ -33,18 +33,13 @@ import java.io.IOException;
         description = """
                 Pagos al proveedor por reservas entregadas (DELIVERED).
 
-                **Capas de estado (no son lo mismo):**
-                - `provider_payout_order.status` (PAID | PENDING | CANCELED): estado del **lote/transferencia** \
-                agrupada por el job (lun/jue → pago mar/vie). Usar en listados y operación backoffice.
-                - `reservation.payout_status` (PENDING | PAID): estado de **pago al proveedor por reserva**. \
-                Se copia a PAID cuando backoffice marca la orden pagada (POST .../proof).
-                - `account_payable.delivery_status`: deuda contable por reserva; el job de órdenes lee esta tabla.
+                Capas de estado (no son lo mismo):
+                - provider_payout_order.status (PAID | PENDING | CANCELED): lote/transferencia agrupada por el job.
+                - reservation.payout_status (PENDING | PAID): pago al proveedor por reserva.
+                - account_payable.delivery_status: deuda contable; el job de ordenes lee esta tabla.
 
-                **Flujo:** tour consumido → account_payable PENDING → job crea orden PENDING → \
-                admin sube comprobante → orden PAID + account_payable PAID + reservation.payout_status PAID.
-
-                Mientras la orden está PENDING, las reservas incluidas siguen con payout_status PENDING \
-                (no hay estado intermedio "en cola").
+                Flujo: tour consumido, account_payable PENDING, job crea orden PENDING, admin sube comprobante,
+                orden PAID + account_payable PAID + reservation.payout_status PAID.
                 """
 )
 public class ProviderPayoutOrderController {
@@ -73,8 +68,8 @@ public class ProviderPayoutOrderController {
     @Operation(
             operationId = "providerGetPayoutOrderDetails",
             summary = "Detalle de orden de pago (proveedor)",
-            description = "Incluye `status` de la **orden (lote)** y, por cada reserva, `payoutStatus` \
-                    (estado de pago de esa reserva). Ver tag del controlador para la diferencia entre ambos."
+            description = "Incluye status de la orden (lote) y payoutStatus por reserva. "
+                    + "Ver tag del controlador para la diferencia entre ambos."
     )
     public ResponseEntity<ProviderPayoutOrderDetailsResponse> detailsForProvider(
             @PathVariable("orderId") Long orderId,
@@ -103,7 +98,7 @@ public class ProviderPayoutOrderController {
     @Operation(
             operationId = "adminGetPayoutOrderDetails",
             summary = "Detalle de orden de pago (backoffice)",
-            description = "Igual que proveedor. `status` = lote; `reservations[].payoutStatus` = cada reserva."
+            description = "Igual que proveedor. status = lote; reservations[].payoutStatus = cada reserva."
     )
     public ResponseEntity<ProviderPayoutOrderDetailsResponse> detailsForAdmin(
             @PathVariable("orderId") Long orderId,
@@ -115,8 +110,8 @@ public class ProviderPayoutOrderController {
     @Operation(
             operationId = "adminUploadPayoutProofAndMarkPaid",
             summary = "Subir comprobante y marcar orden como pagada (backoffice)",
-            description = "Marca la orden PAID y propaga a todas sus reservas: account_payable PAID, \
-                    reservation.payout_status PAID y payout_paid_at. Solo órdenes en PENDING."
+            description = "Marca la orden PAID y propaga a todas sus reservas: account_payable PAID, "
+                    + "reservation.payout_status PAID y payout_paid_at. Solo ordenes en PENDING."
     )
     public ResponseEntity<ProviderPayoutOrderDetailsResponse> uploadProofAndMarkPaid(
             @PathVariable("orderId") Long orderId,
@@ -125,4 +120,3 @@ public class ProviderPayoutOrderController {
         return ResponseEntity.ok(providerPayoutOrderService.uploadAttachmentAndMarkPaid(orderId, file, connectedUser));
     }
 }
-
