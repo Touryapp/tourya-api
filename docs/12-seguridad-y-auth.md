@@ -35,6 +35,18 @@ application.security.jwt.expiration=86400000
 
 ⚠️ **Vulnerabilidad CRITICAL (C-1)**: el secret está hardcoded en `application.properties`. Cualquiera con acceso al repo puede forjar JWTs válidos.
 
+### JWT (rediseño pendiente) — Access + Refresh diferenciados por rol
+
+📌 Definido con Luis (2026-06-28): implementar **access token + refresh token** con expiraciones diferenciadas por rol.
+
+| Rol | Access token | Refresh token | Expiración por inactividad |
+|-----|--------------|---------------|------------------------------|
+| **Cliente (USER)** | 15 – 30 min | 14 – 30 días | Sin expiración por inactividad |
+| **Proveedor (PROVIDER / PROVIDER_OPERATOR)** | máx 15 min | 1 – 7 días | 1 – 2 horas |
+| **Backoffice (ADMIN / BACKOFFICE_OPERATION)** | máx 10 min | 8 – 12 horas | 15 minutos |
+
+Detalle en [05 — Reglas de negocio, RN-005](05-reglas-de-negocio.md).
+
 ---
 
 ### Login email/password

@@ -267,12 +267,12 @@ Catálogo de razones de cancelación.
 ---
 
 ### 2.14 `TouryaService` (BaseEntity)
-Servicios adicionales no implementados completamente (transfer, guía, traducción).
+Servicios adicionales.
 
 | `name`, `description`, `cancellationPolicy`, `status` | | |
 | `serviceType` | FK | → ServiceType |
 
-📌 ❓ PENDIENTE LUIS — confirmar si este módulo se usará. Hoy parece dormido. Este modulo se dejo para los otros servicios (transporte, souvenir, Duty free) a ofertar en tourya. estamos en el punto para redefinirlo.
+📌 **A redefinir**: este módulo se dejó preparado para los servicios futuros que ofertará Tourya (**transporte, souvenirs, Duty Free**, hospedaje, domicilios). Estamos en el momento de **redefinir su modelo** de acuerdo al roadmap de producto (ver [01 — Visión y negocio](01-vision-y-negocio.md)).
 
 ---
 
@@ -290,7 +290,7 @@ Instancia concreta del tour en una fecha.
 | `status` | enum | |
 | `tour`, `tourScheduleConfig` | FK | |
 | `maxCapacity`, `reservedCapacity` | Integer | |
-| `isUnlimitedCapacity` | boolean | |
+| ~~`isUnlimitedCapacity`~~ | ~~boolean~~ | **A eliminar** — se mueve a `Tour.isUnlimitedCapacity`. Ver RN-021 en [05](05-reglas-de-negocio.md) |
 
 ---
 
@@ -405,7 +405,7 @@ Reserva confirmada.
 | `maxCancellationDate`, `maxReschedulingDate` | | |
 | `canCancel`, `canReschedule` | boolean | flags expirables por job |
 
-✅ Es el modelo principal de reservas (reemplaza a `TourReservation` legacy).
+✅ Es el modelo principal de reservas.
 
 ---
 
@@ -417,18 +417,8 @@ Items dentro de una reserva.
 
 ---
 
-### 4.6 `TourReservation` (BaseEntity) — **LEGACY**
-Modelo viejo de reserva.
-
-📌 PENDIENTE LUIS — confirmar si se puede deprecar (parece reemplazada por `Reservation` + `ReservationItem`).
-
----
-
-### 4.7 `TourReservationDetail` (BaseEntity) — **LEGACY**
-
----
-
-### 4.8 `tour_reservation_status_history` — **LEGACY** (sin entidad JPA explícita)
+### 4.6 ~~`TourReservation`~~ — **ELIMINADO** (legacy)
+✅ Modelo antiguo de reservas **eliminado del código** el 2026-06-28 (commit `076f006`, migración `065`). Reemplazado por `Reservation` + `ReservationItem`.
 
 ---
 

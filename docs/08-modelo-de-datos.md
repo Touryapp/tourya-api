@@ -54,6 +54,11 @@ Schema PostgreSQL de Tourya: 68 tablas, 61 migraciones, ~20 stored procedures, �
 
 ### Tour core (8 tablas)
 
+> 📌 **Cambios pendientes en la tabla `tour`** (aportados por Luis, 2026-06-28):
+> - Agregar campo **`percentageTourya`** — % Tourya default del tour (asignado por ADMIN al aprobar). Ver [RN-015](05-reglas-de-negocio.md).
+> - Agregar campo **`isUnlimitedCapacity`** — moverlo desde `tour_schedule`. Ver [RN-021](05-reglas-de-negocio.md).
+> - Eliminar `isUnlimitedCapacity` de `tour_schedule`.
+
 | Tabla | Propósito |
 |-------|-----------|
 | `tour` | Tour principal (`name`, `description` JSONB, status) |
@@ -277,15 +282,13 @@ CREATE INDEX idx_tour_description_es ON tour ((description->>'es'));
 
 ## Tablas legacy (candidatos a deprecación)
 
-| Tabla | Reemplazo | Motivo |
+| Tabla | Reemplazo | Estado |
 |-------|-----------|--------|
-| `tour_reservation` | `reservation` | Modelo nuevo más completo |
-| `tour_reservation_detail` | `reservation_item` + `shopping_cart_item_detail` | Idem |
-| `tour_reservation_status_history` | (sin reemplazo claro) | Auditoría inline en `reservation` |
-| `tour_price` | `tour_schedule_config_price` | Precios siempre van por slot |
-| `tour_review` (si existe) | `review` | Renombrada |
-
-📌 PENDIENTE LUIS — confirmar plan de cleanup.
+| ~~`tour_reservation`~~ | `reservation` | ✅ **Eliminada** — migración 065 (commit `076f006`) |
+| ~~`tour_reservation_detail`~~ | `reservation_item` + `shopping_cart_item_detail` | ✅ **Eliminada** — migración 065 |
+| ~~`tour_reservation_status_history`~~ | (auditoría inline en `reservation`) | ✅ **Eliminada** — migración 065 |
+| `tour_price` | `tour_schedule_config_price` | 📌 Pendiente cleanup |
+| `tour_review` (si existe) | `review` | 📌 Pendiente cleanup |
 
 ---
 

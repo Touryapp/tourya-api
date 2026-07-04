@@ -72,29 +72,31 @@ Cada afirmación en estos documentos está marcada con su origen:
 
 ## Status de actualización
 
-Generación inicial — **2026-06-27**. Documentos basados en el estado del código en las ramas:
+Generación inicial: **2026-06-27**. Consolidación con aportes de Luis: **2026-06-28**.
+
+Documentos basados en el estado del código en las ramas:
 
 | Repo | Rama | Commit |
 |------|------|--------|
-| tourya-api | `develop` | `ad1b024` |
-| tourya-front | `develop` | `24f260d` |
+| tourya-api | `develop` | `e6ecca7` |
+| tourya-front | `develop` | `983f73a` |
 | tourya-mobile | `master` | `0bc518f` (sin remoto GitHub) |
 
 | Doc | Status | Notas |
 |-----|--------|-------|
 | 00 README maestro | ✅ Sync | Este índice |
-| 01 Visión y negocio | ⚠️ Pendiente Luis | Mayormente placeholders — requiere validación |
-| 02 Glosario | ✅ Sync | Términos deducidos del código |
-| 03 Roles y actores | ✅ Sync | Confirmado contra `UserRoleType` enum |
-| 04 Entidades de dominio | ✅ Sync | 54 entidades mapeadas en 10 contextos |
-| 05 Reglas de negocio | ⚠️ Parcial | Reglas técnicas claras; ventanas de cancelación pendientes de Luis |
+| 01 Visión y negocio | ✅ Sync | Consolidado con aportes de Luis (mercado, metas 12 meses, roadmap) |
+| 02 Glosario | ✅ Sync | Términos y aclaraciones de Luis integrados |
+| 03 Roles y actores | ✅ Sync | ADMIN único, BACKOFFICE_OPERATION asignable, matriz corregida |
+| 04 Entidades de dominio | ✅ Sync | 54 entidades; `TourReservation` legacy eliminado (commit `076f006`) |
+| 05 Reglas de negocio | ✅ Sync | Políticas de cancelación, refresh tokens por rol, KYB docs, moderación IA en roadmap |
 | 06 Flujos y eventos | ✅ Sync | 8 flujos completos |
 | 07 Arquitectura técnica | ✅ Sync | Stack y deploy confirmado |
-| 08 Modelo de datos | ✅ Sync | 68 tablas, 20 SPs, 61 migraciones |
+| 08 Modelo de datos | ✅ Sync | 68 tablas, 20 SPs, 61 migraciones + refactor pendiente `Tour.percentageTourya` |
 | 09 API design | ✅ Sync | 150+ endpoints en 35 controllers |
 | 10 Mobile spec | ✅ Sync | Estructura MAUI mapeada |
-| 11 Integraciones | ✅ Sync | Wompi, SMTP, GCS, Firebase confirmados |
-| 12 Seguridad y autenticación | ⚠️ Críticos pendientes | Vulnerabilidades catalogadas — remediación en plan aparte |
+| 11 Integraciones | ✅ Sync | Wompi (webhook en roadmap), SMTP, GCS, Firebase |
+| 12 Seguridad y autenticación | ⚠️ Críticos pendientes | Refresh tokens por rol definidos; vulnerabilidades en plan aparte |
 | 13 Despliegue GCP y CI/CD | ✅ Sync | Pipelines AWS (legacy) + GCP confirmados |
 
 ---
@@ -139,3 +141,4 @@ Nadie escribe código que contradiga estos documentos sin antes actualizar el do
 | Versión | Fecha | Cambios |
 |---------|-------|---------|
 | 1.0 | 2026-06-27 | Generación inicial completa basada en código existente |
+| 1.1 | 2026-06-28 | Consolidación con aportes de Luis: visión/mercado (San Andrés), metas 12m, políticas de cancelación, refresh tokens por rol, refactor `Tour.percentageTourya` e `isUnlimitedCapacity`, moderación IA, webhook Wompi, KYB docs obligatorios, eliminación `TourReservation` legacy |

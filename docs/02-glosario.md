@@ -4,6 +4,8 @@ Diccionario de términos del dominio de Tourya. Si un término ya está usado en
 
 > Convención: los términos están agrupados por área. Cuando un término del cliente difiere del nombre en código, se anota como **sinónimo**.
 
+> **Nota sobre i18n**: los textos del tour (nombre, descripción, atracciones, incluye/no incluye, itinerario, FAQ, políticas) los ingresa el operador en **español** y la plataforma debe traducirlos automáticamente a **portugués (Brasil)** e **inglés**. Ver propuesta en `traduccion-automatica-tours.md`.
+
 ---
 
 ## Negocio
@@ -30,16 +32,16 @@ Clasificación del tour (Aventura, Cultura, Comida, Familias, etc.). Una categor
 Etiqueta secundaria que enriquece la búsqueda. Hay 11 categorías de tags: Actividades acuáticas, Naturaleza, Playas, Aventura, Cultura, Comida, Familias, Romántica, Momentos del día, Logística, Nocturnos.
 
 ### Atracción principal (`TourMainAttraction`)
-Texto destacado que aparece en la ficha del tour como gancho de venta (ej. "Avistamiento de delfines garantizado"). el operador lo ingresa en español y la plataforma debe traducirlo a portugués e ingles.
+Texto destacado que aparece en la ficha del tour como gancho de venta (ej. "Avistamiento de delfines garantizado").
 
 ### Incluye / No incluye (`TourIncludesExcludes`, `type` enum)
-Lista de qué cubre el precio del tour y qué no (ej. incluye: transporte, almuerzo; no incluye: bebidas alcohólicas). el operador lo ingresa en español y la plataforma debe traducirlo a portugués e ingles.
+Lista de qué cubre el precio del tour y qué no (ej. incluye: transporte, almuerzo; no incluye: bebidas alcohólicas).
 
 ### Itinerario (`TourItinerary`)
-Plan paso a paso del tour, con día/hora, título y descripción de cada paso. el operador lo ingresa en español y la plataforma debe traducirlo a portugués e ingles.
+Plan paso a paso del tour, con día/hora, título y descripción de cada paso.
 
 ### FAQ (`TourFaq`)
-Preguntas frecuentes del tour, con pregunta y respuesta en los 3 idiomas. el operador lo ingresa en español y la plataforma debe traducirlo a portugués e ingles.
+Preguntas frecuentes del tour, con pregunta y respuesta en los 3 idiomas.
 
 ### Política de cancelación (`TourCancellationPolicy`, `cancellationPolicyType` enum)
 Reglas que rigen los reembolsos y reagendamientos del tour: hasta cuántos días antes se permite cancelar, qué porcentaje se devuelve, etc. Puede permitir **reagendamiento por lluvia** (`allowsRainRefund`) — relevante en tours marítimos.
@@ -61,7 +63,7 @@ Instancia concreta de un tour en una fecha específica (ej. "Tour de Islas del R
 Plantilla reutilizable que define los días de la semana y franjas horarias en que se ofrece un tour. Al guardarse, genera automáticamente los `TourSchedule` correspondientes.
 
 ### Slot (`TourScheduleConfigSlot`)
-Franja horaria dentro de un schedule (ej. "9:00 - 12:00"). Tiene capacidad máxima, reservas actuales, y precios por tipo de persona (Adulto, niño, bebe y cualquiera). **Sinónimo**: "turno".
+Franja horaria dentro de un schedule (ej. "9:00 - 12:00"). Tiene capacidad máxima, reservas actuales, y precios por tipo de persona (Adulto, Niño, Bebé y "Cualquiera"). **Sinónimo**: "turno".
 
 ### Tipo de persona / `ageType` (`AgeRangeConfig`, enum `ADULT` / `CHILD` / `INFANT`)
 Rango de edad usado para diferenciar precios. Cada slot tiene un precio por tipo. **Sinónimo del cliente**: "adulto / niño / bebé".
@@ -116,10 +118,10 @@ Saldo a favor del turista, generado por:
 - Cancelación por lluvia.
 - Transferencia desde otro turista.
 
-Tiene fecha de expiración (1 año desde creación). Puede usarse total o parcialmente en otra compra. debe ser configurable.
+Tiene fecha de expiración (por defecto 1 año desde creación — **debe volverse configurable**). Puede usarse total o parcialmente en otra compra.
 
 ### Transferencia de crédito
-Un turista puede ceder un crédito a otro turista, identificándolo por documento. Una vez transferido, no se puede revertir. Endpoint: `POST /credits/{creditId}/transfer`. un credito puede ser transferido solo una vez.
+Un turista puede ceder un crédito a otro turista, identificándolo por documento. **Un crédito solo puede ser transferido una vez**; una vez transferido, no se puede revertir. Endpoint: `POST /credits/{creditId}/transfer`.
 
 ### Account Payable (`AccountPayable`)
 Cuenta por pagar al operador. Una por reserva entregada (`DELIVERED`). Lleva el monto que Tourya le debe (`providerPrice × quantity`, sin la comisión).
@@ -131,7 +133,7 @@ Cuenta por pagar al operador. Una por reserva entregada (`DELIVERED`). Lleva el 
 Fecha en que se efectúa el pago al operador. **Lunes** se paga el martes; **jueves** se paga el viernes.
 
 ### Payout Available Date (`payout_available_date`)
-Fecha desde la cual una reserva puede entrar al payout. Regla actual: `reservation_date + 2 días` (buffer para reclamos). los 2 dias debe ser configurable
+Fecha desde la cual una reserva puede entrar al payout. Regla actual: `reservation_date + 2 días` (buffer para reclamos). **Los 2 días deben volverse configurables**.
 
 ### Comprobante de pago (`ProviderPayoutAttachment`)
 Archivo (PDF, imagen) que el backoffice sube al marcar una payout order como pagada.
@@ -162,7 +164,7 @@ Respuesta del operador a una reseña. También multilingüe, con hasta 5 fotos a
 6 opciones predefinidas (ej. "Excelente experiencia", "No cumplió expectativas") para clasificar la reseña.
 
 ### Likes / Dislikes / Hearts
-Reacciones de otros usuarios a una reseña, también disponibles en las respuestas. ❓ No es claro si están expuestas en UI. para esto se debe guardar el id del usuario (turistas). un usuario puede solo puede tener una reacción para una reseña en particular.
+Reacciones de otros usuarios a una reseña, también disponibles en las respuestas. Se debe guardar el **`userId`** del turista que reacciona: **un usuario solo puede tener una reacción por reseña** (constraint de unicidad).
 
 ---
 
@@ -232,9 +234,9 @@ Catálogo de ubicaciones. Para Colombia: 32 departamentos (`State`) con sus muni
 
 ### Address del tour (`TourAddress`)
 Punto geográfico del tour (con `latitude`, `longitude`). Un tour puede tener varios:
-- Punto de encuentro (debe ser obligatorio. todo tour debe tener al menos el punto de encuentro.)
-- Punto de finalización
-- Punto de recogida
+- **Punto de encuentro** — **obligatorio**: todo tour debe tener al menos el punto de encuentro.
+- Punto de finalización (opcional).
+- Punto de recogida (opcional).
 
 ---
 
@@ -281,12 +283,23 @@ Script SQL versionado en `database/migrations/`. Tourya va por la migración **0
 
 ---
 
-## Términos a aclarar con Luis
+## Aclaraciones importantes
 
-📌 Algunos términos del código no están del todo claros, vale la pena confirmar con Luis:
+### Operador vs Operario
+- **Operador** (`PROVIDER`) — el **operador turístico titular**, quien presta el servicio de tour. Es el dueño del negocio.
+- **Operario** (`PROVIDER_OPERATOR`) — un **trabajador** del operador turístico. Tiene tours asignados y su función principal es **escanear el QR** de la reserva para marcarla como `DELIVERED`.
 
-- **¿"Operador" y "Operario" son lo mismo?** En el código: `PROVIDER` = titular, `PROVIDER_OPERATOR` = sub-usuario. En el negocio diario, ¿cómo se les dice? el `PROVIDER` es el operador turistico quien presta el servicio de tour. el `PROVIDER_OPERATOR` es un trabajador del operador turistico y su nombre es operario. este usuario tiene asignado tours y es quien puede escanear el QR de la reserva para pasar la reserva a estado delivered.  
-- **"Tour principal" (`principalTourId`) del PROVIDER_OPERATOR**: ¿qué significa exactamente? El código sugiere que es el tour donde el operario tiene prioridad/asignación principal. cuando un PROVIDER_OPERATOR tiene el principalTourID quiere decir que es la persona que aparece como contacto (nombre, telefono y correo) cuando se genera una reserva para dicho tour. Pero todos los PROVIDER_OPERATOR asociados al tour van a poder ver las reservas del tour y van a poder escanear el QR presentado por el turista.
-- **"Tourya percentage"** vs **"slot percentage Tourya"**: ¿son lo mismo o hay un % global vs % por slot? "Tourya percentage" es el tour estandar del tour, por lo que al momento que un operador configure el Slot (disponibilidad, precio y horario) puede tomar (colcar el valor de "Tourya percentage" en "Slot percentage Tourya") "Tourya percentage" como el porcentaje para tomar el % de Tourya. el operador puede en cualquier momento asignar un porcentaje diferente para un slot en particular, y para esto debe configurar el Schedule del tour utilizando el "Slot percentage Tourya".
-- **`payout_status` en reservation** vs `status` en `provider_payout_order`: hay redundancia, vale aclarar.
-- **`Reservation` vs `TourReservation`**: hay dos modelos de reserva en el código. El más nuevo (y usado) es `Reservation`. `TourReservation` parece legacy. Confirmar si se puede deprecar.
+### Tour principal del operario (`principalTourId`)
+Cuando un `PROVIDER_OPERATOR` tiene un `principalTourId`, significa que **es la persona que aparece como contacto** (nombre, teléfono y correo) en las reservas de ese tour. Todos los operarios asignados al tour pueden ver las reservas y escanear el QR, pero solo el "principal" aparece como contacto en las reservas.
+
+### "Tourya percentage" vs "Slot percentage Tourya"
+- **`Tourya percentage`** (nuevo campo pendiente en tabla `Tour`) — es el **porcentaje estándar del tour**, definido por el ADMIN al aprobar el tour.
+- **`Slot percentage Tourya`** — es el porcentaje aplicado a un slot específico. Por default toma el valor de `Tourya percentage` del tour; el backoffice puede asignar uno diferente para un slot puntual usando los endpoints de override.
+
+Ver reglas RN-014, RN-015 en [05 — Reglas de negocio](05-reglas-de-negocio.md).
+
+### `Reservation` vs `TourReservation`
+✅ Resuelto: `TourReservation` (legacy) fue **eliminado** del código el 2026-06-28 (commit `076f006`, migración 065). El modelo actual es `Reservation` + `ReservationItem`.
+
+### `payout_status` en `reservation` vs `status` en `provider_payout_order`
+📌 PENDIENTE — hay redundancia entre `reservation.payout_status` y `provider_payout_order.status`. Aclarar el uso de cada uno y considerar consolidar.
