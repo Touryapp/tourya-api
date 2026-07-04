@@ -68,6 +68,12 @@ Cada afirmación en estos documentos está marcada con su origen:
 | [12](12-seguridad-y-auth.md) | Seguridad y autenticación | JWT, BCrypt, roles, login social, CORS, vulnerabilidades pendientes |
 | [13](13-despliegue-cicd.md) | Despliegue GCP y CI/CD | Cloud Run, Cloud Build, GitHub Actions, ramas, dominios (tourya.co), variables de entorno |
 
+### Análisis y roadmap
+
+| # | Documento | De qué trata |
+|---|-----------|--------------|
+| [14](14-gap-web-mobile.md) | Análisis Gap Web vs Mobile | Qué debe existir en cada plataforma y por qué — evitar duplicar trabajo que no aporta valor |
+
 ---
 
 ## Status de actualización
@@ -98,6 +104,7 @@ Documentos basados en el estado del código en las ramas:
 | 11 Integraciones | ✅ Sync | Wompi (webhook en roadmap), SMTP, GCS, Firebase |
 | 12 Seguridad y autenticación | ⚠️ Críticos pendientes | Refresh tokens por rol definidos; vulnerabilidades en plan aparte |
 | 13 Despliegue GCP y CI/CD | ✅ Sync | Pipelines AWS (legacy) + GCP confirmados |
+| 14 Gap Web vs Mobile | 📌 Para revisión de Luis | Propone matizar la iso-funcionalidad web/mobile |
 
 ---
 
@@ -142,3 +149,4 @@ Nadie escribe código que contradiga estos documentos sin antes actualizar el do
 |---------|-------|---------|
 | 1.0 | 2026-06-27 | Generación inicial completa basada en código existente |
 | 1.1 | 2026-06-28 | Consolidación con aportes de Luis: visión/mercado (San Andrés), metas 12m, políticas de cancelación, refresh tokens por rol, refactor `Tour.percentageTourya` e `isUnlimitedCapacity`, moderación IA, webhook Wompi, KYB docs obligatorios, eliminación `TourReservation` legacy |
+| 1.2 | 2026-06-28 | Nuevo doc `14-gap-web-mobile.md` — análisis funcional web vs mobile y propuesta de matizar la meta de iso-funcionalidad |
