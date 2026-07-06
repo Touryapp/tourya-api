@@ -73,6 +73,7 @@ Cada afirmación en estos documentos está marcada con su origen:
 | # | Documento | De qué trata |
 |---|-----------|--------------|
 | [14](14-gap-web-mobile.md) | Análisis Gap Web vs Mobile | Qué debe existir en cada plataforma y por qué — evitar duplicar trabajo que no aporta valor |
+| [15](15-mvp-mobile-estado.md) | Estado del MVP mobile vs propuesta | Gap analysis granular del código MAUI actual contra la matriz del doc 14 + roadmap sugerido |
 
 ---
 
@@ -105,6 +106,7 @@ Documentos basados en el estado del código en las ramas:
 | 12 Seguridad y autenticación | ⚠️ Críticos pendientes | Refresh tokens por rol definidos; vulnerabilidades en plan aparte |
 | 13 Despliegue GCP y CI/CD | ✅ Sync | Pipelines AWS (legacy) + GCP confirmados |
 | 14 Gap Web vs Mobile | 📌 Para revisión de Luis | Propone matizar la iso-funcionalidad web/mobile |
+| 15 MVP mobile — estado | ✅ Sync | Análisis granular del MAUI actual + roadmap por ciclos |
 
 ---
 
@@ -150,3 +152,4 @@ Nadie escribe código que contradiga estos documentos sin antes actualizar el do
 | 1.0 | 2026-06-27 | Generación inicial completa basada en código existente |
 | 1.1 | 2026-06-28 | Consolidación con aportes de Luis: visión/mercado (San Andrés), metas 12m, políticas de cancelación, refresh tokens por rol, refactor `Tour.percentageTourya` e `isUnlimitedCapacity`, moderación IA, webhook Wompi, KYB docs obligatorios, eliminación `TourReservation` legacy |
 | 1.2 | 2026-06-28 | Nuevo doc `14-gap-web-mobile.md` — análisis funcional web vs mobile y propuesta de matizar la meta de iso-funcionalidad |
+| 1.3 | 2026-07-06 | Nuevo doc `15-mvp-mobile-estado.md` — gap analysis del código MAUI actual contra la matriz del doc 14 + roadmap por ciclos |
