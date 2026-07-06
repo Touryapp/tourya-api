@@ -1,6 +1,8 @@
-# 15 — Estado del MVP mobile vs propuesta
+# 15 — Estado del MVP mobile vs alcance
 
-Análisis granular del código actual de `tourya-mobile` (MAUI Android) contra la matriz funcional propuesta en [14 — Gap Web vs Mobile](14-gap-web-mobile.md).
+Análisis granular del código actual de `tourya-mobile` (MAUI Android) contra el alcance funcional definido en [14 — Web vs Mobile](14-gap-web-mobile.md).
+
+> **Nota 2026-07-06**: este documento se actualizó tras la reescritura del doc 14 con el alcance definido por Luis. La categorización "construido pero cuestionable" se removió — las pantallas de crear tour, schedule template y schedule calendar **están alineadas con el alcance**.
 
 > **Objetivo**: dimensionar qué falta, qué sobra y en qué invertir a continuación para tener una app coherente con la posición estratégica acordada.
 
@@ -36,18 +38,18 @@ Uno por cada vista + algunos compartidos como `MyToursViewModel`, `ReservationsV
 
 ## Gap Analysis contra el doc 14
 
-Se marcan las funcionalidades en 3 categorías:
+Se marcan las funcionalidades en 2 categorías:
 
-- ✅ **Construido y alineado** con la propuesta.
-- ⚠️ **Construido pero cuestionable** — el doc 14 dice que no debería estar en mobile o que debería restringirse.
+- ✅ **Construido y alineado** con el alcance definido.
 - ❌ **Falta construir** — el doc 14 lo pide y no está.
+- ⚠️ **Construido pero requiere refinar UX mobile** — está pero necesita mejoras (autosave, compresión, offline, etc.).
 
 ### Turista (USER)
 
 | Funcionalidad (doc 14) | Estado mobile | Categoría | Notas |
 |-------------------------|:-------------:|:---------:|-------|
-| Registro / login (email + social) | `LoginPage`, `RegisterPage` | ✅ | |
-| Buscar tours (filtros simplificados) | `ExplorePage` | ✅ | |
+| Registro / login (email + Facebook + Google) | `LoginPage`, `RegisterPage` | ✅ | |
+| Buscar tours con Travel Concierge (IA) | `ExplorePage` | ⚠️ parcial | Búsqueda con filtros existe, falta integración con agente IA — ver [16](16-agentes-ia.md) |
 | Ver detalle de tour + galería | `TourDetailPage` | ✅ | |
 | Agregar al carrito | `CartPage` | ✅ | |
 | Checkout + Wompi WebView | `CheckoutPage`, `PaymentConfirmationPage`, `WompiHelper` | ✅ | |
@@ -55,11 +57,9 @@ Se marcan las funcionalidades en 3 categorías:
 | Cancelar reserva | En `ReservationDetailPage` | ✅ | |
 | Reagendar reserva | En `ReservationDetailPage` (a verificar) | ⚠️ verificar | Confirmar que el flujo esté completo con las 3 casuísticas (igual/menor/mayor precio) |
 | Dejar reseña (con fotos) | ? | ❌ falta | No hay `ReviewCreatePage` ni `WriteReviewViewModel` — el `ReviewService` existe pero no la UI |
-| Ver / usar créditos | `CreditService` | ⚠️ parcial | Servicio existe, pero no hay `CreditsPage` visible; se usa dentro del checkout |
-| Transferir créditos | ❌ | ❌ | Sin UI |
-| Wishlist | ❌ | ❌ | Sin `WishlistPage` — puede convivir con el USER en su tab |
+| Ver / gestionar créditos (usar, transferir) | `CreditService` | ⚠️ parcial | Servicio existe, pero falta UI dedicada de créditos (saldo, historial, transferir) |
+| Wishlist (lista de deseos) | ❌ | ❌ | Sin `WishlistPage` — falta construir |
 | Perfil turista (foto, documento, dirección) | `ProfilePage` | ✅ | |
-| Solicitar convertirse en Provider (KYB) | KYB solo desde tab provider | ⚠️ | Faltaría flujo desde USER si el doc lo permite (el doc 14 lo marca ⚡ nice-to-have) |
 | Notificaciones push | ❌ | ❌ | No implementado |
 | Geolocalización ("cerca de mí") | ❌ | ❌ | `Syncfusion.Maui.Maps` importado pero sin usar |
 | Deep-linking | ❌ | ❌ | No implementado |
@@ -69,18 +69,18 @@ Se marcan las funcionalidades en 3 categorías:
 | Funcionalidad (doc 14) | Estado mobile | Categoría | Notas |
 |-------------------------|:-------------:|:---------:|-------|
 | Dashboard (ingresos, tours, KPIs) | `DashboardPage`, `DashboardViewModel` | ✅ | |
-| Crear tour (wizard) | `TourFormPage` (6+ steps) | ⚠️ **cuestionable** | El doc 14 dice **NO** hacer wizard en mobile — inviable UX con 12+ campos multilingües |
-| Editar tour | `TourFormPage` | ⚠️ cuestionable | Idem |
-| Crear plantilla de horarios | `ScheduleTemplateFormPage` | ⚠️ cuestionable | Doc 14 recomienda web-only |
-| Configurar precios (providerPrice por slot) | En `ScheduleTemplateFormPage` | ⚠️ cuestionable | Idem |
+| Crear tour (wizard) | `TourFormPage` (6+ steps) | ⚠️ refinar UX | Existe. Necesita: autosave/borradores, compresión de imágenes, upload en background, dictado de voz opcional |
+| Editar tour | `TourFormPage` | ⚠️ refinar UX | Idem |
+| Gestionar schedule (plantillas + slots + precios) | `ScheduleTemplateFormPage`, `ScheduleCalendarPage`, `TourSchedulesPage` | ⚠️ refinar UX | Existe. Vale la pena: vistas día/semana/mes claras, copiar precios de otro tour |
 | Ver / gestionar reservas | `ProviderReservationsPage` | ✅ | |
-| Confirmar reserva (QR scanner) | `QrScannerPage`, ZXing | ✅ 🎯 | **Correcto — es el valor core del mobile del operador** |
-| Marcar reserva manualmente | En `ProviderReservationsPage` | ⚠️ verificar | Confirmar que exista el flujo manual como fallback del QR |
-| Ver / responder reseñas | `ProviderReviewsPage` | ⚠️ parcial | Ver sí; **responder falta verificar** |
-| Ver payouts + comprobantes | ❌ | ❌ | No hay `PayoutsPage` |
-| Crear operarios (`PROVIDER_OPERATOR`) | ❌ | ❌ **correcto según doc 14** | Doc 14 dice: gestión de sub-usuarios solo en web |
-| Editar / reasignar operarios | ❌ | ❌ **correcto** | Idem |
-| Resetear password operarios | ❌ | ❌ **correcto** | Idem |
+| Confirmar reserva (QR scanner) | `QrScannerPage`, ZXing | ✅ 🎯 | Valor core del mobile |
+| Marcar reserva manualmente | En `ProviderReservationsPage` | ⚠️ verificar | Confirmar que exista el fallback manual del QR |
+| Ver reseñas | `ProviderReviewsPage` | ✅ | |
+| **Responder reseñas** | ❌ | ❌ | Existe la view de reseñas, falta el flujo de respuesta |
+| Ver payouts + comprobantes | ❌ | ❌ | Sin `PayoutsPage` — falta construir |
+| **Crear operarios (`PROVIDER_OPERATOR`)** | ❌ | ❌ | **A construir** — Luis lo pidió explícitamente. Formulario corto + compartir clave temporal por WhatsApp / SMS |
+| Editar / reasignar operarios | ❌ | ❌ | A construir |
+| Resetear password operarios | ❌ | ❌ | A construir |
 | Panel KYB / documentos | `KybStatusPage`, `KybRegistrationPage`, `KybDocumentsPage` | ✅ | Buena implementación |
 | Notificaciones push | ❌ | ❌ | **Prioridad alta según doc 14** |
 | Modo campo / offline | ❌ | ❌ | **Prioridad alta según doc 14** |
@@ -100,7 +100,7 @@ Se marcan las funcionalidades en 3 categorías:
 
 | Funcionalidad (doc 14) | Estado mobile | Categoría |
 |-------------------------|:-------------:|:---------:|
-| Todo el backoffice | Sin implementar | ✅ **correcto según doc 14** (no debe hacerse mobile) |
+| Todo el backoffice | Sin implementar | ✅ **correcto** — se mantiene web-only |
 
 ---
 
@@ -147,26 +147,32 @@ Recap de lo que el doc 14 propone como prioridad de inversión mobile:
 - El **operador** cubre lo core en campo (dashboard rápido, reservas, QR, reseñas view).
 - El **KYB** está bien portado para que el operador pueda subir docs desde móvil.
 
-### Lo que se construyó pero según el doc 14 sobra
+### Lo que falta construir según el alcance definido por Luis
 
-- **Wizard de creación / edición de tour** en mobile (`TourFormPage`).
-- **Plantillas de horarios** y **configuración de precios** en mobile (`ScheduleTemplateFormPage`, `ScheduleCalendarPage`, `TourSchedulesPage`).
+**Para el turista**:
+1. **UI de creación de reseña** con cámara (el `ReviewService` existe, falta la UI).
+2. **Wishlist** (lista de deseos) — pantalla dedicada.
+3. **UI de gestión de créditos** — saldo, historial de créditos, transferir a otro turista.
+4. **Integración con Travel Concierge (agente IA)** — ver [16](16-agentes-ia.md).
 
-> Estas pantallas ya existen (esfuerzo hundido). Opciones a discutir:
-> - **A**) **Mantenerlas** y considerar el debate cerrado — quedan como plus para operadores muy movilizados.
-> - **B**) **Simplificarlas**: dejar solo lectura/consulta rápida ("ver mis tours", "ver mis horarios"), quitar edición y forzar a web.
-> - **C**) **Deprecarlas** en el próximo ciclo para reducir superficie de mantenimiento.
+**Para el proveedor**:
+5. **Responder reseñas** (existe la vista, falta el flujo).
+6. **Ver payouts + comprobantes** (`PayoutsPage`).
+7. **Crear operarios (`PROVIDER_OPERATOR`)** — formulario + envío de contraseña temporal por WhatsApp / SMS.
+8. **Editar / reasignar operarios**.
+9. **Resetear password de operarios**.
 
-### Lo que falta y aporta valor
+**Features "solo mobile" que aún faltan**:
+10. **Notificaciones push** (FCM) — turista, operador, operario.
+11. **Geolocalización** — "tours cerca de mí" en Explore, "cómo llegar" en TourDetail (`Syncfusion.Maui.Maps` ya importado).
+12. **Modo offline** para operario (cache de reservas del día).
+13. **Deep-linking** — compartir tours por WhatsApp que abre la app.
+14. **Widget "próxima reserva"** (para turista y operario).
 
-1. **UI de creación de reseña** con cámara (turista) — el `ReviewService` existe pero la UI no. Es la brecha más rápida de cerrar.
-2. **Notificaciones push** (FCM) — cierra el loop turista ↔ operador ↔ operario.
-3. **Geolocalización** — "tours cerca de mí" en `ExplorePage`, "cómo llegar" en `TourDetailPage` con `Syncfusion.Maui.Maps` (ya importado).
-4. **Modo offline básico** para el operario — cachear reservas del día para trabajar sin señal.
-5. **Deep-linking** — compartir tours por WhatsApp con link que abre la app o cae a la web.
-6. **Payouts** (view + comprobantes) para el operador — completa la visibilidad financiera en móvil.
-7. **Transferencia de créditos** y **wishlist** para el turista — brechas rápidas de UI.
-8. **Widget "próxima reserva"** (opcional, alto ROI en percepción de calidad).
+### Lo que existe pero necesita refinar UX mobile
+
+- **Wizard de creación de tour** — funciona, pero requiere autosave / borradores, compresión de imágenes en cliente, upload en background, y opcionalmente dictado de voz para descripciones.
+- **Configuración de schedule** — funciona, pero vale la pena una vista de calendario más clara y "copiar precios de otro tour".
 
 ### Lo que urge arreglar antes de cualquier feature nueva
 
@@ -188,26 +194,38 @@ Recap de lo que el doc 14 propone como prioridad de inversión mobile:
 ### Ciclo 1 — Cerrar brechas de la app turista
 1. UI de creación de reseña con cámara.
 2. Wishlist en tab del turista.
-3. Transferencia de créditos.
+3. UI dedicada de créditos (saldo, historial, transferir).
 
-### Ciclo 2 — Valor incremental móvil (features "solo mobile")
-1. Push notifications (FCM) para turista y operador.
-2. Geolocalización: "tours cerca de mí" + "cómo llegar".
-3. Deep-linking.
+### Ciclo 2 — Cerrar brechas de la app proveedor
+1. Responder reseñas desde la vista de reseñas.
+2. Ver payouts + comprobantes (`PayoutsPage`).
+3. **Crear / editar / gestionar operarios** (formulario + compartir clave temporal por WhatsApp).
 
-### Ciclo 3 — Robustecer el rol operario
+### Ciclo 3 — Refinar UX de creación/config del proveedor
+1. Autosave / borradores en el wizard de tour.
+2. Compresión de imágenes en cliente + upload en background.
+3. Vista de calendario mejorada en schedule.
+4. Copiar precios entre tours.
+
+### Ciclo 4 — Valor incremental móvil (features "solo mobile")
+1. Push notifications (FCM) para turista, operador, operario.
+2. Geolocalización: "tours cerca de mí" + "cómo llegar al punto de encuentro".
+3. Deep-linking + compartir tours por WhatsApp.
+
+### Ciclo 5 — Robustecer el rol operario
 1. Modo offline (cache de reservas del día).
 2. Widget de "próxima reserva".
-3. Reforzar la vista de reservas del operario (filtro por tour asignado, agrupación por hora).
+3. Reforzar vista de reservas del operario (agrupación por hora).
 
-### Ciclo 4 — Debate estratégico
-1. Decidir A/B/C sobre las pantallas de creación/edición de tour y horarios en mobile.
+### Ciclo 6 — Integración con agentes IA
+1. Travel Concierge en `ExplorePage` (según [16](16-agentes-ia.md)).
+2. Otros agentes según el alcance que defina Luis.
 
 ---
 
 ## Métricas para trackear post-lanzamiento
 
-Para validar la propuesta del doc 14 con datos:
+Para validar el alcance del doc 14 con datos:
 
 | Métrica | Qué mide |
 |---------|----------|

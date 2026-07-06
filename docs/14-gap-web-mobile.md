@@ -1,216 +1,244 @@
-# 14 — Análisis Gap Web vs Mobile
+# 14 — Alcance funcional Web vs Mobile
 
-Comparativa funcional entre la web (Angular 19) y la app móvil (MAUI Android). Este documento define **qué debe existir en cada plataforma y por qué** — para evitar duplicar trabajo que no aporta valor.
+Este documento define **qué debe existir en cada plataforma** (web Angular 19 vs app móvil MAUI Android) para Tourya.
 
----
-
-## Posición estratégica
-
-> En el doc [01 — Visión y negocio](01-vision-y-negocio.md) se planteó como meta que "Android y iOS deben brindar la misma funcionalidad que la web". Este documento propone **matizar esa meta**: **no todas las funciones deben duplicarse** — cada plataforma sirve a un contexto de uso distinto.
-
-### Principio guía
-
-**La app móvil debe capitalizar lo que solo el móvil hace bien**; para el resto, la web es más eficiente en desarrollo, mantenimiento y experiencia del usuario.
-
-**Por qué no duplicar todo**:
-
-| Argumento | Detalle |
-|-----------|---------|
-| **Costo de desarrollo** | Un feature en mobile toma 2-3× el tiempo que en web (múltiples pantallas, gestión de estado, ciclos de release, testing en dispositivos reales) |
-| **Mantenibilidad** | Duplicar UI = duplicar bugs, duplicar pruebas, duplicar QA |
-| **UX apropiada** | Formularios largos con muchos campos (crear un tour completo, configurar KYB) son deficientes en móvil |
-| **Frecuencia de uso** | Backoffice y configuración pesada se usan pocas veces al mes; no vale la fricción de desarrollarlas para móvil |
-| **Benchmarks del sector** | Airbnb, Booking, GetYourGuide, Viator NO duplican en mobile todo el panel del host/operador — mantienen mobile enfocado en compra + fulfillment |
+> **Actualización 2026-07-06**: se reescribió con el **alcance definido por Luis** vía WhatsApp. La versión inicial del doc (basada en benchmarks de Airbnb/Booking) proponía dejar la creación de tour, la configuración de horarios y la gestión de operarios como **web-only**. Luis corrigió con un contexto de negocio importante: **en San Andrés la mayoría de los operadores no son "dueños de empresa de oficina", están en la calle** (lancheros, buzos, guías de manglar). Por eso el mobile debe cubrir mucho más que solo fulfillment.
 
 ---
 
-## Contextos de uso
+## Contexto de negocio (aportado por Luis)
 
-Cada rol tiene un contexto de uso distinto y una plataforma primaria natural:
+- Los operadores turísticos objetivo de Tourya en San Andrés son **microempresarios operativos** que trabajan en campo (playa, mar, tour en marcha).
+- La mayoría **no tiene oficina**, ni computador dedicado. Su herramienta principal es el celular.
+- Esto invalida el argumento genérico "el operador titular está en oficina" — en Tourya, el operador titular también está en la calle.
+
+**Consecuencia**: la app móvil debe cubrir **el ciclo operativo completo del proveedor**, no solo consulta de reservas.
+
+---
+
+## Contextos de uso por rol
 
 | Rol | Contexto primario | Plataforma primaria | Plataforma secundaria |
 |-----|-------------------|---------------------|-----------------------|
-| **Turista (USER)** | En movimiento, en la calle, en el hotel, en el sitio turístico | **Móvil** | Web (para búsqueda pesada / pre-viaje) |
+| **Turista (USER)** | En movimiento, en el hotel, en el sitio turístico | **Móvil** | Web (para búsqueda extensa / pre-viaje) |
 | **Operario (PROVIDER_OPERATOR)** | En el sitio, en el bote, atendiendo grupos | **Móvil** | — |
-| **Operador titular (PROVIDER)** | En oficina, con tiempo, atendiendo negocio | **Web** | Móvil (para consultas rápidas / notificaciones) |
-| **Backoffice (ADMIN / BACKOFFICE_OP)** | En oficina, tareas administrativas | **Web** | — |
+| **Operador titular (PROVIDER)** | En la calle, en el bote, mismo contexto que el operario | **Móvil** | Web (opcional, para revisiones más pausadas) |
+| **Backoffice (ADMIN / BACKOFFICE_OPERATION)** | En oficina, tareas administrativas | **Web** | — |
 
 ---
 
-## Matriz Web vs Mobile por funcionalidad
+## Alcance funcional (definido por Luis)
+
+### Turista
+
+La app móvil para el turista debe permitir:
+
+1. **Autenticarse** con:
+   - Correo + contraseña
+   - Facebook
+   - Google (Gmail)
+2. **Buscar el tour** con filtros, con ayuda del **Agente IA "Travel Concierge"** (ver [16 — Agentes IA](16-agentes-ia.md)).
+3. **Consultar disponibilidad** del tour.
+4. **Adjuntar el tour al carrito**.
+5. **Pagar con Wompi**.
+6. **Ver sus reservas** (incluyendo QR).
+7. **Ver / gestionar su lista de deseos** (wishlist).
+8. **Gestionar sus créditos** (ver saldo, usarlos en compra, transferirlos).
+
+### Proveedor (operador titular)
+
+La app móvil para el proveedor debe permitir:
+
+1. **Crear tour** (incluyendo todos los datos: descripciones multilingües, atracciones, incluye/no incluye, itinerario, FAQ, políticas de cancelación, galería).
+2. **Gestionar el schedule** de los tours aprobados (crear plantillas de horario, definir precios por `ageType`).
+3. **Gestionar sus reservas** (ver, filtrar, confirmar por escaneo QR).
+4. **Responder reseñas**.
+5. **Crear operarios** (`PROVIDER_OPERATOR`) — con contraseña temporal, asignar tours, definir tour principal.
+
+### Operario (`PROVIDER_OPERATOR`)
+
+La app móvil para el operario solo permite:
+
+1. **Gestionar reservas** (ver reservas de los tours asignados, confirmar por escaneo QR).
+
+Es el rol más acotado — móvil como única herramienta y foco 100% en fulfillment.
+
+### Backoffice / ADMIN
+
+El backoffice **NO** se porta a la app móvil. Es exclusivamente web:
+- Aprobar `RequestProvider` (KYB).
+- Aprobar tours.
+- Ajustar % de comisión Tourya por slot / rango de fechas.
+- Ver reportes financieros y operativos.
+- Subir comprobantes de payouts y marcarlos como pagados.
+- Gestionar reportes DIMAR.
+
+---
+
+## Matriz Web vs Mobile (resumen ejecutivo)
 
 Convenciones:
 - ✅ Debe existir.
 - ❌ No debe existir.
-- 🎯 Es la plataforma primaria (mejor experiencia esperada).
-- ⚡ Nice-to-have (existe hoy o se puede considerar en roadmap, sin ser bloqueante).
+- 🎯 Plataforma primaria (mejor experiencia esperada).
+- ⚡ Existe / puede considerarse, pero no es prioritario.
 
 ### Turista (USER)
 
-| Funcionalidad | Web | Mobile | Justificación |
-|---------------|:---:|:------:|---------------|
-| Registro / login (email + social) | ✅ | ✅ 🎯 | Turista suele registrarse en el momento con el móvil |
-| Buscar tours (filtros pesados) | ✅ 🎯 | ✅ | Filtrado avanzado más cómodo en web; mobile con filtros simplificados |
-| Ver detalle de tour + galería | ✅ | ✅ 🎯 | Consumo visual — móvil es ideal |
-| Agregar al carrito | ✅ | ✅ | Ambos |
-| Checkout + Wompi | ✅ | ✅ 🎯 | En el momento, con el móvil |
-| Ver mis reservas + QR | ✅ | ✅ 🎯 | El QR se muestra en el sitio → mobile obligatorio |
-| Cancelar reserva | ✅ | ✅ | Ambos |
-| Reagendar reserva | ✅ | ✅ | Ambos |
-| Dejar reseña (con fotos) | ✅ | ✅ 🎯 | Móvil ideal (cámara nativa, subida directa) |
-| Ver / usar créditos | ✅ | ✅ | Ambos |
-| **Transferir créditos** | ✅ | ⚡ | Es acción esporádica; no bloqueante en móvil |
-| **Wishlist** | ✅ | ✅ | Sí en mobile para "guardar para luego" |
-| **Perfil turista (foto, documento, dirección)** | ✅ | ✅ | Móvil ideal para subir foto de documento con cámara |
-| **Solicitar convertirse en Provider (KYB)** | ✅ 🎯 | ⚡ | Formulario largo con muchos documentos → mejor en web |
+| Funcionalidad | Web | Mobile |
+|---------------|:---:|:------:|
+| Autenticación email + Facebook + Google | ✅ | ✅ 🎯 |
+| Buscar tours (con Travel Concierge IA) | ✅ | ✅ 🎯 |
+| Consultar disponibilidad | ✅ | ✅ |
+| Carrito | ✅ | ✅ |
+| Checkout + Wompi | ✅ | ✅ 🎯 |
+| Ver mis reservas + QR | ✅ | ✅ 🎯 |
+| Cancelar reserva | ✅ | ✅ |
+| Reagendar reserva | ✅ | ✅ |
+| Dejar reseña (con fotos) | ✅ | ✅ 🎯 |
+| Wishlist | ✅ | ✅ |
+| Créditos (ver, usar, transferir) | ✅ | ✅ |
+| Perfil turista | ✅ | ✅ |
 
-### Operador titular (PROVIDER)
+### Proveedor (PROVIDER)
 
-| Funcionalidad | Web | Mobile | Justificación |
-|---------------|:---:|:------:|---------------|
-| Dashboard (ingresos, tours, KPIs) | ✅ 🎯 | ✅ | Consulta rápida en móvil; análisis profundo en web |
-| **Crear tour (wizard 6+ pasos)** | ✅ 🎯 | ❌ | 12+ campos multilingües, galería, itinerario, FAQ, políticas → inviable en móvil |
-| **Editar tour** | ✅ 🎯 | ❌ | Idem |
-| **Crear plantilla de horarios** | ✅ 🎯 | ❌ | Configuración compleja con días de semana, slots, precios por ageType |
-| **Configurar precios (`providerPrice` por slot)** | ✅ 🎯 | ❌ | Configuración pesada; se hace una vez al arrancar el tour |
-| **Ver / gestionar reservas** | ✅ | ✅ 🎯 | Mobile crítico para operador en campo |
-| **Confirmar reserva (QR scanner)** | ⚡ | ✅ 🎯 | **Mobile obligatorio** — cámara para escanear QR |
-| **Marcar reserva manualmente como entregada** | ✅ | ✅ | Ambos |
-| **Ver / responder reseñas** | ✅ 🎯 | ⚡ | Puede escribirse mejor en web; respuestas rápidas en móvil ok |
-| **Ver payouts + comprobantes** | ✅ 🎯 | ✅ | Consulta rápida en móvil, detalles y descarga en web |
-| **Crear operarios (`PROVIDER_OPERATOR`)** | ✅ 🎯 | ❌ | Acción esporádica de gestión de equipo → web |
-| **Editar / reasignar operarios** | ✅ 🎯 | ❌ | Idem |
-| **Resetear password de operarios** | ✅ 🎯 | ❌ | Idem |
-| **Panel KYB / documentos** | ✅ 🎯 | ⚡ | Subir docs desde móvil sí; formulario largo en web |
-| **Notificaciones push** (nueva reserva, cancelación) | ❌ | ✅ 🎯 | **Ventaja natural del mobile** |
-| **Modo campo / offline** (ver reservas del día sin señal) | ❌ | ✅ 🎯 | **Ventaja natural del mobile** — pendiente en roadmap |
+| Funcionalidad | Web | Mobile |
+|---------------|:---:|:------:|
+| Login | ✅ | ✅ 🎯 |
+| Dashboard (KPIs, ingresos, reservas del día) | ✅ | ✅ 🎯 |
+| **Crear tour** (wizard multi-step) | ✅ | ✅ 🎯 |
+| Editar tour | ✅ | ✅ |
+| **Gestionar schedule** (plantillas, slots, precios) | ✅ | ✅ 🎯 |
+| Gestionar reservas | ✅ | ✅ 🎯 |
+| Escanear QR | ⚡ | ✅ 🎯 |
+| Confirmar reserva manualmente | ✅ | ✅ |
+| Ver reseñas | ✅ | ✅ |
+| **Responder reseñas** | ✅ | ✅ |
+| Ver payouts + comprobantes | ✅ | ⚡ |
+| **Crear operarios (`PROVIDER_OPERATOR`)** | ✅ | ✅ |
+| Editar / reasignar operarios | ✅ | ✅ |
+| Resetear password de operarios | ✅ | ✅ |
+| Panel KYB / documentos | ✅ | ✅ |
 
-### Operario (PROVIDER_OPERATOR)
+### Operario (`PROVIDER_OPERATOR`)
 
-| Funcionalidad | Web | Mobile | Justificación |
-|---------------|:---:|:------:|---------------|
-| Login (con clave temporal, obligar cambio) | ✅ | ✅ 🎯 | Móvil primario — el operario trabaja en campo |
-| **Ver reservas de tours asignados** | ✅ | ✅ 🎯 | Ideal en móvil |
-| **Escanear QR** | ❌ | ✅ 🎯 | **Solo mobile** — cámara nativa |
-| **Confirmar reserva manualmente** | ✅ | ✅ 🎯 | Idem |
-| **Notificaciones de nueva reserva** | ❌ | ✅ 🎯 | Push |
-| **Ver "próximas reservas del día"** | ⚡ | ✅ 🎯 | Widget / home mobile |
-
-> El operario es un usuario **casi 100% mobile-first**.
+| Funcionalidad | Web | Mobile |
+|---------------|:---:|:------:|
+| Login con clave temporal + cambio | ✅ | ✅ 🎯 |
+| Ver reservas de tours asignados | ✅ | ✅ 🎯 |
+| **Escanear QR** | ❌ | ✅ 🎯 |
+| Confirmar reserva manualmente | ✅ | ✅ |
+| Ver "próximas reservas del día" | ⚡ | ✅ 🎯 |
 
 ### Backoffice / ADMIN
 
-| Funcionalidad | Web | Mobile | Justificación |
-|---------------|:---:|:------:|---------------|
-| Todo el backoffice | ✅ 🎯 | ❌ | Aprobar proveedores, aprobar tours, ver reportes, ajustar comisiones, subir comprobantes de pago, gestionar reportes DIMAR → **web-only** |
-
-> El backoffice **NUNCA** debe portarse a móvil. Es trabajo de escritorio con tablas, filtros y decisiones pesadas.
-
----
-
-## Funcionalidades que solo hacen sentido en Mobile
-
-Estas son las oportunidades de **valor incremental** de la app móvil — es donde vale la pena invertir en desarrollo mobile:
-
-| Feature | Rol | Justificación |
-|---------|-----|---------------|
-| **Escaneo QR** | Operario, Operador | Cámara nativa. Confirmar reservas en sitio |
-| **Notificaciones push** | Turista, Operador, Operario | Cerrar el loop de comunicación |
-| **Cámara para reseñas** | Turista | Foto natural y rápida post-experiencia |
-| **Geolocalización** | Turista | Búsqueda "tours cerca de mí", "cómo llegar al punto de encuentro" |
-| **Deep-linking** | Turista | Compartir tours por WhatsApp con link → abre app o web fallback |
-| **Wallet integration (Apple Pay, Google Pay)** | Turista | En Wompi soportado; UX nativa mejor |
-| **Widget de "próxima reserva"** | Turista, Operario | Ver el QR del tour de hoy desde la pantalla de bloqueo |
-| **Modo offline** (reservas del día) | Operario | Trabajar sin señal en la isla / en el bote |
-| **Escaneo OCR de documentos KYB** | Operador (onboarding) | Cámara para foto de RUT / cédula (opcional, útil pero no bloqueante) |
-| **Compartir en redes sociales** | Turista | Compartir un tour reseñado |
+| Funcionalidad | Web | Mobile |
+|---------------|:---:|:------:|
+| Aprobar KYB | ✅ 🎯 | ❌ |
+| Aprobar tours | ✅ 🎯 | ❌ |
+| Ajustar % comisión Tourya | ✅ 🎯 | ❌ |
+| Ver reportes | ✅ 🎯 | ❌ |
+| Subir comprobantes de payout | ✅ 🎯 | ❌ |
+| Reportes DIMAR | ✅ 🎯 | ❌ |
 
 ---
 
-## Recomendaciones
+## Funcionalidades donde el mobile agrega valor incremental
 
-### Para el equipo de producto
+Además del alcance funcional definido, la app móvil debe capitalizar capacidades que solo el celular ofrece:
 
-1. **No perseguir la iso-funcionalidad como meta**. Aceptar que web y móvil se complementan.
-2. **Priorizar en mobile solo las funcionalidades del cuadro "solo mobile"** de arriba — es ahí donde el móvil suma valor real.
-3. **En roadmap mobile**: enfocar los próximos ciclos en:
-   - Push notifications (FCM).
-   - Geolocalización + búsqueda "cerca de mí".
-   - Modo offline para operarios.
-   - Deep-linking.
-4. **NO invertir tiempo mobile en**:
-   - Wizard de creación de tour.
-   - Configuración de horarios y precios.
-   - Panel de payouts detallado.
-   - Gestión de sub-usuarios provider.
-   - Backoffice.
-
-### Para el equipo de desarrollo
-
-- Si un feature vale ambos → siempre construir en web primero, después portar a mobile.
-- Mobile debe consumir la **misma API** — nunca crear endpoints exclusivos móviles.
-- Cada feature nuevo pregunta: "¿realmente aporta valor en el contexto mobile?" antes de invertir.
-
-### Para el operador (transparencia comercial)
-
-Comunicar claramente al operador:
-- **Móvil es tu herramienta de campo**: confirmar reservas, ver la agenda del día, responder rápido.
-- **Web es tu herramienta de oficina**: crear/editar tours, configurar precios, gestionar tu equipo, ver reportes.
+| Feature | Rol beneficiado | Justificación |
+|---------|-----------------|---------------|
+| **Escaneo QR** | Operario, Operador | Cámara nativa — confirmar reservas en sitio |
+| **Notificaciones push** | Turista, Operador, Operario | Cerrar loop de comunicación (nueva reserva, cancelación, recordatorio) |
+| **Cámara para reseñas** | Turista | Foto post-experiencia rápida |
+| **Cámara para docs KYB / galería del tour** | Operador | Subir directamente desde el móvil |
+| **Geolocalización** | Turista | "Tours cerca de mí", "cómo llegar al punto de encuentro" |
+| **Deep-linking** | Turista | Compartir tours por WhatsApp con link que abre la app |
+| **Wallet integration** (Apple Pay / Google Pay vía Wompi) | Turista | UX nativa mejor |
+| **Modo offline** | Operario, Operador | Trabajar sin señal en la isla / bote |
+| **Widget "próxima reserva"** | Turista, Operario | Ver QR / próxima reserva desde pantalla de bloqueo |
 
 ---
 
-## Matriz simplificada por rol y plataforma primaria
+## Consideraciones de UX específicas para mobile
 
-```
-                    Web         Mobile      Ejemplo de tarea
-                    ─────       ──────      ────────────────
-Turista             🎯 pre-viaje 🎯 en-viaje  Buscar / comprar tour, ver QR
-Operario             ❌         🎯 100%     Escanear QR
-Operador (dueño)    🎯 config   ⚡ campo   Crear tour (web), confirmar (mobile)
-Backoffice / ADMIN  🎯 100%     ❌         Aprobar tour, ajustar %
-```
+Dado que el proveedor gestionará flujos completos (crear tour, schedule) desde el celular, hay retos de UX que hay que resolver bien:
 
----
+### Wizard de creación de tour en mobile
+- Dividir en pasos cortos, uno por pantalla.
+- Guardar borrador automáticamente entre pasos (no perder el trabajo si el operador cierra la app o pierde señal).
+- Optimizar la subida de fotos de galería: comprimir automáticamente, subir en background, mostrar progreso.
+- Considerar entrada por voz (dictado) para las descripciones largas.
+- Ayudarse con el agente IA (traducción automática es → en, pt-BR + sugerencia de texto).
 
-## Estado actual (código a 2026-06-28)
+### Configuración de schedule en mobile
+- Presentar el calendario con vistas de día / semana / mes.
+- Simplificar la definición de precios: si el operador ya tiene tours similares, permitir "copiar precios de otro tour".
+- Aprovechar el default `Tour.percentageTourya` para pre-calcular el `price` sin fricción para el operador.
 
-El mobile actual (MAUI) **YA está bien alineado** con esta propuesta:
-
-✅ Cubre bien:
-- Explorar / detalle / carrito / checkout / mis reservas / perfil (turista).
-- Dashboard, tours, reservas, QR scanner, reseñas (provider).
-- KYB registration + documents (provider).
-- Tour form wizard + schedule template + schedule calendar (provider).
-
-⚠️ Cubre parcialmente (candidatos a re-evaluar según esta propuesta):
-- Wizard de tour completo → **cuestionable**: es funcionalmente pesado y en móvil la UX no es óptima. Podría restringirse a "editar tour existente" y forzar creación desde web.
-- Configuración detallada de schedule → idem.
-
-❌ No cubre (según esta propuesta, **no debe cubrirse** en mobile):
-- Backoffice.
-- Gestión de sub-usuarios provider.
-- Transferencia de créditos (esporádica).
-- Reset de password de operarios.
-
-📌 **Faltantes que sí valdría la pena invertir** (según esta propuesta):
-- Push notifications.
-- Geolocalización.
-- Deep-linking.
-- Widget / atajo de "próxima reserva".
-- Modo offline básico para operarios.
+### Gestión de operarios en mobile
+- Formulario corto: nombre, apellido, email, tours asignados, tour principal, contraseña temporal.
+- Compartir la contraseña temporal directamente por WhatsApp / SMS desde la app (deep-link).
 
 ---
 
-## Preguntas para alinear con Luis
+## Requisitos técnicos derivados
 
-1. ¿Acepta el cambio de meta ("iso-funcionalidad" → "cada plataforma para lo que hace mejor")?
-2. ¿Alguno de los "No debe cubrirse en mobile" es innegociable por experiencia con operadores actuales?
-3. Confirmar priorización de features **mobile-only** para el próximo roadmap (push, geo, offline).
+Para que el alcance mobile funcione con la UX apropiada, se requiere:
+
+| Requisito | Motivo |
+|-----------|--------|
+| **Compresión de imágenes en cliente** | Subir 7 fotos de 5 MB (galería) desde 4G |
+| **Upload resumable / background** | No perder el upload si la app se pausa |
+| **Autosave / drafts** | Wizard de tour largo → tolerar interrupciones |
+| **Cache local (offline básico)** | Ver reservas del día sin señal |
+| **Firebase Cloud Messaging (push)** | Notificar nuevas reservas |
+| **Deep-linking universal** | Compartir tours + volver desde Wompi con confirmación |
+| **Reintentos automáticos** | Escaneo QR fallido en zona con mala señal |
+| **Traducción automática** (integrada con backend) | Que el operador solo ingrese español |
+| **Integración con Travel Concierge (agente IA)** | Búsqueda asistida del turista — ver [16](16-agentes-ia.md) |
+
+---
+
+## Estado actual del código MAUI vs este alcance
+
+Referencia detallada en [15 — Estado del MVP mobile](15-mvp-mobile-estado.md).
+
+Resumen ejecutivo alineado con este alcance:
+
+| Categoría | Cuenta | Ejemplos |
+|-----------|:------:|----------|
+| ✅ Ya construido y alineado | La mayoría | Auth, Explore, Detail, Cart, Checkout, MyTrips, Perfil (turista); Dashboard, Tours, Reservations, QR Scanner, KYB (proveedor); Tour Form, Schedule Template Form (proveedor) |
+| ⚠️ Construido pero falta refinar UX mobile | Wizard tour, Schedule template | Requieren autosave, compresión de imágenes, upload en background |
+| ❌ Falta construir | Reseña (crear con cámara), Wishlist, Créditos (UI dedicada), Crear operarios, Responder reseñas, Payouts | Servicios backend existen; falta UI mobile |
+| ❌ Faltan features "solo mobile" | Push, geo, deep-link, offline, widget | Ninguna implementada |
+
+---
+
+## Backoffice (aclaración)
+
+El **backoffice sigue siendo exclusivamente web**. No hay planes de portarlo a mobile.
+
+Racional:
+- Es un usuario de oficina (Tourya administra).
+- Volúmenes de datos altos, requieren tablas grandes.
+- Tareas administrativas complejas: aprobar KYB con revisión de documentos, ajustar comisiones por rango de fechas, ver reportes financieros.
 
 ---
 
 ## Referencias
 
-- [01 — Visión y negocio](01-vision-y-negocio.md) — visión general y roadmap.
+- [01 — Visión y negocio](01-vision-y-negocio.md) — origen de la meta original.
 - [10 — Mobile spec](10-mobile-spec.md) — estructura técnica actual del MAUI.
-- [09 — API design](09-api-design.md) — API compartida por ambas plataformas.
+- [15 — Estado del MVP mobile](15-mvp-mobile-estado.md) — gap analysis granular.
+- [16 — Agentes IA](16-agentes-ia.md) — Travel Concierge referenciado en el alcance del turista.
+
+---
+
+## Changelog del documento
+
+| Versión | Fecha | Cambios |
+|---------|-------|---------|
+| 1.0 | 2026-06-28 | Versión inicial — propuesta de matizar la iso-funcionalidad; recomendaba dejar crear tour, schedule y operarios como web-only |
+| 2.0 | 2026-07-06 | Reescritura completa con alcance definido por Luis. Corrección del contexto: los operadores en San Andrés están en la calle, no en oficina → el mobile SÍ debe cubrir crear tour, schedule y operarios. Se mantiene backoffice como web-only |
