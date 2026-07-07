@@ -419,14 +419,11 @@ Priorizado según dependencias reales (no sprints ficticios) y el estado actual 
 
 | Fase | Agentes a habilitar | Por qué en ese orden |
 |---|---|---|
-| **Fase 0** | Ninguno — salir a producción con el MVP actual | Prioridad explícita del roadmap: cerrar el MVP primero |
-| **Fase 1** (post-lanzamiento inmediato) | Travel Concierge + Operator Support | Sin dependencias externas — ayudan a los 3 operadores iniciales a cargar tours completos y ayudan a convertir a los primeros turistas |
-| **Fase 2** (en paralelo, cuando se resuelva WhatsApp Business API) | Support 24/7 + Desert Shopping Cart | Bloqueados hoy por integración no implementada (11-integraciones.md) |
-| **Fase 3** | Backoffice Support | Se vuelve valioso cuando el volumen de solicitudes KYB/tours a revisar empiece a doler para un equipo de 1 persona en operaciones |
-| **Fase 4** (post-MVP, cuando el GMV meta de 12 meses esté cerca) | Moderación de reseñas IA, Payout automatizado, Reconciliación de pagos, B2B | Cada uno ya está señalado como roadmap explícito en la documentación existente — no son ideas nuevas, son ejecución de lo ya decidido |
-| **Fase 5** (visión 2 años) | Coordinador Autónomo | Requiere datos acumulados reales de los agentes 1-5 |
+| **Fase 0** | Travel Concierge + Operator Support + Support 24/7 + Desert Shopping Cart + Backoffice Support| Travel Concierge + Operator Support sin dependencias externas — ayudan a los 3 operadores iniciales a cargar tours completos y ayudan a convertir a los primeros turistas, Support 24/7 + Desert Shopping Cart bloqueados hoy por integración no implementada (11-integraciones.md), Backoffice Support se puede iniciar ya para ayudar a los operadores |
+| **Fase 1** (post-MVP, cuando el GMV meta de 12 meses esté cerca) | Moderación de reseñas IA, Payout automatizado, Reconciliación de pagos, B2B | Cada uno ya está señalado como roadmap explícito en la documentación existente — no son ideas nuevas, son ejecución de lo ya decidido |
+| **Fase 2** (visión 2 años) | Coordinador Autónomo | Requiere datos acumulados reales de los agentes 1-5 |
 
-📌 **PENDIENTE LUIS** — validar este orden, en particular si WhatsApp Business API se puede priorizar en paralelo a la Fase 1 para no dejar Support 24/7 esperando.
+📌 **priorizar** — priorizar la implementación de WhatsApp Business API para los agentes que utilizan este canal para interactuar con los turistas. 
 
 ---
 
