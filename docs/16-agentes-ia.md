@@ -1,8 +1,10 @@
 # 16 — Agentes IA
 
-> 📌 **PENDIENTE LUIS** — este documento fue iniciado por Luis Mendoza (commit `3e8c869`, 2026-07-06). El contenido detallado del alcance, arquitectura, prompts base, y casos de uso de cada agente lo aporta Luis.
->
-> Este esqueleto queda como estructura sugerida para facilitar la carga del contenido. Sentirse libre de reorganizar según convenga.
+5 agentes IA core para Tourya que actúan como **roles del negocio** (no como features pegadas). Diseñados para sostener la meta del roadmap: *"operable con una sola persona, apoyada por IA"* (horizonte 6 meses, ver [01 — Visión y negocio](01-vision-y-negocio.md)).
+
+> ⚠️ **Nota de numeración**: el índice de [00-README.md](00-README.md) no reserva un número para este documento — el `09` ya está tomado por [09-api-design.md](09-api-design.md). Se numera `16` (siguiente disponible tras `14-gap-web-mobile.md` y `15-mvp-mobile-estado.md` ) y debe agregarse al índice del README.
+
+> 🆕 **Nota de marcas**: a diferencia del resto de la documentación de Tourya, nada aquí es "deducido del código" — estos agentes **no existen todavía**. Se usa 🆕 **PROPUESTO** para diseño de este documento, 📌 **PENDIENTE LUIS** para decisiones que requieren validación del cliente, ⚠️ **RIESGO/DEPENDENCIA** para bloqueos técnicos reales (ej. integraciones no implementadas), y ✅ cuando el diseño se ancla en una regla de negocio o endpoint que **sí** existe hoy en el código.
 
 ---
 
@@ -17,69 +19,414 @@ Referencias en otros documentos:
 
 ---
 
-## Agentes identificados hasta ahora
+## Principios rectores
 
-> Los que ya se han mencionado en otros documentos. Falta que Luis complete detalles y agregue los que faltan.
+1. **Los agentes son actores de primera clase**. Deberían aparecer en [03 — Roles y actores](03-roles-y-actores.md), en la sección de "Sistemas externos", con rol, input/output, permisos y auditoría — igual que Wompi o Firebase hoy.
 
-### 1. Travel Concierge (turista)
+2. **Un solo proveedor de modelo para el MVP**. A diferencia de arquitecturas multi-LLM, Tourya tiene **un equipo de desarrollo de 1 persona** (ver 01-vision-y-negocio). Mantener un solo proveedor (Anthropic) reduce la superficie de mantenimiento. La abstracción `ILLMClient` se conserva igual como principio — permite migrar a otro proveedor sin reescribir los agentes — pero el MVP **no** necesita mezclar proveedores.
 
-Asistente de búsqueda para el turista. Referenciado en el doc 14 como parte del alcance funcional de la app móvil.
+3. **Human-in-the-loop en lo crítico**. El agente sugiere o ejecuta autónomo solo cuando una regla de negocio existente (RN-XXX) lo permite sin ambigüedad. Aprobar KYB, aprobar tours y adjudicar comisiones siguen siendo decisiones 100% humanas (RN-010, RN-046) — ningún agente las reemplaza.
 
-**Alcance sugerido**:
-- Búsqueda conversacional de tours ("quiero algo tranquilo para hacer con mi pareja mañana").
-- Recomendación basada en preferencias, fecha, presupuesto.
-- Consultas rápidas (qué llevar, cómo llegar).
+4. **Auditoría obligatoria**. Cada acción del agente queda registrada: prompt, modelo, tokens, costo, decisión, resultado, entidad afectada. Tourya hoy **no tiene un audit log explícito** para acciones críticas (ver [12 — Seguridad, sección Auditoría](12-seguridad-y-auth.md)) — este es un prerequisito a resolver antes de dar autonomía a cualquier agente, no solo para ellos.
 
-📌 PENDIENTE LUIS — completar alcance detallado, prompts base, modelo elegido, guardrails.
+5. **Override humano siempre disponible**. Cualquier acción de un agente es reversible por el rol humano equivalente (PROVIDER, ADMIN, BACKOFFICE_OPERATION).
 
----
+6. **Presupuesto controlado**. Cada agente tiene un tope mensual configurable en `app_config` (la tabla ya existe y ya soporta JSONB genérico, ver [08 — Modelo de datos](08-modelo-de-datos.md)). Si se excede, el agente se detiene y notifica.
 
-### 2. Moderador de reseñas
-
-Referenciado en el doc 05 (RN-050) como reemplazo del flujo actual (`PUBLISHED` sin moderación).
-
-**Alcance sugerido**:
-- Al crear una reseña → `status = MODERATION`.
-- Agente analiza texto: spam, lenguaje ofensivo, enlaces sospechosos, patrones de fraude.
-- Si pasa → `PUBLISHED`; si no → `CANCELED` (con razón registrada).
-
-📌 PENDIENTE LUIS — completar reglas de decisión, modelo, umbrales de confianza, ejemplos.
+7. **Nunca reemplazan una decisión regulatoria**. Aprobación de KYB (RN-046), aprobación de tours (RN-010), asignación de comisión Tourya (RN-016) y cancelación por lluvia (RN-032) están reservadas por regla de negocio a ADMIN — ningún agente puede ejecutarlas, solo prepararlas.
 
 ---
 
-### 3. Otros agentes propuestos por Luis
+## Stack de modelos
 
-📌 PENDIENTE LUIS — completar la lista de agentes que Luis tenía definidos en su documento local.
+| Modelo | Uso | Costo (input/output por 1M tokens) |
+|---|---|---|
+| **Claude Sonnet 5** (`claude-sonnet-5`) | Razonamiento complejo: concierge de compra, redacción de contenido de tour, verificación de documentos KYB (multimodal — lee imágenes/PDF sin proveedor de visión aparte), pre-check de reagendamiento con cálculo de diferencia de precio | $2 / $10 (precio introductorio hasta 31-ago-2026; luego $3 / $15 estándar) |
+| **Claude Haiku 4.5** (`claude-haiku-4-5-20251001`) | Clasificación de intención, FAQ simple, mensajes de recuperación de carrito, borradores estructurados de bajo riesgo | $1 / $5 |
 
-Sugerencia de estructura por agente:
+> Provider abstraction: `ILlmClient.complete(prompt, model)` — cambiar de modelo o de proveedor es una línea de config, no un rediseño de agente.
 
-- **Nombre y rol**
-- **Usuario que atiende** (turista, operador, backoffice, interno)
-- **Alcance / responsabilidades**
-- **Human-in-the-loop** (¿decide autónomamente o requiere confirmación humana?)
-- **Modelo IA sugerido**
-- **Prompt base**
-- **Guardrails y límites**
-- **Métricas de éxito**
-- **Costo estimado por interacción**
+📌 **PENDIENTE LUIS** — si más adelante se necesita traducción masiva de tours (es→en/pt), usar **Google Cloud Translation** (ya presupuestado en [11 — Integraciones](11-integraciones.md): ~$0.0002/tour) en vez de un LLM — es una tarea estructurada donde un servicio de traducción dedicado es más barato y más consistente que pedirle a Sonnet 5 que traduzca.
 
 ---
 
-## Consideraciones transversales
+## Los 5 agentes core
+### Agente 1 — Travel Concierge
 
-📌 PENDIENTE LUIS — Luis puede completar:
+**Rol equivalente humano**: el vendedor/asesor que hoy el turista busca por WhatsApp o Instagram antes de que existiera Tourya (ver "Problema que Tourya resuelve" en 01-vision-y-negocio).
 
-- **Presupuesto de IA**: cuánto se está dispuesto a invertir mensualmente.
-- **Elección de proveedor**: OpenAI, Anthropic, Gemini, mix, local.
-- **Manejo de PII y compliance**: qué datos se pueden enviar a modelos externos y cuáles no.
-- **Fallback**: qué pasa si el agente falla o el proveedor está caído.
-- **Feedback loop**: cómo se mejoran los agentes con datos reales.
+**Canal**: Web / App (Angular + MAUI). No depende de ninguna integración pendiente.
+
+**Cuándo actúa**: en `ExplorePage` (búsqueda), `TourDetailPage` (dudas pre-compra), `CartPage`/`CheckoutPage` (gestión de carrito).
+
+**Input que recibe**:
+- Consulta en lenguaje natural del turista.
+- Resultado de `POST /public/tours/schedule/search` (que internamente llama `sp_get_tour_schedule_json`).
+- Ficha completa del tour: `TourDetailResponse` (itinerario, FAQ, `TourCancellationPolicy`, incluye/no incluye).
+- Estado actual de `ShoppingCartResponse`.
+
+**Output que produce**:
+1. Resultados de búsqueda explicados en lenguaje natural (nunca inventa filtros que el SP no soporta).
+2. Respuestas a dudas pre-compra, ancladas siempre en la ficha real (`TourFaq`, `TourItinerary`, `TourCancellationPolicy`) — nunca improvisa política de cancelación.
+3. Acciones de carrito: `POST /shopping-cart`, `POST /shopping-cart/items` (agregar/quitar ítems, ajustar `ageType`/`quantity`).
+4. Sugerencia de método de pago alterno si el widget Wompi falla.
+
+**Modelo usado**: Claude Haiku 4.5 clasifica la intención inicial (barato, alto volumen) → Claude Sonnet 5 razona sobre la ficha del tour y ejecuta function calling contra el carrito.
+
+**Modo de actuación**:
+- ✅ **Autónomo**: búsqueda, respuestas informativas, gestión de carrito.
+- ❌ **Nunca autónomo**: el checkout final lo ejecuta el widget Wompi, no el agente — el agente nunca ve ni procesa datos de tarjeta (RN-025, el Public Key es lo único expuesto al frontend).
+- ❌ **Guardrail no negociable**: el agente **jamás** recibe el `integrity_secret` de Wompi ni el `WOMPI_INTEGRITY_SECRET`/`JWT_SECRET` en su contexto — son vulnerabilidades CRITICAL ya documentadas (C-1, C-2 en [12 — Seguridad](12-seguridad-y-auth.md)) y no deben agravarse exponiéndolas a un LLM externo.
+- ⚠️ **Escala a humano**: si detecta patrón de fraude (varios intentos de pago fallidos + comportamiento sospechoso) — silenciosamente, sin alarmar al turista.
+- ❌ **No modifica precios ni comisiones** — `providerPrice` y `slotPercentageTourya` son inmutables para este agente (RN-014, RN-019).
+
+**Prompt base** (resumen):
+
+```
+Eres el Agente Concierge de Tourya, marketplace de tours en San Andrés Islas, Colombia.
+
+Recibes:
+- Mensaje del turista (texto libre, puede venir en español, inglés o portugués)
+- Resultados de búsqueda ya filtrados por el backend (sp_get_tour_schedule_json)
+- Ficha completa del tour si la conversación ya identificó uno: itinerario, FAQ,
+  política de cancelación, incluye/no incluye
+- Estado actual del carrito del turista
+
+Tu trabajo:
+1. Si es una búsqueda: explica los resultados en lenguaje natural, resalta lo relevante
+   a la consulta (fecha, precio, categoría, tags)
+2. Si es una duda: responde SOLO con datos de la ficha real. Si no está en la ficha,
+   dilo explícitamente y ofrece escalar a soporte — NUNCA inventes política de
+   cancelación, itinerario o precio
+3. Si pide agregar/quitar del carrito: genera la llamada a la función correspondiente
+   con productId, tourScheduleId, slotId, scheduleDate y details[ageType, quantity]
+4. Si el pago Wompi falló: sugiere reintentar o cambiar de método, nunca proceses
+   ni solicites datos de tarjeta
+
+IMPORTANTE:
+- Nunca inventes disponibilidad de un slot — siempre verifica contra el resultado real
+- Nunca reveles slotPercentageTourya ni providerPrice — el turista solo ve el price final
+- Si detectas 3+ intentos de pago fallidos en la sesión, marca fraude_sospechado: true
+  y no lo menciones al turista
+
+Responde en el idioma del turista.
+```
+
+**Costo estimado**: con la meta de 12 meses (500 turistas registrados, ~300 reservas/mes, asumiendo ~2.000 sesiones de búsqueda/mes), mezclando Haiku 4.5 (clasificación) + Sonnet 5 (respuesta) ≈ **$20–25/mes**.
 
 ---
 
-## Roadmap
+### Agente 2 — Support 24/7
 
-📌 PENDIENTE LUIS — priorización y horizonte de los agentes.
+**Rol equivalente humano**: Soporte al turista + parte del rol de "Compras/Backoffice" que hoy resolvería reagendamientos manualmente.
+
+**Canal**: WhatsApp.
+
+> ⚠️ **RIESGO/DEPENDENCIA**: la **WhatsApp Business API está marcada como "No implementado" en [11 — Integraciones](11-integraciones.md)**. Este agente no puede lanzarse hasta resolver ese prerequisito (selección de BSP, registro de WABA, plantillas aprobadas por Meta).
+
+**Cuándo actúa**: tras la confirmación de pago (reenvío de QR), y ante cualquier mensaje entrante del turista.
+
+**Input que recibe**:
+- Mensaje del turista.
+- `Reservation` completa: `deliveryStatus`, `maxCancellationDate`, `maxReschedulingDate`, `canCancel`, `canReschedule`, `qrUrl`.
+- `TourCancellationPolicy` del tour (Flexible/Estándar/Moderado/Estricto — RN-031).
+- Disponibilidad de nuevos slots (`sp_search_slot_effective_availability`) para reagendamiento.
+- `MaritimActivityReport` vigente si el tour es marítimo.
+
+**Output que produce**:
+1. Reenvío de `qrUrl`, estado de reserva, recordatorio de punto de encuentro.
+2. Respuesta FAQ anclada en la política real del operador (nunca genérica).
+3. **Cancelación**: cruza fecha/hora actual contra `maxCancellationDate` y la política del tour; si aplica, ejecuta `PUT /reservations/{id}/cancel` y genera el `Credit` automáticamente (100% según RN-031, nunca hay reembolso parcial en las políticas actuales).
+4. **Reagendamiento**: valida `canReschedule` + `allowsRescheduling` + `maxReschedulingDate` (RN-033), consulta disponibilidad del nuevo slot, y resuelve uno de los 3 casos de RN-033 (precio igual, menor con crédito, mayor con cobro de diferencia).
+
+**Modelo usado**: Claude Haiku 4.5 para FAQ/triage de intención y urgencia; Claude Sonnet 5 para los casos de cancelación/reagendamiento que requieren razonar sobre la política y calcular montos.
+
+**Modo de actuación**:
+- ✅ **Autónomo**: cancelación dentro de política (RN-030/RN-031) — genera el `Credit` sin intervención humana. Reagendamiento con precio igual o menor (casos 1 y 2 de RN-033).
+- ⚠️ **Sugiere a humano**: reagendamiento con diferencia de precio a favor de Tourya (caso 3) — el agente prepara el link de pago de la diferencia, pero no lo cobra sin confirmación explícita del turista.
+- ❌ **Bloqueado — nunca autónomo**: cancelación por lluvia. `PUT /reservations/{id}/cancel/rain` está reservado a ADMIN por RN-032 y requiere un `MaritimActivityReport` activo. El agente detecta el patrón (turista pregunta por clima + tour marítimo + reporte con bandera amarilla/roja) y **crea el ticket para que ADMIN ejecute**, nunca cancela él mismo.
+- ❌ **Bloqueado — escalamiento inmediato sin intentar resolver**: queja grave, incidente de seguridad, o cualquier mención de integridad física en un tour marítimo.
+
+**Costo estimado**: con 300 reservas/mes y ~3 interacciones promedio por reserva (≈900 conversaciones/mes), asumiendo 70% resueltas por Haiku 4.5 y 30% escaladas a Sonnet 5 para cancelación/reagendamiento ≈ **$5–7/mes** en inferencia LLM. (Este costo es *aparte* del costo de mensajería WhatsApp por Meta/BSP, que se calculó por separado según el mix de países de los turistas.)
+
+---
+
+### Agente 3 — Desert Shopping Cart (recuperación de carrito abandonado)
+
+**Rol equivalente humano**: nadie hoy hace esto — es pura ganancia incremental (sin Tourya, un carrito abandonado simplemente se pierde).
+
+**Canal**: WhatsApp o email.
+
+> ⚠️ **RIESGO/DEPENDENCIA**: comparte la dependencia de WhatsApp Business API del Agente 2. El canal email ya existe (SMTP Gmail Workspace, ver 11-integraciones.md) y puede usarse como fallback mientras WhatsApp no esté disponible.
+
+**Cuándo actúa**: cuando un `ShoppingCart` permanece `ACTIVE` sin checkout tras un tiempo configurable, o cuando una `Reservation` en `TEMPORAL` está por expirar (RN-022, hold de 15 minutos, job `TemporalReservationExpiryJob`).
+
+**Input que recibe**: `ShoppingCartItem`/`ShoppingCartItemDetail` (qué tour, qué fecha, qué cantidad), tiempo transcurrido desde el último evento del carrito.
+
+**Output que produce**: un mensaje de reenganche ofreciendo terminar la compra o resolver dudas sobre el pago — nunca ofrece un descuento (Tourya **no tiene módulo de cupones hoy**, es roadmap explícito en 05-reglas-de-negocio).
+
+**Modelo usado**: Claude Haiku 4.5 — tarea simple y de alto volumen, no necesita razonamiento profundo.
+
+**Modo de actuación**:
+- ✅ **Autónomo completo** — enviar el mensaje no tiene riesgo transaccional ni compromete precio.
+- ❌ **Nunca ofrece un descuento no autorizado**. Si el turista responde pidiendo uno, el agente deriva al Travel Concierge o a un humano — no existe motor de cupones que pueda validar/aplicar ese descuento hoy.
+
+**Costo estimado**: volumen bajo y mensajes cortos ≈ **$1–2/mes**.
+
+---
+
+### Agente 4 — Operator Support
+
+**Rol equivalente humano**: el diseñador/redactor que un operador pequeño no puede pagar, y el analista de pricing que Tourya no tiene.
+
+**Canal**: Web / App.
+
+**Cuándo actúa**: durante el wizard de creación/edición de tour (`TourFormPage`, ~6 pasos: básico, direcciones, atracciones, incluye/no incluye, itinerario, FAQ, galería), cuando se detecta baja disponibilidad o precio desalineado, y cuando llega una reseña nueva (`review`).
+
+**Input que recibe**:
+- Fotos y datos básicos que el operador sube.
+- Catálogo de tours similares (misma categoría/zona) para pricing assist.
+- Reseña nueva + `ReviewAttachment` (fotos).
+
+**Output que produce**:
+1. Descripción atractiva y SEO-friendly en español (`Tour.name`/`description`, obligatorio `es` por RN-011), tags sugeridos (`tour_tag_mapping`).
+2. Validación de galería **antes** del upload real: máximo 7 imágenes, máximo 5 MB, formato horizontal, ancho recomendado 1920px (RN-013) — evita que el operador suba algo que el backend rechazará.
+3. Alerta de precio desalineado vs. tours comparables (`providerPrice`) — **solo alerta, nunca cambia el precio**: el operador siempre decide su `providerPrice` (RN-014).
+4. Borrador de respuesta a la reseña — el operador aprueba o edita antes de publicar.
+
+**Modelo usado**: Claude Sonnet 5 para redacción y tags. Para la traducción es→en/pt, delegar a **Google Cloud Translation** cuando se implemente (más barato y consistente que pedírselo al LLM — ver Stack de modelos arriba).
+
+**Modo de actuación**:
+- ✅ **Genera borrador** de descripción/tags — el operador aprueba antes de `PUT /tour/user/submitTourById/{id}`.
+- ⚠️ **Solo alerta** en pricing, nunca modifica `providerPrice`.
+- ✅ **Genera borrador** de respuesta a reseña vía `PATCH /public/save/review/{reviewId}` — el operador lo aprueba, nunca se publica solo.
+
+**Costo estimado**: con la meta de 150 tours en 12 meses (creación + ediciones) y ~15% de reservas que dejan reseña (RN meta) ≈ **$2–4/mes**.
+
+---
+
+### Agente 5 — Backoffice Support
+
+**Rol equivalente humano**: el analista de compliance que hoy Tourya no tiene contratado — el equipo de operaciones es 1 persona (01-vision-y-negocio).
+
+**Canal**: Web / App (backoffice).
+
+**Cuándo actúa**:
+- Cuando un `RequestProvider` pasa a `SUBMITTED`, antes de que ADMIN decida `pre-approve`/`approve`.
+- Cuando un `Tour` pasa a `SUBMITTED`, antes de `acceptTourById`.
+- Para generar el borrador del manifiesto DIMAR (`MaritimActivityReport`) a partir de reservas confirmadas.
+- En la conciliación de `ProviderPayoutOrder` vs `AccountPayable`.
+
+**Input que recibe**:
+- `RequestProviderGallery` (documentos obligatorios de RN-045: RUT, RNT vigente, certificación bancaria, cédula del representante legal, Cámara de Comercio, pólizas vigentes).
+- Datos del `Tour` a validar (¿tiene español obligatorio? ¿galería cumple RN-013? ¿política de cancelación definida?).
+- Reservas `CONFIRMED`/`DELIVERED` del día/operador para el manifiesto.
+- `AccountPayable` vs `ProviderPayoutOrder` para detectar anomalías (RN-042: `amount al operador = providerPrice × quantity`).
+
+**Output que produce**:
+1. Expediente KYB pre-verificado: checklist ✅/❌ por documento obligatorio, listo para que ADMIN decida.
+2. Pre-validación de tour: lista de incumplimientos (falta español, galería con fotos verticales, política de cancelación sin definir) antes de que ADMIN lo revise.
+3. Borrador de manifiesto DIMAR (pasajeros por zarpe) a partir de reservas confirmadas — listo para que alguien lo revise y suba (mismo patrón 100% manual de hoy, RN-054).
+4. Alerta de anomalía en pagos/comisiones — nunca corrige, solo señala.
+
+**Modelo usado**: Claude Sonnet 5, incluyendo la lectura de documentos KYB (Sonnet 5 es multimodal — lee imágenes y PDF directamente, sin necesitar un proveedor de visión aparte).
+
+**Modo de actuación**:
+- ✅ **Genera el expediente/checklist** — **nunca aprueba**. RN-010 y RN-046 reservan la aprobación de KYB y tours exclusivamente a ADMIN, por ser decisión regulatoria.
+- ✅ **Genera borrador de manifiesto DIMAR** — humano revisa y sube, igual que hoy (RN-054 es 100% manual).
+- ⚠️ **Marca anomalías de payout** — nunca las corrige. Un falso positivo automatizado sobre el dinero de un operador es un riesgo que no vale la pena tomar.
+
+**Costo estimado**: al ritmo de la meta de 70 operadores en 12 meses (partiendo de 3 hoy) y 150 tours ≈ **$1–2/mes**.
+
+---
+
+## Tabla resumen
+
+| Agente | Modelo | Autónomo? | Canal | Depende de | Costo/mes estimado (meta 12m) |
+|---|---|---|---|---|---|
+| Travel Concierge | Haiku 4.5 + Sonnet 5 | Sí (búsqueda/carrito) | Web/App | Nada nuevo | ~$20–25 |
+| Support 24/7 | Haiku 4.5 + Sonnet 5 | Sí (cancelación/reschedule dentro de política) | WhatsApp | ⚠️ WhatsApp Business API | ~$5–7 |
+| Desert Shopping Cart | Haiku 4.5 | Sí (mensaje) | WhatsApp/Email | ⚠️ WhatsApp (fallback: email ya existe) | ~$1–2 |
+| Operator Support | Sonnet 5 | Borrador, operador aprueba | Web/App | Nada nuevo | ~$2–4 |
+| Backoffice Support | Sonnet 5 | Borrador, ADMIN aprueba | Web/App | Nada nuevo | ~$1–2 |
+| **Total estimado (inferencia LLM)** | | | | | **~$30–40/mes** |
+
+> Margen sobre estimación: **3x** para presupuesto inicial ≈ **$100–120/mes**. El costo real de operar esta capa es marginal frente al costo de canal (WhatsApp) y de infraestructura (Cloud Run, Cloud SQL) — reevaluar al mes 3 con datos reales, igual que cualquier otro presupuesto de `app_config`.
+
+> 📌 **PENDIENTE LUIS** — confirma6
+
+---
+
+## Agentes post-MVP (roadmap — no implementados)
+
+Ya hay señales explícitas de esto en la documentación existente de Tourya:
+
+### Agente 6 — Moderación de reseñas
+📌 Ya está en el roadmap de RN-050: reintroducir `status = MODERATION` en `review`, un agente analiza spam/lenguaje ofensivo/enlaces sospechosos/patrones de fraude antes de `PUBLISHED`. Modelo sugerido: Haiku 4.5 (tarea de clasificación, alto volumen, bajo costo).
+
+### Agente 7 — Payout automatizado con reglas
+📌 Ya está sugerido en [03 — Roles y actores](03-roles-y-actores.md): *"evaluar si es viable que el pago lo ejecute un agente con reglas (ej. auto-aprobar hasta cierto monto, montos mayores requieren revisión humana)"*, cuando se integren las APIs de Wompi/Mercado Pago para payouts salientes (hoy 100% manual, RN-043).
+
+### Agente 8 — Reconciliación de pagos huérfanos
+Cuando se implemente el webhook server-side de Wompi (decisión ya tomada, pendiente de ejecución — ver RN-025 y Decisión 8 de [07 — Arquitectura técnica](07-arquitectura-tecnica.md)), un agente puede reconciliar automáticamente transacciones Wompi exitosas que no llegaron a confirmarse como `Payment` (el escenario de "pago cobrado, reserva en limbo" documentado como riesgo HIGH).
+
+### Agente 9 — B2B / Convenios
+Roadmap de 01-vision-y-negocio: QR de hotel → tour en Tourya → hotel recibe comisión. Un agente puede rastrear atribución y calcular la comisión del aliado automáticamente cuando este módulo exista.
+
+### Agente 10 — Coordinador Autónomo (visión 2 años)
+Meta-agente que orquesta a los demás, decide cuándo escalar, ajusta umbrales de autonomía según el override rate real. Requiere datos acumulados de los agentes 1-5 para entrenar políticas — no tiene sentido antes de tener volumen real.
+
+---
+
+## Arquitectura técnica de agentes
+
+### Estructura de código
+
+Se integra al monolito existente (Decisión 1 de 07-arquitectura-tecnica: Tourya es monolito Spring Boot, no microservicios), como un nuevo paquete junto a `controller/`, `services/`, `jobs/`:
+
+```
+com.tourya.api/
+├── agents/
+│   ├── shared/
+│   │   ├── ILlmClient.java                    # Abstracción del proveedor (hoy solo Anthropic)
+│   │   ├── AnthropicClient.java
+│   │   ├── PromptTemplate.java                 # Plantillas versionadas
+│   │   ├── AgentRunResult.java                 # sugerencia | acción | error
+│   │   ├── BudgetGuard.java                    # Lee tope desde app_config
+│   │   └── AgentAuditWriter.java               # Auditoría obligatoria (tabla nueva: agent_audit_log)
+│   ├── travelconcierge/
+│   │   ├── TravelConciergeAgent.java
+│   │   └── prompts/                            # concierge.v1.txt
+│   ├── support24x7/
+│   ├── desertcart/
+│   ├── operatorsupport/
+│   ├── backofficesupport/
+│   └── orchestrator/
+│       └── AgentOrchestrator.java              # Decide qué agente actúa según evento
+```
+
+> ⚠️ Esta tabla `agent_audit_log` **no existe hoy** en el schema de 68 tablas ([08 — Modelo de datos](08-modelo-de-datos.md)) — es una migración nueva, prerequisito antes de dar autonomía real a cualquier agente (Principio rector #4).
+
+### Flujo de ejecución de un agente
+
+```java
+@Service
+public class Support24x7Agent implements IAgent {
+
+    private final ILlmClient llmClient;
+    private final IAgentAuditWriter auditWriter;
+    private final IBudgetGuard budgetGuard;
+    private final ReservationService reservationService;
+
+    public AgentRunResult<ReagendamientoResult> ejecutarReagendamiento(
+            Long reservationId, String nuevoSlotId, String mensajeTurista) {
+
+        // 1. Verificar presupuesto
+        if (!budgetGuard.puedeEjecutar("support24x7")) {
+            return AgentRunResult.rechazado("Presupuesto agotado mes actual");
+        }
+
+        // 2. Cargar contexto real (nunca inventado)
+        Reservation reserva = reservationService.findById(reservationId);
+        boolean disponible = reservationService.validarDisponibilidadSlot(nuevoSlotId);
+
+        // 3. Construir prompt con datos reales
+        var prompt = PromptTemplate.cargar("support24x7.v1");
+        var input = prompt.construir(Map.of(
+            "reserva", reserva,
+            "nuevoSlotDisponible", disponible,
+            "canReschedule", reserva.getCanReschedule(),
+            "maxReschedulingDate", reserva.getMaxReschedulingDate(),
+            "mensaje", mensajeTurista
+        ));
+
+        // 4. Llamar al LLM
+        var start = Instant.now();
+        var response = llmClient.complete(input, "claude-sonnet-5");
+        var elapsedMs = Duration.between(start, Instant.now()).toMillis();
+
+        // 5. Parsear output estructurado
+        var resultado = JsonMapper.leer(response.content(), ReagendamientoResult.class);
+
+        // 6. Auditar SIEMPRE, sin excepción
+        auditWriter.registrar(AgentAuditEntry.builder()
+            .agente("Support24x7")
+            .modelo(response.model())
+            .promptVersion("v1")
+            .inputTokens(response.inputTokens())
+            .outputTokens(response.outputTokens())
+            .costo(response.costo())
+            .duracionMs(elapsedMs)
+            .idEntidadAfectada(reservationId)
+            .resultadoTipo(resultado.requiereCobroAdicional() ? "sugerencia" : "accion_autonoma")
+            .build());
+
+        // 7. Ejecutar solo si la regla de negocio lo permite sin ambigüedad
+        if (!resultado.requiereCobroAdicional()) {
+            reservationService.confirmarReagendamiento(reservationId, nuevoSlotId);
+            return AgentRunResult.accionAutonoma(resultado);
+        }
+        return AgentRunResult.sugerencia(resultado); // caso 3 de RN-033: requiere humano/turista
+    }
+}
+```
+
+### Versionado de prompts
+
+- Cada prompt es un archivo versionado (`support24x7.v1.txt`, `.v2.txt`...). Al cambiar uno, se crea `vN+1` sin borrar `vN`, se rolea con feature flag (10%/90%), y se compara la tasa de override humano antes de un rollout completo.
+
+### Tests de agentes
+
+- **Unit tests**: construcción de prompt, parsing de output, budget guard — deterministas, sin LLM real.
+- **Tests con LLM mockeado**: `ILlmClient.complete` retorna respuestas pre-grabadas (golden files) que cubren los 3 casos de RN-033 y los estados de RN-031.
+- **Tests con LLM real** (semanal en staging): conjunto fijo de reservas de prueba → comparar output vs esperado, alertar si diverge.
+
+---
+
+## Observabilidad de agentes
+
+Tourya ya usa **Cloud Logging + Cloud Monitoring** (GCP, ver [13 — Despliegue](13-despliegue-cicd.md)) — no hace falta una herramienta nueva, solo un dashboard adicional sobre la misma infraestructura:
+
+| Métrica | Alerta si... |
+|---|---|
+| Tasa de uso por agente | Cae a 0 (algo se rompió) |
+| Latencia P95 | > 5 s |
+| Tasa de error | > 5% |
+| Costo diario por agente | > 10x la media histórica |
+| Tasa de override humano | > 30% (revisar el prompt) |
+| % del presupuesto mensual consumido | > 80% |
+
+📌 **PENDIENTE LUIS** — hoy Tourya no tiene alertas configuradas en Cloud Monitoring para nada (ni siquiera errores 5xx del backend, ver 13-despliegue-cicd). Configurar alertas generales del backend es prerequisito antes de sumarle alertas de agentes.
+
+---
+
+## Privacidad y seguridad
+
+Estas reglas se apoyan directamente en vulnerabilidades **ya documentadas** en [12 — Seguridad y autenticación](12-seguridad-y-auth.md) — los agentes no deben agravarlas:
+
+- **PII nunca sale sin enmascarar**: `payment.payer_name/email/phone/document` está guardado en texto plano hoy (tabla `payment`). Ningún agente debe recibir estos campos completos en su prompt — solo lo estrictamente necesario, y el documento de identidad enmascarado.
+- **Nunca se envían secretos al LLM**: `WOMPI_INTEGRITY_SECRET` y `JWT_SECRET` (vulnerabilidades C-1/C-2) no deben aparecer en ningún prompt ni log de agente, bajo ninguna circunstancia.
+- **Datos de tarjeta**: nunca los ve ningún agente — Wompi los tokeniza, Tourya nunca los almacena (ya es así hoy).
+- **Documentos KYB** (cédula, RUT): cuando el Agente 5 los procese vía Sonnet 5, deben viajar por el mismo pipeline cifrado que hoy usa GCS — nunca guardar el contenido crudo del documento en el log de auditoría del agente, solo el resultado del checklist.
+- **Opt-out de retención de logs** con Anthropic, para que las conversaciones de soporte y los documentos KYB no queden retenidos del lado del proveedor.
+- **Cifrado en tránsito**: TLS con el proveedor, igual que cualquier otra integración externa de Tourya.
+
+---
+
+## Roadmap de agentes
+
+Priorizado según dependencias reales (no sprints ficticios) y el estado actual del proyecto (3 operadores, 20 tours, 0 turistas registrados, aún pre-producción):
+
+| Fase | Agentes a habilitar | Por qué en ese orden |
+|---|---|---|
+| **Fase 0** | Ninguno — salir a producción con el MVP actual | Prioridad explícita del roadmap: cerrar el MVP primero |
+| **Fase 1** (post-lanzamiento inmediato) | Travel Concierge + Operator Support | Sin dependencias externas — ayudan a los 3 operadores iniciales a cargar tours completos y ayudan a convertir a los primeros turistas |
+| **Fase 2** (en paralelo, cuando se resuelva WhatsApp Business API) | Support 24/7 + Desert Shopping Cart | Bloqueados hoy por integración no implementada (11-integraciones.md) |
+| **Fase 3** | Backoffice Support | Se vuelve valioso cuando el volumen de solicitudes KYB/tours a revisar empiece a doler para un equipo de 1 persona en operaciones |
+| **Fase 4** (post-MVP, cuando el GMV meta de 12 meses esté cerca) | Moderación de reseñas IA, Payout automatizado, Reconciliación de pagos, B2B | Cada uno ya está señalado como roadmap explícito en la documentación existente — no son ideas nuevas, son ejecución de lo ya decidido |
+| **Fase 5** (visión 2 años) | Coordinador Autónomo | Requiere datos acumulados reales de los agentes 1-5 |
+
+📌 **PENDIENTE LUIS** — validar este orden, en particular si WhatsApp Business API se puede priorizar en paralelo a la Fase 1 para no dejar Support 24/7 esperando.
 
 ---
 
