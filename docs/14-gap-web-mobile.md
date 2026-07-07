@@ -39,21 +39,24 @@ La app móvil para el turista debe permitir:
    - Google (Gmail)
 2. **Buscar el tour** con filtros, con ayuda del **Agente IA "Travel Concierge"** (ver [16 — Agentes IA](16-agentes-ia.md)).
 3. **Consultar disponibilidad** del tour.
-4. **Adjuntar el tour al carrito**.
+4. **Adjuntar el tour al carrito y realizar el checkout**.
 5. **Pagar con Wompi**.
 6. **Ver sus reservas** (incluyendo QR).
 7. **Ver / gestionar su lista de deseos** (wishlist).
 8. **Gestionar sus créditos** (ver saldo, usarlos en compra, transferirlos).
+9. **Ver el perfil del turista**.
 
 ### Proveedor (operador titular)
 
 La app móvil para el proveedor debe permitir:
 
-1. **Crear tour** (incluyendo todos los datos: descripciones multilingües, atracciones, incluye/no incluye, itinerario, FAQ, políticas de cancelación, galería).
+1. **Crear y editar tour** (incluyendo todos los datos: descripciones multilingües, atracciones, incluye/no incluye, itinerario, FAQ, políticas de cancelación, galería).
 2. **Gestionar el schedule** de los tours aprobados (crear plantillas de horario, definir precios por `ageType`).
 3. **Gestionar sus reservas** (ver, filtrar, confirmar por escaneo QR).
 4. **Responder reseñas**.
 5. **Crear operarios** (`PROVIDER_OPERATOR`) — con contraseña temporal, asignar tours, definir tour principal.
+6. **Dasboard, KYB**.
+7. **Integración con el Agente Operator Support** para ayudar en la configuracion (sugerir descripción, traduccion multilenguaje, tags, y validar la galería (RN-013) antes del upload real) del tour y generar le borrador de respuesta que el proveedor aprueba o edita.
 
 ### Operario (`PROVIDER_OPERATOR`)
 
