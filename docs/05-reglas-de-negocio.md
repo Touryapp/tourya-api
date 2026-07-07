@@ -148,11 +148,11 @@ Esto elimina la ventana de "slot con 0% de comisión".
 ### RN-020 — Precios por tipo de persona obligatorios
 ✅ Cada slot debe tener un precio por cada `ageType` configurado (ADULT, CHILD, INFANT). El INFANT puede tener `providerPrice = 0`.
 
-### RN-021 — Capacidad ilimitada (a mover al Tour)
-📌 **A refactorizar**: la capacidad ilimitada es una propiedad **del tour**, no del schedule ni del slot.
+### RN-021 — Capacidad ilimitada (limpieza de campo redundante)
+✅ **Aclaración de Luis (2026-07-07)**: la capacidad ilimitada es una propiedad **del tour** — ya existe en `Tour.isUnlimitedCapacity`. El campo duplicado en `TourSchedule` es un remanente que debe **eliminarse**.
 
-- El campo **`isUnlimitedCapacity` debe moverse a la tabla `Tour`**.
-- El campo `isUnlimitedCapacity` en `TourSchedule` **debe eliminarse**.
+- ✅ El campo `Tour.isUnlimitedCapacity` **ya existe** y es la fuente de verdad.
+- 📌 **A eliminar**: el campo `isUnlimitedCapacity` en la tabla `tour_schedule` (redundante).
 - Cuando un tour tiene capacidad ilimitada, al configurar el slot **solo se ingresa el precio** — no la capacidad.
 - La validación de capacidad en checkout (RN-023) se salta cuando `Tour.isUnlimitedCapacity = true`.
 

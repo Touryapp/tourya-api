@@ -290,7 +290,7 @@ Instancia concreta del tour en una fecha.
 | `status` | enum | |
 | `tour`, `tourScheduleConfig` | FK | |
 | `maxCapacity`, `reservedCapacity` | Integer | |
-| ~~`isUnlimitedCapacity`~~ | ~~boolean~~ | **A eliminar** — se mueve a `Tour.isUnlimitedCapacity`. Ver RN-021 en [05](05-reglas-de-negocio.md) |
+| ~~`isUnlimitedCapacity`~~ | ~~boolean~~ | **A eliminar** — campo redundante. La fuente de verdad es `Tour.isUnlimitedCapacity`. Ver RN-021 en [05](05-reglas-de-negocio.md) |
 
 ---
 

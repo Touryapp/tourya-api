@@ -55,8 +55,8 @@ La app móvil para el proveedor debe permitir:
 3. **Gestionar sus reservas** (ver, filtrar, confirmar por escaneo QR).
 4. **Responder reseñas**.
 5. **Crear operarios** (`PROVIDER_OPERATOR`) — con contraseña temporal, asignar tours, definir tour principal.
-6. **Dasboard, KYB**.
-7. **Integración con el Agente Operator Support** para ayudar en la configuracion (sugerir descripción, traduccion multilenguaje, tags, y validar la galería (RN-013) antes del upload real) del tour y generar le borrador de respuesta que el proveedor aprueba o edita.
+6. **Ver dashboard** (KPIs, ingresos, reservas del día) y **gestionar KYB** (subir documentos, ver estado de la solicitud).
+7. **Integración con el Agente Operator Support** ([16 — Agentes IA](16-agentes-ia.md)) para asistir en la configuración del tour: sugerir descripción, traducción multilenguaje (es → en / pt-BR), tags, validación de galería antes del upload (RN-013), y borrador de respuesta a reseñas que el proveedor aprueba o edita.
 
 ### Operario (`PROVIDER_OPERATOR`)
 

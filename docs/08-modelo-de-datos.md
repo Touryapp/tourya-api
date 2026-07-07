@@ -54,10 +54,9 @@ Schema PostgreSQL de Tourya: 68 tablas, 61 migraciones, ~20 stored procedures, �
 
 ### Tour core (8 tablas)
 
-> 📌 **Cambios pendientes en la tabla `tour`** (aportados por Luis, 2026-06-28):
+> 📌 **Cambios pendientes en la tabla `tour`** (aportados por Luis, 2026-06-28 / 2026-07-07):
 > - Agregar campo **`percentageTourya`** — % Tourya default del tour (asignado por ADMIN al aprobar). Ver [RN-015](05-reglas-de-negocio.md).
-> - Agregar campo **`isUnlimitedCapacity`** — moverlo desde `tour_schedule`. Ver [RN-021](05-reglas-de-negocio.md).
-> - Eliminar `isUnlimitedCapacity` de `tour_schedule`.
+> - **Eliminar** el campo `isUnlimitedCapacity` de `tour_schedule` (redundante — la fuente de verdad ya está en `Tour.isUnlimitedCapacity`). Ver [RN-021](05-reglas-de-negocio.md).
 
 | Tabla | Propósito |
 |-------|-----------|

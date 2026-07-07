@@ -184,7 +184,7 @@ Responde en el idioma del turista.
 **Cuándo actúa**: durante el wizard de creación/edición de tour (`TourFormPage`, ~6 pasos: básico, direcciones, atracciones, incluye/no incluye, itinerario, FAQ, galería), cuando se detecta baja disponibilidad o precio desalineado, y cuando llega una reseña nueva (`review`).
 
 **Input que recibe**:
-- Detalle del tour (Tour detail): Nombre, categoría, subcategoría, isUnilimitedCapacity, tipo de precio, duración, edad minima y horario.
+- Detalle del tour (`Tour`): nombre, categoría, subcategoría, `isUnlimitedCapacity`, tipo de precio, duración, edad mínima y horario.
 - Fotos y datos básicos que el operador sube.
 - Catálogo de tours similares (misma categoría/zona) para pricing assist.
 - Reseña nueva + `ReviewAttachment` (fotos).
@@ -192,7 +192,7 @@ Responde en el idioma del turista.
 **Output que produce**:
 1. Descripción atractiva y SEO-friendly en español (`Tour.name`/`description`, obligatorio `es` por RN-011), tags sugeridos (`tour_tag_mapping`).
 2. Validación de galería **antes** del upload real: máximo 7 imágenes, máximo 5 MB, formato horizontal, ancho recomendado 1920px (RN-013) — evita que el operador suba algo que el backend rechazará.
-3. Traducción (en Ingles y Portugues(Brasil)) de los campos:Descripcion, Main atracction, Incluye, excluye, itinerario y preguntas frecuentes. se debe garantizar de que la informacion de estos campos en estos idiomas se guarde en base de datos.
+3. Traducción (a inglés y portugués de Brasil) de los campos: descripción, atracciones principales, incluye, excluye, itinerario y preguntas frecuentes. Se debe garantizar que la información en estos idiomas se guarde en base de datos.
 4. Alerta de precio desalineado vs. tours comparables (`providerPrice`) — **solo alerta, nunca cambia el precio**: el operador siempre decide su `providerPrice` (RN-014).
 5. Borrador de respuesta a la reseña — el operador aprueba o edita antes de publicar.
 
@@ -255,7 +255,7 @@ Responde en el idioma del turista.
 
 > Margen sobre estimación: **3x** para presupuesto inicial ≈ **$100–120/mes**. El costo real de operar esta capa es marginal frente al costo de canal (WhatsApp) y de infraestructura (Cloud Run, Cloud SQL) — reevaluar al mes 3 con datos reales, igual que cualquier otro presupuesto de `app_config`.
 
-> 📌 **PENDIENTE LUIS** — confirma6
+> 📌 **PENDIENTE LUIS** — confirmar presupuesto mensual inicial y umbrales de alerta por agente en `app_config`.
 
 ---
 
