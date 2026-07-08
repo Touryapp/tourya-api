@@ -172,6 +172,8 @@ Bitácora cronológica de decisiones aprobadas por el equipo. Sirve como registr
 | 2026-07-08 | **Migración de secretos runtime a GCP Secret Manager** en `tourya-project-dev`: JWT (rotado), Wompi, DB, SMTP. Fallbacks en `application.properties` como puente. | Franklin | PRs #151, #152 |
 | 2026-07-08 | **Autenticación GitHub Actions → GCP migrada a Workload Identity Federation (WIF)**. Ya no se usan service account keys JSON. Key user-managed peligroso `df67...` deshabilitado. GitHub Secret `GCP_SA_KEY_DEV` eliminado. | Franklin | PR #153 |
 | 2026-07-08 | **7 alertas de Cloud Monitoring activas** en dev (5xx backend/frontend, latencia P95, Cloud SQL CPU/disk/connections, container CPU). Canal: email a owner. Cost anomaly (8ª) queda pendiente por requerir Billing Budget separado. | Franklin | INF-01 |
+| 2026-07-08 | **Backups automáticos de Cloud SQL habilitados** en dev: diarios 03:00 UTC, retention 30 días, multi-region `us`, Point-in-Time Recovery activo (7 días de transaction logs). | Franklin | INF-02 |
+| 2026-07-08 | **🎉 Fase 0 completa en dev**: 5 fixes de código, Secret Manager, WIF, alertas y backups. Solo pendiente: cost anomaly alert (billing budget). Listos para arrancar Fase 1 (MVP core). | Franklin | Fase 0 cierre |
 
 ---
 
@@ -189,3 +191,4 @@ Bitácora cronológica de decisiones aprobadas por el equipo. Sirve como registr
 | 1.7 | 2026-07-07 | Nuevo doc `17-backlog-implementacion.md` — consolida todo el trabajo pendiente en 90+ items priorizados (P0-P3) distribuidos en 6 áreas (seguridad, backend, frontend web, mobile, infra, agentes IA). Plan por 5 fases con cronograma estimado (Fase 1 MVP → 2026-08-18) |
 | 1.8 | 2026-07-07 | Ajustadas estimaciones del backlog al modelo de ejecución real (agente IA implementador + Franklin como revisor). Cronograma comprimido: **MVP en producción ~2026-08-03** (3 semanas en vez de 6). Se explicitan los techos no comprimibles: Twilio WABA (2d-2sem), Play Store, testing con turistas reales |
 | 1.9 | 2026-07-08 | Fase 0 completada en dev — 5 fixes de código (SEC-03/04/05/08/11), migración de secretos runtime a GCP Secret Manager, y migración de autenticación GitHub Actions → GCP a Workload Identity Federation. Doc 12 actualizado con estado real de vulnerabilidades CRITICAL y HIGH |
+| 2.0 | 2026-07-08 | **🎉 Fase 0 100% cerrada en dev**: código (5 PRs), secretos, WIF, alertas Cloud Monitoring (7/8) y backups Cloud SQL habilitados. Docs 05, 07, 11, 13, 17 sincronizados con estado real. Listos para Fase 1 |

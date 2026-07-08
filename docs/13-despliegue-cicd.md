@@ -331,7 +331,7 @@ GOOGLE_CLIENT_ID=
 
 | Recurso | Backup |
 |---------|--------|
-| Cloud SQL PostgreSQL | ❓ — verificar si está habilitado |
+| Cloud SQL PostgreSQL (dev) | ✅ **Backups automáticos habilitados** (2026-07-08, INF-02): diarios a las 03:00, retention 30 días, multi-region `us`, Point-in-Time Recovery activo con transaction logs 7 días |
 | GCS bucket | versioning ❓ |
 | Repos GitHub | GitHub mismo (snapshots por commits) |
 | Mobile code | ⚠️ **NO** — solo local |
