@@ -169,7 +169,6 @@ public class AuthenticationService {
             var userRole = roleRepository.findByName("USER")
                     .orElseThrow(() -> new IllegalStateException("ROLE USER was not initiated"));
             String tempPassword = generateTemporaryPassword();
-            System.out.println("tempPassword : " +tempPassword);
             User newUser = User.builder()
                     .firstname(request.getFirstname())
                     .lastname(request.getLastname())
