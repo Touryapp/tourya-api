@@ -441,20 +441,19 @@ Códigos comunes:
 
 ## CORS
 
-✅ Configurado en `BeansConfig.java`. Orígenes permitidos:
+✅ Configurado en `BeansConfig.java`. Orígenes permitidos (actualizado 2026-07-08, PR #150 SEC-11):
 
 ```
-http://localhost:4200
-http://localhost:8080
-http://localhost:8100
-https://localhost/
-http://44.203.38.85:8088   ⚠️ AWS legacy
-http://44.203.38.85:8080   ⚠️ AWS legacy
-https://tourya-dev-front-5j2nd2oflq-ue.a.run.app
-https://tourya-dev-api-5j2nd2oflq-ue.a.run.app
+http://localhost:4200                                                    (dev local Angular)
+http://localhost:8080                                                    (dev local)
+http://localhost:8100                                                    (dev local Ionic/MAUI)
+https://tourya-dev-front-640622322458.us-east1.run.app                   (Cloud Run front dev)
+https://tourya-dev-api-640622322458.us-east1.run.app                     (Cloud Run api dev)
+https://tourya.co                                                        (dominio custom prod)
+https://www.tourya.co                                                    (dominio custom prod con www)
 ```
 
-⚠️ Hay que limpiar las IPs viejas de AWS y agregar el dominio `tourya.co`.
+✅ IPs AWS legacy y URLs viejas de Cloud Run eliminadas.
 
 Métodos permitidos: GET, POST, DELETE, PUT, PATCH.
 Headers permitidos: Origin, Content-Type, Accept, Authorization.

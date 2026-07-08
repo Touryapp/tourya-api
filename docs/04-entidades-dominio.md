@@ -81,7 +81,7 @@ Códigos de activación de cuenta.
 | `validatedAt` | LocalDateTime | null hasta activar |
 | `user` | User | → ManyToOne |
 
-⚠️ Sin protección contra replay: un token validado se podría reutilizar si el código no se invalida explícitamente. Tech debt documentado.
+✅ Protección contra replay implementada (PR #147, SEC-04, 2026-07-08): `AuthenticationService.activateAccount()` verifica `validatedAt != null` al inicio y rechaza tokens ya usados.
 
 ---
 
