@@ -1,121 +1,32 @@
-## Migraciones a ejecutar (en orden)
-## Proyecto: tourya-api
-## Fecha: 2026-04-26
+## Migraciones a ejecutar
 
-### Importante
-- Ejecuta estas migraciones en tu DB (DEV/QA/PROD según corresponda) **antes** de probar los endpoints nuevos.
-- El orden importa porque hay funciones (SP) y tablas nuevas.
+**Estado al 2026-07-08**: no hay migraciones pendientes en ambientes conocidos (dev verificado directamente contra BD).
 
-### 1) Pagos a proveedores
-1. `database/migrations/031_provider_payout_orders_and_reservation_available_date.sql`
-   - Agrega `reservation.payout_available_date`
-   - Crea tablas:
-     - `provider_payout_order`
-     - `provider_payout_order_reservation`
-     - `provider_payout_attachment`
+---
 
-2. `database/migrations/032_add_reservation_payout_status_and_paid_at.sql`
-   - Agrega:
-     - `reservation.payout_status`
-     - `reservation.payout_paid_at`
+## Uso de este archivo
 
-### 2) Perfil de turista
-3. `database/migrations/033_create_tourist_profile.sql`
-   - Crea tabla `tourist_profile`
+Este archivo mantiene la lista de migraciones que **falta ejecutar** en cada ambiente. Cuando se agrega una migración nueva a `database/migrations/`, agregala aquí con:
 
-### 3) Wishlist
-4. `database/migrations/034_create_wishlist.sql`
-   - Crea tabla `user_wishlist`
+- Ruta al archivo SQL
+- Descripción corta de qué crea (tabla, columna, SP, etc.)
+- Ambientes donde ya se aplicó y donde falta
 
-### 4) Search: soporte tourIds (wishlist)
-5. `database/migrations/035_update_sp_get_tour_schedule_json_add_tour_ids_filter.sql`
-   - Re-crea `public.sp_get_tour_schedule_json(filters jsonb)` agregando filtro `tourIds`
+Cuando la migración se ejecuta en todos los ambientes, se retira de esta lista y se anota en el log de decisiones del proyecto (`docs/00-README.md`).
 
-### 5) Reviews: motivo (reasonId/reasonType) + soporte stats
-6. `database/migrations/036_add_review_reason_and_review_stats_support.sql`
-   - Agrega columnas en `review`:
-     - `reason_type`
-     - `reason_id`
+---
 
-### 6) Ajustes back 27/05/2026
-7. `database/migrations/045_add_must_change_password_to_user.sql`
-   - Columna `_user.must_change_password` (operadores con clave temporal)
+## Historial
 
-8. `database/migrations/046_sp_count_tour_schedule_json.sql`
-   - Función `sp_count_tour_schedule_json` (paginación correcta en search)
+- **2026-07-08**: verificación directa contra `tourya-dev-db` (PostgreSQL 15.17) confirmó que las 26 migraciones que este archivo listaba como pendientes (031 → 065) están todas **aplicadas** en dev. Backfills verificados: `provider_price` sin NULLs; `provider.address` = varchar(255); legacy `tour_reservation*` tables ya eliminadas por 065. Se limpia la lista y se documenta.
 
-9. `database/migrations/047_sp_provider_reservations_filters_sort.sql`
-   - SP `sp_get_provider_reservations` con filtro `p_sub_category` y columna `tourSubcategory`
+---
 
-10. `database/migrations/048_credit_transfer_fields.sql`
-    - Columnas `credit.transferred_from_user_id`, `credit.transferred_at`
+## Recomendación futura
 
-11. `database/migrations/049_alter_provider_address_length.sql`
-    - `provider.address` de varchar(50) a varchar(255) (registro proveedor / requestProvider)
+El proyecto **no usa Flyway ni Liquibase**. El tracking de migraciones aplicadas depende de mantener este archivo al día a mano — proceso frágil.
 
-12. `database/migrations/050_reservation_flags_and_cart_checkout.sql`
-    - `reservation.can_cancel`, `reservation.can_reschedule`
-    - Campos checkout en `shopping_cart` (hospedaje + facturación electrónica)
+Alternativas a evaluar en Fase 1 o posterior:
 
-### 7) Temas Back 01/06/2026 (fixes 500 / filtros / reservas cliente)
-13. `database/migrations/051_sp_provider_reservations_user_and_provider_price.sql`
-    - SP `sp_get_provider_reservations`: filtro `p_customer_user_id`, columna `providerprice`
-    - Reemplaza firma de 4 parámetros (ejecutar en EC2 antes del deploy del API)
-
-
-
-
-
-
-
-
-14. `database/migrations/052_tour_schedule_slot_price_override.sql`
-    - Overrides de % Tourya y precio de venta **por schedule (día)** y slot/price
-    - Requerido para PUT `/tour-schedules/tours/{tourId}/percentage` por rango de fechas
-
-15. `database/migrations/053_fix_tour_schedule_override_audit_columns.sql`
-    - Si 052 ya se ejecutó: agrega `last_modified_by` y ajusta auditoría JPA
-
-### 8) Ajustes back 09/06/2026
-16. `database/migrations/055_maritime_department_and_filter_name_i18n.sql`
-    - i18n tags/categorías + columna subcategorías name (jsonb)
-17. `database/migrations/056_fix_filter_i18n_complete_translations.sql`
-    - Traducciones completas es/en/pt (Filtros tours)
-18. `database/migrations/057_maritime_activity_report_location_and_dates.sql`
-    - Reportes DIMAR: country_id, state_id, city_id, business_category_id, subcategory_code, report_start_date, report_end_date
-
-19. `database/migrations/058_cleanup_maritime_reports_and_cart_origin.sql`
-    - Elimina reportes DIMAR legacy incompletos (causan 500 en GET)
-    - NOT NULL en columnas obligatorias de maritim_activity_report
-    - shopping_cart: origin_country_id, origin_state_id, origin_city_id (lugar de procedencia checkout)
-    - Script rápido solo para reportes: `database/scripts/FIX_maritime_reports_RUN_ME.sql`
-
-20. `database/migrations/059_fix_sp_provider_reservations_provider_price_fallback.sql`
-    - YA EJECUTADA EN EC2. Histórico; no re-ejecutar si aplicas 061.
-
-21. `database/migrations/060_backfill_provider_price_from_price.sql`
-    - Rellena provider_price = price donde quedó NULL (debió hacerse en la migración 006)
-
-22. `database/migrations/061_sp_get_provider_reservations_cleanup_overloads.sql`
-    - LOCAL: si GET /reservations falla con bad SQL grammar. Borra firmas viejas del SP y deja la de 5 params.
-
-### 9) Ajustes front Luis — i18n motivos reseña + subcategorías (25/06/2026)
-23. `database/migrations/062_subcategory_i18n_remove_parentheses.sql`
-    - Quita textos entre paréntesis en subcategorías (naranja en doc Luis)
-    - Requiere 055 y 056 ya ejecutadas
-
-24. `database/migrations/063_review_reason_catalog_i18n.sql`
-    - Tabla `review_reason_catalog` con motivos positivos/negativos en es/en/pt
-    - Alimenta GET `/public/review/reasons` y `/public/review/reasons/by-rating`
-
-25. `database/migrations/064_subcategory_remove_all_parentheses.sql`
-    - **EJECUTAR EN EC2** si siguen viéndose paréntesis en subcategorías
-    - Corrige `vuelta_a_la_isla_city_tour`, `aquanautas`, `display_name` y limpia el resto
-    - (062 tenía error: dejó "(City Tour)" en ES)
-
-### 10) Eliminar tour_reservation legacy (02/07/2026)
-26. `database/migrations/065_drop_tour_reservation_tables.sql`
-    - Elimina tablas `tour_reservation`, `tour_reservation_detail`, `tour_reservation_status_history`
-    - Verificado BD: 1 fila tour_reservation (jul-2025), 208 reservas vía `reservation` + carrito
-    - Checkout activo: POST `/reservations` (hold) + POST `/payment`
-    - Código eliminado: `/tour-reservations`, `POST /shopping-cart/{cartId}/checkout` (legacy sin uso)
+1. **Tracking mínimo**: agregar tabla `_schema_migrations (filename, applied_at, applied_by)` — solo requiere que cada script SQL termine con un `INSERT INTO _schema_migrations`. Aditivo, cero riesgo.
+2. **Flyway/Liquibase**: adoptar como estándar, con las 65 migraciones existentes como baseline. Requiere una migración inicial de setup pero después todo automatizado.
