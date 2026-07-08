@@ -75,6 +75,7 @@ Cada afirmación en estos documentos está marcada con su origen:
 | [14](14-gap-web-mobile.md) | Análisis Gap Web vs Mobile | Qué debe existir en cada plataforma y por qué — evitar duplicar trabajo que no aporta valor |
 | [15](15-mvp-mobile-estado.md) | Estado del MVP mobile vs alcance | Gap analysis granular del código MAUI actual contra el alcance del doc 14 + roadmap por ciclos |
 | [16](16-agentes-ia.md) | Agentes IA | Travel Concierge, moderador de reseñas y otros agentes IA del roadmap (📌 pendiente contenido de Luis) |
+| [17](17-backlog-implementacion.md) | Backlog de implementación y plan de ejecución | Backlog priorizado (P0–P3) por área + plan por fases + cronograma + riesgos |
 
 ---
 
@@ -109,6 +110,7 @@ Documentos basados en el estado del código en las ramas:
 | 14 Web vs Mobile — alcance | ✅ Sync (v2.0) | Reescrito con el alcance definido por Luis: mobile cubre crear tour, schedule y operarios porque los operadores están en la calle |
 | 15 MVP mobile — estado | ✅ Sync | Gap analysis granular actualizado según el nuevo alcance del doc 14 |
 | 16 Agentes IA | ✅ Sync (v1.0) | Luis subió contenido completo: 5 agentes core (Travel Concierge, Support 24/7, Desert Shopping Cart, Operator Support, Backoffice Support) + arquitectura + roadmap |
+| 17 Backlog de implementación | ✅ Sync (v1.0) | Consolida trabajo pendiente en 6 áreas (seguridad, backend, frontend web, mobile, infra, agentes IA) — ~175 días de trabajo distribuidos en 5 fases |
 
 ---
 
@@ -180,3 +182,4 @@ Bitácora cronológica de decisiones aprobadas por el equipo. Sirve como registr
 | 1.4 | 2026-07-06 | Doc `14-gap-web-mobile.md` reescrito v2.0 con el alcance definido por Luis (operadores en la calle → mobile cubre crear tour, schedule y operarios). Doc `15-mvp-mobile-estado.md` actualizado en consecuencia. Doc `16-agentes-ia.md` esqueleto (Luis creó el placeholder, pendiente el contenido detallado) |
 | 1.5 | 2026-07-07 | Luis completó `16-agentes-ia.md` con 5 agentes core, arquitectura y roadmap. Aclaración de Luis sobre `isUnlimitedCapacity`: es una LIMPIEZA (eliminar el campo de `tour_schedule`), no una migración. Ajustados docs 04, 05 y 08 en consecuencia. Correcciones ortográficas menores en 14 y 16 |
 | 1.6 | 2026-07-07 | Consolidación de las 10 respuestas de Luis por WhatsApp: RN-005 (refresh tokens definidos con OWASP), RN-013 (galería propuesta a validar), RN-015 (percentageTourya aprobado), RN-022 (holdMinutes configurable aprobado), RN-025 (webhook Wompi aprobado), RN-030 (razones nuevas aprobadas). Decisión: WhatsApp vía Twilio (no Meta directo). Validaciones técnicas: `agent_audit_log` necesario, alertas Cloud Monitoring como prerequisito. Presupuesto agentes $100-200/mes aprobado. Actualizados docs 05, 11, 12, 13, 16 |
+| 1.7 | 2026-07-07 | Nuevo doc `17-backlog-implementacion.md` — consolida todo el trabajo pendiente en 90+ items priorizados (P0-P3) distribuidos en 6 áreas (seguridad, backend, frontend web, mobile, infra, agentes IA). Plan por 5 fases con cronograma estimado (Fase 1 MVP → 2026-08-18) |
