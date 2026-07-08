@@ -168,6 +168,9 @@ Bitácora cronológica de decisiones aprobadas por el equipo. Sirve como registr
 | 2026-07-07 | Tabla `agent_audit_log` es prerequisito para dar autonomía a cualquier agente IA | Franklin | [16](16-agentes-ia.md) |
 | 2026-07-07 | Alertas básicas de Cloud Monitoring son prerequisito antes de salir a producción | Franklin | [13](13-despliegue-cicd.md) |
 | 2026-07-07 | Presupuesto mensual agentes IA: **$100–200 USD/mes** para inferencia LLM | Luis | [16](16-agentes-ia.md) |
+| 2026-07-08 | **Fase 0 higiene y seguridad crítica ejecutada en dev**: 5 fixes de código (SEC-03 Actuator, SEC-04 token replay, SEC-05 PII leak, SEC-08 password log, SEC-11 CORS) | Franklin | PRs #146–#150 |
+| 2026-07-08 | **Migración de secretos runtime a GCP Secret Manager** en `tourya-project-dev`: JWT (rotado), Wompi, DB, SMTP. Fallbacks en `application.properties` como puente. | Franklin | PRs #151, #152 |
+| 2026-07-08 | **Autenticación GitHub Actions → GCP migrada a Workload Identity Federation (WIF)**. Ya no se usan service account keys JSON. Key user-managed peligroso `df67...` deshabilitado. GitHub Secret `GCP_SA_KEY_DEV` eliminado. | Franklin | PR #153 |
 
 ---
 
@@ -184,3 +187,4 @@ Bitácora cronológica de decisiones aprobadas por el equipo. Sirve como registr
 | 1.6 | 2026-07-07 | Consolidación de las 10 respuestas de Luis por WhatsApp: RN-005 (refresh tokens definidos con OWASP), RN-013 (galería propuesta a validar), RN-015 (percentageTourya aprobado), RN-022 (holdMinutes configurable aprobado), RN-025 (webhook Wompi aprobado), RN-030 (razones nuevas aprobadas). Decisión: WhatsApp vía Twilio (no Meta directo). Validaciones técnicas: `agent_audit_log` necesario, alertas Cloud Monitoring como prerequisito. Presupuesto agentes $100-200/mes aprobado. Actualizados docs 05, 11, 12, 13, 16 |
 | 1.7 | 2026-07-07 | Nuevo doc `17-backlog-implementacion.md` — consolida todo el trabajo pendiente en 90+ items priorizados (P0-P3) distribuidos en 6 áreas (seguridad, backend, frontend web, mobile, infra, agentes IA). Plan por 5 fases con cronograma estimado (Fase 1 MVP → 2026-08-18) |
 | 1.8 | 2026-07-07 | Ajustadas estimaciones del backlog al modelo de ejecución real (agente IA implementador + Franklin como revisor). Cronograma comprimido: **MVP en producción ~2026-08-03** (3 semanas en vez de 6). Se explicitan los techos no comprimibles: Twilio WABA (2d-2sem), Play Store, testing con turistas reales |
+| 1.9 | 2026-07-08 | Fase 0 completada en dev — 5 fixes de código (SEC-03/04/05/08/11), migración de secretos runtime a GCP Secret Manager, y migración de autenticación GitHub Actions → GCP a Workload Identity Federation. Doc 12 actualizado con estado real de vulnerabilidades CRITICAL y HIGH |

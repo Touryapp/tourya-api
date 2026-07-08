@@ -200,8 +200,9 @@ Son cosas distintas que viven en momentos distintos del ciclo:
 **Analogía**: GitHub Secrets = llaves del camión de mudanza que trae los muebles. Secret Manager = llaves de la casa cuando ya vives en ella.
 
 **En Tourya**:
-- **GitHub Secrets** — ya se usan (para el deploy continuo a AWS EC2 legacy). Nombres exactos: consultar en `github.com/Touryapp/tourya-api/settings/secrets/actions`.
-- **GCP Secret Manager** — ⚠️ **NO habilitado** en `tourya-project-dev` al 2026-07-08. Pendiente en Fase 0.
+- **GitHub Secrets** — usados actualmente para deploys legacy y `DB_HOST`/`DB_PORT`/`DB_USER`. El anterior `GCP_SA_KEY_DEV` fue **eliminado** al migrar a Workload Identity Federation.
+- **GCP Secret Manager** — ✅ **Habilitado y en uso** en `tourya-project-dev` desde 2026-07-08 (Fase 0, bloque 0.3). Secretos activos: `tourya-jwt-key`, `tourya-wompi-integrity-secret`, `tourya-db-password`, `tourya-smtp-password`.
+- **Workload Identity Federation** — ✅ **Habilitado** en `tourya-project-dev`. GitHub Actions se autentica vía OIDC contra el pool `github-actions-pool` / provider `github-oidc` con condición `repository == Touryapp/tourya-api`. Sin necesidad de service account keys.
 
 ---
 
@@ -221,28 +222,28 @@ Son cosas distintas que viven en momentos distintos del ciclo:
 
 ## Vulnerabilidades documentadas (resumen)
 
-### CRITICAL — Deben fixearse pronto
+### CRITICAL — Estado
 
-| # | Vulnerabilidad | Archivo |
-|---|----------------|---------|
-| C-1 | JWT secret hardcoded en `application.properties` | `application.properties` línea 76 |
-| C-2 | Wompi integrity secret hardcoded | `application.properties` línea 14 |
-| C-3 | Spring Actuator `*` (todos endpoints expuestos) | `application.properties` línea 18 |
-| C-4 | Activation token sin protección de replay | `AuthenticationService.java` |
-| C-5 | Endpoint público `/public/bookings/{id}` leakea PII (datos pagador) | `PublicController` |
-| C-6 | Social login sin validar token Firebase | `AuthenticationService.authenticateWithSocial` |
+| # | Vulnerabilidad | Estado | PR / Referencia |
+|---|----------------|:------:|-----------------|
+| C-1 | JWT secret hardcoded en `application.properties` | ✅ **Resuelto** en dev | PRs #151, #152 (Secret Manager) + rotación de clave |
+| C-2 | Wompi integrity secret hardcoded | ✅ **Resuelto** en dev | PRs #151, #152 (movido a Secret Manager) |
+| C-3 | Spring Actuator `*` (todos endpoints expuestos) | ✅ **Resuelto** | PR #146 (SEC-03) |
+| C-4 | Activation token sin protección de replay | ✅ **Resuelto** | PR #147 (SEC-04) |
+| C-5 | Endpoint público `/public/bookings/{id}` leakea PII (datos pagador) | ✅ **Resuelto** | PR #148 (SEC-05) |
+| C-6 | Social login sin validar token Firebase | ⚠️ Pendiente | Ver `social-login-google-facebook.md` |
 
-### HIGH — Importantes pero menos urgentes
+### HIGH — Estado
 
-| # | Vulnerabilidad |
-|---|----------------|
-| H-1 | `tourya-dev-sa-key.json` (GCP service account) commiteado en repo |
-| H-2 | `System.out.println("tempPassword: ...")` leakea passwords temporales a logs |
-| H-3 | Sin rate limiting en endpoints de auth |
-| H-4 | Sin lockout tras N intentos fallidos de login |
-| H-5 | Sin protección CSRF (compensado por JWT en header pero…) |
-| H-6 | Sin webhook Wompi (pagos huérfanos posibles) |
-| H-7 | CORS demasiado permisivo (`*` en algunos casos) |
+| # | Vulnerabilidad | Estado | Notas |
+|---|----------------|:------:|-------|
+| H-1 | Service account key `df67...` con expiración infinita + expuesto en filesystem local y GitHub Secrets | ✅ **Resuelto en dev** | Key deshabilitado en IAM; migración a Workload Identity Federation completada (2026-07-08). Nunca estuvo commiteado al repo, `.gitignore` lo protegió |
+| H-2 | `System.out.println("tempPassword: ...")` leakea passwords temporales a logs | ✅ **Resuelto** | PR #149 (SEC-08) |
+| H-3 | Sin rate limiting en endpoints de auth | ⚠️ Pendiente | Fase 1 |
+| H-4 | Sin lockout tras N intentos fallidos de login | ⚠️ Pendiente | Fase 1 |
+| H-5 | Sin protección CSRF (compensado por JWT en header pero…) | ⚠️ Pendiente | — |
+| H-6 | Sin webhook Wompi (pagos huérfanos posibles) | ⚠️ Pendiente | Fase 1 |
+| H-7 | CORS permisivo con URLs muertas AWS legacy | ✅ **Resuelto** | PR #150 (SEC-11) |
 
 ### MEDIUM
 
