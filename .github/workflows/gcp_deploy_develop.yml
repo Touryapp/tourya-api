@@ -24,7 +24,8 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: '${{ secrets.GCP_SA_KEY_DEV }}'
+          workload_identity_provider: 'projects/640622322458/locations/global/workloadIdentityPools/github-actions-pool/providers/github-oidc'
+          service_account: 'tourya-dev-cloud-run@tourya-project-dev.iam.gserviceaccount.com'
 
       - name: Configure Docker
         run: gcloud auth configure-docker us-east1-docker.pkg.dev --quiet
