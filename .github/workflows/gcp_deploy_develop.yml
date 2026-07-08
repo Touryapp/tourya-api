@@ -59,7 +59,11 @@ jobs:
             DB_HOST=${{ secrets.DB_HOST }}
             DB_PORT=${{ secrets.DB_PORT }}
             DB_USER=${{ secrets.DB_USER }}
-            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
             STORAGE_PROVIDER=GCP
             GCS_BUCKET=tourya-dev-storage
             GCP_PROJECT_ID=tourya-project-dev
+          secrets: |
+            JWT_SECRET=tourya-jwt-key:latest
+            WOMPI_INTEGRITY_SECRET=tourya-wompi-integrity-secret:latest
+            DB_PASSWORD=tourya-db-password:latest
+            MAIL_PASSWORD=tourya-smtp-password:latest
