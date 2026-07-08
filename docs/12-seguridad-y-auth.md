@@ -157,17 +157,15 @@ Allowed origins: [
   https://localhost/,
   http://44.203.38.85:8088,    ⚠️ AWS legacy
   http://44.203.38.85:8080,    ⚠️ AWS legacy
-  https://tourya-dev-front-5j2nd2oflq-ue.a.run.app,
-  https://tourya-dev-api-5j2nd2oflq-ue.a.run.app
+  https://tourya-dev-front-5j2nd2oflq-ue.a.run.app,   ⚠️ URL vieja (ya no aplica)
+  https://tourya-dev-api-5j2nd2oflq-ue.a.run.app     ⚠️ URL vieja (ya no aplica)
 ]
 
 Allowed methods: [GET, POST, DELETE, PUT, PATCH]
 Allowed headers: [Origin, Content-Type, Accept, Authorization]
 ```
 
-⚠️ Falta agregar `https://tourya.co`.
-
-⚠️ Quitar las IPs viejas de AWS.
+📌 **A actualizar en Fase 0** (SEC-11): agregar `https://tourya.co`, `https://tourya-dev-front-640622322458.us-east1.run.app`, `https://tourya-dev-api-640622322458.us-east1.run.app`. Quitar IPs AWS y URLs viejas de Cloud Run.
 
 ---
 
@@ -186,6 +184,24 @@ Allowed headers: [Origin, Content-Type, Accept, Authorization]
 - SMTP password
 - DB password
 - GCS service account key
+
+### GitHub Secrets vs GCP Secret Manager (aclaración)
+
+Son cosas distintas que viven en momentos distintos del ciclo:
+
+| Aspecto | GitHub Secrets | GCP Secret Manager |
+|---------|----------------|--------------------|
+| **Momento de uso** | Build / CI/CD (GitHub Actions) | Runtime (app corriendo en Cloud Run) |
+| **Ejemplos típicos** | `GCP_SA_KEY` para desplegar, `DOCKER_TOKEN` para push a registry | `JWT_SECRET`, `WOMPI_INTEGRITY_SECRET`, `DB_PASSWORD` |
+| **Quién los lee** | Runners de GitHub Actions | La app Spring Boot en cada request |
+| **Cuándo se acceden** | Segundos-minutos del pipeline | Todo el tiempo mientras la app está viva |
+| **Frecuencia de rotación** | Cuando cambian credenciales de deploy | Cuando se comprometen o por política |
+
+**Analogía**: GitHub Secrets = llaves del camión de mudanza que trae los muebles. Secret Manager = llaves de la casa cuando ya vives en ella.
+
+**En Tourya**:
+- **GitHub Secrets** — ya se usan (para el deploy continuo a AWS EC2 legacy). Nombres exactos: consultar en `github.com/Touryapp/tourya-api/settings/secrets/actions`.
+- **GCP Secret Manager** — ⚠️ **NO habilitado** en `tourya-project-dev` al 2026-07-08. Pendiente en Fase 0.
 
 ---
 

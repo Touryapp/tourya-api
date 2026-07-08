@@ -18,31 +18,57 @@ Cómo está montada la infraestructura y los pipelines de Tourya. Estado actual:
 
 ## Infraestructura GCP
 
-### Proyecto
-- **Project ID**: `wass-project`
-- **Región**: `us-east1`
-- **Owners**: `franklinmarcano1970@gmail.com`, `luis.mendoza@wass.com.co`
+### Proyectos (2 ambientes)
 
-### Servicios
+| Ambiente | Project ID | Uso |
+|----------|------------|-----|
+| **Dev / staging** | `tourya-project-dev` | Donde trabajamos día a día. Fase 0 y siguientes se aplican aquí primero |
+| **Producción** | `tourya-project-493820` | No tocar hasta validar en dev |
 
-| Servicio | Uso |
+- **Región principal**: `us-east1`
+- **Owners GCP**: `franklinmarcano1970@gmail.com`, `luis.mendoza@wass.com.co`
+
+### Servicios habilitados en `tourya-project-dev`
+
+| Servicio | Uso | Estado |
+|----------|-----|--------|
+| **Cloud Run** | Backend y frontend serverless | ✅ Activo |
+| **Cloud SQL** | PostgreSQL 15 (privado vía VPC) | ✅ Activo |
+| **Cloud Storage (GCS)** | Imágenes, comprobantes, documentos KYB, QRs | ✅ Activo |
+| **Cloud Build** | CI/CD pipeline | ✅ Activo |
+| **Artifact Registry** | Docker images | ✅ Activo |
+| **VPC Connector** | Cloud Run ↔ Cloud SQL privado | ✅ Activo |
+| **Load Balancer (HTTPS)** | Routing + dominio | ✅ Activo |
+| **Secret Manager** | Para secretos runtime | ⚠️ **NO habilitado en `tourya-project-dev`** — pendiente (Fase 0) |
+
+### Cloud Run
+
+| Servicio | URL |
 |----------|-----|
-| **Cloud Run** | Backend y frontend serverless |
-| **Cloud SQL** | PostgreSQL (privado vía VPC) |
-| **Cloud Storage (GCS)** | Imágenes, comprobantes, documentos KYB, QRs |
-| **Cloud Build** | CI/CD pipeline |
-| **Artifact Registry** | Docker images |
-| **VPC Connector** | Cloud Run ↔ Cloud SQL privado |
-| **Load Balancer (HTTPS)** | Routing + dominio |
-| **Secret Manager** | ❓ ❗ Hoy NO está siendo usado — debería usarse para secretos |
+| `tourya-dev-api` | https://tourya-dev-api-640622322458.us-east1.run.app |
+| `tourya-dev-front` | https://tourya-dev-front-640622322458.us-east1.run.app |
+
+Service Account: `tourya-dev-cloud-run@tourya-project-dev.iam.gserviceaccount.com`
+
+### Cloud SQL
+
+| Item | Valor |
+|------|-------|
+| Instancia | `tourya-dev-db` |
+| Motor | PostgreSQL 15 |
+| Tier | `db-f1-micro` (mínimo) |
+| Ubicación | `us-east1-c` |
+| IP pública | `34.148.43.142` |
+| IP privada | `192.168.0.3` (vía VPC connector) |
+| Estado | RUNNABLE |
 
 ### Dominios
 
 | Dominio | Apunta a | DNS |
 |---------|----------|-----|
 | `tourya.co` | Load Balancer `34.160.22.16` | GoDaddy (cliente) |
-| `tourya-dev-api-5j2nd2oflq-ue.a.run.app` | Cloud Run backend | GCP |
-| `tourya-front-24ohzuhvrq-ue.a.run.app` | Cloud Run frontend | GCP |
+| `tourya-dev-api-640622322458.us-east1.run.app` | Cloud Run backend (dev) | GCP |
+| `tourya-dev-front-640622322458.us-east1.run.app` | Cloud Run frontend (dev) | GCP |
 
 📌 PENDIENTE — confirmar si hay subdominios planeados (`api.tourya.co`, `admin.tourya.co`).
 
@@ -61,15 +87,29 @@ Cómo está montada la infraestructura y los pipelines de Tourya. Estado actual:
 
 ### Variables de entorno críticas
 ```
-DB_HOST, DB_PORT, DB_USER, DB_PASSWORD
-MAIL_HOST, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD, MAIL_STARTTLS, MAIL_LOCALHOST, MAIL_TLS_PROTOCOLS
+DB_HOST, DB_PORT, DB_USER, DB_PASSWORD         ← DB_PASSWORD → Secret Manager (pendiente)
+MAIL_HOST, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD, MAIL_STARTTLS, MAIL_LOCALHOST, MAIL_TLS_PROTOCOLS   ← MAIL_PASSWORD → Secret Manager
 ACTIVATION_URL
 STORAGE_PROVIDER=GCP
 GCS_BUCKET, GCP_PROJECT_ID
 GOOGLE_CLIENT_ID
-WOMPI_PUBLIC_KEY, WOMPI_INTEGRITY_SECRET   ← debería ir a Secret Manager
-JWT_SECRET                                  ← debería ir a Secret Manager
+WOMPI_PUBLIC_KEY, WOMPI_INTEGRITY_SECRET       ← WOMPI_INTEGRITY_SECRET → Secret Manager
+JWT_SECRET                                     ← → Secret Manager
 ```
+
+### Referencia: patrón de WASS
+
+El proyecto hermano `wass-project-dev` **ya tiene Secret Manager configurado** con el siguiente esquema (a replicar en Tourya):
+
+```
+wass-jwt-key
+wass-db-app, wass-db-owner
+wass-smtp-password
+wass-syncfusion
+wass-wompi-integrity-secret, wass-wompi-private-key, wass-wompi-public-key, wass-wompi-events-secret
+```
+
+Nomenclatura equivalente para Tourya (a crear): `tourya-jwt-key`, `tourya-wompi-integrity-secret`, `tourya-smtp-password`, `tourya-db-app`, `tourya-db-owner`.
 
 ### Histórico relevante
 
