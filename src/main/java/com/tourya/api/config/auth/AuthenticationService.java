@@ -132,10 +132,18 @@ public class AuthenticationService {
                 .build();
     }
 
+    @Transactional
     public void activateAccount(String token) throws MessagingException {
         Token savedToken = tokenRepository.findByToken(token)
                 // todo exception has to be defined
                 .orElseThrow(() -> new RuntimeException("Invalid token"));
+
+        // Prevenir replay: un token ya validado no puede reutilizarse.
+        // Mismo mensaje que "token no encontrado" para no filtrar informacion al atacante.
+        if (savedToken.getValidatedAt() != null) {
+            throw new RuntimeException("Invalid token");
+        }
+
         if (LocalDateTime.now().isAfter(savedToken.getExpiresAt())) {
             sendValidationEmail(savedToken.getUser());
             throw new RuntimeException("Activation token has expired. A new token has been send to the same email address");
