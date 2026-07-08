@@ -12,4 +12,12 @@ public interface WompiWebhookEventRepository extends JpaRepository<WompiWebhookE
     List<WompiWebhookEvent> findByProcessedAtIsNull();
 
     List<WompiWebhookEvent> findByTransactionId(String transactionId);
+
+    /**
+     * Eventos pendientes de reconciliacion: firma valida, no procesados aun,
+     * y con un status especifico (tipicamente APPROVED). Limitado y ordenado
+     * por received_at ASC para procesar los mas viejos primero.
+     */
+    List<WompiWebhookEvent> findTop100BySignatureValidTrueAndProcessedAtIsNullAndTransactionStatusOrderByReceivedAtAsc(
+            String transactionStatus);
 }
