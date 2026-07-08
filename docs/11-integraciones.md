@@ -124,7 +124,7 @@ La elección es a nivel property → puede cambiar sin recompilar.
 
 #### GCS
 - **Service Account Key JSON**: archivo con credenciales.
-- ⚠️ Vulnerabilidad: `tourya-api/docs/tourya-dev-sa-key.json` está commiteado al repo. **Debe rotarse + eliminar del repo + agregar a `.gitignore`**.
+- ✅ **Resuelto 2026-07-08**: el archivo `tourya-api/docs/tourya-dev-sa-key.json` NO estaba commiteado al repo (el `.gitignore` con patrón `docs/*-sa-key.json` lo protegió desde siempre). El key `df67...` sí vivía en el filesystem local del dev y en GitHub Secrets como `GCP_SA_KEY_DEV`. Ambos exposiciones fueron cerradas: key deshabilitado en IAM y migración de autenticación GitHub Actions → GCP a Workload Identity Federation (PR #153). El GitHub Secret fue eliminado.
 
 #### AWS S3
 - `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `AWS_BUCKET` (env vars).
@@ -278,14 +278,14 @@ Canal WhatsApp para los agentes IA (ver [16 — Agentes IA](16-agentes-ia.md)):
 | Servicio | Credencial | Ubicación |
 |----------|------------|-----------|
 | Wompi public key | `pub_test_*` | mobile `Constants.cs`, frontend env |
-| Wompi integrity secret | ⚠️ hardcoded en `application.properties` (debería ir a env/Secret Manager) |
+| Wompi integrity secret | ✅ En GCP Secret Manager (`tourya-wompi-integrity-secret`) en dev. Fallback en `application.properties` como puente hasta quitar |
 | Gmail SMTP password | env var `MAIL_PASSWORD` (Cloud Run) |
-| GCS Service Account key | ⚠️ `tourya-dev-sa-key.json` en repo (debe rotarse) |
+| GCS Service Account key | ✅ Ya no se usan keys JSON. GitHub Actions autentica vía Workload Identity Federation (WIF). Cloud Run usa identidad del SA implícita |
 | AWS keys | env vars (Cloud Run / AWS legacy) |
 | Firebase API key | frontend env (no sensible) |
-| JWT secret | ⚠️ hardcoded en `application.properties` (debería ir a env/Secret Manager) |
+| JWT secret | ✅ En GCP Secret Manager (`tourya-jwt-key`, valor rotado) en dev. Fallback en `application.properties` como puente hasta quitar |
 
-📌 **Tarea pendiente**: migrar TODOS los secretos sensibles a **GCP Secret Manager** (parte del plan de remediación).
+✅ **Completado en dev (2026-07-08)**: `JWT_SECRET`, `WOMPI_INTEGRITY_SECRET`, `DB_PASSWORD`, `MAIL_PASSWORD` en GCP Secret Manager. Cloud Run inyecta como env vars vía `--set-secrets`. 📌 Falta replicar en proyecto de producción (`tourya-project-493820`).
 
 ---
 
@@ -294,6 +294,6 @@ Canal WhatsApp para los agentes IA (ver [16 — Agentes IA](16-agentes-ia.md)):
 1. **Implementar webhook server-side de Wompi** para no perder pagos.
 2. **Migrar de Firebase a Token Exchange** (propuesta en `social-login-google-facebook.md`).
 3. **Implementar Google Cloud Translation** (propuesta en `traduccion-automatica-tours.md`).
-4. **Migrar secretos a Secret Manager** (parte del plan de seguridad).
+4. ~~Migrar secretos a Secret Manager~~ — ✅ Completado en dev (2026-07-08).
 5. **Push Notifications**: evaluar FCM (es gratis y se integra bien con MAUI).
 6. **Analytics**: si Luis quiere data del producto, GA4 web + Firebase Analytics mobile.

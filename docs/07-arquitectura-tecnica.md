@@ -405,17 +405,22 @@ TouryaMobile/
 
 ## Tech debt y vulnerabilidades
 
-| # | Item | Severidad | Documento |
-|---|------|-----------|-----------|
-| 1 | JWT secret hardcoded en `application.properties` | CRITICAL | `security-remediation-plan.md` |
-| 2 | Wompi integrity secret hardcoded | CRITICAL | `security-remediation-plan.md` |
-| 3 | Actuator full exposure | CRITICAL | `security-remediation-plan.md` |
-| 4 | Activation token sin protección de replay | CRITICAL | `security-remediation-plan.md` |
-| 5 | PII leak en `/public/bookings` | CRITICAL | `security-remediation-plan.md` |
-| 6 | Social login sin validación de token Firebase | CRITICAL | `security-remediation-plan.md`, `social-login-google-facebook.md` |
-| 7 | `tourya-dev-sa-key.json` commiteado en repo | HIGH | `security-remediation-plan.md` |
-| 8 | jjwt en 0.11.5 (debería ser 0.12.x) | MEDIUM | — |
-| 9 | `tourya-mobile` sin remoto GitHub | HIGH | — |
-| 10 | URL backend hardcoded en mobile (AWS legacy) | HIGH | — |
-| 11 | CI/CD sin coverage gate ni Snyk | MEDIUM | `cicd-improvement-plan.md` |
-| 12 | Sin webhook Wompi server-side | MEDIUM | — |
+| # | Item | Severidad | Estado |
+|---|------|-----------|--------|
+| 1 | JWT secret hardcoded en `application.properties` | CRITICAL | ✅ Resuelto en dev (Secret Manager + rotación, PRs #151+#152) |
+| 2 | Wompi integrity secret hardcoded | CRITICAL | ✅ Resuelto en dev (Secret Manager, PRs #151+#152) |
+| 3 | Actuator full exposure | CRITICAL | ✅ Resuelto (PR #146) |
+| 4 | Activation token sin protección de replay | CRITICAL | ✅ Resuelto (PR #147) |
+| 5 | PII leak en `/public/bookings` | CRITICAL | ✅ Resuelto (PR #148) |
+| 6 | Social login sin validación de token Firebase | CRITICAL | ⚠️ Pendiente Fase 1 — [social-login-google-facebook.md](../../social-login-google-facebook.md) |
+| 7 | SA key `df67...` user-managed con expiración infinita (en filesystem local y GitHub Secrets, NUNCA commiteado — `.gitignore` lo protegió) | HIGH | ✅ Resuelto (WIF + key deshabilitado, PR #153) |
+| 8 | jjwt en 0.11.5 (debería ser 0.12.x) | MEDIUM | ⚠️ Pendiente |
+| 9 | `tourya-mobile` sin remoto GitHub | HIGH | ⚠️ Pendiente Fase 1 |
+| 10 | URL backend hardcoded en mobile (AWS legacy) | HIGH | ⚠️ Pendiente Fase 1 |
+| 11 | CI/CD sin coverage gate ni Snyk | MEDIUM | ⚠️ Pendiente — [cicd-improvement-plan.md](../../cicd-improvement-plan.md) |
+| 12 | Sin webhook Wompi server-side | MEDIUM | ⚠️ Pendiente Fase 1 |
+| 13 | `System.out.println("tempPassword")` en social auth | HIGH | ✅ Resuelto (PR #149) |
+| 14 | CORS con URLs muertas AWS legacy | HIGH | ✅ Resuelto (PR #150) |
+| 15 | URL de QR hardcoded a IP AWS legacy en `ReservationQrService:130` | HIGH | ⚠️ Pendiente (fallback muerto detectado durante SEC-11) |
+| 16 | Alertas Cloud Monitoring no configuradas | MEDIUM | ⚠️ Pendiente Fase 0 (INF-01) |
+| 17 | Backup automático Cloud SQL no habilitado | HIGH | ⚠️ Pendiente Fase 0 (INF-02) |

@@ -34,7 +34,7 @@ Catálogo de las reglas que rigen el comportamiento de Tourya. Marcadas según o
 - Si el token es válido: `enabled = true`, `validatedAt = now()`.
 - Si el token expiró: se genera un nuevo token + se reenvía email + se lanza error.
 
-⚠️ Sin protección contra **replay**: un token validado podría reutilizarse (bug en `AuthenticationService.activateAccount`). **Debe resolverse**: un token, una vez usado, no puede ser reutilizado (invalidar al confirmar la activación).
+✅ **Protección anti-replay implementada (2026-07-08, PR #147, SEC-04)**: `AuthenticationService.activateAccount()` verifica `validatedAt != null` al inicio y rechaza tokens ya usados con "Invalid token" (mismo mensaje que "no encontrado", para no filtrar info al atacante). Método anotado con `@Transactional` para atomicidad entre `user.enabled=true` y `token.validatedAt`.
 
 ---
 

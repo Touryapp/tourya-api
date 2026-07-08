@@ -39,7 +39,8 @@ Cómo está montada la infraestructura y los pipelines de Tourya. Estado actual:
 | **Artifact Registry** | Docker images | ✅ Activo |
 | **VPC Connector** | Cloud Run ↔ Cloud SQL privado | ✅ Activo |
 | **Load Balancer (HTTPS)** | Routing + dominio | ✅ Activo |
-| **Secret Manager** | Para secretos runtime | ⚠️ **NO habilitado en `tourya-project-dev`** — pendiente (Fase 0) |
+| **Secret Manager** | Para secretos runtime | ✅ Habilitado en `tourya-project-dev` (2026-07-08). 4 secretos activos: `tourya-jwt-key`, `tourya-wompi-integrity-secret`, `tourya-db-password`, `tourya-smtp-password` |
+| **Workload Identity Federation** | Autenticación GitHub Actions → GCP sin keys JSON | ✅ Habilitado en `tourya-project-dev`. Pool `github-actions-pool` + provider `github-oidc` con condición `repository == Touryapp/tourya-api` |
 
 ### Cloud Run
 
@@ -86,20 +87,31 @@ Service Account: `tourya-dev-cloud-run@tourya-project-dev.iam.gserviceaccount.co
 - **VPC Connector**: sí (para Cloud SQL privado).
 
 ### Variables de entorno críticas
+
+Estado en `tourya-dev-api` (dev) al 2026-07-08:
+
+**Plain env vars (no sensibles)**:
 ```
-DB_HOST, DB_PORT, DB_USER, DB_PASSWORD         ← DB_PASSWORD → Secret Manager (pendiente)
-MAIL_HOST, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD, MAIL_STARTTLS, MAIL_LOCALHOST, MAIL_TLS_PROTOCOLS   ← MAIL_PASSWORD → Secret Manager
+DB_HOST, DB_PORT, DB_USER
+MAIL_HOST, MAIL_PORT, MAIL_USERNAME, MAIL_STARTTLS, MAIL_SSL, MAIL_DEBUG
 ACTIVATION_URL
 STORAGE_PROVIDER=GCP
 GCS_BUCKET, GCP_PROJECT_ID
-GOOGLE_CLIENT_ID
-WOMPI_PUBLIC_KEY, WOMPI_INTEGRITY_SECRET       ← WOMPI_INTEGRITY_SECRET → Secret Manager
-JWT_SECRET                                     ← → Secret Manager
+WOMPI_PUBLIC_KEY
+AWS_REGION, AWS_BUCKET (legacy)
+```
+
+**Secret Manager refs (inyectados vía `--set-secrets`)**:
+```
+JWT_SECRET                → tourya-jwt-key
+WOMPI_INTEGRITY_SECRET    → tourya-wompi-integrity-secret
+DB_PASSWORD               → tourya-db-password
+MAIL_PASSWORD             → tourya-smtp-password
 ```
 
 ### Referencia: patrón de WASS
 
-El proyecto hermano `wass-project-dev` **ya tiene Secret Manager configurado** con el siguiente esquema (a replicar en Tourya):
+**Ya replicado en Tourya dev** (2026-07-08). El proyecto hermano `wass-project-dev` **también tiene Secret Manager configurado** con esquema similar:
 
 ```
 wass-jwt-key
@@ -362,7 +374,7 @@ GOOGLE_CLIENT_ID=
 4. **Configurar Cloud Build trigger** para `main` de tourya-api.
 5. **Verificar backups de Cloud SQL** habilitados con retention 30 días.
 6. **Configurar alertas** en Cloud Monitoring (errores 5xx, latencia, DB connections).
-7. **Migrar secretos a Secret Manager**.
+7. ~~Migrar secretos a Secret Manager~~. — ✅ Completado en dev (2026-07-08). Falta replicar en prod (`tourya-project-493820`).
 
 ---
 

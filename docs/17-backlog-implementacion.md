@@ -55,17 +55,19 @@ Consolida todo el trabajo pendiente que emergió de los documentos [00–16](00-
 
 | ID | Item | Prio | Talla | Depende | Referencia |
 |----|------|:----:|:-----:|---------|------------|
-| SEC-01 | Rotar JWT secret y mover a **GCP Secret Manager** | P0 | S | — | C-1, [12](12-seguridad-y-auth.md) |
-| SEC-02 | Rotar Wompi integrity secret y mover a Secret Manager | P0 | S | — | C-2 |
-| SEC-03 | Cerrar exposición de Actuator (solo `/health`, `/info`) | P0 | XS | — | C-3 |
-| SEC-04 | Fix bug de replay en token de activación (invalidar tras uso) | P0 | XS | — | C-4, RN-003 |
-| SEC-05 | Cerrar filtración de PII en `/public/bookings/{id}` | P0 | S | — | C-5 |
-| SEC-06 | Reemplazar Firebase social login por **Token Exchange** (Google + Facebook) | P0 | M | — | C-6, RN-006, [social-login-google-facebook.md](../social-login-google-facebook.md) |
-| SEC-07 | Rotar service account key GCS + eliminarlo del repo + `.gitignore` | P0 | XS | — | H-1 |
-| SEC-08 | Eliminar `System.out.println` de password temporal | P0 | XS | — | H-2 |
-| SEC-09 | Rate limiting en `/auth/authenticate` y `/auth/register` | P1 | S | — | H-3 |
-| SEC-10 | Lockout tras 5 intentos fallidos (con backoff exponencial) | P1 | S | SEC-09 | H-4 |
-| SEC-11 | Limpiar CORS: quitar IPs AWS legacy, agregar `tourya.co` | P1 | XS | — | H-7 |
+| SEC-01 | 🟢 Rotar JWT secret y mover a **GCP Secret Manager** | P0 | S | — | C-1, PRs #151+#152 (dev) |
+| SEC-02 | 🟢 Rotar Wompi integrity secret y mover a Secret Manager | P0 | S | — | C-2, PRs #151+#152 (dev, movido — no rotado) |
+| SEC-03 | 🟢 Cerrar exposición de Actuator (solo `/health`, `/info`) | P0 | XS | — | C-3, PR #146 |
+| SEC-04 | 🟢 Fix bug de replay en token de activación (invalidar tras uso) | P0 | XS | — | C-4, RN-003, PR #147 |
+| SEC-05 | 🟢 Cerrar filtración de PII en `/public/bookings/{id}` | P0 | S | — | C-5, PR #148 |
+| SEC-06 | ⚪ Reemplazar Firebase social login por **Token Exchange** (Google + Facebook) | P0 | M | — | C-6, RN-006, [social-login-google-facebook.md](../social-login-google-facebook.md) |
+| SEC-07 | 🟢 Migrar a Workload Identity Federation (elimina SA keys JSON) | P0 | XS→M* | — | H-1, PR #153 |
+| SEC-08 | 🟢 Eliminar `System.out.println` de password temporal | P0 | XS | — | H-2, PR #149 |
+| SEC-09 | ⚪ Rate limiting en `/auth/authenticate` y `/auth/register` | P1 | S | — | H-3 |
+| SEC-10 | ⚪ Lockout tras 5 intentos fallidos (con backoff exponencial) | P1 | S | SEC-09 | H-4 |
+| SEC-11 | 🟢 Limpiar CORS: quitar IPs AWS legacy, agregar `tourya.co` | P1 | XS | — | H-7, PR #150 |
+
+*SEC-07 escaló a M porque en vez de solo rotar el key se migró a WIF (mejor solución de largo plazo).
 
 **Subtotal seguridad**: ~1.5 días de agente + revisiones = **~3 días calendario**.
 
@@ -188,14 +190,14 @@ Basado en el roadmap de [15 — MVP mobile estado](15-mvp-mobile-estado.md).
 
 | ID | Item | Prio | Talla | Depende | Referencia |
 |----|------|:----:|:-----:|---------|------------|
-| INF-01 | Configurar 8 alertas mínimas en Cloud Monitoring (5xx backend/frontend, latencia P95, DB conn/CPU/disco, cost anomaly, Cloud Run throttled) | P0 | S | — | [13](13-despliegue-cicd.md) |
-| INF-02 | Habilitar backup automático de Cloud SQL (retention 30 días) | P0 | XS | — | [13](13-despliegue-cicd.md) |
+| INF-01 | ⚪ Configurar 8 alertas mínimas en Cloud Monitoring (5xx backend/frontend, latencia P95, DB conn/CPU/disco, cost anomaly, Cloud Run throttled) | P0 | S | — | [13](13-despliegue-cicd.md) |
+| INF-02 | ⚪ Habilitar backup automático de Cloud SQL (retention 30 días) | P0 | XS | — | [13](13-despliegue-cicd.md) |
 | INF-03 | Crear Cloud Build trigger para `main` (deploy productivo automatizado) | P1 | S | — | [13](13-despliegue-cicd.md) |
 | INF-04 | Coverage gate 80% con JaCoCo | P2 | S | — | `cicd-improvement-plan.md` |
 | INF-05 | SpotBugs + PMD en CI | P2 | S | INF-04 | `cicd-improvement-plan.md` |
 | INF-06 | Snyk Free en CI (solo push a main/develop) | P2 | S | — | `cicd-improvement-plan.md` |
 | INF-07 | Branch Protection en `develop` y `main` (requiere PR + CI verde) | P1 | XS | INF-04, INF-06 | `cicd-improvement-plan.md` |
-| INF-08 | Migrar `.env` completo a env vars documentadas + Secret Manager | P0 | S | SEC-01, SEC-02 | [13](13-despliegue-cicd.md) |
+| INF-08 | 🟢 Migrar `.env` completo a env vars documentadas + Secret Manager | P0 | S | SEC-01, SEC-02 | PRs #151+#152 (dev) |
 | INF-09 | Limpieza de ramas viejas en GitHub (`Touryapp/tourya-api` tiene ~80 ramas) | P3 | XS | — | — |
 
 **Subtotal infra**: ~1 día de agente + configuración manual en GCP Console (que Franklin hace) = **~2 días calendario**.
@@ -236,16 +238,16 @@ Ver diseño completo en [16](16-agentes-ia.md).
 | MO-00 Repo GitHub mobile | XS | Franklin | Solo crear repo + push. Necesita acceso a `Touryapp/` |
 | MO-01 URL backend mobile | XS | Agente | Cambio en `Constants.cs` |
 | MO-02 Syncfusion license | XS | Franklin | Manual — pegar license key |
-| SEC-01 JWT secret a Secret Manager | S | Agente + Franklin | Agente refactoriza; Franklin crea el secreto en GCP |
-| SEC-02 Wompi secret a Secret Manager | S | Agente + Franklin | Idem |
-| SEC-03 Cerrar Actuator | XS | Agente | Cambio de properties |
-| SEC-04 Fix replay token activación | XS | Agente | Ajuste en `AuthenticationService` |
-| SEC-05 PII leak `/public/bookings` | S | Agente | Quitar campos sensibles del response |
-| SEC-07 Rotar y eliminar SA key | XS | Franklin | Rotar en GCP + `git rm` + gitignore |
-| SEC-08 Eliminar `println` de password | XS | Agente | Un `sed` |
-| INF-01 Alertas Cloud Monitoring | S | Franklin | Config manual en Cloud Console |
-| INF-02 Backup Cloud SQL | XS | Franklin | Toggle en Cloud Console |
-| INF-08 Env vars + Secret Manager completo | S | Agente + Franklin | Idem SEC-01/02 |
+| 🟢 SEC-01 JWT secret a Secret Manager | S | Agente + Franklin | Rotado y movido (PRs #151+#152) |
+| 🟢 SEC-02 Wompi secret a Secret Manager | S | Agente + Franklin | Movido (PRs #151+#152) |
+| 🟢 SEC-03 Cerrar Actuator | XS | Agente | PR #146 |
+| 🟢 SEC-04 Fix replay token activación | XS | Agente | PR #147 |
+| 🟢 SEC-05 PII leak `/public/bookings` | S | Agente | PR #148 |
+| 🟢 SEC-07 Migrar a WIF | XS→M | Franklin + Agente | Pool + provider + binding + workflow OIDC (PR #153) |
+| 🟢 SEC-08 Eliminar `println` de password | XS | Agente | PR #149 |
+| ⚪ INF-01 Alertas Cloud Monitoring | S | Franklin | Config manual en Cloud Console (pendiente) |
+| ⚪ INF-02 Backup Cloud SQL | XS | Franklin | Toggle en Cloud Console (pendiente) |
+| 🟢 INF-08 Env vars + Secret Manager completo | S | Agente + Franklin | Idem SEC-01/02 |
 
 **Estimación real**:
 - **Agente**: ~4–6 horas de trabajo real.
