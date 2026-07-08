@@ -7,6 +7,7 @@ import com.tourya.api.repository.PaymentRepository;
 import com.tourya.api.repository.ReservationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -29,6 +30,9 @@ public class ReservationQrService {
     private final IStorageService s3Service;
     private final PaymentRepository paymentRepository;
     private final ReservationRepository reservationRepository;
+
+    @Value("${application.qr.base-url:https://tourya.co/home}")
+    private String qrBaseUrl;
 
     /**
      * Genera y sube un código QR para una reserva específica.
@@ -126,11 +130,9 @@ public class ReservationQrService {
      * @return URL de redirección con parámetros
      */
     private String buildQrContent(Payment payment, Reservation reservation) {
-        // URL base de redirección
-        String baseUrl = "http://44.203.38.85:8080/home";
-        
-        // Construir URL con parámetros de la reserva
-        StringBuilder qrUrl = new StringBuilder(baseUrl);
+        // URL base de redireccion: env var QR_BASE_URL o fallback a produccion
+        // Se puede sobreescribir por Cloud Run env var para dev/staging.
+        StringBuilder qrUrl = new StringBuilder(qrBaseUrl);
         qrUrl.append("?reservationId=").append(reservation.getReservationId());
         qrUrl.append("&paymentId=").append(payment.getPaymentId());
         qrUrl.append("&transactionId=").append(payment.getTransactionId());
