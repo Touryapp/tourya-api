@@ -46,11 +46,18 @@ public class BeansConfig {
         final CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
         //config.setAllowedOrigins(List.of("*")); //Despues cambiar a las urls de origen.
-        config.setAllowedOrigins(List.of("http://localhost:4200",
-                "http://localhost:8080", "http://44.203.38.85:8088", "http://44.203.38.85:8080",
-                "http://localhost:8100", "https://localhost/",
-                "https://tourya-dev-front-5j2nd2oflq-ue.a.run.app",
-                "https://tourya-dev-api-5j2nd2oflq-ue.a.run.app"));
+        config.setAllowedOrigins(List.of(
+                // Dev local
+                "http://localhost:4200",
+                "http://localhost:8080",
+                "http://localhost:8100",
+                // Cloud Run dev (URLs actuales)
+                "https://tourya-dev-front-640622322458.us-east1.run.app",
+                "https://tourya-dev-api-640622322458.us-east1.run.app",
+                // Dominio custom (produccion)
+                "https://tourya.co",
+                "https://www.tourya.co"
+        ));
         config.setAllowedHeaders(Arrays.asList(
                 HttpHeaders.ORIGIN,
                 HttpHeaders.CONTENT_TYPE,
