@@ -421,6 +421,6 @@ TouryaMobile/
 | 12 | Sin webhook Wompi server-side | MEDIUM | ⚠️ Pendiente Fase 1 |
 | 13 | `System.out.println("tempPassword")` en social auth | HIGH | ✅ Resuelto (PR #149) |
 | 14 | CORS con URLs muertas AWS legacy | HIGH | ✅ Resuelto (PR #150) |
-| 15 | URL de QR hardcoded a IP AWS legacy en `ReservationQrService:130` | HIGH | ⚠️ Pendiente (fallback muerto detectado durante SEC-11) |
+| 15 | URL de QR hardcoded a IP AWS legacy en `ReservationQrService:130` | HIGH | ✅ Resuelto (PR #154, 2026-07-08). `@Value("${application.qr.base-url:https://tourya.co/home}")` |
 | 16 | Alertas Cloud Monitoring no configuradas | MEDIUM | ⚠️ Pendiente Fase 0 (INF-01) |
 | 17 | Backup automático Cloud SQL no habilitado | HIGH | ⚠️ Pendiente Fase 0 (INF-02) |
