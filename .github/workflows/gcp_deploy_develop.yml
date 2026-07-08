@@ -66,5 +66,6 @@ jobs:
           secrets: |
             JWT_SECRET=tourya-jwt-key:latest
             WOMPI_INTEGRITY_SECRET=tourya-wompi-integrity-secret:latest
+            WOMPI_EVENTS_SECRET=tourya-wompi-events-secret:latest
             DB_PASSWORD=tourya-db-password:latest
             MAIL_PASSWORD=tourya-smtp-password:latest
