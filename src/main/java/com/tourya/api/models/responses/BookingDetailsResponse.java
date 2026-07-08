@@ -21,10 +21,6 @@ public class BookingDetailsResponse {
     private String bookingId;
     private Long paymentId;
     private String transactionId;
-    private String payer;
-    private String payerDocumentType;
-    private String payerDocumentNumber;
-    private String email;
     private LocalDateTime reservationDate;
     private String status;
     private Integer tourId;
@@ -38,7 +34,6 @@ public class BookingDetailsResponse {
     private LocalDateTime checkInDate;
     private LocalDateTime returnDate;
     private String destination;
-    private String customerPhone;
     private List<String> extraServices;
     private List<String> activities;
 }
