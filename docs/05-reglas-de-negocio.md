@@ -43,16 +43,49 @@ Catálogo de las reglas que rigen el comportamiento de Tourya. Marcadas según o
 
 ---
 
-### RN-005 — JWT de 24 horas (a rediseñar)
+### RN-005 — Access + Refresh tokens diferenciados por rol (a implementar)
 ✅ Expiración actual: `application.security.jwt.expiration=86400000` ms = 24 horas. **Sin refresh token**.
 
-📌 **A rediseñar**: implementar `access token + refresh token` **diferenciados por rol**:
+✅ **Decisión Franklin (2026-07-07)** — basada en OWASP ASVS Level 2 (V3.5) y benchmarks de industria (Airbnb, Booking, Uber para turista; patrones bancarios para backoffice):
 
-| Rol | Access token | Refresh token | Expiración por inactividad |
-|-----|--------------|---------------|------------------------------|
-| **Cliente (USER)** | 15 – 30 min | 14 – 30 días | Sin expiración por inactividad |
-| **Proveedor (PROVIDER / PROVIDER_OPERATOR)** | máx 15 min | 1 – 7 días | 1 – 2 horas |
-| **Backoffice (ADMIN / BACKOFFICE_OPERATION)** | máx 10 min | 8 – 12 horas | 15 minutos |
+#### Tiempos por rol
+
+| Rol | Access token | Refresh token | Idle (inactividad) |
+|-----|--------------|---------------|--------------------|
+| **USER (turista)** | 60 min | 30 días | Sin idle |
+| **PROVIDER / PROVIDER_OPERATOR** | 30 min | 7 días | 4 horas |
+| **ADMIN / BACKOFFICE_OPERATION** | 15 min | 8 horas | 15 minutos |
+
+**Racional**:
+- **Turista 60 min**: 15 min se caducaría en medio del checkout Wompi (mala UX). 60 min cubre el flujo compra + navegación sin fricción.
+- **Proveedor 30 min + 4h idle**: operador en campo pasa horas sin abrir la app (tour largo). Menos de 30 min mata la productividad al escanear QRs.
+- **Backoffice 15 min + 15 min idle**: maneja dinero (aprueba KYB, ajusta comisiones, sube payouts). Ventana corta reduce riesgo si el token se compromete.
+
+#### Reglas transversales (patrón industry-standard contra robo de tokens)
+
+1. **Refresh token rotativo**: cada uso emite un token nuevo y **invalida el anterior**. El token viejo NO se puede reutilizar.
+2. **Detección de reuso**: si un `jti` ya rotado se intenta usar → **revocar toda la familia** de tokens del usuario. Esto detecta cuando un atacante obtuvo el refresh y el usuario legítimo lo rotó primero.
+3. **Almacenamiento**:
+   - **Web (Angular)**: cookie `HttpOnly` + `Secure` + `SameSite=Lax`.
+   - **Mobile (MAUI)**: `SecureStorage` (ya se usa hoy para el JWT).
+   - Access token en `Authorization: Bearer {token}` (igual que hoy).
+4. **Logout**: revoca **toda la familia** de tokens del usuario, no solo la sesión actual.
+
+#### Nueva tabla `refresh_token`
+
+| Campo | Tipo | Notas |
+|-------|------|-------|
+| `jti` | UUID | PK — id único del refresh token |
+| `user_id` | int | FK a `_user` |
+| `family_id` | UUID | ID de familia (misma sesión → misma familia; rotación mantiene familia) |
+| `previous_jti` | UUID | `jti` del token que este reemplaza (null para el primer emitido) |
+| `issued_at` | timestamp | |
+| `expires_at` | timestamp | Según rol (30d / 7d / 8h) |
+| `revoked_at` | timestamp | null si aún válido |
+| `revoked_reason` | string | LOGOUT / ROTATED / REUSE_DETECTED / EXPIRED |
+| `user_agent`, `ip_address` | string | Para forensia |
+
+Índice compuesto: `(user_id, family_id, revoked_at)` para queries de "familia activa del usuario".
 
 ---
 
@@ -100,14 +133,14 @@ Solución propuesta: ver `social-login-google-facebook.md` (Token Exchange).
 ### RN-012 — Tour debe tener un único Provider asignado
 ✅ El backend resuelve el provider del JWT del PROVIDER que crea.
 
-### RN-013 — Restricciones de galería del tour
-✅ **Reglas**:
+### RN-013 — Restricciones de galería del tour (propuesta a validar)
+📌 **Propuesta** (Luis, 2026-07-07 confirma que son valores **propuestos**, a validar contra el template Angular actual):
 - **Máximo 7 imágenes** por tour.
 - **Máximo 5 MB** por imagen.
 - Formato **horizontal (landscape)** obligatorio — nunca verticales (portrait).
 - Ancho recomendado: **1920 px**.
 
-⚠️ Estas reglas deben implementarse en frontend (validación pre-upload) **y** backend (validación al recibir).
+📌 **Pendiente**: revisar el **template Angular actual** (tarjetas de tour, hero, detalle) para determinar el tamaño ideal real y ajustar estos valores. Luego implementar en frontend (validación pre-upload) **y** backend (validación al recibir).
 
 ---
 
@@ -122,8 +155,10 @@ Donde:
 - `providerPrice` lo define el PROVIDER.
 - `slotPercentageTourya` (en puntos, ej. `15` = 15%) lo define BACKOFFICE/ADMIN.
 
-### RN-015 — Comisión Tourya por default a nivel de Tour (a implementar)
+### RN-015 — Comisión Tourya por default a nivel de Tour (aprobado — a implementar)
 Actualmente al crear un slot nuevo, `slotPercentageTourya = 0` — hasta que el BACKOFFICE lo asigne, Tourya no gana nada por ese slot.
+
+✅ **Aprobado por Luis (2026-07-07)** — el motivo original está confirmado: *"evitar que el proveedor configurara el schedule (Slot) y Tourya no ganara nada por no tener configurado el % en el Slot."*
 
 📌 **A implementar**:
 1. Crear un nuevo campo **`percentageTourya`** en la tabla `Tour`.
@@ -160,10 +195,15 @@ Esto elimina la ventana de "slot con 0% de comisión".
 
 ## 4. Carrito y checkout
 
-### RN-022 — Hold temporal de 15 minutos
+### RN-022 — Hold temporal de 15 minutos (configurable — a implementar)
 ✅ Al hacer checkout (POST `/reservations`), se crean `Reservation`s en estado `TEMPORAL` con `expiresAt = now + 15 minutos`. Si el usuario no paga en ese tiempo, el job `TemporalReservationExpiryJob` (corre cada 60s) las cancela y libera el slot.
 
-⚙️ Configurable: `tourya.reservations.holdMinutes` (default 15). 📌 **A exponer**: el ADMIN debe poder configurar este valor desde el backoffice.
+✅ **Aprobado por Luis (2026-07-07)**: hoy son 15 minutos (tiempo que tiene el turista para pagar en la pasarela). Debe ser **configurable por el ADMIN** desde el backoffice para poder ajustarlo si Wompi tarda o si se detectan patrones de abandono a los X minutos.
+
+📌 **A implementar**:
+1. Persistir el valor en `app_config` (JSONB) en lugar del property `tourya.reservations.holdMinutes`.
+2. UI en backoffice para editar el valor.
+3. Aplicar sin reiniciar el servicio (leer de `app_config` en cada checkout).
 
 ### RN-023 — Validación de capacidad en checkout
 ✅ Al agregar al carrito, se valida que el slot tenga capacidad suficiente (`requestedUnits <= availability`). **Esta validación solo aplica si `Tour.isUnlimitedCapacity = false`**.
@@ -174,7 +214,9 @@ Esto elimina la ventana de "slot con 0% de comisión".
 ### RN-025 — Una sola transacción Wompi por payment
 ✅ Cada `Payment` tiene un único `transactionId` de Wompi. Si Wompi retorna fallida la transacción, no se crea Payment ni se confirman reservas.
 
-⚠️ NO hay webhook server-side de Wompi: la confirmación es client-side. Si el cliente cierra la app entre Wompi success y POST `/payment`, queda en limbo. ✅ **Decisión**: implementar webhook server-side de Wompi con prioridad — no podemos tener problemas con los pagos.
+⚠️ NO hay webhook server-side de Wompi: la confirmación es client-side. Si el cliente cierra la app entre Wompi success y POST `/payment`, queda en limbo.
+
+✅ **Aprobado por Luis (2026-07-07)**: **avanzar con el desarrollo del webhook Wompi** para evitar problemas con los pagos de los turistas. Prioridad alta.
 
 ---
 
@@ -213,8 +255,10 @@ Razones (`CancellationReasonEnum`):
 - `CANNOT_ATTEND`
 - `ILLNESS`
 - `INABILITY_TO_TRAVEL`
-- `LEGAL_OBLIGATIONS` (nuevo)
-- `CHANGE_OF_PLANS` (nuevo)
+- `LEGAL_OBLIGATIONS` (nuevo) — ✅ aprobado Luis 2026-07-07
+- `CHANGE_OF_PLANS` (nuevo) — ✅ aprobado Luis 2026-07-07
+
+> Contexto: se identificó que faltaban motivos por los cuales un turista puede razonablemente cancelar un tour. Estas razones se agregaron para cubrir esos casos.
 
 ### RN-031 — Refund por cancelación → Crédito
 ✅ El refund NO es devolución directa a la tarjeta. Se genera un `Credit` a favor del turista.

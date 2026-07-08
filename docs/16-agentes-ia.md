@@ -122,7 +122,9 @@ Responde en el idioma del turista.
 
 **Canal**: WhatsApp.
 
-> ⚠️ **RIESGO/DEPENDENCIA**: la **WhatsApp Business API está marcada como "No implementado" en [11 — Integraciones](11-integraciones.md)**. Este agente no puede lanzarse hasta resolver ese prerequisito (selección de BSP, registro de WABA, plantillas aprobadas por Meta).
+> ⚠️ **RIESGO/DEPENDENCIA**: la integración con **Twilio Programmable Messaging para WhatsApp** aún no está implementada (ver [11 — Integraciones](11-integraciones.md)). Este agente no puede lanzarse hasta resolver ese prerequisito.
+>
+> ✅ **Decisión Luis + Franklin (2026-07-07)**: usar **Twilio** como BSP en vez de integrar directo con Meta/Facebook. Twilio simplifica el onboarding (WABA aprobado por ellos), tiene SDK estable y no requiere pelear con el proceso de verificación de Meta directamente. Costo mayor a cambio de velocidad de implementación.
 
 **Cuándo actúa**: tras la confirmación de pago (reenvío de QR), y ante cualquier mensaje entrante del turista.
 
@@ -157,7 +159,7 @@ Responde en el idioma del turista.
 
 **Canal**: WhatsApp o email.
 
-> ⚠️ **RIESGO/DEPENDENCIA**: comparte la dependencia de WhatsApp Business API del Agente 2. El canal email ya existe (SMTP Gmail Workspace, ver 11-integraciones.md) y puede usarse como fallback mientras WhatsApp no esté disponible.
+> ⚠️ **RIESGO/DEPENDENCIA**: comparte la dependencia de Twilio del Agente 2. El canal email ya existe (SMTP Gmail Workspace, ver 11-integraciones.md) y puede usarse como fallback mientras Twilio no esté disponible.
 
 **Cuándo actúa**: cuando un `ShoppingCart` permanece `ACTIVE` sin checkout tras un tiempo configurable, o cuando una `Reservation` en `TEMPORAL` está por expirar (RN-022, hold de 15 minutos, job `TemporalReservationExpiryJob`).
 
@@ -247,15 +249,15 @@ Responde en el idioma del turista.
 | Agente | Modelo | Autónomo? | Canal | Depende de | Costo/mes estimado (meta 12m) |
 |---|---|---|---|---|---|
 | Travel Concierge | Haiku 4.5 + Sonnet 5 | Sí (búsqueda/carrito) | Web/App | Nada nuevo | ~$20–25 |
-| Support 24/7 | Haiku 4.5 + Sonnet 5 | Sí (cancelación/reschedule dentro de política) | WhatsApp | ⚠️ WhatsApp Business API | ~$5–7 |
-| Desert Shopping Cart | Haiku 4.5 | Sí (mensaje) | WhatsApp/Email | ⚠️ WhatsApp (fallback: email ya existe) | ~$1–2 |
+| Support 24/7 | Haiku 4.5 + Sonnet 5 | Sí (cancelación/reschedule dentro de política) | WhatsApp (Twilio) | ⚠️ Twilio Programmable Messaging | ~$5–7 |
+| Desert Shopping Cart | Haiku 4.5 | Sí (mensaje) | WhatsApp/Email | ⚠️ Twilio (fallback: email ya existe) | ~$1–2 |
 | Operator Support | Sonnet 5 | Borrador, operador aprueba | Web/App | Nada nuevo | ~$2–4 |
 | Backoffice Support | Sonnet 5 | Borrador, ADMIN aprueba | Web/App | Nada nuevo | ~$1–2 |
 | **Total estimado (inferencia LLM)** | | | | | **~$30–40/mes** |
 
-> Margen sobre estimación: **3x** para presupuesto inicial ≈ **$100–120/mes**. El costo real de operar esta capa es marginal frente al costo de canal (WhatsApp) y de infraestructura (Cloud Run, Cloud SQL) — reevaluar al mes 3 con datos reales, igual que cualquier otro presupuesto de `app_config`.
+> Margen sobre estimación: **3x** para presupuesto inicial ≈ **$100–120/mes**. El costo real de operar esta capa es marginal frente al costo de canal (Twilio + Meta) y de infraestructura (Cloud Run, Cloud SQL) — reevaluar al mes 3 con datos reales, igual que cualquier otro presupuesto de `app_config`.
 
-> 📌 **PENDIENTE LUIS** — confirmar presupuesto mensual inicial y umbrales de alerta por agente en `app_config`.
+> ✅ **Presupuesto aprobado Luis (2026-07-07)**: **$100–200 USD/mes** para inferencia LLM. Este rango cubre el estimado con margen 3× y permite absorber picos sin bloqueo. El costo de canal (Twilio + Meta) se contabiliza aparte.
 
 ---
 
@@ -308,6 +310,15 @@ com.tourya.api/
 ```
 
 > ⚠️ Esta tabla `agent_audit_log` **no existe hoy** en el schema de 68 tablas ([08 — Modelo de datos](08-modelo-de-datos.md)) — es una migración nueva, prerequisito antes de dar autonomía real a cualquier agente (Principio rector #4).
+>
+> ✅ **Validación Franklin (2026-07-07)**: **es buena práctica y es necesaria**. Sin audit log estructurado no se puede:
+> - **Depurar** (qué prompt produjo qué respuesta al operador X en la fecha Y).
+> - **Trackear costo** por agente / usuario / entidad afectada.
+> - **Iterar prompts** con datos (comparar override rate de v1 vs v2).
+> - **Cumplir compliance** cuando el agente afecta reservas o pagos.
+> - **Investigar anomalías** (¿por qué el agente 2 canceló 30 reservas ayer?).
+>
+> Es el pattern estándar en cualquier sistema de agentes que interactúa con transacciones reales. Ejecutar como migración temprana.
 
 ### Flujo de ejecución de un agente
 
@@ -398,7 +409,9 @@ Tourya ya usa **Cloud Logging + Cloud Monitoring** (GCP, ver [13 — Despliegue]
 | Tasa de override humano | > 30% (revisar el prompt) |
 | % del presupuesto mensual consumido | > 80% |
 
-📌 **PENDIENTE LUIS** — hoy Tourya no tiene alertas configuradas en Cloud Monitoring para nada (ni siquiera errores 5xx del backend, ver 13-despliegue-cicd). Configurar alertas generales del backend es prerequisito antes de sumarle alertas de agentes.
+✅ **Validación Franklin (2026-07-07)**: **es necesario mantener este punto** — no se elimina. Estamos por salir a producción con dinero real (pagos Wompi, payouts a operadores). Sin alertas básicas de Cloud Monitoring (errores 5xx, latencia P95, agotamiento de DB connections, cost anomaly) el equipo se entera de los problemas por reclamos del turista, no antes.
+
+Configurar alertas generales del backend es prerequisito de higiene operativa **antes** de sumarle alertas específicas de agentes IA. Costo de Cloud Monitoring básico: prácticamente cero para el volumen inicial.
 
 ---
 
@@ -425,7 +438,7 @@ Priorizado según dependencias reales (no sprints ficticios) y el estado actual 
 | **Fase 1** (post-MVP, cuando el GMV meta de 12 meses esté cerca) | Moderación de reseñas IA, Payout automatizado, Reconciliación de pagos, B2B | Cada uno ya está señalado como roadmap explícito en la documentación existente — no son ideas nuevas, son ejecución de lo ya decidido |
 | **Fase 2** (visión 2 años) | Coordinador Autónomo | Requiere datos acumulados reales de los agentes 1-5 |
 
-📌 **priorizar** — priorizar la implementación de WhatsApp Business API para los agentes que utilizan este canal para interactuar con los turistas. 
+📌 **priorizar** — priorizar la implementación de Twilio Programmable Messaging (WhatsApp) para los agentes que utilizan este canal para interactuar con los turistas. 
 
 ---
 

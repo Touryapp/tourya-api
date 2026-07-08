@@ -37,15 +37,17 @@ application.security.jwt.expiration=86400000
 
 ### JWT (rediseño pendiente) — Access + Refresh diferenciados por rol
 
-📌 Definido con Luis (2026-06-28): implementar **access token + refresh token** con expiraciones diferenciadas por rol.
+✅ Definido Franklin (2026-07-07) basado en OWASP ASVS Level 2:
 
-| Rol | Access token | Refresh token | Expiración por inactividad |
-|-----|--------------|---------------|------------------------------|
-| **Cliente (USER)** | 15 – 30 min | 14 – 30 días | Sin expiración por inactividad |
-| **Proveedor (PROVIDER / PROVIDER_OPERATOR)** | máx 15 min | 1 – 7 días | 1 – 2 horas |
-| **Backoffice (ADMIN / BACKOFFICE_OPERATION)** | máx 10 min | 8 – 12 horas | 15 minutos |
+| Rol | Access token | Refresh token | Idle |
+|-----|--------------|---------------|------|
+| **USER (turista)** | 60 min | 30 días | Sin idle |
+| **PROVIDER / PROVIDER_OPERATOR** | 30 min | 7 días | 4 horas |
+| **ADMIN / BACKOFFICE_OPERATION** | 15 min | 8 horas | 15 min |
 
-Detalle en [05 — Reglas de negocio, RN-005](05-reglas-de-negocio.md).
+**Reglas transversales**: refresh rotativo, detección de reuso (revoca familia entera), almacenamiento en cookie HttpOnly (web) o SecureStorage (mobile), nueva tabla `refresh_token`.
+
+Detalle completo en [05 — Reglas de negocio, RN-005](05-reglas-de-negocio.md).
 
 ---
 

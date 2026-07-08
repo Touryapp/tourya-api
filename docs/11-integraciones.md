@@ -230,19 +230,44 @@ Transferir el dinero recaudado al operador.
 
 ---
 
-## 8. Otras integraciones potenciales (no implementadas)
+## 8. Twilio Programmable Messaging (WhatsApp) — aprobado, a implementar
+
+### Propósito
+Canal WhatsApp para los agentes IA (ver [16 — Agentes IA](16-agentes-ia.md)):
+- **Agente 2 — Support 24/7**: envío de QR post-pago, respuestas de cancelación y reagendamiento.
+- **Agente 3 — Desert Shopping Cart**: recuperación de carritos abandonados.
+
+### Cómo se integrará
+✅ **Decisión Luis + Franklin (2026-07-07)**: usar **Twilio** como **BSP** (Business Solution Provider) en vez de integrar directamente con Meta/Facebook.
+
+**Ventajas**:
+- Onboarding más simple — Twilio ya tiene WABA (WhatsApp Business Account) aprobado.
+- SDK estable y documentado.
+- No hay que pelear el proceso de verificación de Meta directamente.
+
+**Trade-off**: costo mayor (fee de Twilio sobre el costo Meta) a cambio de velocidad de implementación.
+
+### Alcance de la integración
+- Envío outbound de mensajes (plantillas aprobadas + free-form dentro de la ventana 24h).
+- Recepción inbound vía webhook (para que el agente responda al turista).
+- Plantillas por caso de uso: confirmación de reserva, recordatorio, cancelación, reagendamiento, recuperación de carrito.
+
+📌 Pendiente: crear cuenta Twilio, aprobar plantillas, definir sender ID.
+
+---
+
+## 9. Otras integraciones potenciales (no implementadas)
 
 | Integración | Propósito | Estado |
 |-------------|-----------|--------|
-| **Webhook Wompi** | Confirmación de pago server-side | No implementado |
+| **Webhook Wompi** | Confirmación de pago server-side | ✅ Aprobado — a implementar (RN-025) |
 | **Push Notifications (FCM)** | Notificar reservas, cancelaciones | No implementado |
-| **WhatsApp Business API** | Notificaciones por WhatsApp | No implementado |
 | **Google Maps Geocoding** | Resolver lat/long desde direcciones | No implementado (se ingresan manualmente) |
 | **Google Maps Render** | Mostrar mapa en detalle de tour | Componente Syncfusion.Maps importado en mobile, no usado aún |
 | **DIAN (facturación electrónica)** | Cumplimiento factura para compras | No implementado |
 | **CRM (Hubspot, etc.)** | Marketing/leads | No implementado |
 | **Analytics (GA4, Mixpanel)** | Producto / conversión | No implementado |
-| **Sentry / Datadog** | Monitoring de errores | No implementado |
+| **Sentry / Datadog** | Monitoring de errores | No implementado — ver [13 — Despliegue](13-despliegue-cicd.md) para alertas GCP básicas |
 
 📌 PENDIENTE LUIS — priorizar cuáles del listado de arriba van en el roadmap.
 

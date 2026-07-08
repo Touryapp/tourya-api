@@ -212,11 +212,26 @@ Hay un archivo `MIGRACIONES_A_EJECUTAR.txt` que mantiene la lista de migraciones
 |---------|----------|
 | Logs backend | Cloud Logging (auto-stream desde Cloud Run) |
 | Métricas | Cloud Monitoring (auto) |
-| Alertas | ❓ — no configuradas |
+| Alertas | ⚠️ **Aprobado configurar** — prerequisito antes de producción |
 | Tracing | ❓ — no configurado |
 | APM | ❌ Sentry / Datadog no integrados |
 
-📌 PENDIENTE LUIS — ¿se quieren alertas? (errores 5xx, latencia alta, base de datos full).
+✅ **Decisión Franklin (2026-07-07)**: **configurar alertas básicas de Cloud Monitoring es prerequisito antes de salir a producción**. Estamos por operar con dinero real (pagos Wompi, payouts a operadores). Sin alertas, el equipo se entera de los problemas por reclamos del turista.
+
+### Alertas mínimas a configurar
+
+| Alerta | Umbral | Canal |
+|--------|--------|-------|
+| Errores 5xx del backend | > 1% de requests en 5 min | Email + Slack |
+| Latencia P95 del backend | > 3 s en 5 min | Email + Slack |
+| Errores 5xx del frontend | > 1% en 5 min | Email |
+| Cloud SQL connections | > 80% del pool | Email + Slack |
+| Cloud SQL CPU | > 85% sostenido 10 min | Email + Slack |
+| Cloud SQL disco lleno | > 80% de la capacidad | Email + Slack (crítico) |
+| Cost anomaly (proyecto GCP) | > 2× media histórica en 24h | Email |
+| Cloud Run instances | falla al escalar (throttled requests > 0) | Email |
+
+Costo: prácticamente cero para el volumen inicial. Configurar antes del go-live.
 
 ---
 

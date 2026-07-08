@@ -147,6 +147,28 @@ Nadie escribe código que contradiga estos documentos sin antes actualizar el do
 
 ---
 
+## Log de decisiones
+
+Bitácora cronológica de decisiones aprobadas por el equipo. Sirve como registro rápido del "por qué" cuando el tiempo pasa y las decisiones parecen obvias.
+
+| Fecha | Decisión | Aprobado por | Referencia |
+|-------|----------|--------------|------------|
+| 2026-06-28 | Meta iso-funcionalidad web/mobile ajustada: mobile cubre el ciclo operativo completo del proveedor (operadores en la calle en San Andrés) | Luis | [14](14-gap-web-mobile.md) |
+| 2026-06-28 | `TourReservation` legacy eliminado | Equipo | migración 065 (commit `076f006`) |
+| 2026-06-28 | Nuevas razones de cancelación: `LEGAL_OBLIGATIONS`, `CHANGE_OF_PLANS` | Luis | RN-030 |
+| 2026-06-28 | Políticas de cancelación: Flexible/Estándar/Moderado/Estricto (100% refund si se cumple) | Luis | RN-031 |
+| 2026-07-07 | `isUnlimitedCapacity` es LIMPIEZA (eliminar de `tour_schedule`), no migración — la fuente de verdad está en `Tour` | Luis | RN-021 |
+| 2026-07-07 | Nuevo campo `Tour.percentageTourya` (default de comisión al aprobar el tour) | Luis | RN-015 |
+| 2026-07-07 | `holdMinutes` del carrito debe ser configurable por ADMIN vía `app_config` | Luis | RN-022 |
+| 2026-07-07 | Avanzar con **webhook server-side de Wompi** — prioridad alta para no perder pagos | Luis | RN-025 |
+| 2026-07-07 | Refresh tokens diferenciados por rol (USER 60m/30d, PROVIDER 30m/7d/4h idle, ADMIN 15m/8h/15m idle). Rotación estricta + detección de reuso | Franklin | RN-005 |
+| 2026-07-07 | WhatsApp vía **Twilio** (no integración directa con Meta) — velocidad de implementación sobre costo | Luis + Franklin | [16](16-agentes-ia.md), [11](11-integraciones.md) |
+| 2026-07-07 | Tabla `agent_audit_log` es prerequisito para dar autonomía a cualquier agente IA | Franklin | [16](16-agentes-ia.md) |
+| 2026-07-07 | Alertas básicas de Cloud Monitoring son prerequisito antes de salir a producción | Franklin | [13](13-despliegue-cicd.md) |
+| 2026-07-07 | Presupuesto mensual agentes IA: **$100–200 USD/mes** para inferencia LLM | Luis | [16](16-agentes-ia.md) |
+
+---
+
 ## Changelog
 
 | Versión | Fecha | Cambios |
@@ -157,3 +179,4 @@ Nadie escribe código que contradiga estos documentos sin antes actualizar el do
 | 1.3 | 2026-07-06 | Nuevo doc `15-mvp-mobile-estado.md` — gap analysis del código MAUI actual contra la matriz del doc 14 + roadmap por ciclos |
 | 1.4 | 2026-07-06 | Doc `14-gap-web-mobile.md` reescrito v2.0 con el alcance definido por Luis (operadores en la calle → mobile cubre crear tour, schedule y operarios). Doc `15-mvp-mobile-estado.md` actualizado en consecuencia. Doc `16-agentes-ia.md` esqueleto (Luis creó el placeholder, pendiente el contenido detallado) |
 | 1.5 | 2026-07-07 | Luis completó `16-agentes-ia.md` con 5 agentes core, arquitectura y roadmap. Aclaración de Luis sobre `isUnlimitedCapacity`: es una LIMPIEZA (eliminar el campo de `tour_schedule`), no una migración. Ajustados docs 04, 05 y 08 en consecuencia. Correcciones ortográficas menores en 14 y 16 |
+| 1.6 | 2026-07-07 | Consolidación de las 10 respuestas de Luis por WhatsApp: RN-005 (refresh tokens definidos con OWASP), RN-013 (galería propuesta a validar), RN-015 (percentageTourya aprobado), RN-022 (holdMinutes configurable aprobado), RN-025 (webhook Wompi aprobado), RN-030 (razones nuevas aprobadas). Decisión: WhatsApp vía Twilio (no Meta directo). Validaciones técnicas: `agent_audit_log` necesario, alertas Cloud Monitoring como prerequisito. Presupuesto agentes $100-200/mes aprobado. Actualizados docs 05, 11, 12, 13, 16 |
