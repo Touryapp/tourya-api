@@ -2,7 +2,16 @@
 
 Consolida todo el trabajo pendiente que emergió de los documentos [00–16](00-README.md) en un **backlog priorizado** con estimación de esfuerzo, dependencias y **plan por fases**.
 
-> **Objetivo**: llevar Tourya de "documentación completa" a "MVP productivo" con un roadmap ejecutable y realista para el equipo actual (1 backend, 1 frontend, 1 mobile — ver equipo en [01](01-vision-y-negocio.md)).
+> **Objetivo**: llevar Tourya de "documentación completa" a "MVP productivo" con un roadmap ejecutable.
+
+> ⚠️ **Modelo de ejecución (importante)**: el desarrollo se hará con un **agente IA (Claude) como implementador**, con Franklin como revisor y product owner técnico, y Luis como PO de negocio. Las estimaciones de esfuerzo aquí reflejan **tiempo real de agente + review + validación**, NO tiempo de un desarrollador humano trabajando solo.
+>
+> Por qué esto importa:
+> - Escribir código: **agente es 10-20× más rápido** que un dev humano.
+> - Review humano: **no se acelera** — sigue siendo cuello de botella.
+> - Aprobaciones externas (Twilio WABA, Meta plantillas, Play Store): **tiempo calendario NO comprimible**.
+> - Testing con usuarios reales, coordinación con operadores: **tiempo calendario NO comprimible**.
+> - Deployment + rollback en producción: **cuidadoso, no se acelera**.
 
 ---
 
@@ -17,15 +26,17 @@ Consolida todo el trabajo pendiente que emergió de los documentos [00–16](00-
 | **P2** | Post-MVP importante — 3-6 meses después de salir. |
 | **P3** | Nice-to-have / futuro / roadmap 12m+. |
 
-### Esfuerzo estimado
+### Esfuerzo estimado (agente IA + review humano)
 
-| Talla | Días de trabajo |
-|-------|-----------------|
-| **XS** | < 1 día |
-| **S** | 1–3 días |
-| **M** | 3–7 días |
-| **L** | 1–2 semanas |
-| **XL** | 2–4 semanas |
+| Talla | Trabajo agente | Review + validación | Total calendario típico |
+|-------|:---------------:|:-------------------:|:-----------------------:|
+| **XS** | 15–30 min | 15–30 min | ~1 hora |
+| **S** | 30 min – 2 h | 30 min – 1 h | ~½ día |
+| **M** | 2–4 h | 1–2 h | ~1 día |
+| **L** | 4–8 h (1 día agente) | 2–4 h | ~2 días |
+| **XL** | 1–3 días agente | 4–8 h | ~3–5 días |
+
+> **Nota**: estas estimaciones asumen el patrón "agente propone → Franklin revisa PR → merge → deploy → validar". No incluyen tiempo de aprobación externa (Twilio, Play Store, etc.), que se contabiliza en "dependencias" de cada fase.
 
 ### Estado
 
@@ -56,7 +67,7 @@ Consolida todo el trabajo pendiente que emergió de los documentos [00–16](00-
 | SEC-10 | Lockout tras 5 intentos fallidos (con backoff exponencial) | P1 | S | SEC-09 | H-4 |
 | SEC-11 | Limpiar CORS: quitar IPs AWS legacy, agregar `tourya.co` | P1 | XS | — | H-7 |
 
-**Subtotal seguridad**: ~15 días.
+**Subtotal seguridad**: ~1.5 días de agente + revisiones = **~3 días calendario**.
 
 ---
 
@@ -85,7 +96,7 @@ Consolida todo el trabajo pendiente que emergió de los documentos [00–16](00-
 | BE-19 | Correo automático "crédito expirado" | P2 | XS | BE-18 | RN-036 |
 | BE-20 | Verificar y completar flujo de reagendamiento (3 casos: igual/menor/mayor precio) | P1 | S | — | RN-033 |
 
-**Subtotal backend**: ~30 días.
+**Subtotal backend**: ~3 días de agente + revisiones + testing en staging = **~5–7 días calendario**.
 
 ---
 
@@ -104,7 +115,7 @@ Consolida todo el trabajo pendiente que emergió de los documentos [00–16](00-
 | FE-09 | Dashboard operativo del backoffice: tasa conversión/cancelación, tours de alto riesgo | P2 | L | — | Doc 01 roadmap |
 | FE-10 | Gestor de disputas | P2 | L | — | Doc 01 roadmap |
 
-**Subtotal frontend web**: ~35 días.
+**Subtotal frontend web**: ~3 días de agente + revisiones + prueba visual = **~5–7 días calendario** (los dashboards `FE-08/09/10` no cuentan aquí — van a Fase 4).
 
 ---
 
@@ -169,7 +180,7 @@ Basado en el roadmap de [15 — MVP mobile estado](15-mvp-mobile-estado.md).
 | MO-50 | Modo offline: cache local de reservas del día para operario | P2 | M | — | Doc 15 Ciclo 5 |
 | MO-51 | Vista de reservas del operario mejorada (filtro por tour asignado, agrupación por hora) | P2 | S | — | Doc 15 Ciclo 5 |
 
-**Subtotal mobile**: ~55 días.
+**Subtotal mobile**: ~5–6 días de agente + revisiones + testing en dispositivo real + release cycles Play Store = **~2 semanas calendario** para el bloque D.1 + D.2 + D.3. Los D.4 y D.5 van a fases posteriores.
 
 ---
 
@@ -187,7 +198,7 @@ Basado en el roadmap de [15 — MVP mobile estado](15-mvp-mobile-estado.md).
 | INF-08 | Migrar `.env` completo a env vars documentadas + Secret Manager | P0 | S | SEC-01, SEC-02 | [13](13-despliegue-cicd.md) |
 | INF-09 | Limpieza de ramas viejas en GitHub (`Touryapp/tourya-api` tiene ~80 ramas) | P3 | XS | — | — |
 
-**Subtotal infra**: ~10 días.
+**Subtotal infra**: ~1 día de agente + configuración manual en GCP Console (que Franklin hace) = **~2 días calendario**.
 
 ---
 
@@ -210,147 +221,160 @@ Ver diseño completo en [16](16-agentes-ia.md).
 | IA-10 | Agente 6: **Moderación de reseñas** (Haiku 4.5) | P2 | M | IA-01 | RN-050 |
 | IA-11 | Dashboard de observabilidad de agentes (uso, latencia, override rate, costo) | P2 | S | IA-01 | [16](16-agentes-ia.md) |
 
-**Subtotal agentes**: ~30 días.
+**Subtotal agentes**: ~3–4 días de agente + iteración de prompts con datos reales + espera de aprobación Twilio WABA = **~2–3 semanas calendario** (el tiempo de Twilio WABA es el más largo y NO se puede acelerar).
 
 ---
 
-## Plan por fases
+## Plan por fases (con estimaciones agente + calendario real)
 
-### 🚨 Fase 0 — Higiene y seguridad crítica (semanas 1–2)
+### 🚨 Fase 0 — Higiene y seguridad crítica
 
 **Objetivo**: **cerrar el techo antes de invitar gente a la fiesta**. Sin esto no salimos a producción.
 
-| Ítem | Talla | Owner sugerido |
-|------|:-----:|----------------|
-| MO-00 Repo GitHub mobile | XS | Mobile dev |
-| MO-01 URL backend mobile | XS | Mobile dev |
-| MO-02 Syncfusion license | XS | Mobile dev |
-| SEC-01 JWT secret a Secret Manager | S | Backend |
-| SEC-02 Wompi secret a Secret Manager | S | Backend |
-| SEC-03 Cerrar Actuator | XS | Backend |
-| SEC-04 Fix replay token activación | XS | Backend |
-| SEC-05 PII leak `/public/bookings` | S | Backend |
-| SEC-07 Rotar y eliminar SA key | XS | Backend + DevOps |
-| SEC-08 Eliminar `println` de password | XS | Backend |
-| INF-01 Alertas Cloud Monitoring | S | DevOps |
-| INF-02 Backup Cloud SQL | XS | DevOps |
-| INF-08 Env vars + Secret Manager completo | S | DevOps |
+| Ítem | Talla | Trabajo | Nota |
+|------|:-----:|---------|------|
+| MO-00 Repo GitHub mobile | XS | Franklin | Solo crear repo + push. Necesita acceso a `Touryapp/` |
+| MO-01 URL backend mobile | XS | Agente | Cambio en `Constants.cs` |
+| MO-02 Syncfusion license | XS | Franklin | Manual — pegar license key |
+| SEC-01 JWT secret a Secret Manager | S | Agente + Franklin | Agente refactoriza; Franklin crea el secreto en GCP |
+| SEC-02 Wompi secret a Secret Manager | S | Agente + Franklin | Idem |
+| SEC-03 Cerrar Actuator | XS | Agente | Cambio de properties |
+| SEC-04 Fix replay token activación | XS | Agente | Ajuste en `AuthenticationService` |
+| SEC-05 PII leak `/public/bookings` | S | Agente | Quitar campos sensibles del response |
+| SEC-07 Rotar y eliminar SA key | XS | Franklin | Rotar en GCP + `git rm` + gitignore |
+| SEC-08 Eliminar `println` de password | XS | Agente | Un `sed` |
+| INF-01 Alertas Cloud Monitoring | S | Franklin | Config manual en Cloud Console |
+| INF-02 Backup Cloud SQL | XS | Franklin | Toggle en Cloud Console |
+| INF-08 Env vars + Secret Manager completo | S | Agente + Franklin | Idem SEC-01/02 |
 
-**Total Fase 0**: ~7 días de trabajo distribuido.
+**Estimación real**:
+- **Agente**: ~4–6 horas de trabajo real.
+- **Franklin**: ~4–6 horas (rotar secretos GCP, crear config Cloud Monitoring, revisar PRs).
+- **Total calendario**: **3–5 días** (asumiendo que Franklin puede darle 1-2 horas por día).
 
 **Resultado**: producción segura, código respaldado, observabilidad mínima.
 
 ---
 
-### 🏗️ Fase 1 — MVP core (semanas 3–6)
+### 🏗️ Fase 1 — MVP core
 
 **Objetivo**: implementar los cambios de modelo aprobados por Luis y refactors habilitantes.
 
-**Backend (paralelo con frontend/mobile)**:
-- BE-01, BE-02: `percentageTourya`
-- BE-03, BE-04: eliminar `isUnlimitedCapacity` de schedule
-- BE-05: razones nuevas cancelación
-- BE-06 → BE-09: `holdMinutes`/buffer/expiración créditos configurables + endpoint
-- BE-10: validador galería (esperar validación template Angular RN-013)
-- BE-11: docs KYB obligatorios
-- BE-12 → BE-15: **Access + Refresh tokens** (tabla, `JwtService`, `/auth/refresh`, `/auth/logout`)
-- BE-16, BE-17: **Webhook Wompi** + reconciliación
-- BE-20: verificar flujo reschedule
-- SEC-06: **Token Exchange** Google/Facebook (elimina Firebase)
-- SEC-09, SEC-10: rate limiting + lockout
-- SEC-11: limpiar CORS
+**Bloques de trabajo** (se pueden hacer secuencialmente o en paralelo si Franklin aprueba varios PRs al día):
 
-**Frontend web**:
-- FE-01: cookies HttpOnly + auto-refresh interceptor
-- FE-02: quitar Firebase SDK
-- FE-03: validación galería
-- FE-04: UI ADMIN de `app_config`
-- FE-05: UI backoffice `Tour.percentageTourya`
-- FE-06: razones nuevas UI
-- FE-07: quitar campo `isUnlimitedCapacity` schedule
+| Bloque | Items | Talla agregada |
+|--------|-------|----------------|
+| Backend cambios de modelo | BE-01 a BE-11 | ~1 día agente |
+| Backend refresh tokens | BE-12 a BE-15 | ~1 día agente |
+| Backend Wompi webhook + reschedule | BE-16, BE-17, BE-20 | ~1 día agente |
+| Backend security fixes | SEC-06, SEC-09, SEC-10, SEC-11 | ~1 día agente |
+| Frontend web | FE-01 a FE-07 | ~1 día agente |
+| Mobile brechas turista | MO-10 a MO-13 | ~1 día agente |
+| Mobile brechas proveedor | MO-20 a MO-24 | ~1 día agente |
+| Mobile UX refinado | MO-30 a MO-32 | ~1 día agente |
+| Mobile CI/CD | MO-03 | ~½ día agente + Play Store setup Franklin |
+| Infra | INF-03, INF-07 | ~½ día |
 
-**Mobile**:
-- MO-03: CI/CD APK firmado
-- MO-10 → MO-13: brechas turista (reseña, wishlist, créditos, login social)
-- MO-20 → MO-24: brechas proveedor (responder reseña, payouts, operarios)
-- MO-30 → MO-32: refinar UX (autosave, compresión, upload background)
-
-**Infra**:
-- INF-03: Cloud Build trigger main
-- INF-07: Branch Protection
-
-**Total Fase 1**: ~50 días distribuidos entre 3 devs → ~4 semanas de calendario.
+**Estimación real**:
+- **Agente**: ~8–10 días de trabajo distribuidos.
+- **Franklin (review + merge + testing en staging)**: ~2 horas/día × 15 días = ~30 horas.
+- **Testing con turistas / operadores reales**: 3–5 días (Luis coordina con los 3 operadores negociados).
+- **Deploy productivo + hotfixes**: 2–3 días.
+- **Total calendario**: **~2–3 semanas**.
 
 **Resultado**: **MVP listo para salir a producción** con los 3 operadores negociados.
 
----
-
-### 🤖 Fase 2 — Agentes IA prioritarios (semanas 7–10)
-
-**Objetivo**: soltar los 2 agentes que **no dependen de Twilio** para empezar a validar el patrón de IA con usuarios reales.
-
-- IA-00: tabla `agent_audit_log`
-- IA-01: paquete shared (`ILlmClient`, budget guard, audit)
-- IA-02: **Travel Concierge** (turista)
-- IA-07: **Operator Support** (proveedor durante wizard)
-- IA-09: traducción automática Google Cloud Translation (integrar con `Tour.saveAll`)
-
-**En paralelo**:
-- IA-03, IA-04: onboarding Twilio + servicio de mensajería
-- MO-40: Firebase Cloud Messaging (push)
-
-**Total Fase 2**: ~15 días.
-
-**Resultado**: 2 agentes IA en producción + canal WhatsApp listo para los siguientes.
+**Fecha estimada de MVP en producción**: ~2 a 3 semanas después de arrancar Fase 0.
 
 ---
 
-### 📱 Fase 3 — Twilio + agentes WhatsApp + mobile capabilities (semanas 11–14)
+### 🤖 Fase 2 — Agentes IA prioritarios (sin dependencia externa)
 
-**Objetivo**: cerrar el loop de comunicación con turistas y operadores + darle al mobile las capacidades que solo el móvil hace bien.
+**Objetivo**: soltar los 2 agentes que no dependen de Twilio para empezar a validar el patrón de IA con usuarios reales.
 
-- IA-05: **Support 24/7** (WhatsApp, Twilio)
-- IA-06: **Desert Shopping Cart**
-- MO-41, MO-42: geolocalización
-- MO-43: deep-linking
+| Item | Talla | Nota |
+|------|:-----:|------|
+| IA-00: tabla `agent_audit_log` | S | Migración + entidad JPA |
+| IA-01: paquete shared (`ILlmClient`, budget, audit) | M | Base para todos los agentes |
+| IA-02: Travel Concierge | M | Prompt + tests + integración con búsqueda |
+| IA-07: Operator Support | M | Prompt + integración con wizard tour |
+| IA-09: Traducción Google Cloud Translation | S | Ya presupuestado |
+| MO-40 Firebase Cloud Messaging (push) | M | Setup FCM + integración backend + mobile |
+| IA-03, IA-04: Twilio onboarding en paralelo | — | **Bloqueado por aprobación Meta — arrancar ASAP** |
 
-**Total Fase 3**: ~15 días.
+**Estimación real**:
+- **Agente**: ~3–4 días trabajo.
+- **Iteración de prompts** (probar Travel Concierge con búsquedas reales, ajustar): 3–5 días.
+- **Franklin (review + observar métricas)**: 2–3 horas/día × 10 días.
+- **Twilio WABA en paralelo**: se arranca aquí, se aprueba durante Fase 3.
+- **Total calendario**: **~1.5–2 semanas**.
+
+**Resultado**: 2 agentes IA en producción + canal WhatsApp aprobándose.
 
 ---
 
-### 📈 Fase 4 — Post-MVP: dashboards, backoffice avanzado, refinamiento mobile (semanas 15–20)
+### 📱 Fase 3 — Twilio + agentes WhatsApp + mobile capabilities
+
+**Objetivo**: cerrar el loop de comunicación con turistas y operadores + capabilidades solo-mobile.
+
+| Item | Talla | Nota |
+|------|:-----:|------|
+| IA-05: Support 24/7 (WhatsApp + Twilio) | L | Prompt + testing exhaustivo (maneja dinero via reagendamiento) |
+| IA-06: Desert Shopping Cart | S | Más simple que Support 24/7 |
+| MO-41, MO-42: geolocalización | S+S | "Cerca de mí" + "cómo llegar" |
+| MO-43: deep-linking | S | Universal links + WhatsApp share |
+
+**Bloqueo real de esta fase**: **aprobación de Twilio WABA + plantillas por Meta**.
+- Típico: 2 días – 2 semanas (Meta es imprevisible).
+- Recomendación: iniciar el proceso al final de Fase 1 para que esté listo aquí.
+
+**Estimación real**:
+- **Agente**: ~2 días de trabajo.
+- **Franklin review + iteración**: ~3–5 días.
+- **Testing con Twilio**: ~2 días.
+- **Total calendario si Twilio ya está aprobado**: **~1 semana**.
+- **Total calendario si Twilio aún en revisión**: **hasta 2–3 semanas** (bloqueado por Meta).
+
+---
+
+### 📈 Fase 4 — Post-MVP: dashboards, backoffice avanzado, refinamiento
 
 **Objetivo**: dar el salto de "MVP funcional" a "producto que retiene y escala".
 
-- FE-08: dashboard financiero backoffice
-- FE-09: dashboard operativo backoffice
-- FE-10: gestor de disputas
-- MO-33, MO-34: UX proveedor refinada
-- MO-50, MO-51: modo offline + vista operario mejorada
-- IA-08: Backoffice Support agent
-- IA-10: moderación de reseñas IA
-- IA-11: dashboard observabilidad agentes
-- BE-18, BE-19: correos de expiración de crédito
+| Bloque | Items | Talla |
+|--------|-------|-------|
+| Dashboards backoffice | FE-08, FE-09, FE-10 | ~2 días agente |
+| Mobile refinamiento | MO-33, MO-34 | ~1 día agente |
+| Mobile operario robusto | MO-50, MO-51 | ~1 día agente |
+| Agente Backoffice Support | IA-08 | ~1 día agente |
+| Agente moderación reseñas | IA-10 | ~1 día agente + iteración con datos reales |
+| Dashboard observabilidad agentes | IA-11 | ~½ día |
+| Correos crédito por expirar | BE-18, BE-19 | ~½ día |
 
-**Total Fase 4**: ~30 días.
+**Estimación real**:
+- **Agente**: ~6–8 días trabajo.
+- **Franklin (review, testing dashboards, observar moderación IA)**: ~3–5 días.
+- **Total calendario**: **~2 semanas**.
 
 ---
 
-### 🌐 Fase 5 — Nice-to-have y roadmap 12m+ (semanas 21+)
+### 🌐 Fase 5 — Nice-to-have y roadmap 12m+
 
-- MO-35: dictado de voz
-- MO-44: wallet integration
-- MO-45: widget próxima reserva
-- iOS (todo el trabajo mobile portado)
-- Marketplace B2B
-- Módulo Hot Sale (InDriver-like)
-- Publicidad
-- Duty Free / Click & Collect
-- Herramienta de gestión de reservas del operador (integraciones Viator/Airbnb/Booking)
-- Integración DIMAR PDF → `MaritimActivityReport` automático
-- Payouts automatizados vía APIs Wompi/Mercado Pago
+Estos items **no tienen deadline** — se hacen cuando el MVP esté estable y validado en producción.
 
-**Total Fase 5**: 3–6 meses de trabajo distribuido.
+| Bloque | Estimación agente |
+|--------|-------------------|
+| Mobile solo-mobile avanzado (MO-35, MO-44, MO-45) | ~3 días agente |
+| iOS: portar todo lo mobile | ~5–7 días agente + testing en iOS device |
+| Marketplace B2B | ~1 semana agente |
+| Módulo Hot Sale (InDriver-like) | ~1 semana agente |
+| Publicidad para negocios locales | ~1 semana agente |
+| Duty Free / Click & Collect | ~1 semana agente |
+| Herramienta gestión reservas del operador (integraciones Viator/Airbnb/Booking) | ~2 semanas agente |
+| Integración DIMAR PDF → auto-generado | ~1 día agente |
+| Payouts automatizados vía APIs pasarelas | ~1 semana agente |
+
+**Estimación real de todo el bloque**: **~6–10 semanas de agente + validación + rollout controlado**.
 
 ---
 
@@ -407,16 +431,55 @@ Ver diseño completo en [16](16-agentes-ia.md).
 
 ---
 
-## Cronograma resumido
+## Cronograma resumido (con agente IA)
 
-| Fase | Duración | Fecha estimada de cierre | Entregable |
-|------|----------|--------------------------|------------|
-| **Fase 0** | 2 semanas | 2026-07-21 | Producción segura + código respaldado |
-| **Fase 1** | 4 semanas | 2026-08-18 | **MVP en productivo** con los 3 operadores |
-| **Fase 2** | 4 semanas | 2026-09-15 | 2 agentes IA en producción + Twilio listo |
-| **Fase 3** | 4 semanas | 2026-10-13 | WhatsApp + geolocalización + deep-links |
-| **Fase 4** | 6 semanas | 2026-11-24 | Dashboards + rol operario robusto + moderación IA |
-| **Fase 5** | continuo | 2027+ | Roadmap 12m: iOS, B2B, expansión |
+Asumiendo arranque **2026-07-08** con dedicación de **~2 horas/día de Franklin** para review + validación:
+
+| Fase | Duración calendario | Fecha estimada de cierre | Entregable |
+|------|---------------------|--------------------------|------------|
+| **Fase 0** | 3–5 días | ~2026-07-13 | Producción segura + código respaldado + alertas |
+| **Fase 1** | 2–3 semanas | **~2026-08-03** | **MVP en productivo** con los 3 operadores 🎯 |
+| **Fase 2** | 1.5–2 semanas | ~2026-08-17 | 2 agentes IA en producción, Twilio en aprobación |
+| **Fase 3** | 1–3 semanas | ~2026-09-07 | WhatsApp + geolocalización + deep-links |
+| **Fase 4** | 2 semanas | ~2026-09-21 | Dashboards + operario robusto + moderación IA |
+| **Fase 5** | continuo | 2026-Q4 en adelante | Roadmap 12m: iOS, B2B, expansión |
+
+**Comparación con estimación humana (3 devs full-time)**:
+
+| Fase | Con 3 devs humanos | Con agente IA |
+|------|:------------------:|:-------------:|
+| Fase 0 | 2 semanas | ~1 semana |
+| Fase 1 | 4 semanas | **~3 semanas** |
+| Fase 2 | 4 semanas | ~2 semanas |
+| Fase 3 | 4 semanas | ~2 semanas |
+| Fase 4 | 6 semanas | ~2 semanas |
+| **Total hasta Fase 4** | **20 semanas (~5 meses)** | **~10 semanas (~2.5 meses)** |
+
+El **factor real de aceleración** no es 10× ni 20× (aunque el código puro sí lo es) porque hay techos:
+- Review humano de Franklin (cuello de botella real).
+- Aprobaciones externas (Twilio, Play Store).
+- Testing con operadores y turistas reales.
+- Deployment cuidadoso a producción.
+
+---
+
+## Techos NO comprimibles por el agente
+
+| Actividad | Tiempo típico | ¿Por qué no se acelera? |
+|-----------|:-------------:|--------------------------|
+| Aprobación WABA por Meta (via Twilio) | 2 días – 2 semanas | Depende del reviewer de Meta |
+| Aprobación plantillas WhatsApp | 24–72 h por template | Meta review manual |
+| Play Store internal track publish | 2–4 h | Google review automático |
+| Play Store production release | 1–3 días | Google review manual + testing tracks |
+| Testing con turistas reales | Días–semanas | Necesita turistas reales, no simulados |
+| Onboarding de operadores | 1–2 semanas por operador | Reuniones, entrenamiento, ajustes |
+| Rotación de secretos + verificación producción | Horas | Cuidado para no romper prod |
+| Reunión de decisiones con Luis | Variable | Disponibilidad de Luis |
+
+**Recomendación**: mientras el agente construye Fase 1, **arrancar en paralelo**:
+- Solicitud Twilio + WABA (para tener aprobación cuando llegue Fase 3).
+- Coordinar con los 3 operadores negociados para testing de Fase 1 (agenda, canal de feedback).
+- Preparar Play Store console para el primer upload de APK.
 
 ---
 
@@ -433,20 +496,24 @@ Ver diseño completo en [16](16-agentes-ia.md).
 
 ---
 
-## Total de esfuerzo estimado
+## Total de esfuerzo estimado (agente + review)
 
-| Área | Días |
-|------|------|
-| Seguridad | 15 |
-| Backend | 30 |
-| Frontend Web | 35 |
-| Mobile | 55 |
-| Infraestructura | 10 |
-| Agentes IA | 30 |
-| **Total** | **~175 días de trabajo** |
+| Área | Trabajo agente | Review + validación Franklin | Techos externos |
+|------|:--------------:|:---------------------------:|-----------------|
+| Seguridad | ~4–6 h | ~4–6 h | — |
+| Backend | ~3 días | ~10 h review + staging | — |
+| Frontend Web | ~3 días | ~10 h review + prueba visual | — |
+| Mobile | ~5–6 días | ~15 h review + testing en device | Play Store (~2–4 h por release) |
+| Infra | ~1 día | ~1 día config manual GCP | — |
+| Agentes IA | ~3–4 días | ~3–5 días iteración prompts | Twilio WABA (2 días – 2 semanas) |
+| **Total agente** | **~18–22 días de trabajo agente** | **~40–60 horas de Franklin** | Techos externos |
 
-Con equipo de **3 devs a full-time**: ~60 días de calendario → **~3 meses hasta cerrar Fase 4**.
-Con equipo de 3 devs a **half-time** (situación real dado que hay otras responsabilidades): ~6 meses.
+**En calendario real** (arrancando 2026-07-08 con Franklin dando ~2h/día):
+
+- **Hasta MVP en producción (Fase 1 cerrada)**: **~3 semanas** → primera reserva pagada a inicios de agosto.
+- **Hasta agentes IA soltos (Fase 2+3)**: **~6–7 semanas** → mediados de septiembre.
+- **Hasta producto post-MVP maduro (Fase 4)**: **~9–10 semanas** → finales de septiembre / inicios de octubre.
+- **Fase 5** (roadmap 12m+): continuo, en función del feedback de los primeros meses productivos.
 
 ---
 
@@ -461,6 +528,8 @@ Con equipo de 3 devs a **half-time** (situación real dado que hay otras respons
 | Cambio de `isUnlimitedCapacity` rompe schedules existentes | Datos corruptos | Migración con backfill + verificar en staging antes de prod |
 | Refresh token bug en producción → todos los usuarios deslogueados | Incidente serio | Feature flag para activar refresh solo a % de usuarios. Rollback plan |
 | Wompi webhook falla silenciosamente | Pagos huérfanos | Reconciliación por job (BE-17) como safety net |
+| Cuello de botella en review de Franklin bloquea al agente | Retraso en cronograma | Priorizar PRs P0/P1. Franklin puede aprobar cambios triviales rápido con confianza en el agente para código de bajo riesgo |
+| Agente propone algo incorrecto y Franklin lo aprueba sin ver | Bug en producción | Testing en staging antes de prod obligatorio. Rollback plan por commit |
 
 ---
 

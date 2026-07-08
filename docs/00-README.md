@@ -110,7 +110,7 @@ Documentos basados en el estado del código en las ramas:
 | 14 Web vs Mobile — alcance | ✅ Sync (v2.0) | Reescrito con el alcance definido por Luis: mobile cubre crear tour, schedule y operarios porque los operadores están en la calle |
 | 15 MVP mobile — estado | ✅ Sync | Gap analysis granular actualizado según el nuevo alcance del doc 14 |
 | 16 Agentes IA | ✅ Sync (v1.0) | Luis subió contenido completo: 5 agentes core (Travel Concierge, Support 24/7, Desert Shopping Cart, Operator Support, Backoffice Support) + arquitectura + roadmap |
-| 17 Backlog de implementación | ✅ Sync (v1.0) | Consolida trabajo pendiente en 6 áreas (seguridad, backend, frontend web, mobile, infra, agentes IA) — ~175 días de trabajo distribuidos en 5 fases |
+| 17 Backlog de implementación | ✅ Sync (v1.1) | Consolida trabajo pendiente en 6 áreas + plan por fases con estimaciones **agente IA + review humano** (~3 semanas hasta MVP, ~10 semanas hasta Fase 4) |
 
 ---
 
@@ -183,3 +183,4 @@ Bitácora cronológica de decisiones aprobadas por el equipo. Sirve como registr
 | 1.5 | 2026-07-07 | Luis completó `16-agentes-ia.md` con 5 agentes core, arquitectura y roadmap. Aclaración de Luis sobre `isUnlimitedCapacity`: es una LIMPIEZA (eliminar el campo de `tour_schedule`), no una migración. Ajustados docs 04, 05 y 08 en consecuencia. Correcciones ortográficas menores en 14 y 16 |
 | 1.6 | 2026-07-07 | Consolidación de las 10 respuestas de Luis por WhatsApp: RN-005 (refresh tokens definidos con OWASP), RN-013 (galería propuesta a validar), RN-015 (percentageTourya aprobado), RN-022 (holdMinutes configurable aprobado), RN-025 (webhook Wompi aprobado), RN-030 (razones nuevas aprobadas). Decisión: WhatsApp vía Twilio (no Meta directo). Validaciones técnicas: `agent_audit_log` necesario, alertas Cloud Monitoring como prerequisito. Presupuesto agentes $100-200/mes aprobado. Actualizados docs 05, 11, 12, 13, 16 |
 | 1.7 | 2026-07-07 | Nuevo doc `17-backlog-implementacion.md` — consolida todo el trabajo pendiente en 90+ items priorizados (P0-P3) distribuidos en 6 áreas (seguridad, backend, frontend web, mobile, infra, agentes IA). Plan por 5 fases con cronograma estimado (Fase 1 MVP → 2026-08-18) |
+| 1.8 | 2026-07-07 | Ajustadas estimaciones del backlog al modelo de ejecución real (agente IA implementador + Franklin como revisor). Cronograma comprimido: **MVP en producción ~2026-08-03** (3 semanas en vez de 6). Se explicitan los techos no comprimibles: Twilio WABA (2d-2sem), Play Store, testing con turistas reales |
