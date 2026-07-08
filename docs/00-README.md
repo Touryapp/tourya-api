@@ -174,6 +174,8 @@ Bitácora cronológica de decisiones aprobadas por el equipo. Sirve como registr
 | 2026-07-08 | **7 alertas de Cloud Monitoring activas** en dev (5xx backend/frontend, latencia P95, Cloud SQL CPU/disk/connections, container CPU). Canal: email a owner. Cost anomaly (8ª) queda pendiente por requerir Billing Budget separado. | Franklin | INF-01 |
 | 2026-07-08 | **Backups automáticos de Cloud SQL habilitados** en dev: diarios 03:00 UTC, retention 30 días, multi-region `us`, Point-in-Time Recovery activo (7 días de transaction logs). | Franklin | INF-02 |
 | 2026-07-08 | **🎉 Fase 0 completa en dev**: 5 fixes de código, Secret Manager, WIF, alertas y backups. Solo pendiente: cost anomaly alert (billing budget). Listos para arrancar Fase 1 (MVP core). | Franklin | Fase 0 cierre |
+| 2026-07-08 | QR baseUrl AWS legacy resuelto — `ReservationQrService` lee de env var con fallback a `https://tourya.co/home` | Franklin | PR #154 |
+| 2026-07-08 | Fallbacks hardcoded de JWT y Wompi secrets **removidos** de `application.properties`. Fail-fast en producción: si Cloud Run pierde acceso a Secret Manager, la app falla al arrancar en vez de usar valores viejos | Franklin | PR #155 |
 
 ---
 
