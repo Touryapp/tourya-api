@@ -647,16 +647,15 @@ public class ReservationService {
             providerTotalAmount = reservationPriceBreakdownMapper.sumProviderTotal(priceBreakdown);
         }
 
+        // SEC-05: endpoint publico /public/bookings/{id} NO expone PII del pagador
+        // (nombre, email, telefono, tipo/numero de documento). Esos datos requieren JWT
+        // y viven en endpoints autenticados (/reservations/*).
         return com.tourya.api.models.responses.BookingDetailsResponse.builder()
                 .id(reservation.getReservationId().intValue())
                 .reservationId(reservation.getReservationId())
                 .bookingId(com.tourya.api._utils.ReservationDisplayId.format(reservation.getReservationId()))
                 .paymentId(reservation.getPaymentId())
                 .transactionId(payment != null ? payment.getTransactionId() : null)
-                .payer(payment != null ? payment.getPayerName() : null)
-                .payerDocumentType(payment != null ? payment.getPayerDocumentType() : null)
-                .payerDocumentNumber(payment != null ? payment.getPayerDocumentNumber() : null)
-                .email(payment != null ? payment.getPayerEmail() : null)
                 .reservationDate(reservation.getReservationDate())
                 .status(reservation.getDeliveryStatus() != null ? reservation.getDeliveryStatus().name() : null)
                 .tourId(tourId)
@@ -670,7 +669,6 @@ public class ReservationService {
                 .checkInDate(checkInDate)
                 .returnDate(returnDate)
                 .destination(destination)
-                .customerPhone(payment != null ? payment.getPayerPhone() : null)
                 .extraServices(extraServices.isEmpty() ? null : extraServices)
                 .activities(activities.isEmpty() ? null : activities)
                 .build();
