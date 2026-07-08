@@ -171,6 +171,7 @@ Bitácora cronológica de decisiones aprobadas por el equipo. Sirve como registr
 | 2026-07-08 | **Fase 0 higiene y seguridad crítica ejecutada en dev**: 5 fixes de código (SEC-03 Actuator, SEC-04 token replay, SEC-05 PII leak, SEC-08 password log, SEC-11 CORS) | Franklin | PRs #146–#150 |
 | 2026-07-08 | **Migración de secretos runtime a GCP Secret Manager** en `tourya-project-dev`: JWT (rotado), Wompi, DB, SMTP. Fallbacks en `application.properties` como puente. | Franklin | PRs #151, #152 |
 | 2026-07-08 | **Autenticación GitHub Actions → GCP migrada a Workload Identity Federation (WIF)**. Ya no se usan service account keys JSON. Key user-managed peligroso `df67...` deshabilitado. GitHub Secret `GCP_SA_KEY_DEV` eliminado. | Franklin | PR #153 |
+| 2026-07-08 | **7 alertas de Cloud Monitoring activas** en dev (5xx backend/frontend, latencia P95, Cloud SQL CPU/disk/connections, container CPU). Canal: email a owner. Cost anomaly (8ª) queda pendiente por requerir Billing Budget separado. | Franklin | INF-01 |
 
 ---
 

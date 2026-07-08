@@ -264,26 +264,30 @@ Hay un archivo `MIGRACIONES_A_EJECUTAR.txt` que mantiene la lista de migraciones
 |---------|----------|
 | Logs backend | Cloud Logging (auto-stream desde Cloud Run) |
 | Métricas | Cloud Monitoring (auto) |
-| Alertas | ⚠️ **Aprobado configurar** — prerequisito antes de producción |
+| Alertas | ✅ **7 alertas activas en dev** (2026-07-08). Falta cost anomaly (requiere Billing Budget separado) |
 | Tracing | ❓ — no configurado |
 | APM | ❌ Sentry / Datadog no integrados |
 
 ✅ **Decisión Franklin (2026-07-07)**: **configurar alertas básicas de Cloud Monitoring es prerequisito antes de salir a producción**. Estamos por operar con dinero real (pagos Wompi, payouts a operadores). Sin alertas, el equipo se entera de los problemas por reclamos del turista.
 
-### Alertas mínimas a configurar
+### Alertas activas en dev (INF-01 completado 2026-07-08)
 
-| Alerta | Umbral | Canal |
-|--------|--------|-------|
-| Errores 5xx del backend | > 1% de requests en 5 min | Email + Slack |
-| Latencia P95 del backend | > 3 s en 5 min | Email + Slack |
-| Errores 5xx del frontend | > 1% en 5 min | Email |
-| Cloud SQL connections | > 80% del pool | Email + Slack |
-| Cloud SQL CPU | > 85% sostenido 10 min | Email + Slack |
-| Cloud SQL disco lleno | > 80% de la capacidad | Email + Slack (crítico) |
-| Cost anomaly (proyecto GCP) | > 2× media histórica en 24h | Email |
-| Cloud Run instances | falla al escalar (throttled requests > 0) | Email |
+Canal de notificación: **email a `franklinmarcano1970@gmail.com`**.
 
-Costo: prácticamente cero para el volumen inicial. Configurar antes del go-live.
+| # | Alerta | Umbral configurado | Estado |
+|---|--------|--------------------|:------:|
+| 1 | Tourya API - HTTP 5xx errors | > 0.05 req/s (~3/min) por 5 min | ✅ Activa |
+| 2 | Tourya Frontend - HTTP 5xx errors | > 0.05 req/s (~3/min) por 5 min | ✅ Activa |
+| 3 | Tourya API - P95 latency | > 3s por 5 min | ✅ Activa |
+| 4 | Cloud SQL - CPU utilization | > 85% por 10 min | ✅ Activa |
+| 5 | Cloud SQL - Disk utilization | > 80% por 5 min | ✅ Activa |
+| 6 | Cloud SQL - Connections | > 80 conexiones por 5 min | ✅ Activa |
+| 7 | Tourya API - CPU utilization | > 95% (percentil 99) por 10 min | ✅ Activa |
+| 8 | Cost anomaly | > 2× media histórica en 24h | ⚠️ **Pendiente** — requiere Billing Budget separado (permisos de Billing Account) |
+
+Auto-close de alertas: 30 minutos (`autoClose: 1800s`).
+
+Costo: prácticamente cero para el volumen inicial.
 
 ---
 

@@ -190,7 +190,7 @@ Basado en el roadmap de [15 — MVP mobile estado](15-mvp-mobile-estado.md).
 
 | ID | Item | Prio | Talla | Depende | Referencia |
 |----|------|:----:|:-----:|---------|------------|
-| INF-01 | ⚪ Configurar 8 alertas mínimas en Cloud Monitoring (5xx backend/frontend, latencia P95, DB conn/CPU/disco, cost anomaly, Cloud Run throttled) | P0 | S | — | [13](13-despliegue-cicd.md) |
+| INF-01 | 🟢 Configurar 8 alertas mínimas en Cloud Monitoring (5xx backend/frontend, latencia P95, DB conn/CPU/disco, cost anomaly, Cloud Run throttled) | P0 | S | — | 7/8 completadas en dev (2026-07-08). Falta cost anomaly (billing budget). Ver [13](13-despliegue-cicd.md) |
 | INF-02 | ⚪ Habilitar backup automático de Cloud SQL (retention 30 días) | P0 | XS | — | [13](13-despliegue-cicd.md) |
 | INF-03 | Crear Cloud Build trigger para `main` (deploy productivo automatizado) | P1 | S | — | [13](13-despliegue-cicd.md) |
 | INF-04 | Coverage gate 80% con JaCoCo | P2 | S | — | `cicd-improvement-plan.md` |
@@ -245,7 +245,7 @@ Ver diseño completo en [16](16-agentes-ia.md).
 | 🟢 SEC-05 PII leak `/public/bookings` | S | Agente | PR #148 |
 | 🟢 SEC-07 Migrar a WIF | XS→M | Franklin + Agente | Pool + provider + binding + workflow OIDC (PR #153) |
 | 🟢 SEC-08 Eliminar `println` de password | XS | Agente | PR #149 |
-| ⚪ INF-01 Alertas Cloud Monitoring | S | Franklin | Config manual en Cloud Console (pendiente) |
+| 🟢 INF-01 Alertas Cloud Monitoring | S | Agente + Franklin | 7/8 alertas activas en dev via REST API (2026-07-08). Cost anomaly pendiente |
 | ⚪ INF-02 Backup Cloud SQL | XS | Franklin | Toggle en Cloud Console (pendiente) |
 | 🟢 INF-08 Env vars + Secret Manager completo | S | Agente + Franklin | Idem SEC-01/02 |
 
