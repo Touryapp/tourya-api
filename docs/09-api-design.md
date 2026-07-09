@@ -117,6 +117,10 @@ Gestión de sub-usuarios del provider.
 | GET | `/tourAddress/user/consultDataTourAddressListByTourId/{tourId}` | PROVIDER |
 
 #### `TourGalleryController` — `/tours/{tourId}/gallery`
+
+**RN-013 aplicado desde 2026-07-09 (PR #161, BE-10)**: los métodos `sync` y `syncWithUpdate` validan formato/tamaño/orientación/ancho/cuenta antes de subir a S3. Si una imagen falla → 400 con `issues[]` completo y rollback JPA (no toca S3). Umbrales configurables en `app_config` (ver keys `GALLERY_*` en la sección `/config`).
+
+
 | Método | Path | Auth | Notas |
 |--------|------|------|-------|
 | GET | `/tours/{tourId}/gallery` | PROVIDER | |
@@ -394,6 +398,9 @@ Claves configurables disponibles hoy (patrón JSON `{"value": N}` para escalares
 - `HOLD_MINUTES` — minutos del hold del carrito (default 15)
 - `PAYOUT_BUFFER_DAYS` — días entre reserva y payout available (default 2)
 - `CREDIT_EXPIRATION_MONTHS` — meses de vigencia de un crédito (default 6)
+- `GALLERY_MAX_SIZE_MB` — tamaño máximo por imagen en galería (default 5) — agregado 2026-07-09
+- `GALLERY_MIN_WIDTH_PX` — ancho mínimo aceptable para imagen (default 800) — agregado 2026-07-09
+- `GALLERY_MAX_IMAGES_PER_TOUR` — cuenta máxima por tour (default 7) — agregado 2026-07-09
 - `CANCELLATION_POLICY` — políticas de cancelación i18n (JSON estructurado, no usa el wrapper)
 
 #### `TestController` — `/api/v1`

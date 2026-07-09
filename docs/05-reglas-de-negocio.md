@@ -143,14 +143,38 @@ Solución propuesta: ver `social-login-google-facebook.md` (Token Exchange).
 ### RN-012 — Tour debe tener un único Provider asignado
 ✅ El backend resuelve el provider del JWT del PROVIDER que crea.
 
-### RN-013 — Restricciones de galería del tour (propuesta a validar)
-📌 **Propuesta** (Luis, 2026-07-07 confirma que son valores **propuestos**, a validar contra el template Angular actual):
-- **Máximo 7 imágenes** por tour.
-- **Máximo 5 MB** por imagen.
-- Formato **horizontal (landscape)** obligatorio — nunca verticales (portrait).
-- Ancho recomendado: **1920 px**.
+### RN-013 — Restricciones de galería del tour (implementado, umbrales configurables)
 
-📌 **Pendiente**: revisar el **template Angular actual** (tarjetas de tour, hero, detalle) para determinar el tamaño ideal real y ajustar estos valores. Luego implementar en frontend (validación pre-upload) **y** backend (validación al recibir).
+✅ **Implementado en PR #161 (2026-07-09, BE-10)** en `POST /tours/{tourId}/gallery/sync` y `/syncWithUpdate`. All-or-nothing: si una imagen falla, se rechaza TODO el sync (rollback antes de tocar S3/BD).
+
+**Reglas obligatorias**:
+- Formato: JPEG, PNG o WebP
+- Tamaño ≤ `GALLERY_MAX_SIZE_MB` (default 5)
+- Orientación landscape (ancho ≥ alto) — rechaza portrait
+- Ancho ≥ `GALLERY_MIN_WIDTH_PX` (default 800) para calidad aceptable
+- Cuenta total resultante ≤ `GALLERY_MAX_IMAGES_PER_TOUR` (default 7)
+
+**Umbrales en `app_config`** — ADMIN los ajusta sin re-deploy:
+```bash
+PUT /api/v1/config/GALLERY_MAX_SIZE_MB
+Body: {"value": {"value": 10}, "description": "Ampliado por temporada de campaña"}
+```
+
+**Formato del error 400**:
+```json
+{
+  "errorCode": "VALIDATION_FAILURE_CODE",
+  "message": "Gallery validation failed",
+  "issues": [
+    {"fileName": "foto1.jpg", "code": "TOO_LARGE", "message": "..."},
+    {"fileName": "foto2.png", "code": "NOT_LANDSCAPE", "message": "..."}
+  ]
+}
+```
+
+**Descartado del backlog original**: la sugerencia de "ancho recomendado 1920px" era solo recomendación, no obligación (Luis, RN-013 original). Loguear un warning server-side sin acción no aporta; el frontend puede sugerir 1920px pre-upload como recomendación de UX.
+
+📌 **Pendiente**: FE-03 — validación pre-upload en Angular para dar feedback inmediato antes de mandar al backend.
 
 ---
 
