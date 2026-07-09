@@ -127,6 +127,18 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, BAD_REQUEST);
     }
 
+    @ExceptionHandler(com.tourya.api.exceptions.KybValidationException.class)
+    public ResponseEntity<Object> handleKybValidationException(
+            com.tourya.api.exceptions.KybValidationException exp) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("meta", buildMeta());
+        response.put("errorCode", VALIDATION_FAILURE.getCode());
+        response.put("message", "KYB submit rechazado: faltan documentos obligatorios");
+        response.put("error", exp.getMessage());
+        response.put("missingDocuments", exp.getMissingDocuments());
+        return new ResponseEntity<>(response, BAD_REQUEST);
+    }
+
     @ExceptionHandler(MessagingException.class)
     public ResponseEntity<Object> handleException(MessagingException exp) {
         ExceptionResponse exceptionResponse = ExceptionResponse.builder()
