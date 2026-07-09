@@ -301,10 +301,13 @@ Razones (`CancellationReasonEnum`):
 - `CANNOT_ATTEND`
 - `ILLNESS`
 - `INABILITY_TO_TRAVEL`
-- `LEGAL_OBLIGATIONS` (nuevo) — ✅ aprobado Luis 2026-07-07
-- `CHANGE_OF_PLANS` (nuevo) — ✅ aprobado Luis 2026-07-07
+- `LEGAL_OBLIGATIONS` — ✅ implementado 2026-07-09 (PR #166, BE-05)
+- `CHANGE_OF_PLANS` — ✅ implementado 2026-07-09 (PR #166, BE-05)
+- `RAIN` — solo vía `PUT /reservations/{id}/cancel/rain` (DIMAR)
 
 > Contexto: se identificó que faltaban motivos por los cuales un turista puede razonablemente cancelar un tour. Estas razones se agregaron para cubrir esos casos.
+
+📌 **Pendiente**: FE-06 — agregar las 2 opciones al dropdown de razones de cancelación en Angular/MAUI. Sin ese cambio el turista no puede elegir estas razones desde la UI, pero el endpoint las acepta si se envían directamente.
 
 ### RN-031 — Refund por cancelación → Crédito
 ✅ El refund NO es devolución directa a la tarjeta. Se genera un `Credit` a favor del turista.

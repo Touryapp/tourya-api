@@ -81,7 +81,7 @@ Consolida todo el trabajo pendiente que emergió de los documentos [00–16](00-
 | BE-02 | 🟢 `TourScheduleConfigGeneralService.buildSlots()` y `manageSlotsUpdate()` heredan `tour.porcentaje_tourya` al crear slot nuevo. Antes se hardcodeaba a `ZERO` | P1 | S | BE-01 | RN-015, PR #163 |
 | BE-03 | Migración: eliminar `isUnlimitedCapacity` de `tour_schedule` (drop column) | P1 | XS | — | RN-021 |
 | BE-04 | Ajustar `TourScheduleConfigGeneralService` para no leer/escribir el campo eliminado | P1 | S | BE-03 | RN-021 |
-| BE-05 | Agregar razones `LEGAL_OBLIGATIONS`, `CHANGE_OF_PLANS` al enum `CancellationReasonEnum` | P1 | XS | — | RN-030 |
+| BE-05 | 🟢 Agregar razones `LEGAL_OBLIGATIONS`, `CHANGE_OF_PLANS` al enum `CancellationReasonEnum` | P1 | XS | — | RN-030, PR #166. Sin migración SQL (columna `reservation.cancellation_reason` es VARCHAR(20) y ambos valores caben) |
 | BE-06 | 🟢 Refactor `holdMinutes` (carrito) a `app_config` — leer de BD, no de property | P1 | S | — | RN-022, PR #160 |
 | BE-07 | 🟢 Refactor buffer de payout (2 días) a `app_config` | P1 | S | — | RN-040, PR #160 |
 | BE-08 | 🟢 Refactor expiración de créditos a `app_config` (6 meses en código real, no 1 año) | P1 | S | — | RN-036, PR #160 |
