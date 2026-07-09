@@ -7,7 +7,10 @@ import lombok.AllArgsConstructor;
 
 @AllArgsConstructor
 public enum ConfigKeyEnum {
-    CANCELLATION_POLICY("CANCELLATION_POLICY");
+    CANCELLATION_POLICY("CANCELLATION_POLICY"),
+    HOLD_MINUTES("HOLD_MINUTES"),
+    PAYOUT_BUFFER_DAYS("PAYOUT_BUFFER_DAYS"),
+    CREDIT_EXPIRATION_MONTHS("CREDIT_EXPIRATION_MONTHS");
 
     private String value;
 

@@ -70,9 +70,6 @@ import java.util.stream.Collectors;
 @Transactional
 public class ReservationService {
 
-    @Value("${tourya.reservations.holdMinutes:15}")
-    private int defaultHoldMinutes;
-
     private final ReservationRepository reservationRepository;
     private final PaymentRepository paymentRepository;
     private final ReservationMapper reservationMapper;
@@ -120,7 +117,9 @@ public class ReservationService {
                                                                                Authentication connectedUser) {
         User user = (User) connectedUser.getPrincipal();
         // Usar una referencia consistente (UTC) para evitar expiraciones inmediatas por desfase de zona horaria
-        LocalDateTime expiresAt = LocalDateTime.now(java.time.ZoneId.of("UTC")).plusMinutes(defaultHoldMinutes);
+        // Duracion del hold desde app_config (fallback 15 min si la key no esta seteada)
+        int holdMinutes = appConfigService.getInt(ConfigKeyEnum.HOLD_MINUTES, 15);
+        LocalDateTime expiresAt = LocalDateTime.now(java.time.ZoneId.of("UTC")).plusMinutes(holdMinutes);
 
         List<Long> requestedItemIds = new ArrayList<>();
         Map<Long, CreateTemporalReservationHoldRequest.ServiceResponsibleRequest> responsibleByItemId =
@@ -181,7 +180,7 @@ public class ReservationService {
                     .itemId(item.getId())
                     .qrUrl(null)
                     .reservationDate(reservationDateUtc)
-                    .payoutAvailableDate(reservationDateUtc.toLocalDate().plusDays(2))
+                    .payoutAvailableDate(reservationDateUtc.toLocalDate().plusDays(appConfigService.getInt(ConfigKeyEnum.PAYOUT_BUFFER_DAYS, 2)))
                     .payoutStatus(Reservation.PAYOUT_STATUS_PENDING)
                     .deliveryStatus(DeliveryStatusEnum.TEMPORAL)
                     .expiresAt(expiresAt)
@@ -1718,7 +1717,7 @@ public class ReservationService {
                 .amount(creditAmount)
                 .reservedAmount(BigDecimal.ZERO)
                 .creationDate(LocalDate.now())
-                .expirationDate(LocalDate.now().plusMonths(6))
+                .expirationDate(LocalDate.now().plusMonths(appConfigService.getInt(ConfigKeyEnum.CREDIT_EXPIRATION_MONTHS, 6)))
                 .status(CreditStatusEnum.CREATED)
                 .build();
         
@@ -1942,7 +1941,7 @@ public class ReservationService {
                     .amount(priceDifference)
                     .reservedAmount(BigDecimal.ZERO)
                     .creationDate(LocalDate.now())
-                    .expirationDate(LocalDate.now().plusMonths(6))
+                    .expirationDate(LocalDate.now().plusMonths(appConfigService.getInt(ConfigKeyEnum.CREDIT_EXPIRATION_MONTHS, 6)))
                     .status(CreditStatusEnum.CREATED)
                     .build();
             credit = creditRepository.save(credit);
@@ -2043,7 +2042,7 @@ public class ReservationService {
                 .amount(currentPrice)
                 .reservedAmount(BigDecimal.ZERO)
                 .creationDate(LocalDate.now())
-                .expirationDate(LocalDate.now().plusMonths(6))
+                .expirationDate(LocalDate.now().plusMonths(appConfigService.getInt(ConfigKeyEnum.CREDIT_EXPIRATION_MONTHS, 6)))
                 .status(CreditStatusEnum.CREATED)
                 .build();
         credit = creditRepository.save(credit);
