@@ -111,7 +111,7 @@ Consolida todo el trabajo pendiente que emergió de los documentos [00–16](00-
 | FE-03 | Validación en el uploader de galería: 7 imgs máx, 5 MB máx, formato horizontal 1920px | P1 | S | RN-013 revisada | RN-013 |
 | FE-04 | UI para ADMIN de `app_config` (holdMinutes, buffer payout, expiración créditos, presupuesto agentes) | P1 | S | BE-09 | RN-022 |
 | FE-05 | UI backoffice: gestionar `Tour.percentageTourya` en formulario de aprobación de tour | P1 | S | BE-01 | RN-015 |
-| FE-06 | Agregar UI para las 2 nuevas razones de cancelación en cliente | P1 | XS | BE-05 | RN-030 |
+| FE-06 | 🟢 Agregar UI para las 2 nuevas razones de cancelación en cliente (Angular) | P1 | XS | BE-05 | RN-030, PR tourya-front #56. Aprovechó para cerrar bug preexistente: `INABILITY_TO_TRAVEL` faltaba en `formatCancellationReason` |
 | FE-07 | Quitar campo `isUnlimitedCapacity` en config de schedule (mover a formulario de tour) | P1 | XS | BE-03 | RN-021 |
 | FE-08 | Dashboard financiero del backoffice: GMV, net revenue, cuentas por pagar, CAC | P2 | L | — | Doc 01 roadmap |
 | FE-09 | Dashboard operativo del backoffice: tasa conversión/cancelación, tours de alto riesgo | P2 | L | — | Doc 01 roadmap |

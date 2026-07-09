@@ -307,7 +307,7 @@ Razones (`CancellationReasonEnum`):
 
 > Contexto: se identificó que faltaban motivos por los cuales un turista puede razonablemente cancelar un tour. Estas razones se agregaron para cubrir esos casos.
 
-📌 **Pendiente**: FE-06 — agregar las 2 opciones al dropdown de razones de cancelación en Angular/MAUI. Sin ese cambio el turista no puede elegir estas razones desde la UI, pero el endpoint las acepta si se envían directamente.
+✅ **Frontend implementado 2026-07-09** (PR tourya-front #56, FE-06): `provider-tour-management` incluye las 2 opciones en el dropdown con traducciones es/en/pt. Turista puede elegir `LEGAL_OBLIGATIONS` o `CHANGE_OF_PLANS` desde la UI. **Pendiente**: MAUI mobile (dropdown equivalente).
 
 ### RN-031 — Refund por cancelación → Crédito
 ✅ El refund NO es devolución directa a la tarjeta. Se genera un `Credit` a favor del turista.
