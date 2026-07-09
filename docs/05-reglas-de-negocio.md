@@ -205,15 +205,19 @@ Esto elimina la ventana de "slot con 0% de comisión".
 
 ## 4. Carrito y checkout
 
-### RN-022 — Hold temporal de 15 minutos (configurable — a implementar)
-✅ Al hacer checkout (POST `/reservations`), se crean `Reservation`s en estado `TEMPORAL` con `expiresAt = now + 15 minutos`. Si el usuario no paga en ese tiempo, el job `TemporalReservationExpiryJob` (corre cada 60s) las cancela y libera el slot.
+### RN-022 — Hold temporal de 15 minutos (configurable, implementado)
+✅ Al hacer checkout (POST `/reservations`), se crean `Reservation`s en estado `TEMPORAL` con `expiresAt = now + N minutos`. Si el usuario no paga en ese tiempo, el job `TemporalReservationExpiryJob` (corre cada 60s) las cancela y libera el slot.
 
-✅ **Aprobado por Luis (2026-07-07)**: hoy son 15 minutos (tiempo que tiene el turista para pagar en la pasarela). Debe ser **configurable por el ADMIN** desde el backoffice para poder ajustarlo si Wompi tarda o si se detectan patrones de abandono a los X minutos.
+✅ **Implementado en PR #160 (2026-07-09)**: `ReservationService.createTemporalReservationHolds()` lee `HOLD_MINUTES` de `app_config` vía `appConfigService.getInt(HOLD_MINUTES, 15)`. Fallback silencioso a 15 si la key no está.
 
-📌 **A implementar**:
-1. Persistir el valor en `app_config` (JSONB) en lugar del property `tourya.reservations.holdMinutes`.
-2. UI en backoffice para editar el valor.
-3. Aplicar sin reiniciar el servicio (leer de `app_config` en cada checkout).
+**Cómo ajustar sin re-deploy**:
+```bash
+PUT /api/v1/config/HOLD_MINUTES
+Body: {"value": {"value": 30}, "description": "Ampliado a 30 min por temporada alta"}
+```
+Requiere token de ADMIN. Aplica desde el próximo checkout (no requiere reiniciar el servicio).
+
+📌 **Pendiente**: FE-04 — UI en backoffice para editar (hoy solo por API con curl).
 
 ### RN-023 — Validación de capacidad en checkout
 ✅ Al agregar al carrito, se valida que el slot tenga capacidad suficiente (`requestedUnits <= availability`). **Esta validación solo aplica si `Tour.isUnlimitedCapacity = false`**.
@@ -311,10 +315,18 @@ Si se cumple con la ventana de la política, el refund es del **100%** en crédi
 - Reschedule a tour más barato.
 - Transferencia desde otro turista.
 
-### RN-036 — Expiración de créditos
-✅ `expirationDate = creationDate + 1 año` (a volver configurable). Después de expirar, no se pueden usar.
+### RN-036 — Expiración de créditos (configurable, implementado)
+✅ `expirationDate = creationDate + CREDIT_EXPIRATION_MONTHS` (configurable en `app_config`). Después de expirar, no se pueden usar.
 
-📌 **A implementar**: enviar **correo automático** al turista cuando un crédito esté por expirar (ej. 30 y 7 días antes) y otro correo al expirar.
+✅ **Implementado en PR #160 (2026-07-09)**: `ReservationService` en 3 puntos donde crea `Credit` lee `CREDIT_EXPIRATION_MONTHS` de `app_config` vía `appConfigService.getInt(CREDIT_EXPIRATION_MONTHS, 6)`.
+
+⚠️ **Corrección vs backlog original**: el código real usa **6 meses**, no 1 año como decía el backlog. Se mantuvo 6 como default para no cambiar comportamiento. Si Luis define oficialmente que deben ser 12 meses, se cambia sin deploy:
+```bash
+PUT /api/v1/config/CREDIT_EXPIRATION_MONTHS
+Body: {"value": {"value": 12}, "description": "Alineado con política oficial"}
+```
+
+📌 **Pendiente**: BE-18/BE-19 — correo automático "por expirar" (30/7 días antes) y "expirado".
 
 ### RN-037 — Reserva parcial de crédito
 ✅ En checkout, el turista puede pre-reservar parte del crédito (`POST /credits/reserve`). El monto queda en `reservedAmount` hasta que se confirme el pago o expire el hold.
@@ -331,8 +343,10 @@ Si se cumple con la ventana de la política, el refund es del **100%** en crédi
 
 ## 7. Payouts a proveedores
 
-### RN-040 — Buffer de 2 días para payout
-✅ Una reserva entra al payout solo si han pasado **2 días** desde su `reservationDate` (`payoutAvailableDate = reservationDate + 2 días`). Esto da tiempo a reclamos/disputas.
+### RN-040 — Buffer de N días para payout (configurable, implementado)
+✅ Una reserva entra al payout solo si han pasado **N días** desde su `reservationDate` (`payoutAvailableDate = reservationDate + PAYOUT_BUFFER_DAYS`). Esto da tiempo a reclamos/disputas.
+
+✅ **Implementado en PR #160 (2026-07-09)**: `ReservationService` al confirmar pago lee `PAYOUT_BUFFER_DAYS` de `app_config` vía `appConfigService.getInt(PAYOUT_BUFFER_DAYS, 2)`. Default: 2 días. Aplica solo a **reservas nuevas**; las existentes con `payout_available_date` ya seteado no cambian.
 
 ### RN-041 — Cronograma de payouts
 ✅ `ProviderPayoutOrderJob` corre **lunes y jueves a las 7:00 AM (Bogotá)** para generar las órdenes de pago:

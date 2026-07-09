@@ -388,6 +388,13 @@ Gestión de sub-usuarios del provider.
 | Método | Path | Auth |
 |--------|------|------|
 | GET | `/config/{configKey}` | JWT |
+| PUT | `/config/{configKey}` | JWT + ADMIN. Body: `{"value": {...}, "description": "..."}`. Upsert idempotente. Agregado 2026-07-09 (PR #160, BE-09) |
+
+Claves configurables disponibles hoy (patrón JSON `{"value": N}` para escalares):
+- `HOLD_MINUTES` — minutos del hold del carrito (default 15)
+- `PAYOUT_BUFFER_DAYS` — días entre reserva y payout available (default 2)
+- `CREDIT_EXPIRATION_MONTHS` — meses de vigencia de un crédito (default 6)
+- `CANCELLATION_POLICY` — políticas de cancelación i18n (JSON estructurado, no usa el wrapper)
 
 #### `TestController` — `/api/v1`
 | Método | Path | Auth |
