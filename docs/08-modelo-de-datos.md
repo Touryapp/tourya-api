@@ -54,9 +54,9 @@ Schema PostgreSQL de Tourya: 68 tablas, 61 migraciones, ~20 stored procedures, �
 
 ### Tour core (8 tablas)
 
-> 📌 **Cambios pendientes en la tabla `tour`** (aportados por Luis, 2026-06-28 / 2026-07-07):
-> - Agregar campo **`percentageTourya`** — % Tourya default del tour (asignado por ADMIN al aprobar). Ver [RN-015](05-reglas-de-negocio.md).
-> - **Eliminar** el campo `isUnlimitedCapacity` de `tour_schedule` (redundante — la fuente de verdad ya está en `Tour.isUnlimitedCapacity`). Ver [RN-021](05-reglas-de-negocio.md).
+> 📌 **Cambios en la tabla `tour`** (aportados por Luis, 2026-06-28 / 2026-07-07):
+> - ✅ Campo **`porcentaje_tourya`** (español, no `percentageTourya`): reactivado 2026-07-09 (PR #163). Existía como DEPRECATED desde 050; ahora es el % Tourya default del tour, se hereda al crear cada slot nuevo. DEFAULT = 0.15. Ver [RN-015](05-reglas-de-negocio.md).
+> - 📌 **Eliminar** el campo `isUnlimitedCapacity` de `tour_schedule` (redundante — la fuente de verdad ya está en `Tour.isUnlimitedCapacity`). Ver [RN-021](05-reglas-de-negocio.md). **Pendiente** — BE-03/04.
 
 | Tabla | Propósito |
 |-------|-----------|

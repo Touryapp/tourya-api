@@ -77,8 +77,8 @@ Consolida todo el trabajo pendiente que emergió de los documentos [00–16](00-
 
 | ID | Item | Prio | Talla | Depende | Referencia |
 |----|------|:----:|:-----:|---------|------------|
-| BE-01 | Nueva migración: agregar `Tour.percentageTourya` + backfill = 15 (default) | P1 | S | — | RN-015 |
-| BE-02 | Refactor: al crear slot, usar `Tour.percentageTourya` como default para `slotPercentageTourya` | P1 | S | BE-01 | RN-015 |
+| BE-01 | 🟢 Backfill `tour.porcentaje_tourya = 0.15` (38 tours en dev) + `ALTER COLUMN SET DEFAULT 0.15` + limpiar comment "DEPRECATED". Campo YA existía desde 043 pero marcado como deprecated en 050; se reactivó | P1 | S | — | RN-015, PR #163 (migración 071). Nombre queda en español (`porcentaje_tourya`) — rename a inglés descartado por alto costo/bajo valor |
+| BE-02 | 🟢 `TourScheduleConfigGeneralService.buildSlots()` y `manageSlotsUpdate()` heredan `tour.porcentaje_tourya` al crear slot nuevo. Antes se hardcodeaba a `ZERO` | P1 | S | BE-01 | RN-015, PR #163 |
 | BE-03 | Migración: eliminar `isUnlimitedCapacity` de `tour_schedule` (drop column) | P1 | XS | — | RN-021 |
 | BE-04 | Ajustar `TourScheduleConfigGeneralService` para no leer/escribir el campo eliminado | P1 | S | BE-03 | RN-021 |
 | BE-05 | Agregar razones `LEGAL_OBLIGATIONS`, `CHANGE_OF_PLANS` al enum `CancellationReasonEnum` | P1 | XS | — | RN-030 |

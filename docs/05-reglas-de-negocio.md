@@ -189,18 +189,26 @@ Donde:
 - `providerPrice` lo define el PROVIDER.
 - `slotPercentageTourya` (en puntos, ej. `15` = 15%) lo define BACKOFFICE/ADMIN.
 
-### RN-015 — Comisión Tourya por default a nivel de Tour (aprobado — a implementar)
-Actualmente al crear un slot nuevo, `slotPercentageTourya = 0` — hasta que el BACKOFFICE lo asigne, Tourya no gana nada por ese slot.
+### RN-015 — Comisión Tourya por default a nivel de Tour (implementado)
 
-✅ **Aprobado por Luis (2026-07-07)** — el motivo original está confirmado: *"evitar que el proveedor configurara el schedule (Slot) y Tourya no ganara nada por no tener configurado el % en el Slot."*
+✅ **Implementado en PR #163 (2026-07-09, BE-01/02)**. El campo `tour.porcentaje_tourya` (fracción decimal, ej. `0.15 = 15%`) es el default por tour que se hereda al crear cada slot nuevo. Elimina la ventana de "slot con 0% de comisión".
 
-📌 **A implementar**:
-1. Crear un nuevo campo **`percentageTourya`** en la tabla `Tour`.
-2. El **ADMIN diligencia** este campo al momento de **aprobar un tour**.
-3. Cuando un PROVIDER configure un slot nuevo, se debe usar por default el `Tour.percentageTourya` para calcular el `price` del slot.
-4. El BACKOFFICE puede cambiar el `slotPercentageTourya` de un slot específico usando los endpoints de override existentes.
+**Estado en dev tras migración 071**:
+- 38 tours existentes backfilleados a `0.15` (ninguno tenía valor previamente).
+- `ALTER COLUMN porcentaje_tourya SET DEFAULT 0.15` para tours nuevos.
+- Comment de columna limpiado (antes decía "DEPRECATED" por decisión anterior de 050 que Luis revirtió).
 
-Esto elimina la ventana de "slot con 0% de comisión".
+**Flujo**:
+1. ADMIN puede diligenciar `porcentaje_tourya` al aprobar un tour (endpoint dedicado `UpdatePorcentajeTouryaRequest`), o dejar el default 15%.
+2. Cuando el PROVIDER (o cualquier flujo) crea un slot vía `TourScheduleConfigGeneralService.buildSlotsAndPricesFromRequest()` o `manageSlotsUpdate()`, el `slot_porcentaje_tourya` **hereda del tour**. Antes se hardcodeaba a `ZERO`.
+3. Fallback: si el tour no tiene `porcentaje_tourya` (edge case), cae a `ZERO` para no romper.
+4. BACKOFFICE puede sobrescribir el `slot_porcentaje_tourya` de un slot específico usando `tour_schedule_slot_override` (RN por rango de fechas).
+
+⚠️ **Notas**:
+- **Slots ya existentes NO se tocan** — mantienen su `slot_porcentaje_tourya` actual (posibles overrides). Si el ADMIN quiere aplicar el default a slots viejos, usa el endpoint dedicado.
+- **Nombre queda en español** (`porcentaje_tourya`) — rename a `percentage_tourya` (inglés) fue descartado por alto costo/bajo valor.
+
+📌 **Pendiente**: FE-05 — UI en backoffice para gestionar el default por tour en el formulario de aprobación (hoy solo por API).
 
 ### RN-016 — Asignación de comisión por rango de fechas
 ✅ `PUT /tour-schedules/tours/{tourId}/percentage` con `slotPercentageTourya + startDate + endDate` actualiza todos los slots de los `TourSchedule`s en ese rango.
