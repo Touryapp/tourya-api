@@ -115,6 +115,18 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(exceptionResponse, UNAUTHORIZED);
     }
 
+    @ExceptionHandler(com.tourya.api.exceptions.GalleryValidationException.class)
+    public ResponseEntity<Object> handleGalleryValidationException(
+            com.tourya.api.exceptions.GalleryValidationException exp) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("meta", buildMeta());
+        response.put("errorCode", VALIDATION_FAILURE.getCode());
+        response.put("message", "Gallery validation failed");
+        response.put("error", exp.getMessage());
+        response.put("issues", exp.getIssues());
+        return new ResponseEntity<>(response, BAD_REQUEST);
+    }
+
     @ExceptionHandler(MessagingException.class)
     public ResponseEntity<Object> handleException(MessagingException exp) {
         ExceptionResponse exceptionResponse = ExceptionResponse.builder()

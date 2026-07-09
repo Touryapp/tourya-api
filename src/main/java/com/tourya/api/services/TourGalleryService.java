@@ -35,6 +35,7 @@ public class TourGalleryService {
     private final TourGalleryMapper mapper;
     private final ProviderService providerService;
     private final TourService tourService;
+    private final GalleryValidator galleryValidator;
 
     public List<TourGalleryResponse> getAllByTour(Integer tourId, Authentication connectedUser) {
         User user = (User) connectedUser.getPrincipal();
@@ -107,6 +108,12 @@ public class TourGalleryService {
                 .map(TourGalleryRequest::getId)
                 .filter(Objects::nonNull) // Filtrar solo los IDs no nulos (existentes)
                 .collect(Collectors.toSet());
+
+        // 2.b Validar RN-013 (tamano, formato, orientacion, cuenta total).
+        // Se hace ANTES de tocar S3/BD para que la @Transactional haga rollback limpio
+        // si alguna imagen falla. Umbrales configurables via app_config.
+        int newFilesCount = newFiles != null ? newFiles.size() : 0;
+        galleryValidator.validateSync(newFiles, incomingGalleryIds.size() + newFilesCount);
 
         // 3. Identificar y eliminar imágenes que ya no están en el estado deseado (eliminadas)
         List<TourGallery> toDelete = currentGalleries.stream()
@@ -273,6 +280,14 @@ public class TourGalleryService {
                 .map(TourGalleryRequest::getId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
+
+        // 3.b Validar RN-013. En este metodo filesList incluye archivos nuevos Y reemplazos:
+        // los 2 casos suben a S3, asi que ambos deben pasar validaciones de size/format/dimensions.
+        // Para el count final solo cuentan las requests sin id (nuevas); los reemplazos no cambian cuenta.
+        int newRequestsCount = (int) galleryRequests.stream()
+                .filter(r -> r.getId() == null)
+                .count();
+        galleryValidator.validateSync(filesList, incomingGalleryIds.size() + newRequestsCount);
 
         // 4. Identificar y eliminar imágenes que ya no están en el estado deseado (sin cambios)
         List<TourGallery> toDelete = currentGalleries.stream()
