@@ -21,6 +21,7 @@ import static org.springframework.security.config.http.SessionCreationPolicy.STA
 @EnableMethodSecurity(securedEnabled = true)
 public class SecurityConfig {
     private final JwtFilter jwtAuthFilter;
+    private final AuthRateLimitFilter authRateLimitFilter;
     private final AuthenticationProvider authenticationProvider;
 
     @Bean
@@ -51,7 +52,10 @@ public class SecurityConfig {
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(STATELESS))
                 .authenticationProvider(authenticationProvider)
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                // SEC-09: rate limiter aplica antes de que el JwtFilter procese la request.
+                // Con el flag OFF hace passthrough; con ON rechaza 429 si la IP excede el limite.
+                .addFilterBefore(authRateLimitFilter, JwtFilter.class);
 
         return http.build();
     }
