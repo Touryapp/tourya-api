@@ -6,6 +6,7 @@ import com.tourya.api.config.auth.request.SocialAuthRequest;
 import com.tourya.api.config.auth.request.RegistrationRequest;
 import com.tourya.api.config.auth.response.AuthenticationResponse;
 import com.tourya.api.config.security.JwtService;
+import com.tourya.api.constans.enums.ConfigKeyEnum;
 import com.tourya.api.constans.enums.EmailTemplateNameEnum;
 import com.tourya.api.exceptions.EmailAlreadyExistsException;
 import com.tourya.api.exceptions.EmailInvalidFormatException;
@@ -15,11 +16,14 @@ import com.tourya.api.models.responses.MetaResponse;
 import com.tourya.api.repository.RoleRepository;
 import com.tourya.api.repository.TokenRepository;
 import com.tourya.api.repository.UserRepository;
+import com.tourya.api.services.AppConfigService;
 import com.tourya.api.services.EmailService;
 import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -28,10 +32,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthenticationService {
@@ -43,6 +51,10 @@ public class AuthenticationService {
     private final EmailService emailService;
     private final TokenRepository tokenRepository;
     private final RefreshTokenService refreshTokenService;
+    private final AppConfigService appConfigService;
+
+    private static final long MAX_LOCKOUT_SECONDS = 24 * 60 * 60L;
+
     @Value("${application.mailing.frontend.activation-url}")
     private String activationUrl;
 
@@ -109,17 +121,71 @@ public class AuthenticationService {
         return codeBuilder.toString();
     }
 
+    @Transactional
     public AuthenticationResponse authenticate(AuthenticationRequest request) {
-        var auth = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getEmail(),
-                        request.getPassword()
-                )
-        );
+        try {
+            var auth = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            request.getEmail(),
+                            request.getPassword()
+                    )
+            );
 
-        User user = (User) auth.getPrincipal();
-        RefreshTokenService.IssuedTokens tokens = refreshTokenService.issueForUser(user);
-        return buildAuthResponse(user, tokens, user.isMustChangePassword());
+            User user = (User) auth.getPrincipal();
+            // SEC-10: login exitoso -> reset del contador y del lock temporal si aplica.
+            // Se persiste solo si habia algo que limpiar (evita write innecesario).
+            if (user.getFailedLoginAttempts() > 0 || user.getLockedUntil() != null) {
+                user.setFailedLoginAttempts(0);
+                user.setLockedUntil(null);
+                userRepository.save(user);
+            }
+            RefreshTokenService.IssuedTokens tokens = refreshTokenService.issueForUser(user);
+            return buildAuthResponse(user, tokens, user.isMustChangePassword());
+        } catch (BadCredentialsException e) {
+            // SEC-10: credenciales invalidas. Si el feature flag esta ON y el email
+            // existe, incrementar el contador y aplicar lockout con backoff exponencial
+            // cuando pasa el umbral. Si el email no existe, NO se registra nada (evita
+            // filtrar la existencia de cuentas via timing/side effects).
+            if (appConfigService.getInt(ConfigKeyEnum.AUTH_LOCKOUT_ENABLED, 0) == 1) {
+                registerFailedLoginAttempt(request.getEmail());
+            }
+            throw e;
+        }
+    }
+
+    /**
+     * Incrementa el contador de intentos fallidos del usuario y aplica lockout
+     * temporal con backoff exponencial cuando se supera el maximo configurado.
+     * <p>Se llama solo con feature flag ON (SEC-10). Silencioso si el email no existe:
+     * asi evitamos filtrar cuentas al atacante via side effects observables.
+     */
+    private void registerFailedLoginAttempt(String rawEmail) {
+        if (rawEmail == null || rawEmail.isBlank()) {
+            return;
+        }
+        Optional<User> found = userRepository.findByEmail(rawEmail.toLowerCase().trim());
+        if (found.isEmpty()) {
+            return;
+        }
+        User user = found.get();
+        int maxAttempts = appConfigService.getInt(ConfigKeyEnum.AUTH_LOCKOUT_MAX_ATTEMPTS, 5);
+        long baseBackoffSeconds = appConfigService.getInt(ConfigKeyEnum.AUTH_LOCKOUT_BASE_BACKOFF_SECONDS, 60);
+
+        int newAttempts = user.getFailedLoginAttempts() + 1;
+        user.setFailedLoginAttempts(newAttempts);
+
+        if (newAttempts >= maxAttempts) {
+            long overflow = newAttempts - maxAttempts;
+            long lockoutSeconds = baseBackoffSeconds * (1L << Math.min(overflow, 20)); // 2^overflow con cap logico en 20
+            lockoutSeconds = Math.min(lockoutSeconds, MAX_LOCKOUT_SECONDS);
+            OffsetDateTime lockedUntil = OffsetDateTime.now(ZoneOffset.UTC).plusSeconds(lockoutSeconds);
+            user.setLockedUntil(lockedUntil);
+            log.warn("SEC-10 lockout: user_id={} bloqueada hasta {} tras {} intentos fallidos (lockout={}s)",
+                    user.getId(), lockedUntil, newAttempts, lockoutSeconds);
+        } else {
+            log.info("SEC-10: user_id={} intento fallido #{} / {}", user.getId(), newAttempts, maxAttempts);
+        }
+        userRepository.save(user);
     }
 
     /**

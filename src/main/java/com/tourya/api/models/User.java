@@ -26,6 +26,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.security.Principal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -56,6 +57,22 @@ public class User implements UserDetails, Principal {
     private boolean mustChangePassword = false;
     @Column(name = "uuid_social")
     private String uuidSocial;
+
+    /**
+     * Contador de intentos de login fallidos desde el ultimo login exitoso.
+     * Se resetea a 0 en cada success. Usado por SEC-10 para lockout automatico.
+     */
+    @Column(name = "failed_login_attempts", nullable = false)
+    @Builder.Default
+    private int failedLoginAttempts = 0;
+
+    /**
+     * Timestamp hasta el cual la cuenta queda bloqueada por lockout automatico.
+     * NULL = no bloqueada por lockout. Distinto de accountLocked (bloqueo
+     * permanente por ADMIN). Cuando expira, isAccountNonLocked() vuelve a true.
+     */
+    @Column(name = "locked_until")
+    private OffsetDateTime lockedUntil;
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
@@ -103,7 +120,16 @@ public class User implements UserDetails, Principal {
 
     @Override
     public boolean isAccountNonLocked() {
-        return !accountLocked;
+        if (accountLocked) {
+            return false;
+        }
+        // Lockout automatico temporal (SEC-10): la cuenta queda bloqueada mientras
+        // locked_until > now(). Cuando expira, se desbloquea automaticamente sin
+        // necesidad de un job de cleanup: solo cambia el resultado de este metodo.
+        if (lockedUntil != null && lockedUntil.isAfter(OffsetDateTime.now())) {
+            return false;
+        }
+        return true;
     }
 
     @Override
