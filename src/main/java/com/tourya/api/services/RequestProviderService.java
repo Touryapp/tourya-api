@@ -3,10 +3,12 @@ package com.tourya.api.services;
 
 import com.tourya.api._utils.Utils;
 import com.tourya.api.common.PageResponse;
+import com.tourya.api.constans.enums.ConfigKeyEnum;
 import com.tourya.api.constans.enums.ProviderStatusEnum;
 import com.tourya.api.constans.enums.RequestProviderStatusEnum;
 import com.tourya.api.exceptions.EmailInvalidFormatException;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
+import com.tourya.api.exceptions.KybValidationException;
 import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.models.*;
@@ -17,6 +19,7 @@ import com.tourya.api.models.request.RequestProviderActionRequest;
 import com.tourya.api.models.responses.RequestProviderGalleryResponse;
 import com.tourya.api.models.responses.RequestProviderResponse;
 import com.tourya.api.models.request.RequestProviderRequest;
+import com.tourya.api.repository.RequestProviderDocumentTypeRepository;
 import com.tourya.api.repository.RequestProviderGalleryRepository;
 import com.tourya.api.repository.RoleRepository;
 import com.tourya.api.repository.RequestProviderRepository;
@@ -34,8 +37,11 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -43,6 +49,7 @@ import java.util.Optional;
 public class RequestProviderService {
     private final RequestProviderRepository requestProviderRepository;
     private final RequestProviderGalleryRepository requestProviderGalleryRepository;
+    private final RequestProviderDocumentTypeRepository requestProviderDocumentTypeRepository;
     private final ProviderService providerService;
     private final ProviderMapper providerMapper;
     private final RequestProviderMapper requestProviderMapper;
@@ -53,6 +60,7 @@ public class RequestProviderService {
     private final CityService cityService;
     private final StateService stateService;
     private final EmailService emailService;
+    private final AppConfigService appConfigService;
 
     private static final String NOT_PRIVILEGES = "You have no privileges to perform this action.";
     private static final String REQUEST_PROVIDER_NOT_FOUND = "RequestProvider not found Id: ";
@@ -174,6 +182,13 @@ public class RequestProviderService {
         if(provider != null){
             RequestProvider requestProvider = requestProviderRepository.findByProvider(provider);
             if(requestProvider != null){
+                // RN-045: validar documentos obligatorios si el feature flag esta ON.
+                // Default OFF (=0) para no bloquear QA in-flight; se activa con:
+                //   PUT /config/KYB_REQUIRE_MANDATORY_DOCS {"value":{"value":1}}
+                if (appConfigService.getInt(ConfigKeyEnum.KYB_REQUIRE_MANDATORY_DOCS, 0) == 1) {
+                    validateMandatoryDocumentsForSubmit(requestProvider.getId());
+                }
+
                 requestProvider.setStatus(RequestProviderStatusEnum.SUBMITTED);
                 RequestProvider requestProviderUpdate = requestProviderRepository.save(requestProvider);
 
@@ -193,6 +208,38 @@ public class RequestProviderService {
                 .stream()
                 .map(requestProviderGalleryMapper::toRequestProviderGalleryResponse)
                 .toList();
+    }
+
+    /**
+     * Verifica que todos los RequestProviderDocumentType con mandatory=true tengan al
+     * menos un RequestProviderGallery adjunto para el requestProvider dado. Si falta
+     * alguno, lanza KybValidationException con la lista de nombres faltantes.
+     * Se usa solo cuando el feature flag KYB_REQUIRE_MANDATORY_DOCS esta ON (=1).
+     */
+    private void validateMandatoryDocumentsForSubmit(Integer requestProviderId) {
+        List<RequestProviderDocumentType> mandatoryTypes = requestProviderDocumentTypeRepository
+                .getAllRequestProviderDocumentTypeList()
+                .stream()
+                .filter(t -> Boolean.TRUE.equals(t.getMandatory()))
+                .toList();
+
+        Set<Integer> uploadedTypeIds = requestProviderGalleryRepository
+                .findByRequestProviderId(requestProviderId)
+                .stream()
+                .map(g -> g.getDocumentType() != null ? g.getDocumentType().getId() : null)
+                .filter(id -> id != null)
+                .collect(Collectors.toCollection(HashSet::new));
+
+        List<String> missingNames = mandatoryTypes.stream()
+                .filter(t -> !uploadedTypeIds.contains(t.getId()))
+                .map(RequestProviderDocumentType::getName)
+                .toList();
+
+        if (!missingNames.isEmpty()) {
+            log.info("KYB submit rechazado para requestProviderId={} — faltan {} documento(s): {}",
+                    requestProviderId, missingNames.size(), missingNames);
+            throw new KybValidationException(missingNames);
+        }
     }
     public RequestProviderResponse consultDataById(Integer requestProviderId,
                                                    Authentication connectedUser){
