@@ -401,16 +401,39 @@ DRAFT → SUBMITTED → PRE_APPROVED → APPROVED
                  ↘ CANCELED
 ```
 
-### RN-045 — Documentos obligatorios para KYB
-✅ Los `RequestProviderDocumentType` con `mandatory = true` deben adjuntarse antes de `SUBMITTED`.
+### RN-045 — Documentos obligatorios para KYB (implementado con feature flag, default OFF)
 
-**Documentos obligatorios**:
-- RUT
-- RNT (Registro Nacional de Turismo, vigente)
-- Certificación bancaria
-- Cédula del representante legal
-- Cámara de Comercio
-- Pólizas de seguros vigentes
+✅ **Implementado en PR #162 (2026-07-09, BE-11)** en `RequestProviderService.send()`:
+
+Cuando el feature flag `KYB_REQUIRE_MANDATORY_DOCS` (en `app_config`) es **1**, `PUT /requestProvider/user/send` verifica que existan galleries adjuntas para cada `RequestProviderDocumentType` con `mandatory=true`. Si falta alguno → 400 con:
+
+```json
+{
+  "errorCode": "VALIDATION_FAILURE_CODE",
+  "message": "KYB submit rechazado: faltan documentos obligatorios",
+  "missingDocuments": ["RUT", "RNT", "Seguros de operación"]
+}
+```
+
+Cuando el flag es **0** (default), el `send()` se comporta como antes (no valida). Esto es intencional para no bloquear QA in-flight — en dev hay 12 requests en estado `Created` que aún no submitieron, algunos sin los 7 documentos obligatorios.
+
+**Documentos obligatorios reales en BD** (`RequestProviderDocumentType` con `mandatory=true`):
+1. Cámara de comercio
+2. RUT
+3. RNT (Registro Nacional de Turismo)
+4. Cédula del representante legal
+5. Seguros de operación
+6. Contrato de mandato (firmado)
+7. Contrato de vinculación (firmado)
+
+**Cómo activar** cuando Luis diga que dev está listo:
+```bash
+PUT /api/v1/config/KYB_REQUIRE_MANDATORY_DOCS
+Body: {"value": {"value": 1}, "description": "Política RN-045 activa"}
+```
+(requiere token ADMIN, sin re-deploy)
+
+⚠️ **Nota histórica**: hay providers en `Approved` con menos de 7 documentos obligatorios (aprobados manualmente antes de esta validación). El flag ON solo afecta a **nuevos submits**; los históricos quedan como están. Si Luis quiere re-verificar el histórico, es un item aparte.
 
 ### RN-046 — Aprobación crea Provider + asigna rol
 ✅ Al aprobar `PUT /requestProvider/admin/approve/{id}`:

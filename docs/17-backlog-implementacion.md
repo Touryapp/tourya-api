@@ -87,7 +87,7 @@ Consolida todo el trabajo pendiente que emergió de los documentos [00–16](00-
 | BE-08 | 🟢 Refactor expiración de créditos a `app_config` (6 meses en código real, no 1 año) | P1 | S | — | RN-036, PR #160 |
 | BE-09 | 🟢 Endpoint GET/PUT `/config/{key}` para ADMIN gestione `app_config` desde backoffice | P1 | S | BE-06, BE-07, BE-08 | RN-022, PR #160. GET ya existía; se agregó PUT con `@PreAuthorize("hasRole('ADMIN')")` |
 | BE-10 | 🟢 Validador de galería aplicado en `POST /tours/{id}/gallery/sync` y `/syncWithUpdate` (7 imgs / 5 MB / landscape / 800px min) | P1 | S | — | RN-013, PR #161. Se descartó "ancho recomendado 1920px" (era solo recomendación, no obligación). Umbrales configurables vía `app_config` |
-| BE-11 | Validación: RN-045 documentos KYB obligatorios (RUT, RNT, cert bancaria, cédula RL, cámara comercio, pólizas) | P1 | S | — | RN-045 |
+| BE-11 | 🟢 Validación RN-045 en `PUT /requestProvider/user/send` con feature flag `KYB_REQUIRE_MANDATORY_DOCS` (default OFF). Cuando ON, rechaza el submit con 400 + lista de docs faltantes | P1 | S | — | RN-045, PR #162. Flag default 0 para no bloquear QA in-flight; se activa con PUT `/config/KYB_REQUIRE_MANDATORY_DOCS` cuando Luis diga |
 | BE-12 | 🟢 Migración: crear tabla `refresh_token` con `jti`, `family_id`, `previous_jti`, `expires_at`, `revoked_at` | P1 | S | — | RN-005, PR #159 (migración 067) |
 | BE-13 | 🟢 Refactor `JwtService` → emitir `access_token` + `refresh_token` con expiraciones configurables | P1 | M | BE-12 | RN-005, PR #159. Duración por rol pospuesta (default: access 24h, refresh 30d) |
 | BE-14 | 🟢 Endpoint `POST /auth/refresh` con rotación + detección de reuso (revoca familia) | P1 | S | BE-13 | RN-005, PR #159 |

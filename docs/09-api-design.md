@@ -401,6 +401,7 @@ Claves configurables disponibles hoy (patrón JSON `{"value": N}` para escalares
 - `GALLERY_MAX_SIZE_MB` — tamaño máximo por imagen en galería (default 5) — agregado 2026-07-09
 - `GALLERY_MIN_WIDTH_PX` — ancho mínimo aceptable para imagen (default 800) — agregado 2026-07-09
 - `GALLERY_MAX_IMAGES_PER_TOUR` — cuenta máxima por tour (default 7) — agregado 2026-07-09
+- `KYB_REQUIRE_MANDATORY_DOCS` — feature flag: 1 activa RN-045 en `PUT /requestProvider/user/send` (default 0=OFF) — agregado 2026-07-09
 - `CANCELLATION_POLICY` — políticas de cancelación i18n (JSON estructurado, no usa el wrapper)
 
 #### `TestController` — `/api/v1`
