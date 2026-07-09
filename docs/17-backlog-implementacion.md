@@ -63,7 +63,7 @@ Consolida todo el trabajo pendiente que emergió de los documentos [00–16](00-
 | SEC-06 | ⚪ Reemplazar Firebase social login por **Token Exchange** (Google + Facebook) | P0 | M | — | C-6, RN-006, [social-login-google-facebook.md](../social-login-google-facebook.md) |
 | SEC-07 | 🟢 Migrar a Workload Identity Federation (elimina SA keys JSON) | P0 | XS→M* | — | H-1, PR #153 |
 | SEC-08 | 🟢 Eliminar `System.out.println` de password temporal | P0 | XS | — | H-2, PR #149 |
-| SEC-09 | ⚪ Rate limiting en `/auth/authenticate` y `/auth/register` | P1 | S | — | H-3 |
+| SEC-09 | 🟢 Rate limiting en todos los endpoints `/auth/**` con feature flag OFF por default. In-memory por IP, umbral configurable via `app_config` | P1 | S | — | H-3, PR #164. Activación: `PUT /config/AUTH_RATE_LIMIT_ENABLED {"value":{"value":1}}` |
 | SEC-10 | ⚪ Lockout tras 5 intentos fallidos (con backoff exponencial) | P1 | S | SEC-09 | H-4 |
 | SEC-11 | 🟢 Limpiar CORS: quitar IPs AWS legacy, agregar `tourya.co` | P1 | XS | — | H-7, PR #150 |
 
