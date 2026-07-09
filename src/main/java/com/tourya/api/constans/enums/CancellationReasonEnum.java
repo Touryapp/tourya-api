@@ -25,7 +25,17 @@ public enum CancellationReasonEnum {
     /**
      * Cancelación por lluvia (DIMAR). Solo vía {@code PUT /reservations/{id}/cancel/rain}.
      */
-    RAIN
+    RAIN,
+
+    /**
+     * Obligaciones legales del turista (BE-05, aprobado Luis 2026-07-07, RN-030).
+     */
+    LEGAL_OBLIGATIONS,
+
+    /**
+     * Cambio de planes del turista (BE-05, aprobado Luis 2026-07-07, RN-030).
+     */
+    CHANGE_OF_PLANS
 }
 
 
