@@ -139,12 +139,19 @@ public class TourScheduleConfigGeneralService {
             slot.setAvailability(cap0);
             tourScheduleSlotAvailabilityService.applyMinCapacityAndCheckAvailability(slot, tourForConfig);
 
-            slot.setSlotPorcentajeTourya(BigDecimal.ZERO);
+            // BE-02 (RN-015): heredar el porcentaje default del tour para nuevos slots.
+            // Antes se seteaba en ZERO y el ADMIN tenia que llamar despues a
+            // PUT /tour-schedules/tours/{tourId}/percentage. Ahora nace ya con el valor
+            // del tour; el ADMIN puede sobrescribirlo por rango de fechas via override.
+            BigDecimal tourDefaultPct = tourForConfig != null && tourForConfig.getPorcentajeTourya() != null
+                    ? tourForConfig.getPorcentajeTourya()
+                    : BigDecimal.ZERO;
+            slot.setSlotPorcentajeTourya(tourDefaultPct);
 
             if (slotDto.getPrices() != null) {
                 Set<TourScheduleConfigPrice> prices = new HashSet<>();
                 for (TourScheduleConfigPriceDto priceDto : slotDto.getPrices()) {
-                    TourScheduleConfigPrice price = buildPriceEntity(slot, priceDto, BigDecimal.ZERO, roleList);
+                    TourScheduleConfigPrice price = buildPriceEntity(slot, priceDto, tourDefaultPct, roleList);
                     prices.add(price);
                 }
                 slot.setPrices(prices);
@@ -286,11 +293,17 @@ public class TourScheduleConfigGeneralService {
             currentSlot.setAvailability(capVal != null ? Math.max(0, capVal - booked) : 0);
             tourScheduleSlotAvailabilityService.applyMinCapacityAndCheckAvailability(currentSlot, tourForConfig);
 
+            // BE-02 (RN-015): para slots nuevos, heredar el porcentaje default del tour.
+            // Slots existentes conservan su slot_porcentaje_tourya actual (posiblemente
+            // override manual del ADMIN).
+            BigDecimal tourDefaultPct = tourForConfig != null && tourForConfig.getPorcentajeTourya() != null
+                    ? tourForConfig.getPorcentajeTourya()
+                    : BigDecimal.ZERO;
             BigDecimal slotPct = isNewSlot
-                    ? BigDecimal.ZERO
+                    ? tourDefaultPct
                     : TouryaPriceCalculator.normalizePercentage(currentSlot.getSlotPorcentajeTourya());
             if (isNewSlot) {
-                currentSlot.setSlotPorcentajeTourya(BigDecimal.ZERO);
+                currentSlot.setSlotPorcentajeTourya(tourDefaultPct);
             }
 
             updateSlotPrices(currentSlot, new HashSet<>(slotDto.getPrices()), slotPct, roleList);
