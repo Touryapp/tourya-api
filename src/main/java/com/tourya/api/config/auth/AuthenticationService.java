@@ -42,6 +42,7 @@ public class AuthenticationService {
     private final RoleRepository roleRepository;
     private final EmailService emailService;
     private final TokenRepository tokenRepository;
+    private final RefreshTokenService refreshTokenService;
     @Value("${application.mailing.frontend.activation-url}")
     private String activationUrl;
 
@@ -116,19 +117,43 @@ public class AuthenticationService {
                 )
         );
 
-        var claims = new HashMap<String, Object>();
-        var user = ((User) auth.getPrincipal());
-        claims.put("fullName", user.fullName());
+        User user = (User) auth.getPrincipal();
+        RefreshTokenService.IssuedTokens tokens = refreshTokenService.issueForUser(user);
+        return buildAuthResponse(user, tokens, user.isMustChangePassword());
+    }
 
-        var jwtToken = jwtService.generateToken(claims, (User) auth.getPrincipal());
-        MetaResponse metaResponse = new MetaResponse();
+    /**
+     * Rota el par (access + refresh) usando un refresh token existente.
+     * Requiere que el refresh no este revocado ni expirado. Si detecta reuso,
+     * revoca la familia completa antes de lanzar la excepcion.
+     */
+    public AuthenticationResponse refreshTokens(String rawRefreshToken) {
+        RefreshTokenService.IssuedTokens tokens = refreshTokenService.rotate(rawRefreshToken);
+        return buildAuthResponse(tokens.user(), tokens, tokens.user().isMustChangePassword());
+    }
+
+    /**
+     * Cierra sesion: revoca la familia entera del refresh token. Idempotente.
+     */
+    public void logout(String rawRefreshToken) {
+        refreshTokenService.logout(rawRefreshToken);
+    }
+
+    /**
+     * Construye la respuesta de auth manteniendo compatibilidad hacia atras:
+     * `token` sigue siendo el access token (clientes viejos lo leen), y se agregan
+     * `accessToken` y `refreshToken` para los clientes nuevos.
+     */
+    private AuthenticationResponse buildAuthResponse(User user, RefreshTokenService.IssuedTokens tokens, Boolean mustChangePassword) {
         return AuthenticationResponse.builder()
-                .meta(metaResponse)
+                .meta(new MetaResponse())
                 .fullName(user.fullName())
                 .email(user.getEmail())
                 .roleList(user.getRoles())
-                .token(jwtToken)
-                .mustChangePassword(user.isMustChangePassword())
+                .token(tokens.accessToken())
+                .accessToken(tokens.accessToken())
+                .refreshToken(tokens.refreshToken())
+                .mustChangePassword(mustChangePassword)
                 .build();
     }
 
@@ -181,49 +206,19 @@ public class AuthenticationService {
                     .build();
             userRepository.save(newUser);
 
-            var claims = new HashMap<String, Object>();
-            claims.put("fullName", newUser.fullName());
-
-            var jwtToken = jwtService.generateToken(claims, newUser);
-            MetaResponse metaResponse = new MetaResponse();
-            return AuthenticationResponse.builder()
-                    .meta(metaResponse)
-                    .fullName(newUser.fullName())
-                    .email(newUser.getEmail())
-                    .roleList(newUser.getRoles())
-                    .token(jwtToken)
-                    .build();
+            RefreshTokenService.IssuedTokens tokens = refreshTokenService.issueForUser(newUser);
+            return buildAuthResponse(newUser, tokens, newUser.isMustChangePassword());
         } else if (!user.isEnabled()) {
             user.setEnabled(true);
             userRepository.save(user);
 
-            var claims = new HashMap<String, Object>();
-            claims.put("fullName", user.fullName());
-
-            var jwtToken = jwtService.generateToken(claims, user);
-            MetaResponse metaResponse = new MetaResponse();
-            return AuthenticationResponse.builder()
-                    .meta(metaResponse)
-                    .fullName(user.fullName())
-                    .email(user.getEmail())
-                    .roleList(user.getRoles())
-                    .token(jwtToken)
-                    .build();
+            RefreshTokenService.IssuedTokens tokens = refreshTokenService.issueForUser(user);
+            return buildAuthResponse(user, tokens, user.isMustChangePassword());
         }
 
         // El usuario ya existe y está habilitado
-        var claims = new HashMap<String, Object>();
-        claims.put("fullName", user.fullName());
-
-        var jwtToken = jwtService.generateToken(claims, user);
-        MetaResponse metaResponse = new MetaResponse();
-        return AuthenticationResponse.builder()
-                .meta(metaResponse)
-                .fullName(user.fullName())
-                .email(user.getEmail())
-                .roleList(user.getRoles())
-                .token(jwtToken)
-                .build();
+        RefreshTokenService.IssuedTokens tokens = refreshTokenService.issueForUser(user);
+        return buildAuthResponse(user, tokens, user.isMustChangePassword());
     }
     private String generateTemporaryPassword() {
         // Generar una contraseña temporal segura

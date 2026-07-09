@@ -106,6 +106,15 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(exceptionResponse, UNAUTHORIZED);
     }
 
+    @ExceptionHandler(com.tourya.api.config.auth.RefreshTokenService.RefreshTokenException.class)
+    public ResponseEntity<Object> handleRefreshTokenException(
+            com.tourya.api.config.auth.RefreshTokenService.RefreshTokenException exp) {
+        ExceptionResponse exceptionResponse = ExceptionResponse.builder()
+                .error(exp.getMessage())
+                .build();
+        return buildErrorResponse(exceptionResponse, UNAUTHORIZED);
+    }
+
     @ExceptionHandler(MessagingException.class)
     public ResponseEntity<Object> handleException(MessagingException exp) {
         ExceptionResponse exceptionResponse = ExceptionResponse.builder()
