@@ -64,7 +64,7 @@ Consolida todo el trabajo pendiente que emergió de los documentos [00–16](00-
 | SEC-07 | 🟢 Migrar a Workload Identity Federation (elimina SA keys JSON) | P0 | XS→M* | — | H-1, PR #153 |
 | SEC-08 | 🟢 Eliminar `System.out.println` de password temporal | P0 | XS | — | H-2, PR #149 |
 | SEC-09 | 🟢 Rate limiting en todos los endpoints `/auth/**` con feature flag OFF por default. In-memory por IP, umbral configurable via `app_config` | P1 | S | — | H-3, PR #164. Activación: `PUT /config/AUTH_RATE_LIMIT_ENABLED {"value":{"value":1}}` |
-| SEC-10 | ⚪ Lockout tras 5 intentos fallidos (con backoff exponencial) | P1 | S | SEC-09 | H-4 |
+| SEC-10 | 🟢 Lockout tras N intentos fallidos con backoff exponencial, feature flag OFF por default. Complementa SEC-09 (bloqueo por cuenta cuando el atacante rota IPs). Auto-unlock al pasar `locked_until` sin cron | P1 | S | SEC-09 | H-4, PR #165. Activación: `PUT /config/AUTH_LOCKOUT_ENABLED {"value":{"value":1}}` |
 | SEC-11 | 🟢 Limpiar CORS: quitar IPs AWS legacy, agregar `tourya.co` | P1 | XS | — | H-7, PR #150 |
 
 *SEC-07 escaló a M porque en vez de solo rotar el key se migró a WIF (mejor solución de largo plazo).
