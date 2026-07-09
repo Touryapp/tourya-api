@@ -26,6 +26,46 @@ public class JwtService {
     private String secretKey;
     @Value("${application.security.jwt.expiration}")
     private long jwtExpiration;
+    @Value("${application.security.jwt.refresh-expiration:2592000000}")
+    private long refreshExpiration;
+
+    public long getRefreshExpirationMs() {
+        return refreshExpiration;
+    }
+
+    /**
+     * Emite un refresh token JWT firmado con la misma clave. Contiene el jti (identificador
+     * unico), la familia (para revocar la sesion completa) y el previousJti (para detectar
+     * reuso). El claim "type=refresh" evita que un access token se use como refresh.
+     */
+    public String generateRefreshToken(String subject, String jti, String familyId, String previousJti) {
+        java.util.Map<String, Object> claims = new java.util.HashMap<>();
+        claims.put("jti", jti);
+        claims.put("family", familyId);
+        claims.put("type", "refresh");
+        if (previousJti != null) {
+            claims.put("previous", previousJti);
+        }
+        return Jwts.builder()
+                .setClaims(claims)
+                .setSubject(subject)
+                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(System.currentTimeMillis() + refreshExpiration))
+                .signWith(getSignInKey())
+                .compact();
+    }
+
+    /**
+     * Extrae claims arbitrarios (jti, family, type, etc.) de un JWT ya firmado.
+     * Lanza excepcion si la firma es invalida o el token esta mal formado.
+     */
+    public Claims extractAllClaimsPublic(String token) {
+        return extractAllClaims(token);
+    }
+
+    public boolean isExpired(String token) {
+        return isTokenExpired(token);
+    }
 
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);

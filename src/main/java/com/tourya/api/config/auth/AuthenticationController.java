@@ -1,6 +1,7 @@
 package com.tourya.api.config.auth;
 
 import com.tourya.api.config.auth.request.AuthenticationRequest;
+import com.tourya.api.config.auth.request.RefreshTokenRequest;
 import com.tourya.api.config.auth.request.SocialAuthRequest;
 import com.tourya.api.config.auth.request.RegistrationRequest;
 import com.tourya.api.config.auth.response.AuthenticationResponse;
@@ -59,6 +60,23 @@ public class AuthenticationController {
             @RequestBody @Valid SocialAuthRequest request
     ){
         return ResponseEntity.ok(service.authenticateWithSocial(request));
+    }
+
+    @PostMapping("/refresh")
+    @Operation(summary = "Rotar tokens", description = "Recibe un refresh token valido, revoca ese (rotated) y emite un nuevo par access + refresh (mismo family_id). Si detecta reuso, revoca toda la familia y devuelve 401.")
+    public ResponseEntity<AuthenticationResponse> refresh(
+            @RequestBody @Valid RefreshTokenRequest request
+    ){
+        return ResponseEntity.ok(service.refreshTokens(request.getRefreshToken()));
+    }
+
+    @PostMapping("/logout")
+    @Operation(summary = "Cerrar sesion", description = "Revoca toda la familia del refresh token proporcionado. Idempotente: si el token es invalido, tambien retorna 204.")
+    public ResponseEntity<Void> logout(
+            @RequestBody @Valid RefreshTokenRequest request
+    ){
+        service.logout(request.getRefreshToken());
+        return ResponseEntity.noContent().build();
     }
 
     @Hidden

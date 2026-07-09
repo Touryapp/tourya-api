@@ -18,7 +18,16 @@ public class AuthenticationResponse {
     private String fullName;
     private String email;
     private List<Role> roleList;
+
+    @Schema(description = "Access token JWT. Alias legacy: mismo valor que accessToken. Los nuevos clientes deben leer accessToken.")
     private String token;
+
+    @Schema(description = "Access token JWT (usar este; token es alias legacy).")
+    private String accessToken;
+
+    @Schema(description = "Refresh token JWT. Usar POST /auth/refresh para rotar antes de que expire el access token.")
+    private String refreshToken;
+
     @Schema(description = "Si es true, el cliente debe llamar PATCH /users para cambiar contraseña antes de continuar.")
     private Boolean mustChangePassword;
 }
