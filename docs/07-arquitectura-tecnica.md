@@ -391,15 +391,15 @@ TouryaMobile/
 
 📌 PENDIENTE LUIS — ¿iOS está en roadmap?
 
-### Decisión 8 — Sin webhook server-side de Wompi
+### Decisión 8 — ~~Sin webhook server-side de Wompi~~ (revertida 2026-07-08)
 
-> **Decisión actual**: confirmación de pago vía cliente (`POST /payment` desde el front después del checkout Wompi).
+> **Decisión anterior (deprecada)**: confirmación de pago vía cliente (`POST /payment` desde el front después del checkout Wompi).
 >
-> **Trade-off**: si el cliente cierra la app entre Wompi success y POST `/payment`, el pago queda huérfano.
+> **Decisión actual (2026-07-08, PRs #157 + #158)**: se agregó webhook server-side como safety net. El flujo cliente `POST /payment` sigue funcionando (100% aditivo). El webhook recibe todos los eventos Wompi, verifica firma HMAC-SHA256, persiste en `wompi_webhook_event`. Un job cada 5 min matchea eventos APPROVED contra Payments existentes y loguea los huérfanos como WARN para investigación manual.
 >
-> **Riesgo**: ⚠️ pagos pendientes sin sincronizar.
+> **Trade-off residual**: el matcheo automático de un pago huérfano a las reservas TEMPORAL requiere agregar `wompi_reference` a `shopping_cart` (backlog futuro). Por ahora se detectan pero se resuelven manualmente.
 
-📌 PENDIENTE LUIS — confirmar si el cliente quiere webhook.
+📌 ~~PENDIENTE LUIS — confirmar si el cliente quiere webhook.~~ — Implementado 2026-07-08. Luis registró la URL en dashboard Wompi Sandbox y se validó end-to-end.
 
 ---
 
@@ -418,7 +418,8 @@ TouryaMobile/
 | 9 | `tourya-mobile` sin remoto GitHub | HIGH | ⚠️ Pendiente Fase 1 |
 | 10 | URL backend hardcoded en mobile (AWS legacy) | HIGH | ⚠️ Pendiente Fase 1 |
 | 11 | CI/CD sin coverage gate ni Snyk | MEDIUM | ⚠️ Pendiente — [cicd-improvement-plan.md](../../cicd-improvement-plan.md) |
-| 12 | Sin webhook Wompi server-side | MEDIUM | ⚠️ Pendiente Fase 1 |
+| 12 | Sin webhook Wompi server-side | MEDIUM | ✅ Resuelto en dev (PRs #156 + #157 webhook + #158 job de reconciliación) |
+| 18 | JWT sin refresh token (usuario pierde sesión cada 24h) | HIGH | ✅ Resuelto en dev (PR #159, BE-12/13/14/15). Duraciones por rol pendientes |
 | 13 | `System.out.println("tempPassword")` en social auth | HIGH | ✅ Resuelto (PR #149) |
 | 14 | CORS con URLs muertas AWS legacy | HIGH | ✅ Resuelto (PR #150) |
 | 15 | URL de QR hardcoded a IP AWS legacy en `ReservationQrService:130` | HIGH | ✅ Resuelto (PR #154, 2026-07-08). `@Value("${application.qr.base-url:https://tourya.co/home}")` |

@@ -41,7 +41,15 @@ Procesar pagos con tarjeta de crédito/débito, PSE, Bancolombia button y otros 
 
 ### Limitaciones / problemas
 
-⚠️ **NO hay webhook server-side de Wompi**. La confirmación es client-side. Si el frontend falla entre el pago Wompi y el `POST /payment`, el dinero del usuario está cobrado pero la reserva queda en limbo (TEMPORAL → expira).
+✅ **Webhook server-side de Wompi implementado 2026-07-08** (PRs #156 + #157 + #158, BE-16/17):
+
+- Endpoint público `POST /public/wompi/webhook` recibe eventos server-to-server.
+- Verifica firma SHA-256 con `WOMPI_EVENTS_SECRET` (secret en Secret Manager, distinto del integrity secret).
+- Persiste todos los eventos en tabla `wompi_webhook_event` (con `signature_valid` como flag, para forensia).
+- Job `WompiReconciliationJob` corre cada 5 min: matchea contra `Payment` existentes por `transactionId`. Si existe → link + tracking. Si no existe → **loguea WARN `orphan payment detected`** con tx_id, reference, amount → para investigación operativa manual.
+- **Limitación conocida**: el matcheo automático de pagos huérfanos a las reservas TEMPORAL correctas requiere agregar `wompi_reference` a `shopping_cart` (backlog futuro BE-20 extendido). Por ahora se detectan pero se resuelven manualmente.
+
+**Configurado en dev**: URL registrada en dashboard Wompi Sandbox por Luis, verificado end-to-end 2026-07-08.
 
 📌 PENDIENTE LUIS — confirmar si se implementa webhook.
 
@@ -291,7 +299,7 @@ Canal WhatsApp para los agentes IA (ver [16 — Agentes IA](16-agentes-ia.md)):
 
 ## Recomendaciones
 
-1. **Implementar webhook server-side de Wompi** para no perder pagos.
+1. ~~Implementar webhook server-side de Wompi~~ — ✅ Completado en dev 2026-07-08. Pendiente: matcheo automático de huérfanos → reservas TEMPORAL (requiere `wompi_reference` en `shopping_cart`).
 2. **Migrar de Firebase a Token Exchange** (propuesta en `social-login-google-facebook.md`).
 3. **Implementar Google Cloud Translation** (propuesta en `traduccion-automatica-tours.md`).
 4. ~~Migrar secretos a Secret Manager~~ — ✅ Completado en dev (2026-07-08).

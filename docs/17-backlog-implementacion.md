@@ -88,12 +88,12 @@ Consolida todo el trabajo pendiente que emergió de los documentos [00–16](00-
 | BE-09 | Endpoint GET/PUT `/config` para ADMIN gestione `app_config` desde backoffice | P1 | S | BE-06, BE-07, BE-08 | RN-022 |
 | BE-10 | Endpoint validador de galería del tour (7 imgs / 5 MB / horizontal 1920px) | P1 | S | RN-013 revisada | RN-013 |
 | BE-11 | Validación: RN-045 documentos KYB obligatorios (RUT, RNT, cert bancaria, cédula RL, cámara comercio, pólizas) | P1 | S | — | RN-045 |
-| BE-12 | Migración: crear tabla `refresh_token` con `jti`, `family_id`, `previous_jti`, `expires_at`, `revoked_at` | P1 | S | — | RN-005 |
-| BE-13 | Refactor `JwtService` → emitir `access_token` + `refresh_token` con expiraciones por rol | P1 | M | BE-12 | RN-005 |
-| BE-14 | Endpoint `POST /auth/refresh` con rotación + detección de reuso (revoca familia) | P1 | S | BE-13 | RN-005 |
-| BE-15 | Endpoint `POST /auth/logout` que revoca la familia entera de tokens | P1 | XS | BE-14 | RN-005 |
-| BE-16 | Webhook server-side Wompi: endpoint `POST /public/wompi/webhook` con verificación de firma | P1 | M | — | RN-025 |
-| BE-17 | Reconciliación de pagos huérfanos (job) — busca `TEMPORAL` que Wompi confirmó pero no llegó | P1 | S | BE-16 | RN-025 |
+| BE-12 | 🟢 Migración: crear tabla `refresh_token` con `jti`, `family_id`, `previous_jti`, `expires_at`, `revoked_at` | P1 | S | — | RN-005, PR #159 (migración 067) |
+| BE-13 | 🟢 Refactor `JwtService` → emitir `access_token` + `refresh_token` con expiraciones configurables | P1 | M | BE-12 | RN-005, PR #159. Duración por rol pospuesta (default: access 24h, refresh 30d) |
+| BE-14 | 🟢 Endpoint `POST /auth/refresh` con rotación + detección de reuso (revoca familia) | P1 | S | BE-13 | RN-005, PR #159 |
+| BE-15 | 🟢 Endpoint `POST /auth/logout` que revoca la familia entera de tokens | P1 | XS | BE-14 | RN-005, PR #159 |
+| BE-16 | 🟢 Webhook server-side Wompi: endpoint `POST /public/wompi/webhook` con verificación de firma | P1 | M | — | RN-025, PR #157 (código) + #156 (workflow) |
+| BE-17 | 🟢 Reconciliación de eventos Wompi (job) — matchea contra Payments y detecta huérfanos | P1 | S | BE-16 | RN-025, PR #158. Nota: en este PR solo alerta el huérfano; el matcheo automático a reservas TEMPORAL requiere agregar `wompi_reference` a `shopping_cart` (backlog futuro) |
 | BE-18 | Correo automático "crédito por expirar" (30 días y 7 días antes) | P2 | S | — | RN-036 |
 | BE-19 | Correo automático "crédito expirado" | P2 | XS | BE-18 | RN-036 |
 | BE-20 | Verificar y completar flujo de reagendamiento (3 casos: igual/menor/mayor precio) | P1 | S | — | RN-033 |

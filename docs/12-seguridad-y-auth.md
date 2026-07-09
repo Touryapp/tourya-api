@@ -35,19 +35,25 @@ application.security.jwt.expiration=86400000
 
 ⚠️ **Vulnerabilidad CRITICAL (C-1)**: el secret está hardcoded en `application.properties`. Cualquiera con acceso al repo puede forjar JWTs válidos.
 
-### JWT (rediseño pendiente) — Access + Refresh diferenciados por rol
+### JWT — Access + Refresh (implementado)
 
-✅ Definido Franklin (2026-07-07) basado en OWASP ASVS Level 2:
+✅ **Implementado 2026-07-08** (PR #159, BE-12/13/14/15). Estado actual:
 
-| Rol | Access token | Refresh token | Idle |
-|-----|--------------|---------------|------|
-| **USER (turista)** | 60 min | 30 días | Sin idle |
-| **PROVIDER / PROVIDER_OPERATOR** | 30 min | 7 días | 4 horas |
-| **ADMIN / BACKOFFICE_OPERATION** | 15 min | 8 horas | 15 min |
+| Aspecto | Estado actual (dev) | Objetivo futuro (por rol) |
+|---------|---------------------|---------------------------|
+| Access token duración | 24 h (todos los roles) | 60/30/15 min según rol (backlog) |
+| Refresh token duración | 30 días (todos los roles) | 30d/7d/8h según rol (backlog) |
+| Idle timeout | Sin implementar | Sí para PROVIDER/ADMIN (backlog) |
 
-**Reglas transversales**: refresh rotativo, detección de reuso (revoca familia entera), almacenamiento en cookie HttpOnly (web) o SecureStorage (mobile), nueva tabla `refresh_token`.
+**Reglas transversales implementadas** (PR #159):
+- **Rotación**: cada uso de `POST /auth/refresh` revoca el refresh actual y emite uno nuevo con el mismo `family_id`.
+- **Detección de reuso**: si un refresh revocado se usa de nuevo → se revoca **toda la familia**. Log WARN con `jti` y `family_id`.
+- **Logout server-side**: `POST /auth/logout` revoca la familia entera (invalida otros dispositivos con la misma sesión).
+- **Tabla `refresh_token`**: `jti` (unique), `family_id`, `previous_jti`, `expires_at`, `revoked_at`, `revoked_reason`.
 
-Detalle completo en [05 — Reglas de negocio, RN-005](05-reglas-de-negocio.md).
+**Backwards compatibility en response**: `/auth/authenticate` y `/auth/social-auth` ahora devuelven `token` (legacy, alias de `accessToken`) + `accessToken` + `refreshToken` simultáneamente. Angular y MAUI actuales siguen funcionando sin cambios.
+
+**Pendiente**: duraciones por rol, idle timeout, cookie HttpOnly en web. Ver [05 — Reglas de negocio, RN-005](05-reglas-de-negocio.md).
 
 ---
 
@@ -56,7 +62,9 @@ Detalle completo en [05 — Reglas de negocio, RN-005](05-reglas-de-negocio.md).
 ✅ `POST /api/v1/auth/authenticate`:
 - Valida email + password (`AuthenticationManager` + `DaoAuthenticationProvider`).
 - BCrypt para hash.
-- Responde con JWT de 24h.
+- Responde con `token`/`accessToken` (24h) + `refreshToken` (30d).
+- Cliente puede rotar con `POST /auth/refresh` antes de que expire el access token.
+- Cerrar sesión: `POST /auth/logout` revoca la familia.
 
 ---
 
@@ -242,7 +250,7 @@ Son cosas distintas que viven en momentos distintos del ciclo:
 | H-3 | Sin rate limiting en endpoints de auth | ⚠️ Pendiente | Fase 1 |
 | H-4 | Sin lockout tras N intentos fallidos de login | ⚠️ Pendiente | Fase 1 |
 | H-5 | Sin protección CSRF (compensado por JWT en header pero…) | ⚠️ Pendiente | — |
-| H-6 | Sin webhook Wompi (pagos huérfanos posibles) | ⚠️ Pendiente | Fase 1 |
+| H-6 | Sin webhook Wompi (pagos huérfanos posibles) | ✅ **Resuelto** en dev | PRs #156 + #157 (webhook + verificación firma) + PR #158 (job de reconciliación). Detecta pagos huérfanos y los loguea como WARN para investigación manual |
 | H-7 | CORS permisivo con URLs muertas AWS legacy | ✅ **Resuelto** | PR #150 (SEC-11) |
 
 ### MEDIUM
@@ -301,9 +309,15 @@ Son cosas distintas que viven en momentos distintos del ciclo:
 
 ## Decisiones de seguridad
 
-### Decisión: JWT stateless, sin refresh token
-✅ Sesión completa en el JWT, expira 24h, usuario debe volver a loguearse.
-> **Trade-off**: simple pero UX peor. Sin posibilidad de revocar un token específico antes de exp.
+### Decisión: JWT híbrido stateless + refresh state en BD (actualizada 2026-07-08)
+
+✅ **Actualizado en PR #159**: access token stateless (JWT firmado, exp 24h) + refresh token con estado en tabla `refresh_token`.
+
+- **Access token**: JWT autocontenido, se valida sin BD hit → mismo rendimiento que antes.
+- **Refresh token**: JWT firmado + registro en BD. La BD es fuente autoritativa del estado (revocado o no) → permite logout server-side + detección de reuso.
+- **Trade-off resuelto**: UX ya no obliga a re-loguear diario (refresh rota tokens sin fricción). Access token puede revocarse indirectamente vía revocación de familia + expiración natural.
+
+**Duración por rol** aún pendiente (backlog): hoy es 24h/30d para todos.
 
 ### Decisión: Roles cargados desde BD en cada request
 ✅ El `JwtFilter` recarga `UserDetails`.

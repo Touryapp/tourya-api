@@ -47,8 +47,11 @@ Sorting: `sortBy`, `sortDirection` (ASC/DESC).
 | Método | Path | Auth | Descripción |
 |--------|------|------|-------------|
 | POST | `/auth/register` | público | Registro USER |
-| POST | `/auth/authenticate` | público | Login email/password |
-| POST | `/auth/social-auth` | público | Login social (Firebase UID) |
+| POST | `/auth/authenticate` | público | Login email/password. Response incluye `token` (legacy alias) + `accessToken` + `refreshToken` |
+| POST | `/auth/social-auth` | público | Login social (Firebase UID). Idem response con refresh token |
+| POST | `/auth/refresh` | público | Rota tokens: recibe `{refreshToken}`, revoca el actual, emite nuevo par access + refresh. Detecta reuso → revoca familia + 401 |
+| POST | `/auth/logout` | público | Revoca la familia entera del refresh token. Idempotente (204 aunque el token sea inválido) |
+| POST | `/public/wompi/webhook` | público | Recibe eventos server-to-server de Wompi. Verifica firma SHA-256 con events secret. Persiste todo en `wompi_webhook_event` para reconciliación |
 | GET | `/auth/activate-account` | público | Activar cuenta con código |
 
 #### `UserController` — `/users`

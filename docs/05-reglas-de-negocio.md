@@ -43,8 +43,18 @@ Catálogo de las reglas que rigen el comportamiento de Tourya. Marcadas según o
 
 ---
 
-### RN-005 — Access + Refresh tokens diferenciados por rol (a implementar)
-✅ Expiración actual: `application.security.jwt.expiration=86400000` ms = 24 horas. **Sin refresh token**.
+### RN-005 — Access + Refresh tokens (implementado, duraciones por rol pendientes)
+
+✅ **Base implementada 2026-07-08 (PR #159, BE-12/13/14/15)**:
+
+- Access token JWT stateless (24h para todos los roles por ahora).
+- Refresh token JWT firmado con estado en tabla `refresh_token` (30d para todos por ahora).
+- Rotación al usar `POST /auth/refresh`: revoca el actual + emite nuevo par + hereda `family_id` + `previous_jti` = jti anterior.
+- Detección de reuso: si un refresh revocado se reusa → revoca **toda la familia** con `revoked_reason='reuse_detected'`.
+- Logout server-side: `POST /auth/logout` revoca la familia entera con `revoked_reason='logout'`.
+- Backwards compat en response: `token` (legacy alias) + `accessToken` + `refreshToken` coexisten.
+
+⚠️ **Pendiente (backlog)**: duraciones diferenciadas por rol (USER 60m/30d, PROVIDER 30m/7d, ADMIN 15m/8h), idle timeout PROVIDER/ADMIN, cookie HttpOnly para el refresh en web.
 
 ✅ **Decisión Franklin (2026-07-07)** — basada en OWASP ASVS Level 2 (V3.5) y benchmarks de industria (Airbnb, Booking, Uber para turista; patrones bancarios para backoffice):
 

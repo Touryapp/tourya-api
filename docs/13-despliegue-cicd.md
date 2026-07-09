@@ -105,6 +105,7 @@ AWS_REGION, AWS_BUCKET (legacy)
 ```
 JWT_SECRET                → tourya-jwt-key
 WOMPI_INTEGRITY_SECRET    → tourya-wompi-integrity-secret
+WOMPI_EVENTS_SECRET       → tourya-wompi-events-secret        (agregado 2026-07-08, PR #156)
 DB_PASSWORD               → tourya-db-password
 MAIL_PASSWORD             → tourya-smtp-password
 ```
