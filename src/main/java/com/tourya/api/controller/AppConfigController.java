@@ -69,7 +69,7 @@ public class AppConfigController {
      * Body: { "value": {...}, "description": "..." } — description es opcional.
      */
     @PutMapping("/{configKey}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('ADMIN')")
     @Operation(summary = "Crear o actualizar configuracion",
             description = "Solo ADMIN. Upsert por clave. El cuerpo debe incluir 'value' (Map<String,Object>).")
     @ApiResponses(value = {
