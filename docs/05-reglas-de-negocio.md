@@ -227,13 +227,16 @@ Donde:
 ### RN-020 — Precios por tipo de persona obligatorios
 ✅ Cada slot debe tener un precio por cada `ageType` configurado (ADULT, CHILD, INFANT). El INFANT puede tener `providerPrice = 0`.
 
-### RN-021 — Capacidad ilimitada (limpieza de campo redundante)
+### RN-021 — Capacidad ilimitada (limpieza de campo redundante, implementado)
 ✅ **Aclaración de Luis (2026-07-07)**: la capacidad ilimitada es una propiedad **del tour** — ya existe en `Tour.isUnlimitedCapacity`. El campo duplicado en `TourSchedule` es un remanente que debe **eliminarse**.
 
-- ✅ El campo `Tour.isUnlimitedCapacity` **ya existe** y es la fuente de verdad.
-- 📌 **A eliminar**: el campo `isUnlimitedCapacity` en la tabla `tour_schedule` (redundante).
+- ✅ `Tour.isUnlimitedCapacity` es la fuente de verdad.
+- ✅ **Columna eliminada de `tour_schedule` y `tour_schedule_config` en la migración 029** (2026-04-08). Descubrimiento durante la auditoría del 2026-07-10: el trabajo ya se había hecho meses atrás y el backlog había quedado desactualizado (BE-03/04/FE-07 marcados como pendientes cuando ya no lo estaban).
+- ✅ **Backend Java** (Tour.java + services): todos los flujos leen de `tour.getIsUnlimitedCapacity()`, ninguno consulta el schedule. `TourSchedule.java` no tiene la propiedad; el `TourScheduleConfigGeneralService:523` conserva solo un comentario legacy inocuo.
+- ✅ **Frontend Angular** (`tour-schedule.component.ts:144`): getter `isUnlimitedCapacity()` que retorna `this.tour?.isUnlimitedCapacity` — la vista de schedule ya no tiene input del campo, solo lo usa como readonly/placeholder.
 - Cuando un tour tiene capacidad ilimitada, al configurar el slot **solo se ingresa el precio** — no la capacidad.
 - La validación de capacidad en checkout (RN-023) se salta cuando `Tour.isUnlimitedCapacity = true`.
+- ⚠️ **Deuda residual (no bloqueante)**: el SP `sp_get_tour_schedule` (viejo, sin `_json`) tiene `ts.is_unlimited_capacity` en su cuerpo referenciando la columna inexistente. No lo llama ningún código Java (confirmado por grep). Es dead SQL. Cierra con un `DROP FUNCTION` cuando se quiera limpiar.
 
 ---
 

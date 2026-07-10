@@ -79,8 +79,8 @@ Consolida todo el trabajo pendiente que emergió de los documentos [00–16](00-
 |----|------|:----:|:-----:|---------|------------|
 | BE-01 | 🟢 Backfill `tour.porcentaje_tourya = 0.15` (38 tours en dev) + `ALTER COLUMN SET DEFAULT 0.15` + limpiar comment "DEPRECATED". Campo YA existía desde 043 pero marcado como deprecated en 050; se reactivó | P1 | S | — | RN-015, PR #163 (migración 071). Nombre queda en español (`porcentaje_tourya`) — rename a inglés descartado por alto costo/bajo valor |
 | BE-02 | 🟢 `TourScheduleConfigGeneralService.buildSlots()` y `manageSlotsUpdate()` heredan `tour.porcentaje_tourya` al crear slot nuevo. Antes se hardcodeaba a `ZERO` | P1 | S | BE-01 | RN-015, PR #163 |
-| BE-03 | Migración: eliminar `isUnlimitedCapacity` de `tour_schedule` (drop column) | P1 | XS | — | RN-021 |
-| BE-04 | Ajustar `TourScheduleConfigGeneralService` para no leer/escribir el campo eliminado | P1 | S | BE-03 | RN-021 |
+| BE-03 | 🟢 Eliminar `isUnlimitedCapacity` de `tour_schedule` (drop column) | P1 | XS | — | RN-021, **migración 029 (2026-04-08)**. Descubrimiento 2026-07-10: el trabajo ya estaba hecho hace 3 meses, el backlog quedó desactualizado. Ver auditoría en doc 00 |
+| BE-04 | 🟢 Ajustar `TourScheduleConfigGeneralService` para no leer/escribir el campo eliminado | P1 | S | BE-03 | RN-021, **ya hecho hace tiempo**. Verificación 2026-07-10: `TourScheduleConfigGeneralService:523` tiene solo un comentario del método antiguo; ningún service del backend lee `schedule.isUnlimitedCapacity` (todos usan `tour.isUnlimitedCapacity`, que sigue siendo la fuente de verdad correcta) |
 | BE-05 | 🟢 Agregar razones `LEGAL_OBLIGATIONS`, `CHANGE_OF_PLANS` al enum `CancellationReasonEnum` | P1 | XS | — | RN-030, PR #166. Sin migración SQL (columna `reservation.cancellation_reason` es VARCHAR(20) y ambos valores caben) |
 | BE-06 | 🟢 Refactor `holdMinutes` (carrito) a `app_config` — leer de BD, no de property | P1 | S | — | RN-022, PR #160 |
 | BE-07 | 🟢 Refactor buffer de payout (2 días) a `app_config` | P1 | S | — | RN-040, PR #160 |
@@ -112,7 +112,7 @@ Consolida todo el trabajo pendiente que emergió de los documentos [00–16](00-
 | FE-04 | 🟢 UI para ADMIN de `app_config` (holdMinutes, buffer payout, expiración créditos, gallery, KYB flag, rate limit y lockout) | P1 | S | BE-09 | RN-022, PR tourya-front #58. 12 configs en 5 grupos (Reservas, Payouts, Galería, KYB, Auth). `CANCELLATION_POLICY` queda fuera del v1 (requiere editor JSON dedicado) |
 | FE-05 | UI backoffice: gestionar `Tour.percentageTourya` en formulario de aprobación de tour | P1 | S | BE-01 | RN-015 |
 | FE-06 | 🟢 Agregar UI para las 2 nuevas razones de cancelación en cliente (Angular) | P1 | XS | BE-05 | RN-030, PR tourya-front #56. Aprovechó para cerrar bug preexistente: `INABILITY_TO_TRAVEL` faltaba en `formatCancellationReason` |
-| FE-07 | Quitar campo `isUnlimitedCapacity` en config de schedule (mover a formulario de tour) | P1 | XS | BE-03 | RN-021 |
+| FE-07 | 🟢 Quitar campo `isUnlimitedCapacity` en config de schedule (mover a formulario de tour) | P1 | XS | BE-03 | RN-021, **ya hecho**. Verificación 2026-07-10: `tour-schedule.component.ts:144` tiene un getter `isUnlimitedCapacity()` que lee de `this.tour?.isUnlimitedCapacity` (no del schedule); el HTML usa ese getter solo para readonly/placeholder. No hay input del campo en el schedule, ya está en el form del tour |
 | FE-08 | Dashboard financiero del backoffice: GMV, net revenue, cuentas por pagar, CAC | P2 | L | — | Doc 01 roadmap |
 | FE-09 | Dashboard operativo del backoffice: tasa conversión/cancelación, tours de alto riesgo | P2 | L | — | Doc 01 roadmap |
 | FE-10 | Gestor de disputas | P2 | L | — | Doc 01 roadmap |

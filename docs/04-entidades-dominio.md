@@ -289,8 +289,8 @@ Instancia concreta del tour en una fecha.
 | `scheduleDate` | LocalDate | |
 | `status` | enum | |
 | `tour`, `tourScheduleConfig` | FK | |
-| `maxCapacity`, `reservedCapacity` | Integer | |
-| ~~`isUnlimitedCapacity`~~ | ~~boolean~~ | **A eliminar** — campo redundante. La fuente de verdad es `Tour.isUnlimitedCapacity`. Ver RN-021 en [05](05-reglas-de-negocio.md) |
+| `maxCapacity`, `reservedCapacity` | Integer | ✅ **Eliminados** de `tour_schedule` en migración 029 (2026-04-08); capacidad efectiva vive en `tour_schedule_config_slot` |
+| ~~`isUnlimitedCapacity`~~ | ~~boolean~~ | ✅ **Eliminado** de `tour_schedule` y `tour_schedule_config` en migración 029 (2026-04-08). La fuente de verdad es `Tour.isUnlimitedCapacity`. Ver RN-021 en [05](05-reglas-de-negocio.md) |
 
 ---
 
