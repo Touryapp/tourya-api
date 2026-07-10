@@ -210,7 +210,7 @@ Donde:
 - **Slots ya existentes NO se tocan** — mantienen su `slot_porcentaje_tourya` actual (posibles overrides). Si el ADMIN quiere aplicar el default a slots viejos, usa el endpoint dedicado.
 - **Nombre queda en español** (`porcentaje_tourya`) — rename a `percentage_tourya` (inglés) fue descartado por alto costo/bajo valor.
 
-📌 **Pendiente**: FE-05 — UI en backoffice para gestionar el default por tour en el formulario de aprobación (hoy solo por API).
+✅ **UI implementada en PR tourya-front #63 (2026-07-10, FE-05)** con backend habilitado en PR tourya-api #169: nuevo endpoint `PATCH /tours/admin/{tourId}/porcentajeTourya` que consume el `UpdatePorcentajeTouryaRequest` (que existía como dead code desde BE-01/02). El modal de aprobación de `tour-admin-detail` incluye un input numérico (0-100 %) pre-poblado con el valor actual del tour; al aceptar dispara `PATCH` + `PUT accept` si el valor cambió, o solo `PUT accept` si no. Edición del % **después** de aprobar el tour queda como FE-05b futuro.
 
 ### RN-016 — Asignación de comisión por rango de fechas
 ✅ `PUT /tour-schedules/tours/{tourId}/percentage` con `slotPercentageTourya + startDate + endDate` actualiza todos los slots de los `TourSchedule`s en ese rango.

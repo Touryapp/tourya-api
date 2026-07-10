@@ -95,6 +95,7 @@ Gestión de sub-usuarios del provider.
 | PUT | `/tour/admin/acceptTourById/{tourId}` | JWT | ADMIN |
 | PUT | `/tour/admin/returnedTourById/{tourId}` | JWT | ADMIN |
 | PUT | `/tour/admin/cancelTourById/{tourId}` | JWT | ADMIN |
+| PATCH | `/tour/admin/{tourId}/porcentajeTourya` | JWT | ADMIN/BACKOFFICE. Body `{ porcentajeTourya: BigDecimal }` (0.0–1.0, ej. `0.15` = 15%). Actualiza el default por tour usado como fallback al crear slots nuevos (RN-015). Retorna `TourFullDataResponse`. |
 | GET | `/tour/user/findAllByUser` | JWT | PROVIDER |
 | POST | `/tour/user/saveAll` | JWT | PROVIDER |
 | GET | `/tour/user/consultDataTourById/{tourId}` | JWT | PROVIDER |
