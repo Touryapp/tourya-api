@@ -290,7 +290,10 @@ public class AuthenticationService {
         // Generar una contraseña temporal segura
         return UUID.randomUUID().toString().substring(0, 16); // Ejemplo
     }
+    @Value("${spring.mail.username}")
+    private String mailUsername;
+
     public void sendEmailTest(){
-        emailService.sendSimpleMessage("noreply@wass.com.co",  "test-email", "Prueba de email");
+        emailService.sendSimpleMessage(mailUsername,  "test-email", "Prueba de email");
     }
 }
