@@ -40,7 +40,7 @@ Cómo está montada la infraestructura y los pipelines de Tourya. Estado actual:
 | **VPC Connector** | Cloud Run ↔ Cloud SQL privado | ✅ Activo |
 | **Load Balancer (HTTPS)** | Routing + dominio | ✅ Activo |
 | **Secret Manager** | Para secretos runtime | ✅ Habilitado en `tourya-project-dev` (2026-07-08). 4 secretos activos: `tourya-jwt-key`, `tourya-wompi-integrity-secret`, `tourya-db-password`, `tourya-smtp-password` |
-| **Workload Identity Federation** | Autenticación GitHub Actions → GCP sin keys JSON | ✅ Habilitado en `tourya-project-dev`. Pool `github-actions-pool` + provider `github-oidc` con condición `repository == Touryapp/tourya-api` |
+| **Workload Identity Federation** | Autenticación GitHub Actions → GCP sin keys JSON | ✅ Habilitado en `tourya-project-dev`. Pool `github-actions-pool` + provider `github-oidc` con condición `repository_owner == 'Touryapp'`. IAM binding sobre SA `tourya-dev-cloud-run` incluye **`Touryapp/tourya-api`** (desde 2026-07-08) y **`Touryapp/tourya-front`** (agregado 2026-07-10) |
 
 ### Cloud Run
 
