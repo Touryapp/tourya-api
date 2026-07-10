@@ -68,13 +68,13 @@ Envío de emails transaccionales:
 
 ### Cómo se integra
 
-✅ Spring Mail apuntando a Gmail Workspace SMTP Relay:
+✅ Spring Mail apuntando a Google Workspace SMTP Relay del dominio `tourya.co` (migrado desde el Workspace de WASS el 2026-07-10):
 
 ```properties
 spring.mail.host=smtp-relay.gmail.com
 spring.mail.port=587
-spring.mail.username=noreply@wass.com.co
-spring.mail.password=${MAIL_PASSWORD}     ← env var
+spring.mail.username=luis.mendoza@tourya.co     ← dev provisional, pendiente noreply@tourya.co
+spring.mail.password=${MAIL_PASSWORD}           ← env var (secret tourya-smtp-password)
 spring.mail.properties.mail.smtp.starttls.enable=true
 spring.mail.properties.mail.smtp.ssl.trust=*
 spring.mail.properties.mail.smtp.localhost=wass.com.co
@@ -97,12 +97,13 @@ Usa Thymeleaf:
 
 ⚠️ **Problema resuelto**: Cloud Run con CPU throttling cortaba el TLS handshake del SMTP durante el `@Async`. Solución: activar `--no-cpu-throttling` en el servicio.
 
-⚠️ **SPF + DKIM pendientes** para el dominio `wass.com.co` — los emails llegan a spam mientras tanto. Coordinación con Luis (admin de Workspace).
+⚠️ **SPF + DKIM + DMARC pendientes** para el dominio `tourya.co` en el DNS de GoDaddy — al 2026-07-10 los emails salen desde Google Workspace de Tourya pero **caen en spam** en clientes que verifican estos records. Bloqueante para prod. Luis debe agregar los TXT records que Google Workspace Admin le muestra.
 
 ### Sender
 
-- `From: noreply@wass.com.co` (configurado por Luis en su Workspace).
-- Razón: la versión anterior usaba `eowkin@gmail.com` (cuenta personal), se migró a la cuenta de empresa.
+- `From: luis.mendoza@tourya.co` (provisional en dev, mientras Luis crea `noreply@tourya.co`).
+- Migración desde `noreply@wass.com.co` completada el 2026-07-10 en `tourya-project-dev`: rotación de secret `tourya-smtp-password` (v1=WASS, v2=Tourya) + `gcloud run services update ... --update-env-vars=MAIL_USERNAME=luis.mendoza@tourya.co`. Revisión desplegada: `tourya-dev-api-00107-8j6`.
+- Prod (`tourya-project-493820`) sigue en Workspace de WASS al momento de esta doc. Pendiente aplicar el mismo switch cuando dev esté estable durante N días y Luis termine SPF/DKIM/DMARC.
 
 ---
 
