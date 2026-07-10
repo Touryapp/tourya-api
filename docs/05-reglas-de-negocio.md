@@ -249,7 +249,7 @@ Body: {"value": {"value": 30}, "description": "Ampliado a 30 min por temporada a
 ```
 Requiere token de ADMIN. Aplica desde el próximo checkout (no requiere reiniciar el servicio).
 
-📌 **Pendiente**: FE-04 — UI en backoffice para editar (hoy solo por API con curl).
+✅ **UI implementada en PR tourya-front #58 (2026-07-10)**: `AppConfigAdminComponent` en el Dashboard de ADMIN edita `HOLD_MINUTES` (y las otras 11 configs de Fase 1) con inputs numéricos y toggles booleanos, sin necesidad de curl.
 
 ### RN-023 — Validación de capacidad en checkout
 ✅ Al agregar al carrito, se valida que el slot tenga capacidad suficiente (`requestedUnits <= availability`). **Esta validación solo aplica si `Tour.isUnlimitedCapacity = false`**.
