@@ -733,6 +733,36 @@ public class TourService {
             throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
         }
     }
+    public TourFullDataResponse updatePorcentajeTouryaByAdmin(Integer tourId, UpdatePorcentajeTouryaRequest request, Authentication connectedUser){
+        User user = ((User) connectedUser.getPrincipal());
+        List<Role> roleList = user.getRoles();
+        if(Utils.isTouryaBackoffice(roleList)){
+            Optional<Tour> optionalTour = tourRepository.findById(tourId);
+            if(optionalTour.isPresent()){
+                Tour tour = optionalTour.get();
+                tour.setPorcentajeTourya(request.getPorcentajeTourya());
+                Tour tourUpdate = tourRepository.save(tour);
+                List<Integer> tagIds = tourTagsRepository.getTagIdsByTourId(tourId);
+                return tourMapper.toTourFullDataResponse(
+                        tourUpdate,
+                        consultDataTourAddressListByTourId(tourId),
+                        getAllByTourMainAttractions(tourId),
+                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.INCLUDE),
+                        getAllByTourIncludesExcludes(tourId, IncludeExcludeTypeEnum.EXCLUDE),
+                        getAllByTourFaqs(tourId),
+                        getAllByTourItineraries(tourId),
+                        getAllByTourCancellationPolicy(tourId),
+                        null,
+                        tagIds
+                );
+            }else{
+                throw new ResourceNotFoundException("Tour not found with id = "+tourId);
+            }
+        }else{
+            throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
+        }
+    }
+
     public TourFullDataResponse returnedTourByIdToAdmin(Integer tourId, Authentication connectedUser){
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
