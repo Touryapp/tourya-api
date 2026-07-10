@@ -15,7 +15,7 @@ import io.swagger.v3.oas.annotations.servers.Server;
         info = @Info(
                 contact = @Contact(
                         name = "Tourya",
-                        email = "noreply@wass.com.co",
+                        email = "noreply@tourya.co",
                         url = "https://tourya.co"
                 ),
                 description = "API Tourya — incluye ajustes 27/05/2026 (reviews, reservas, payout, créditos, operadores).",
