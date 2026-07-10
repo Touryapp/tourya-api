@@ -174,7 +174,7 @@ Body: {"value": {"value": 10}, "description": "Ampliado por temporada de campañ
 
 **Descartado del backlog original**: la sugerencia de "ancho recomendado 1920px" era solo recomendación, no obligación (Luis, RN-013 original). Loguear un warning server-side sin acción no aporta; el frontend puede sugerir 1920px pre-upload como recomendación de UX.
 
-📌 **Pendiente**: FE-03 — validación pre-upload en Angular para dar feedback inmediato antes de mandar al backend.
+✅ **UI implementada en PR tourya-front #59 (2026-07-10, FE-03)**: `tour-gallery.component` valida MIME, tamaño, orientación landscape, ancho mínimo y cuenta total antes de subir al backend. Umbrales leídos de `app_config` con fallback a los defaults. Los `issues[]` del backend se muestran en el mismo modal Swal si logran llegar (bypass o cambio server-side).
 
 ---
 

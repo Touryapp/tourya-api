@@ -108,7 +108,7 @@ Consolida todo el trabajo pendiente que emergió de los documentos [00–16](00-
 |----|------|:----:|:-----:|---------|------------|
 | FE-01 | Adaptar login: guardar `refresh_token` en cookie HttpOnly + auto-refresh transparente en interceptor | P1 | S | BE-13 | RN-005 |
 | FE-02 | Migrar login social: quitar Firebase SDK, integrar `@abacritt/angularx-social-login` u equivalente compatible Angular 19 | P0 | M | SEC-06 | — |
-| FE-03 | Validación en el uploader de galería: 7 imgs máx, 5 MB máx, formato horizontal 1920px | P1 | S | RN-013 revisada | RN-013 |
+| FE-03 | 🟢 Validación pre-upload en el uploader de galería (formato/tamaño/orientación/ancho mínimo/cuenta total), umbrales leídos de `app_config` | P1 | S | RN-013 revisada, BE-10 | RN-013, PR tourya-front #59. Backend sigue como defensa en profundidad; frontend evita el round-trip y muestra errores del backend en el mismo Swal |
 | FE-04 | 🟢 UI para ADMIN de `app_config` (holdMinutes, buffer payout, expiración créditos, gallery, KYB flag, rate limit y lockout) | P1 | S | BE-09 | RN-022, PR tourya-front #58. 12 configs en 5 grupos (Reservas, Payouts, Galería, KYB, Auth). `CANCELLATION_POLICY` queda fuera del v1 (requiere editor JSON dedicado) |
 | FE-05 | UI backoffice: gestionar `Tour.percentageTourya` en formulario de aprobación de tour | P1 | S | BE-01 | RN-015 |
 | FE-06 | 🟢 Agregar UI para las 2 nuevas razones de cancelación en cliente (Angular) | P1 | XS | BE-05 | RN-030, PR tourya-front #56. Aprovechó para cerrar bug preexistente: `INABILITY_TO_TRAVEL` faltaba en `formatCancellationReason` |
