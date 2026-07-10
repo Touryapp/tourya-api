@@ -20,6 +20,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import com.tourya.api.models.request.TourFullDataRequest;
+import com.tourya.api.models.request.UpdatePorcentajeTouryaRequest;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -49,6 +51,14 @@ public class TourController {
             @PathVariable("tourId") Integer tourId, Authentication connectedUser){
         return ResponseEntity.ok(tourService.acceptTourByIdToAdmin(tourId, connectedUser));
     }
+    @PatchMapping("/admin/{tourId}/porcentajeTourya")
+    public ResponseEntity<TourFullDataResponse> updatePorcentajeTourya (
+            @PathVariable("tourId") Integer tourId,
+            @Valid @RequestBody UpdatePorcentajeTouryaRequest request,
+            Authentication connectedUser){
+        return ResponseEntity.ok(tourService.updatePorcentajeTouryaByAdmin(tourId, request, connectedUser));
+    }
+
     @PutMapping("/admin/returnedTourById/{tourId}")
     public ResponseEntity<TourFullDataResponse> returnedTourById (
             @PathVariable("tourId") Integer tourId, Authentication connectedUser){
