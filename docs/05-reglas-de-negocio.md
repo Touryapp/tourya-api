@@ -54,7 +54,9 @@ Catálogo de las reglas que rigen el comportamiento de Tourya. Marcadas según o
 - Logout server-side: `POST /auth/logout` revoca la familia entera con `revoked_reason='logout'`.
 - Backwards compat en response: `token` (legacy alias) + `accessToken` + `refreshToken` coexisten.
 
-⚠️ **Pendiente (backlog)**: duraciones diferenciadas por rol (USER 60m/30d, PROVIDER 30m/7d, ADMIN 15m/8h), idle timeout PROVIDER/ADMIN, cookie HttpOnly para el refresh en web.
+⚠️ **Pendiente (backlog)**: duraciones diferenciadas por rol (USER 60m/30d, PROVIDER 30m/7d, ADMIN 15m/8h), idle timeout PROVIDER/ADMIN, cookie HttpOnly para el refresh en web (item FE-01b — hoy los tokens viven en `localStorage`).
+
+✅ **UI web implementada en PR tourya-front #60 (2026-07-10, FE-01)**: `AuthInterceptor` de Angular auto-refresca en 401 con mutex (múltiples 401 concurrentes disparan un solo `/auth/refresh`); `AuthService.logout()` llama a `/auth/logout` server-side; DTOs leen los nuevos campos `accessToken`/`refreshToken`. Backwards compat: sesiones con solo `token` legacy siguen funcionando, al expirar caen en forceLogout como antes.
 
 ✅ **Decisión Franklin (2026-07-07)** — basada en OWASP ASVS Level 2 (V3.5) y benchmarks de industria (Airbnb, Booking, Uber para turista; patrones bancarios para backoffice):
 
