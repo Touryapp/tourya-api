@@ -331,16 +331,28 @@ Si se cumple con la ventana de la política, el refund es del **100%** en crédi
 ### RN-032 — Cancelación por lluvia
 ✅ Solo ADMIN: `PUT /reservations/{id}/cancel/rain`. Requiere DIMAR flag (un `MaritimActivityReport` activo en la fecha + ubicación). Crédito 100%.
 
-### RN-033 — Reschedule de reserva
+### RN-033 — Reschedule de reserva (implementado)
 ✅ El turista puede reagendar si:
 - `canReschedule = true`.
 - La política del tour `allowsRescheduling = true`.
 - Antes de `maxReschedulingDate`.
+- La nueva fecha **no está en el pasado** (guard agregado en BE-20, 2026-07-11).
 
 ✅ 3 casos según diferencia de precio:
-- Precio igual: cambio directo.
-- Precio menor: se genera crédito por la diferencia.
-- Precio mayor: el turista debe pagar la diferencia.
+- **EQUAL**: cambio directo — actualiza `Reservation` + `ShoppingCartItem`, marca `RESCHEDULED`, recalcula `maxCancellationDate`/`maxReschedulingDate`.
+- **LOWER**: se genera `Credit` por la diferencia (`currentPrice - newPrice`) con `expirationDate = today + CREDIT_EXPIRATION_MONTHS` (`app_config`, RN-036).
+- **HIGHER**: cancela la reserva anterior (sin crear crédito duplicado), crea `Credit` con el valor original pagado, limpia items ACTIVE del carrito, agrega el nuevo item con la nueva fecha. El turista completa el pago vía checkout normal (crédito + diferencia por Wompi). Response `transactionStatus = CANCELLED_AND_ADDED_TO_CART`.
+
+✅ **Guardas comunes** (validate + execute):
+- No permite reagendar reservas CANCELED, DELIVERED o ya RESCHEDULED (un solo reagendamiento por reserva).
+- Valida pertenencia al usuario autenticado.
+- Valida capacidad del nuevo slot (`tourScheduleSlotAvailabilityService.ensureSlotHasCapacity`).
+- Recalcula availability de slot viejo y nuevo tras el cambio.
+- Todo el flow bajo `@Transactional` a nivel de clase + método.
+
+✅ **Implementado en PR #170 (2026-07-11, BE-20)**: auditoría línea por línea (los 3 casos ya estaban implementados desde antes), agregado guard de `newDate` en el pasado, primera suite JUnit del proyecto (14 tests con Mockito en `ReservationServiceRescheduleTest`).
+
+⚠️ **Deuda futura BE-20b**: test integrado con `@SpringBootTest` + Testcontainers para verificar los 3 flujos end-to-end con BD real (createCredit, addItemToCart, recálculos).
 
 ### RN-034 — Job de expiración de flags de cancelación/reschedule
 ✅ `ReservationCancellationFlagsJob` corre diariamente a las **5:00 AM Bogotá**. Desactiva `canCancel = false` / `canReschedule = false` cuando `maxCancellationDate / maxReschedulingDate < today`.

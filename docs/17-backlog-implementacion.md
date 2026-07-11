@@ -96,7 +96,7 @@ Consolida todo el trabajo pendiente que emergió de los documentos [00–16](00-
 | BE-17 | 🟢 Reconciliación de eventos Wompi (job) — matchea contra Payments y detecta huérfanos | P1 | S | BE-16 | RN-025, PR #158. Nota: en este PR solo alerta el huérfano; el matcheo automático a reservas TEMPORAL requiere agregar `wompi_reference` a `shopping_cart` (backlog futuro) |
 | BE-18 | Correo automático "crédito por expirar" (30 días y 7 días antes) | P2 | S | — | RN-036 |
 | BE-19 | Correo automático "crédito expirado" | P2 | XS | BE-18 | RN-036 |
-| BE-20 | Verificar y completar flujo de reagendamiento (3 casos: igual/menor/mayor precio) | P1 | S | — | RN-033 |
+| BE-20 | 🟢 Verificar y completar flujo de reagendamiento (3 casos: igual/menor/mayor precio) | P1 | S | — | RN-033, PR #170. Auditoría 2026-07-11: los 3 casos ya estaban sólidos (LOWER/EQUAL en `handleRescheduleEqualOrLower`, HIGHER en `handleRescheduleHigher`, con `CREDIT_EXPIRATION_MONTHS` de `app_config` + `@Transactional` + recálculo de availability). Fixes: guard `newDate >= today` + renumeración de comentario. Primera suite JUnit real del proyecto: 14 tests con Mockito (`ReservationServiceRescheduleTest`). Deuda futura BE-20b: test integrado con `@SpringBootTest` + Testcontainers para verificar los 3 flows end-to-end |
 
 **Subtotal backend**: ~3 días de agente + revisiones + testing en staging = **~5–7 días calendario**.
 
