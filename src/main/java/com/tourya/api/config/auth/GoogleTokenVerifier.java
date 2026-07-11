@@ -80,7 +80,10 @@ public class GoogleTokenVerifier {
                 givenName = name != null ? name : email;
             }
             return new VerifiedSocialUser(subject, email, givenName, familyName != null ? familyName : "");
-        } catch (GeneralSecurityException | java.io.IOException e) {
+        } catch (GeneralSecurityException | java.io.IOException | IllegalArgumentException e) {
+            // IllegalArgumentException salta desde JsonWebSignature.Parser cuando el string
+            // no tiene el formato de JWT (3 secciones separadas por punto). Se trata igual
+            // que un token invalido: 401.
             log.warn("SEC-06: Google idToken verification failed: {}", e.getMessage());
             throw new InvalidSocialTokenException("Google idToken verification error");
         }
