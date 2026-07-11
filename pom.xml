@@ -118,8 +118,8 @@
 			<artifactId>modelmapper</artifactId>
 			<version>3.2.1</version>
 		</dependency>-->
-		<!-- https://mvnrepository.com/artifact/com.google.api-client/google-api-client -->
-		<!--<dependency>
+		<!-- SEC-06: verificacion de id_token de Google (Token Exchange) -->
+		<dependency>
 			<groupId>com.google.api-client</groupId>
 			<artifactId>google-api-client</artifactId>
 			<version>2.7.2</version>
@@ -129,7 +129,7 @@
 					<artifactId>commons-logging</artifactId>
 				</exclusion>
 			</exclusions>
-		</dependency>-->
+		</dependency>
 		<dependency>
 			<groupId>com.networknt</groupId>
 			<artifactId>json-schema-validator</artifactId>

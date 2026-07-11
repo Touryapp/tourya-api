@@ -106,6 +106,17 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(exceptionResponse, UNAUTHORIZED);
     }
 
+    @ExceptionHandler(com.tourya.api.exceptions.InvalidSocialTokenException.class)
+    public ResponseEntity<Object> handleInvalidSocialToken(
+            com.tourya.api.exceptions.InvalidSocialTokenException exp) {
+        ExceptionResponse exceptionResponse = ExceptionResponse.builder()
+                .errorCode(BAD_CREDENTIALS.getCode())
+                .message(BAD_CREDENTIALS.getDescription())
+                .error(exp.getMessage())
+                .build();
+        return buildErrorResponse(exceptionResponse, UNAUTHORIZED);
+    }
+
     @ExceptionHandler(com.tourya.api.config.auth.RefreshTokenService.RefreshTokenException.class)
     public ResponseEntity<Object> handleRefreshTokenException(
             com.tourya.api.config.auth.RefreshTokenService.RefreshTokenException exp) {

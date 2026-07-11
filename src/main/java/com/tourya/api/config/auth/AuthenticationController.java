@@ -55,11 +55,30 @@ public class AuthenticationController {
     }
 
     @PostMapping("/social-auth")
-    @Operation(summary = "Login social (Google)")
+    @Operation(summary = "[DEPRECATED SEC-06] Login social sin validacion",
+            description = "Sin validacion server-side del token del proveedor. Mantiene compatibilidad con el frontend viejo mientras se despliega Fase B de SEC-06. Sera removido en la Fase C.")
     public ResponseEntity<AuthenticationResponse> authenticateWithSocial(
             @RequestBody @Valid SocialAuthRequest request
     ){
         return ResponseEntity.ok(service.authenticateWithSocial(request));
+    }
+
+    @PostMapping("/google")
+    @Operation(summary = "Login con Google (Token Exchange, SEC-06)",
+            description = "Recibe el id_token que emitio Google Identity Services, valida su firma contra las claves publicas de Google y verifica que el audience sea el client id de Tourya. Emite JWT propio.")
+    public ResponseEntity<AuthenticationResponse> authenticateWithGoogle(
+            @RequestBody @Valid com.tourya.api.config.auth.request.GoogleAuthRequest request
+    ){
+        return ResponseEntity.ok(service.authenticateWithGoogle(request));
+    }
+
+    @PostMapping("/facebook")
+    @Operation(summary = "Login con Facebook (Token Exchange, SEC-06)",
+            description = "Recibe el accessToken que emitio Facebook JS SDK, lo valida via Graph API debug_token y obtiene el perfil. Emite JWT propio.")
+    public ResponseEntity<AuthenticationResponse> authenticateWithFacebook(
+            @RequestBody @Valid com.tourya.api.config.auth.request.FacebookAuthRequest request
+    ){
+        return ResponseEntity.ok(service.authenticateWithFacebook(request));
     }
 
     @PostMapping("/refresh")
