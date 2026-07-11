@@ -2,6 +2,8 @@ package com.tourya.api.config.auth;
 
 import com.tourya.api._utils.Utils;
 import com.tourya.api.config.auth.request.AuthenticationRequest;
+import com.tourya.api.config.auth.request.FacebookAuthRequest;
+import com.tourya.api.config.auth.request.GoogleAuthRequest;
 import com.tourya.api.config.auth.request.SocialAuthRequest;
 import com.tourya.api.config.auth.request.RegistrationRequest;
 import com.tourya.api.config.auth.response.AuthenticationResponse;
@@ -52,6 +54,8 @@ public class AuthenticationService {
     private final TokenRepository tokenRepository;
     private final RefreshTokenService refreshTokenService;
     private final AppConfigService appConfigService;
+    private final GoogleTokenVerifier googleTokenVerifier;
+    private final FacebookTokenVerifier facebookTokenVerifier;
 
     private static final long MAX_LOCKOUT_SECONDS = 24 * 60 * 60L;
 
@@ -249,40 +253,94 @@ public class AuthenticationService {
         tokenRepository.save(savedToken);
     }
 
+    /**
+     * SEC-06 legacy: recibe datos del proveedor SIN validarlos.
+     * Vulnerabilidad conocida (RN-006) — mantenido temporalmente durante la transición.
+     * Marcar @Deprecated y eliminar en la Fase C de SEC-06 (después de validar
+     * los endpoints /auth/google y /auth/facebook por N dias en dev).
+     */
+    @Deprecated
     @Transactional
     public AuthenticationResponse authenticateWithSocial(SocialAuthRequest request){
         if (!Utils.isValidEmail(request.getEmail())) {
             throw new EmailInvalidFormatException("Invalid email format: " + request.getEmail());
         }
-        User user = userRepository.findByEmail(request.getEmail().toLowerCase()).orElse(null);
+        VerifiedSocialUser verified = new VerifiedSocialUser(
+                request.getUuidSocial(),
+                request.getEmail(),
+                request.getFirstname(),
+                request.getLastname());
+        return authenticateOrCreateSocialUser(verified);
+    }
+
+    /**
+     * SEC-06: login con Google verificado server-side.
+     * <p>Valida el id_token contra las claves publicas de Google (audience =
+     * GOOGLE_CLIENT_ID) y verifica {@code email_verified = true} antes de
+     * crear/buscar el usuario.</p>
+     */
+    @Transactional
+    public AuthenticationResponse authenticateWithGoogle(GoogleAuthRequest request) {
+        VerifiedSocialUser verified = googleTokenVerifier.verify(request.getIdToken());
+        return authenticateOrCreateSocialUser(verified);
+    }
+
+    /**
+     * SEC-06: login con Facebook verificado server-side.
+     * <p>Valida el accessToken via Graph API (debug_token) y obtiene el perfil
+     * (/me).</p>
+     */
+    @Transactional
+    public AuthenticationResponse authenticateWithFacebook(FacebookAuthRequest request) {
+        VerifiedSocialUser verified = facebookTokenVerifier.verify(request.getAccessToken());
+        return authenticateOrCreateSocialUser(verified);
+    }
+
+    /**
+     * Ruta comun para login social ya verificado: crea el usuario si no existe,
+     * lo habilita si esta deshabilitado, emite JWT propio de Tourya. La
+     * vinculacion se hace por email (RN-006, seccion 9 del doc de propuesta —
+     * opcion A: vincular por email verificado).
+     */
+    private AuthenticationResponse authenticateOrCreateSocialUser(VerifiedSocialUser verified) {
+        if (!Utils.isValidEmail(verified.email())) {
+            throw new EmailInvalidFormatException("Invalid email format: " + verified.email());
+        }
+        String normalizedEmail = verified.email().toLowerCase();
+        User user = userRepository.findByEmail(normalizedEmail).orElse(null);
         if (user == null) {
-            // Registrar al usuario
             var userRole = roleRepository.findByName("USER")
                     .orElseThrow(() -> new IllegalStateException("ROLE USER was not initiated"));
             String tempPassword = generateTemporaryPassword();
             User newUser = User.builder()
-                    .firstname(request.getFirstname())
-                    .lastname(request.getLastname())
-                    .email(request.getEmail().toLowerCase())
+                    .firstname(verified.firstname())
+                    .lastname(verified.lastname())
+                    .email(normalizedEmail)
                     .password(passwordEncoder.encode(tempPassword))
                     .accountLocked(false)
-                    .enabled(true) // Google ya verificó el correo electrónico
+                    .enabled(true) // el proveedor ya verificó el correo (email_verified para Google, presencia para Facebook)
                     .roles(List.of(userRole))
-                    .uuidSocial(request.getUuidSocial())
+                    .uuidSocial(verified.providerSubject())
                     .build();
             userRepository.save(newUser);
-
             RefreshTokenService.IssuedTokens tokens = refreshTokenService.issueForUser(newUser);
             return buildAuthResponse(newUser, tokens, newUser.isMustChangePassword());
-        } else if (!user.isEnabled()) {
-            user.setEnabled(true);
-            userRepository.save(user);
-
-            RefreshTokenService.IssuedTokens tokens = refreshTokenService.issueForUser(user);
-            return buildAuthResponse(user, tokens, user.isMustChangePassword());
         }
-
-        // El usuario ya existe y está habilitado
+        boolean modified = false;
+        if (!user.isEnabled()) {
+            user.setEnabled(true);
+            modified = true;
+        }
+        // Refresh del providerSubject: si el usuario venia de Firebase con un UID
+        // viejo, se sobreescribe al primer login por Token Exchange.
+        if (verified.providerSubject() != null && !verified.providerSubject().isBlank()
+                && !verified.providerSubject().equals(user.getUuidSocial())) {
+            user.setUuidSocial(verified.providerSubject());
+            modified = true;
+        }
+        if (modified) {
+            userRepository.save(user);
+        }
         RefreshTokenService.IssuedTokens tokens = refreshTokenService.issueForUser(user);
         return buildAuthResponse(user, tokens, user.isMustChangePassword());
     }
