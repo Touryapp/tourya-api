@@ -1582,11 +1582,17 @@ public class ReservationService {
         if (reservation.getMaxReschedulingDate() != null) {
             if (today.isAfter(reservation.getMaxReschedulingDate())) {
                 throw new OperationNotPermittedException(
-                        "Cannot reschedule: maximum rescheduling date (" + 
+                        "Cannot reschedule: maximum rescheduling date (" +
                         reservation.getMaxReschedulingDate() + ") has passed");
             }
         }
-        
+
+        // Validar que la nueva fecha no esté en el pasado
+        if (request.getNewDate() == null || request.getNewDate().isBefore(today)) {
+            throw new OperationNotPermittedException(
+                    "Cannot reschedule to a past date: " + request.getNewDate());
+        }
+
         // Obtener precio actual del item
         BigDecimal currentPrice = item.getTotalPrice() != null ? item.getTotalPrice() : BigDecimal.ZERO;
         
@@ -2052,10 +2058,10 @@ public class ReservationService {
         // 3. Eliminar solo los items ACTIVE del carrito activo del usuario
         // Esto asegura que no queden items previos cuando se agregue el nuevo item
         int deletedItems = shoppingCartService.removeActiveItemsFromUserCart(user);
-        log.info("Removed {} ACTIVE items from active carts for user {} during reschedule", 
+        log.info("Removed {} ACTIVE items from active carts for user {} during reschedule",
                 user.getId(), deletedItems);
-        
-        // 5. Agregar el nuevo item al carrito con la nueva fecha
+
+        // 4. Agregar el nuevo item al carrito con la nueva fecha
         // Obtener productId, productType del item actual
         Integer productId = item.getProductId();
         String productType = item.getProductType();
