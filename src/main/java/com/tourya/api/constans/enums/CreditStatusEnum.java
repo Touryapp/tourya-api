@@ -30,7 +30,14 @@ public enum CreditStatusEnum {
     /**
      * Crédito eliminado
      */
-    DELETED
+    DELETED,
+
+    /**
+     * BE-19 (RN-036): crédito con expiration_date vencida. Marca inaccesible en
+     * todos los flujos de checkout y transferencia. El job CreditExpirationJob
+     * hace la transicion CREATED -> EXPIRED en la fecha exacta de expiracion.
+     */
+    EXPIRED
 }
 
 
