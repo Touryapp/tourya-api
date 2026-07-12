@@ -70,6 +70,24 @@ public class Credit extends BaseEntity {
     @Column(name = "transferred_at")
     private LocalDateTime transferredAt;
 
+    /**
+     * BE-18: timestamp del envío del recordatorio 30 días antes. NULL = pendiente.
+     */
+    @Column(name = "reminder_30d_sent_at")
+    private LocalDateTime reminder30dSentAt;
+
+    /**
+     * BE-18: timestamp del envío del recordatorio 7 días antes.
+     */
+    @Column(name = "reminder_7d_sent_at")
+    private LocalDateTime reminder7dSentAt;
+
+    /**
+     * BE-19: timestamp del envío del correo de expiración.
+     */
+    @Column(name = "expired_notified_at")
+    private LocalDateTime expiredNotifiedAt;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reservation_id", insertable = false, updatable = false)
     private Reservation reservation;

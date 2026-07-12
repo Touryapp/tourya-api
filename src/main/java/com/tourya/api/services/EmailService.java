@@ -118,6 +118,71 @@ public class EmailService {
         mailSender.send(message);
     }
 
+    /**
+     * BE-18 (RN-036): recordatorio de crédito por vencer. Se envia 30 y 7 dias
+     * antes de {@code expirationDate} desde {@code CreditExpirationJob}.
+     */
+    @Async
+    public void sendCreditExpiringReminder(
+            String to,
+            String username,
+            java.math.BigDecimal amount,
+            java.time.LocalDate expirationDate,
+            long daysRemaining,
+            String usageUrl,
+            String subject
+    ) throws MessagingException {
+        MimeMessage mimeMessage = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(
+                mimeMessage,
+                MULTIPART_MODE_MIXED,
+                UTF_8.name());
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("username", username);
+        properties.put("amount", amount);
+        properties.put("expirationDate", expirationDate);
+        properties.put("daysRemaining", daysRemaining);
+        properties.put("usageUrl", usageUrl);
+        Context context = new Context();
+        context.setVariables(properties);
+        helper.setFrom(fromEmail);
+        helper.setTo(to);
+        helper.setSubject(subject);
+        String template = templateEngine.process("credit_expiring_reminder", context);
+        helper.setText(template, true);
+        mailSender.send(mimeMessage);
+    }
+
+    /**
+     * BE-19 (RN-036): notificacion de credito expirado.
+     */
+    @Async
+    public void sendCreditExpiredNotice(
+            String to,
+            String username,
+            java.math.BigDecimal amount,
+            java.time.LocalDate expirationDate,
+            String subject
+    ) throws MessagingException {
+        MimeMessage mimeMessage = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(
+                mimeMessage,
+                MULTIPART_MODE_MIXED,
+                UTF_8.name());
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("username", username);
+        properties.put("amount", amount);
+        properties.put("expirationDate", expirationDate);
+        Context context = new Context();
+        context.setVariables(properties);
+        helper.setFrom(fromEmail);
+        helper.setTo(to);
+        helper.setSubject(subject);
+        String template = templateEngine.process("credit_expired", context);
+        helper.setText(template, true);
+        mailSender.send(mimeMessage);
+    }
+
     @Async
     public void sendPurchaseConfirmationEmail(
             String to,

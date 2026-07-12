@@ -74,5 +74,37 @@ public interface CreditRepository extends JpaRepository<Credit, Long> {
      */
     @Query("SELECT c FROM Credit c WHERE c.shoppingCartItemId IN :itemIds AND c.status = 'RESERVED'")
     List<Credit> findByShoppingCartItemIdInAndStatusReserved(@Param("itemIds") Set<Long> itemIds);
+
+    /**
+     * BE-18: créditos CREATED con expiration_date = targetDate y sin recordatorio 30d enviado.
+     */
+    @Query("""
+        SELECT c FROM Credit c
+        WHERE c.status = 'CREATED'
+          AND c.expirationDate = :targetDate
+          AND c.reminder30dSentAt IS NULL
+        """)
+    List<Credit> findExpiringInNeedingReminder30d(@Param("targetDate") LocalDate targetDate);
+
+    /**
+     * BE-18: créditos CREATED con expiration_date = targetDate y sin recordatorio 7d enviado.
+     */
+    @Query("""
+        SELECT c FROM Credit c
+        WHERE c.status = 'CREATED'
+          AND c.expirationDate = :targetDate
+          AND c.reminder7dSentAt IS NULL
+        """)
+    List<Credit> findExpiringInNeedingReminder7d(@Param("targetDate") LocalDate targetDate);
+
+    /**
+     * BE-19: créditos que ya expiraron y aun estan en CREATED (candidatos a marcar EXPIRED).
+     */
+    @Query("""
+        SELECT c FROM Credit c
+        WHERE c.status = 'CREATED'
+          AND c.expirationDate < :today
+        """)
+    List<Credit> findExpiredNotYetMarked(@Param("today") LocalDate today);
 }
 
