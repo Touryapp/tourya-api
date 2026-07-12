@@ -94,8 +94,8 @@ Consolida todo el trabajo pendiente que emergió de los documentos [00–16](00-
 | BE-15 | 🟢 Endpoint `POST /auth/logout` que revoca la familia entera de tokens | P1 | XS | BE-14 | RN-005, PR #159 |
 | BE-16 | 🟢 Webhook server-side Wompi: endpoint `POST /public/wompi/webhook` con verificación de firma | P1 | M | — | RN-025, PR #157 (código) + #156 (workflow) |
 | BE-17 | 🟢 Reconciliación de eventos Wompi (job) — matchea contra Payments y detecta huérfanos | P1 | S | BE-16 | RN-025, PR #158. Nota: en este PR solo alerta el huérfano; el matcheo automático a reservas TEMPORAL requiere agregar `wompi_reference` a `shopping_cart` (backlog futuro) |
-| BE-18 | Correo automático "crédito por expirar" (30 días y 7 días antes) | P2 | S | — | RN-036 |
-| BE-19 | Correo automático "crédito expirado" | P2 | XS | BE-18 | RN-036 |
+| BE-18 | 🟢 Correo automático "crédito por expirar" (30 días y 7 días antes) | P2 | S | — | RN-036, PR #173. Job `CreditExpirationJob` cron 5am Bogotá, idempotencia por timestamps (`reminder_30d_sent_at`, `reminder_7d_sent_at`). 7 tests JUnit con Mockito |
+| BE-19 | 🟢 Correo automático "crédito expirado" | P2 | XS | BE-18 | RN-036, PR #173. Nuevo valor `EXPIRED` en `CreditStatusEnum` + migración 074 con backfill (marca EXPIRED los ya vencidos sin reenviar correo). `expired_notified_at` timestamp para no reenviar |
 | BE-20 | 🟢 Verificar y completar flujo de reagendamiento (3 casos: igual/menor/mayor precio) | P1 | S | — | RN-033, PR #170. Auditoría 2026-07-11: los 3 casos ya estaban sólidos (LOWER/EQUAL en `handleRescheduleEqualOrLower`, HIGHER en `handleRescheduleHigher`, con `CREDIT_EXPIRATION_MONTHS` de `app_config` + `@Transactional` + recálculo de availability). Fixes: guard `newDate >= today` + renumeración de comentario. Primera suite JUnit real del proyecto: 14 tests con Mockito (`ReservationServiceRescheduleTest`). Deuda futura BE-20b: test integrado con `@SpringBootTest` + Testcontainers para verificar los 3 flows end-to-end |
 
 **Subtotal backend**: ~3 días de agente + revisiones + testing en staging = **~5–7 días calendario**.

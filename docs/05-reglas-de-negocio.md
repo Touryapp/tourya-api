@@ -378,7 +378,7 @@ PUT /api/v1/config/CREDIT_EXPIRATION_MONTHS
 Body: {"value": {"value": 12}, "description": "Alineado con política oficial"}
 ```
 
-📌 **Pendiente**: BE-18/BE-19 — correo automático "por expirar" (30/7 días antes) y "expirado".
+✅ **BE-18/BE-19 implementados en PR #173 (2026-07-12)**: `CreditExpirationJob` corre cron 5am Bogotá diariamente. 3 pases por corrida — recordatorio a 30 días, a 7 días, y aviso al expirar. Idempotencia por columnas timestamp (`reminder_30d_sent_at`, `reminder_7d_sent_at`, `expired_notified_at`) — si el mail falla, el timestamp no se marca y la próxima corrida reintenta. Nuevo valor `EXPIRED` en `CreditStatusEnum` — todos los checks existentes `status != CREATED` lo rechazan automáticamente (cero regresión en checkout/reserva/transferencia). Migración 074 hace backfill de créditos ya vencidos sin reenviar correo retroactivo. 7 tests JUnit con Mockito.
 
 ### RN-037 — Reserva parcial de crédito
 ✅ En checkout, el turista puede pre-reservar parte del crédito (`POST /credits/reserve`). El monto queda en `reservedAmount` hasta que se confirme el pago o expire el hold.
