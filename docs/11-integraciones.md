@@ -103,6 +103,7 @@ Usa Thymeleaf:
 
 - `From: luis.mendoza@tourya.co` (provisional en dev, mientras Luis crea `noreply@tourya.co`).
 - Migración desde `noreply@wass.com.co` completada el 2026-07-10 en `tourya-project-dev`: rotación de secret `tourya-smtp-password` (v1=WASS, v2=Tourya) + `gcloud run services update ... --update-env-vars=MAIL_USERNAME=luis.mendoza@tourya.co`. Revisión desplegada: `tourya-dev-api-00107-8j6`.
+- **Incidente 2026-07-11/12 (BadCredentials)** — Google rechazó SMTP con `535-5.7.8`. Rollback a WASS imposible (Luis eliminó la cuenta para reducir costos). Fix: Luis regeneró app-password → v3 del secret aplicado 2026-07-13. Revisión post-fix: `tourya-dev-api-00125-jcg`. Verificado end-to-end con `POST /auth/register` a Hotmail (correo llegó a spam, esperable hasta SPF/DKIM/DMARC alineados).
 - Prod (`tourya-project-493820`) sigue en Workspace de WASS al momento de esta doc. Pendiente aplicar el mismo switch cuando dev esté estable durante N días y Luis termine SPF/DKIM/DMARC.
 
 ---

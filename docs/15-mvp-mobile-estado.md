@@ -11,10 +11,17 @@ Análisis granular del código actual de `tourya-mobile` (MAUI Android) contra e
 ## Contexto
 
 - **Repo local**: `D:/Users/Usuario/source/repos/tourya/tourya-mobile/`
-- **Último commit**: `0bc518f` — 2026-04-10 — *"refactor: UI polish for Login, Profile, Cart, Reservation Detail"*
+- **Último commit local**: `0bc518f` — 2026-04-10 — *"refactor: UI polish for Login, Profile, Cart, Reservation Detail"*
 - **Rama**: `master` (única)
-- ⚠️ **Sin remoto Git** — el código solo existe localmente.
+- ⚠️ **Sin remoto Git** — el código solo existe localmente. **MO-00 (crear repo GitHub) pospuesto por decisión operativa 2026-07-13 pero sigue siendo riesgo abierto.**
 - **Stack**: .NET MAUI 10 (Android only), CommunityToolkit.Mvvm, Syncfusion 33.1.46, ZXing.Net.Maui.
+
+### Cambios post-último-commit (no versionados)
+
+Ninguno de estos cambios está en el repo — viven solo en el disco local:
+
+- **2026-07-13 — MO-01**: `Constants.cs:5` → URL backend actualizada de `http://44.203.38.85:8088/api/v1/` (IP AWS EC2 legacy apagada) a `http://34.160.22.16/api/v1/` (LB GCP, coherente con el frontend web). Deuda: migrar a HTTPS cuando se agregue forwarding rule 443 al LB dev.
+- **2026-07-13 — MO-20**: auditoría reveló que el 90% del "Responder reseñas desde ProviderReviewsPage" ya estaba implementado (UI + ViewModel + servicio). Fix del único bug latente: `ReviewService.ReplyToReviewAsync` mandaba `application/json` cuando el backend `PATCH /public/save/review/{reviewId}` consume `multipart/form-data`. Solución: nuevo `PatchMultipartAsync` en `ApiService` + refactor de `ReplyToReviewAsync` armando el multipart con part `reviewData`. Sin `answerFiles` (UI actual es solo texto).
 
 ---
 

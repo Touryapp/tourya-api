@@ -130,7 +130,7 @@ Basado en el roadmap de [15 — MVP mobile estado](15-mvp-mobile-estado.md).
 | ID | Item | Prio | Talla | Depende | Referencia |
 |----|------|:----:|:-----:|---------|------------|
 | MO-00 | **Crear repo GitHub `tourya-mobile`** y subir el código (hoy solo local — riesgo alto) | P0 | XS | — | [15](15-mvp-mobile-estado.md) |
-| MO-01 | Actualizar URL del backend en `Constants.cs` (hoy apunta a IP AWS legacy `44.203.38.85`) | P0 | XS | — | [15](15-mvp-mobile-estado.md) |
+| MO-01 | 🟢 Actualizar URL del backend en `Constants.cs` (hoy apunta a IP AWS legacy `44.203.38.85`) | P0 | XS | — | [15](15-mvp-mobile-estado.md). Cambio 2026-07-13: apunta al LB GCP `http://34.160.22.16/api/v1/` — mismo patrón que el frontend web (todo el tráfico por el LB). Migrar a HTTPS cuando se agregue forwarding rule 443 al LB dev |
 | MO-02 | Registrar Syncfusion License en `MauiProgram.cs` | P0 | XS | — | [15](15-mvp-mobile-estado.md) |
 | MO-03 | CI/CD: GitHub Actions → build APK firmado → Play Store internal track | P1 | M | MO-00, MO-02 | [15](15-mvp-mobile-estado.md) |
 
@@ -147,7 +147,7 @@ Basado en el roadmap de [15 — MVP mobile estado](15-mvp-mobile-estado.md).
 
 | ID | Item | Prio | Talla | Depende | Referencia |
 |----|------|:----:|:-----:|---------|------------|
-| MO-20 | Responder reseñas desde `ProviderReviewsPage` | P1 | S | — | Doc 15 Ciclo 2 |
+| MO-20 | 🟢 Responder reseñas desde `ProviderReviewsPage` | P1 | S | — | Doc 15 Ciclo 2. Auditoría 2026-07-13: 90% ya estaba implementado (UI + ViewModel + servicio + StartReply/CancelReply/SubmitReply commands). Faltaba fix de bug latente: `ReviewService.ReplyToReviewAsync` mandaba `application/json` pero backend `PATCH /public/save/review/{reviewId}` consume `multipart/form-data` — hubiera dado 415 al primer intento real. Fix: nuevo `PatchMultipartAsync` en `ApiService` + refactor de `ReplyToReviewAsync` armando el multipart con part `reviewData` (JSON). Sin `answerFiles` porque UI actual es solo texto (extensible sin cambio backend) |
 | MO-21 | `PayoutsPage`: ver payouts + descargar comprobantes | P1 | M | — | Doc 15 Ciclo 2 |
 | MO-22 | Crear / editar / eliminar operarios (`PROVIDER_OPERATOR`) | P1 | M | — | Doc 14 alcance Luis |
 | MO-23 | Compartir contraseña temporal por WhatsApp / SMS (deep-link) | P1 | S | MO-22 | Doc 14 UX |
@@ -236,7 +236,7 @@ Ver diseño completo en [16](16-agentes-ia.md).
 | Ítem | Talla | Trabajo | Nota |
 |------|:-----:|---------|------|
 | MO-00 Repo GitHub mobile | XS | Franklin | Solo crear repo + push. Necesita acceso a `Touryapp/` |
-| MO-01 URL backend mobile | XS | Agente | Cambio en `Constants.cs` |
+| 🟢 MO-01 URL backend mobile | XS | Agente | Cambio en `Constants.cs` → `http://34.160.22.16/api/v1/` (LB GCP) |
 | MO-02 Syncfusion license | XS | Franklin | Manual — pegar license key |
 | 🟢 SEC-01 JWT secret a Secret Manager | S | Agente + Franklin | Rotado y movido (PRs #151+#152) |
 | 🟢 SEC-02 Wompi secret a Secret Manager | S | Agente + Franklin | Movido (PRs #151+#152) |
