@@ -77,4 +77,4 @@ Requires a `.env` file (copy from `.env.example`):
 
 ## CORS
 
-Allowed origins configured in `BeansConfig.java`: localhost:4200, localhost:8080, localhost:8100, and the production EC2 IP.
+Allowed origins configured in `BeansConfig.java`: localhost (4200/8080/8100), LB dev (`https://dev.tourya.co` + `http://34.160.22.16`), Cloud Run URLs directas dev, y `https://tourya.co` / `https://www.tourya.co` para prod. La entrada AWS EC2 legacy fue retirada.

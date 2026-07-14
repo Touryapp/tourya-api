@@ -155,25 +155,31 @@ Tourya usa **dos mecanismos combinados**:
 
 ## CORS
 
-✅ Configurado en `BeansConfig.java`:
+✅ Configurado en `BeansConfig.java` (actualizado 2026-07-14):
 
 ```java
 Allowed origins: [
+  // Dev local
   http://localhost:4200,
   http://localhost:8080,
   http://localhost:8100,
-  https://localhost/,
-  http://44.203.38.85:8088,    ⚠️ AWS legacy
-  http://44.203.38.85:8080,    ⚠️ AWS legacy
-  https://tourya-dev-front-5j2nd2oflq-ue.a.run.app,   ⚠️ URL vieja (ya no aplica)
-  https://tourya-dev-api-5j2nd2oflq-ue.a.run.app     ⚠️ URL vieja (ya no aplica)
+  // LB dev (dominio custom + IP directa como fallback)
+  https://dev.tourya.co,
+  http://34.160.22.16,
+  // Cloud Run dev (URLs directas)
+  https://tourya-dev-front-640622322458.us-east1.run.app,
+  https://tourya-dev-api-640622322458.us-east1.run.app,
+  // Prod
+  https://tourya.co,
+  https://www.tourya.co
 ]
 
 Allowed methods: [GET, POST, DELETE, PUT, PATCH]
 Allowed headers: [Origin, Content-Type, Accept, Authorization]
+Allow credentials: true
 ```
 
-📌 **A actualizar en Fase 0** (SEC-11): agregar `https://tourya.co`, `https://tourya-dev-front-640622322458.us-east1.run.app`, `https://tourya-dev-api-640622322458.us-east1.run.app`. Quitar IPs AWS y URLs viejas de Cloud Run.
+Historial: SEC-11 (Fase 0, 2026-07-08) quitó las IPs AWS legacy y las URLs viejas de Cloud Run. La entrada `https://dev.tourya.co` se agregó cuando se aprovisionó HTTPS en el LB dev (2026-07-14) — sin esa entrada el backend rechazaba con 403 `Invalid CORS request`.
 
 ---
 
