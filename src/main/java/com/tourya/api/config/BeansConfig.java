@@ -51,7 +51,10 @@ public class BeansConfig {
                 "http://localhost:4200",
                 "http://localhost:8080",
                 "http://localhost:8100",
-                // Cloud Run dev (URLs actuales)
+                // LB dev (dominio custom + IP directa como fallback)
+                "https://dev.tourya.co",
+                "http://34.160.22.16",
+                // Cloud Run dev (URLs directas)
                 "https://tourya-dev-front-640622322458.us-east1.run.app",
                 "https://tourya-dev-api-640622322458.us-east1.run.app",
                 // Dominio custom (produccion)
