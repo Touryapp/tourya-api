@@ -172,7 +172,7 @@ Basado en el roadmap de [15 — MVP mobile estado](15-mvp-mobile-estado.md).
 | MO-40 🟢 | Firebase Cloud Messaging (push notifications) — turista, proveedor, operario. **4 fases cerradas 2026-07-15:** A backend base ✅ (MERGED), B mobile registro ✅, C mobile recepción ✅, D backend hooks ✅ — 5 flows: (1) turista reserva confirmada post-pago, (2) provider nueva reserva recibida, (3) turista recordatorio 24h antes (nuevo `TourReminder24hJob` cron 8am Bogotá), (4) turista crédito por expirar/expirado (agregado al `CreditExpirationJob`), (5) turista respuesta de review del provider. Secret Manager wired a Cloud Run. Falta validación end-to-end en device físico. | P1 | M | — | Doc 14 |
 | MO-41 🟢 | Geolocalización: "tours cerca de mí" en `ExplorePage` — CERRADO 2026-07-15. Chip toggle + permission on-demand + Haversine client-side + distancia visible en cada card. Backend intacto | P2 | S | — | Doc 14 |
 | MO-42 🟢 | Geolocalización: "cómo llegar al punto de encuentro" en `TourDetailPage` — CERRADO 2026-07-15. Sección meeting point + botón "Cómo llegar" via `Microsoft.Maui.ApplicationModel.Map.Default.OpenAsync` (respeta app default del sistema: Google Maps, Waze, etc.). Sin embedded map (MO-42b futuro) | P2 | S | — | Doc 14 |
-| MO-43 | Deep-linking: compartir tour por WhatsApp con link universal | P2 | S | — | Doc 14 |
+| MO-43 🟢 | Deep-linking: compartir tour por WhatsApp con link universal — CERRADO 2026-07-15. Share sheet nativo + intent-filter capture. Sin autoVerify (deuda MO-43b: montar assetlinks.json en dev.tourya.co) | P2 | S | — | Doc 14 |
 | MO-44 | Wallet integration: Apple Pay / Google Pay vía Wompi | P3 | M | — | Doc 14 |
 | MO-45 | Widget "próxima reserva" (Android app widget) | P3 | M | — | Doc 14 |
 
