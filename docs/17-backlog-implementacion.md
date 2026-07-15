@@ -159,10 +159,10 @@ Basado en el roadmap de [15 — MVP mobile estado](15-mvp-mobile-estado.md).
 | ID | Item | Prio | Talla | Depende | Referencia |
 |----|------|:----:|:-----:|---------|------------|
 | MO-30 | Autosave / borradores en el wizard de creación de tour | P1 | M | — | Doc 14 UX |
-| MO-31 | Compresión de imágenes en cliente antes de subir | P1 | S | — | Doc 14 UX |
+| MO-31 🟢 | Compresión de imágenes en cliente antes de subir — CERRADO 2026-07-15. SkiaSharp 3.116.1 + `ImageCompressionService` (1920px max / JPEG 80). Integrado en `CreateReviewViewModel`. Reduce fotos de celular 3-8MB → 300-800KB (~85% ahorro). TourFormPage no sube imágenes desde mobile, KYB usa FilePicker para PDFs (skip) | P1 | S | — | Doc 14 UX |
 | MO-32 | Upload resumable / en background con progreso | P1 | M | MO-31 | Doc 14 UX |
 | MO-33 | Vista de calendario mejorada en `ScheduleCalendarPage` (día/semana/mes) | P2 | M | — | Doc 14 UX |
-| MO-34 | "Copiar precios de otro tour" al configurar schedule | P2 | S | — | Doc 14 UX |
+| MO-34 🟢 | "Copiar precios de otro tour" al configurar schedule — CERRADO 2026-07-15. Renombrado a "Copiar de otra plantilla" porque el backend response `/tour-schedules/templates` no incluye `tourId` para filtrar por tour (mejor UX igual — provider elige entre TODAS sus plantillas, ej. "fin de semana" vs "semana"). Botón + ActionSheet + confirm de reemplazo | P2 | S | — | Doc 14 UX |
 | MO-35 | Dictado de voz opcional en descripciones largas | P3 | S | — | Doc 14 UX |
 
 #### D.4 — Features "solo mobile" (valor incremental)
