@@ -56,6 +56,15 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     List<Reservation> findByReservationDate(LocalDateTime reservationDate);
 
     /**
+     * MO-40 Fase D: reservas pagadas y pendientes de entrega cuya fecha de tour
+     * cae en la fecha indicada. Se usa en el job de recordatorio 24h antes.
+     */
+    @Query("SELECT r FROM Reservation r " +
+           "WHERE r.deliveryStatus = com.tourya.api.constans.enums.DeliveryStatusEnum.PENDING " +
+           "AND r.shoppingCartItem.tourSchedule.scheduleDate = :date")
+    List<Reservation> findPendingForTourDate(@Param("date") LocalDate date);
+
+    /**
      * Verifica si existe una reserva para un pago específico
      */
     boolean existsByPaymentId(Long paymentId);

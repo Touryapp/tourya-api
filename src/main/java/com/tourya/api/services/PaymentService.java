@@ -63,6 +63,7 @@ public class PaymentService {
     private final CreditRepository creditRepository;
     private final PaymentCreditRepository paymentCreditRepository;
     private final EmailService emailService;
+    private final PushNotificationService pushService; // MO-40 Fase D
     private final ReservationPriceBreakdownMapper reservationPriceBreakdownMapper;
     private final ReservationMapper reservationMapper;
     private final TourPrincipalOperatorService tourPrincipalOperatorService;
@@ -212,7 +213,45 @@ public class PaymentService {
 
         PaymentResponse response = buildPaymentResponse(savedPayment, reservations);
         sendPurchaseEmailBestEffort(savedPayment, response);
+        // MO-40 Fase D: push al turista (cada reserva) y al provider (una vez por tour).
+        sendPushOnReservationsConfirmedBestEffort(cartOwnerUserId, reservations);
         return response;
+    }
+
+    /**
+     * MO-40 Fase D: envia push al turista por cada reserva confirmada y al
+     * provider titular por cada tour distinto (evita duplicar si un provider
+     * tiene 2 reservas del mismo pago). Best-effort — no falla el pago si push
+     * falla.
+     */
+    private void sendPushOnReservationsConfirmedBestEffort(Integer touristUserId, List<Reservation> reservations) {
+        Set<Integer> notifiedProviders = new HashSet<>();
+        for (Reservation reservation : reservations) {
+            try {
+                ShoppingCartItem item = shoppingCartItemRepository.findById(reservation.getItemId()).orElse(null);
+                Integer tourId = item != null && item.getTourSchedule() != null
+                        ? item.getTourSchedule().getTourId()
+                        : null;
+                Tour tour = tourId != null ? tourRepository.findById(tourId).orElse(null) : null;
+                String tourName = tour != null && tour.getName() != null ? tour.getName().getEs() : null;
+
+                // Push al turista
+                pushService.notifyReservationConfirmedForTourist(
+                        touristUserId, tourName, reservation.getReservationId());
+
+                // Push al provider (una sola vez por proveedor por pago)
+                Integer providerUserId = tour != null && tour.getProvider() != null && tour.getProvider().getUser() != null
+                        ? tour.getProvider().getUser().getId()
+                        : null;
+                if (providerUserId != null && notifiedProviders.add(providerUserId)) {
+                    pushService.notifyNewReservationForProvider(
+                            providerUserId, tourName, reservation.getReservationId());
+                }
+            } catch (Exception ex) {
+                log.warn("MO-40 push on reservation confirmed failed reservationId={}: {}",
+                        reservation.getReservationId(), ex.getMessage());
+            }
+        }
     }
 
     private void sendPurchaseEmailBestEffort(Payment payment, PaymentResponse response) {

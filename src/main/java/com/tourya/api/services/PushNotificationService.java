@@ -88,6 +88,88 @@ public class PushNotificationService {
         }
     }
 
+    // ===================================================================
+    // MO-40 Fase D: helpers de dominio. Envuelven sendToUser con templates
+    // de titulo/body + payload data que el handler mobile sabe interpretar
+    // (ver PushNotificationHandler.BuildRoute en tourya-mobile).
+    // ===================================================================
+
+    /**
+     * Turista: su pago fue aprobado y la reserva quedo confirmada.
+     * Deep-link → reservation-detail.
+     */
+    public void notifyReservationConfirmedForTourist(Integer userId, String tourName, long reservationId) {
+        if (userId == null || userId <= 0) return;
+        sendToUser(userId,
+                "¡Reserva confirmada!",
+                "Tu compra de " + safe(tourName) + " ya está lista. Toca para ver el QR.",
+                Map.of("type", "reservation", "targetId", String.valueOf(reservationId)));
+    }
+
+    /**
+     * Provider: llego una nueva reserva a uno de sus tours.
+     * Deep-link → reservation-detail (misma pantalla, provider la ve como PROVIDER).
+     */
+    public void notifyNewReservationForProvider(Integer providerUserId, String tourName, long reservationId) {
+        if (providerUserId == null || providerUserId <= 0) return;
+        sendToUser(providerUserId,
+                "Nueva reserva",
+                "Un turista reservó " + safe(tourName) + ".",
+                Map.of("type", "reservation", "targetId", String.valueOf(reservationId)));
+    }
+
+    /**
+     * Turista: recordatorio 24h antes del tour.
+     * Deep-link → reservation-detail.
+     */
+    public void notifyTourReminderForTourist(Integer userId, String tourName, long reservationId) {
+        if (userId == null || userId <= 0) return;
+        sendToUser(userId,
+                "Tu tour es mañana",
+                "Recuerda tu reserva de " + safe(tourName) + ". Ten a mano el QR.",
+                Map.of("type", "reservation", "targetId", String.valueOf(reservationId)));
+    }
+
+    /**
+     * Turista: uno de sus creditos vence en N dias.
+     * Deep-link → credits.
+     */
+    public void notifyCreditExpiringSoonForTourist(Integer userId, int daysLeft) {
+        if (userId == null || userId <= 0) return;
+        sendToUser(userId,
+                "Tu crédito vence pronto",
+                "Te quedan " + daysLeft + " días para usar tu crédito. No lo dejes vencer.",
+                Map.of("type", "credit"));
+    }
+
+    /**
+     * Turista: uno de sus creditos vencio hoy.
+     * Deep-link → credits (para ver el historial).
+     */
+    public void notifyCreditExpiredForTourist(Integer userId) {
+        if (userId == null || userId <= 0) return;
+        sendToUser(userId,
+                "Tu crédito venció",
+                "Uno de tus créditos venció hoy. Podés ver el historial en Mis Créditos.",
+                Map.of("type", "credit"));
+    }
+
+    /**
+     * Turista: el provider respondio su review.
+     * Deep-link → reservation-detail (la review vive en el detalle de la reserva).
+     */
+    public void notifyReviewRepliedForTourist(Integer userId, String tourName, long reservationId) {
+        if (userId == null || userId <= 0) return;
+        sendToUser(userId,
+                "Respondieron tu reseña",
+                "El proveedor de " + safe(tourName) + " respondió tu reseña.",
+                Map.of("type", "review", "targetId", String.valueOf(reservationId)));
+    }
+
+    private static String safe(String s) {
+        return (s == null || s.isBlank()) ? "tu tour" : s;
+    }
+
     /**
      * Envia push a un token puntual (util para pruebas). Los flows de negocio
      * deberian usar {@link #sendToUser(Integer, String, String, Map)}.
