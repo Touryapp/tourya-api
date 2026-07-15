@@ -22,6 +22,8 @@ Ninguno de estos cambios está en el repo — viven solo en el disco local:
 
 - **2026-07-13 — MO-01**: `Constants.cs:5` → URL backend actualizada de `http://44.203.38.85:8088/api/v1/` (IP AWS EC2 legacy apagada) a `http://34.160.22.16/api/v1/` (LB GCP, coherente con el frontend web). Deuda: migrar a HTTPS cuando se agregue forwarding rule 443 al LB dev.
 - **2026-07-13 — MO-20**: auditoría reveló que el 90% del "Responder reseñas desde ProviderReviewsPage" ya estaba implementado (UI + ViewModel + servicio). Fix del único bug latente: `ReviewService.ReplyToReviewAsync` mandaba `application/json` cuando el backend `PATCH /public/save/review/{reviewId}` consume `multipart/form-data`. Solución: nuevo `PatchMultipartAsync` en `ApiService` + refactor de `ReplyToReviewAsync` armando el multipart con part `reviewData`. Sin `answerFiles` (UI actual es solo texto).
+- **2026-07-14 — MO-10**: nueva UI de crear reseña. `CreateReviewPage` + `CreateReviewViewModel` con rating 1-5 estrellas tappables, editor de comentario, `MediaPicker` para cámara/galería, máx 5 fotos, envío multipart con `reviewData` + `files[]`. Nuevo botón "Escribir reseña" en `ReservationDetailPage` visible solo si `DeliveryStatus = DELIVERED`. Ruta `create-review` registrada en `AppShell`. Permisos Android `READ_MEDIA_IMAGES` + `READ_EXTERNAL_STORAGE (maxSdk=32)`. Sin `partial void OnIsBusyChanged` (IsBusy vive en BaseViewModel) — se suscribe a `PropertyChanged` en el ctor.
+- **2026-07-15 — MO-11**: nueva `WishlistPage` con lista paginada (pull-to-refresh + infinite scroll + empty state con emoji), botón remover con rollback si falla. Nuevo servicio `WishlistService` cliente de `GET/POST/DELETE /wishlist` + `POST /wishlist/search` (autenticados). Botón ❤️/🤍 en el header de `TourDetailPage` con toggle optimista (rollback en error, alert al usuario si 401). Nuevo overload `ApiService.DeleteAsync<T>(endpoint, body)` porque DELETE con body no es nativo de HttpClient. Registrado como 5to tab del tourist TabBar ("Deseos", posición 3 entre Carrito y Mis Viajes). Sin asset dedicado — corazón inline en el título del header.
 
 ---
 
@@ -63,9 +65,9 @@ Se marcan las funcionalidades en 2 categorías:
 | Ver mis reservas + QR | `MyTripsPage`, `ReservationDetailPage` | ✅ | |
 | Cancelar reserva | En `ReservationDetailPage` | ✅ | |
 | Reagendar reserva | En `ReservationDetailPage` (a verificar) | ⚠️ verificar | Confirmar que el flujo esté completo con las 3 casuísticas (igual/menor/mayor precio) |
-| Dejar reseña (con fotos) | ? | ❌ falta | No hay `ReviewCreatePage` ni `WriteReviewViewModel` — el `ReviewService` existe pero no la UI |
+| Dejar reseña (con fotos) | `CreateReviewPage`, `CreateReviewViewModel` | ✅ | MO-10 cerrado 2026-07-14. Cámara + galería, 5 fotos máx, multipart. Falta validar en device |
 | Ver / gestionar créditos (usar, transferir) | `CreditService` | ⚠️ parcial | Servicio existe, pero falta UI dedicada de créditos (saldo, historial, transferir) |
-| Wishlist (lista de deseos) | ❌ | ❌ | Sin `WishlistPage` — falta construir |
+| Wishlist (lista de deseos) | `WishlistPage`, `WishlistViewModel`, `WishlistService` | ✅ | MO-11 cerrado 2026-07-15. Tab dedicado + toggle ❤️ desde `TourDetailPage` |
 | Perfil turista (foto, documento, dirección) | `ProfilePage` | ✅ | |
 | Notificaciones push | ❌ | ❌ | No implementado |
 | Geolocalización ("cerca de mí") | ❌ | ❌ | `Syncfusion.Maui.Maps` importado pero sin usar |

@@ -139,7 +139,7 @@ Basado en el roadmap de [15 — MVP mobile estado](15-mvp-mobile-estado.md).
 | ID | Item | Prio | Talla | Depende | Referencia |
 |----|------|:----:|:-----:|---------|------------|
 | MO-10 | UI de crear reseña con cámara (existe `ReviewService`, falta UI) | P1 | S | — | Doc 15 Ciclo 1 |
-| MO-11 | Wishlist page (lista de deseos) en tab del turista | P1 | S | — | Doc 15 Ciclo 1 |
+| MO-11 🟢 | Wishlist page (lista de deseos) en tab del turista — CERRADO 2026-07-15 | P1 | S | — | Doc 15 Ciclo 1 |
 | MO-12 | UI dedicada de créditos: saldo, historial, transferir a otro turista | P1 | M | — | Doc 15 Ciclo 1 |
 | MO-13 | Integrar login social sin Firebase (Google + Facebook nativos MAUI) | P1 | M | SEC-06 | Doc 15 |
 
