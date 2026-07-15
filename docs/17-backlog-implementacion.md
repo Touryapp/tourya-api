@@ -149,7 +149,7 @@ Basado en el roadmap de [15 — MVP mobile estado](15-mvp-mobile-estado.md).
 | ID | Item | Prio | Talla | Depende | Referencia |
 |----|------|:----:|:-----:|---------|------------|
 | MO-20 | 🟢 Responder reseñas desde `ProviderReviewsPage` | P1 | S | — | Doc 15 Ciclo 2. Auditoría 2026-07-13: 90% ya estaba implementado (UI + ViewModel + servicio + StartReply/CancelReply/SubmitReply commands). Faltaba fix de bug latente: `ReviewService.ReplyToReviewAsync` mandaba `application/json` pero backend `PATCH /public/save/review/{reviewId}` consume `multipart/form-data` — hubiera dado 415 al primer intento real. Fix: nuevo `PatchMultipartAsync` en `ApiService` + refactor de `ReplyToReviewAsync` armando el multipart con part `reviewData` (JSON). Sin `answerFiles` porque UI actual es solo texto (extensible sin cambio backend) |
-| MO-21 | `PayoutsPage`: ver payouts + descargar comprobantes | P1 | M | — | Doc 15 Ciclo 2 |
+| MO-21 🟢 | `PayoutsPage`: ver payouts + descargar comprobantes — CERRADO 2026-07-15. Lista con 4 totales + filtro por status + detalle con reservas + descarga via Launcher. Sin filtros de fecha (deuda MO-21b) | P1 | M | — | Doc 15 Ciclo 2 |
 | MO-22 🟢 | Crear / editar operarios (`PROVIDER_OPERATOR`) — CERRADO 2026-07-15. Sin "eliminar" (el backend no expone DELETE; los desactiva vía otro flujo) | P1 | M | — | Doc 14 alcance Luis |
 | MO-23 🟢 | Compartir contraseña temporal por WhatsApp / otra app — CERRADO 2026-07-15 via `Share.Default.RequestAsync` (share sheet nativo, más flexible que deep-link a WhatsApp) | P1 | S | MO-22 | Doc 14 UX |
 | MO-24 🟢 | Resetear contraseña de operarios desde app — CERRADO 2026-07-15 | P1 | S | MO-22 | Doc 14 |
