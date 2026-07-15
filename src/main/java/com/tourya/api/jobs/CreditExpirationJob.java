@@ -6,6 +6,7 @@ import com.tourya.api.models.User;
 import com.tourya.api.repository.CreditRepository;
 import com.tourya.api.repository.UserRepository;
 import com.tourya.api.services.EmailService;
+import com.tourya.api.services.PushNotificationService;
 import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -53,6 +54,7 @@ public class CreditExpirationJob {
     private final CreditRepository creditRepository;
     private final UserRepository userRepository;
     private final EmailService emailService;
+    private final PushNotificationService pushService; // MO-40 Fase D
 
     @Value("${application.mailing.frontend.credit-url:https://tourya.co/}")
     private String creditUsageUrl;
@@ -95,6 +97,8 @@ public class CreditExpirationJob {
                     credit.setReminder7dSentAt(LocalDateTime.now());
                 }
                 creditRepository.save(credit);
+                // MO-40 Fase D: push en paralelo al email (best-effort)
+                pushService.notifyCreditExpiringSoonForTourist(credit.getUserId(), daysAdvance);
                 sent++;
             } catch (MessagingException | RuntimeException e) {
                 log.warn("CreditExpirationJob: reminder{}d failed for credit {}: {}",
@@ -125,6 +129,8 @@ public class CreditExpirationJob {
                         "Tu crédito Tourya ha vencido"
                 );
                 credit.setExpiredNotifiedAt(LocalDateTime.now());
+                // MO-40 Fase D: push en paralelo al email
+                pushService.notifyCreditExpiredForTourist(credit.getUserId());
                 notified++;
             } catch (MessagingException | RuntimeException e) {
                 log.warn("CreditExpirationJob: expired notice failed for credit {}: {}",

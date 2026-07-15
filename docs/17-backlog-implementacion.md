@@ -169,7 +169,7 @@ Basado en el roadmap de [15 — MVP mobile estado](15-mvp-mobile-estado.md).
 
 | ID | Item | Prio | Talla | Depende | Referencia |
 |----|------|:----:|:-----:|---------|------------|
-| MO-40 🟡 | Firebase Cloud Messaging (push notifications) — turista, proveedor, operario. **Fases:** A=backend base ✅ (MERGED 2026-07-15), B=mobile registro ✅ (2026-07-15 local mobile), C=mobile recepción ✅ (handler + deep-links, 2026-07-15 local mobile), D=backend hooks (integrar `notify()` en reserva creada/cancelada/etc.) — PENDIENTE. Secret `tourya-firebase-admin-sdk` creado en Secret Manager + wired a Cloud Run `tourya-dev-api` revisión `00134-ffz` (backend loguea "Firebase Admin SDK initialized"). | P1 | M | — | Doc 14 |
+| MO-40 🟢 | Firebase Cloud Messaging (push notifications) — turista, proveedor, operario. **4 fases cerradas 2026-07-15:** A backend base ✅ (MERGED), B mobile registro ✅, C mobile recepción ✅, D backend hooks ✅ — 5 flows: (1) turista reserva confirmada post-pago, (2) provider nueva reserva recibida, (3) turista recordatorio 24h antes (nuevo `TourReminder24hJob` cron 8am Bogotá), (4) turista crédito por expirar/expirado (agregado al `CreditExpirationJob`), (5) turista respuesta de review del provider. Secret Manager wired a Cloud Run. Falta validación end-to-end en device físico. | P1 | M | — | Doc 14 |
 | MO-41 | Geolocalización: "tours cerca de mí" en `ExplorePage` | P2 | S | — | Doc 14 |
 | MO-42 | Geolocalización: "cómo llegar al punto de encuentro" en `TourDetailPage` (Syncfusion.Maps ya importado) | P2 | S | — | Doc 14 |
 | MO-43 | Deep-linking: compartir tour por WhatsApp con link universal | P2 | S | — | Doc 14 |

@@ -72,6 +72,7 @@ public class ReviewService {
     private final ProviderService providerService;
     private final IStorageService s3Service;
     private final com.tourya.api.config.security.JwtService jwtService;
+    private final PushNotificationService pushService; // MO-40 Fase D
     private final org.springframework.security.core.userdetails.UserDetailsService userDetailsService;
     private final TouristProfileRepository touristProfileRepository;
 
@@ -489,12 +490,41 @@ public class ReviewService {
             if (review.getTourId() != null) {
                 refreshAndPersistTourRating(review.getTourId());
             }
+            // MO-40 Fase D: notificar al turista dueño de la review que el
+            // provider respondió. Best-effort — no falla si push falla.
+            notifyReviewAnsweredBestEffort(review);
         }
 
         // Cargar relaciones para la respuesta
         review = loadReviewRelations(review, true);
 
         return mapToEnrichedResponse(review);
+    }
+
+    /**
+     * MO-40 Fase D: notifica al turista dueño de la review que el provider
+     * respondió. Traza el turista via la reservation asociada a la review.
+     * Silencioso en fallo — la respuesta ya se guardó.
+     */
+    private void notifyReviewAnsweredBestEffort(Review review) {
+        try {
+            if (review.getReservationId() == null) return;
+            Reservation reservation = reservationRepository.findById(review.getReservationId()).orElse(null);
+            if (reservation == null) return;
+            ShoppingCartItem item = shoppingCartItemRepository.findById(reservation.getItemId()).orElse(null);
+            if (item == null || item.getShoppingCart() == null || item.getShoppingCart().getUser() == null) return;
+            Integer touristUserId = item.getShoppingCart().getUser().getId();
+
+            String tourName = null;
+            if (review.getTourId() != null) {
+                Tour tour = tourRepository.findById(review.getTourId()).orElse(null);
+                tourName = tour != null && tour.getName() != null ? tour.getName().getEs() : null;
+            }
+            pushService.notifyReviewRepliedForTourist(touristUserId, tourName, reservation.getReservationId());
+        } catch (Exception ex) {
+            log.warn("MO-40 push on review answered failed reviewId={}: {}",
+                    review.getId(), ex.getMessage());
+        }
     }
 
     /**
