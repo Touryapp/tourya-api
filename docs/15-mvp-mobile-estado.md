@@ -24,6 +24,7 @@ Ninguno de estos cambios está en el repo — viven solo en el disco local:
 - **2026-07-13 — MO-20**: auditoría reveló que el 90% del "Responder reseñas desde ProviderReviewsPage" ya estaba implementado (UI + ViewModel + servicio). Fix del único bug latente: `ReviewService.ReplyToReviewAsync` mandaba `application/json` cuando el backend `PATCH /public/save/review/{reviewId}` consume `multipart/form-data`. Solución: nuevo `PatchMultipartAsync` en `ApiService` + refactor de `ReplyToReviewAsync` armando el multipart con part `reviewData`. Sin `answerFiles` (UI actual es solo texto).
 - **2026-07-14 — MO-10**: nueva UI de crear reseña. `CreateReviewPage` + `CreateReviewViewModel` con rating 1-5 estrellas tappables, editor de comentario, `MediaPicker` para cámara/galería, máx 5 fotos, envío multipart con `reviewData` + `files[]`. Nuevo botón "Escribir reseña" en `ReservationDetailPage` visible solo si `DeliveryStatus = DELIVERED`. Ruta `create-review` registrada en `AppShell`. Permisos Android `READ_MEDIA_IMAGES` + `READ_EXTERNAL_STORAGE (maxSdk=32)`. Sin `partial void OnIsBusyChanged` (IsBusy vive en BaseViewModel) — se suscribe a `PropertyChanged` en el ctor.
 - **2026-07-15 — MO-11**: nueva `WishlistPage` con lista paginada (pull-to-refresh + infinite scroll + empty state con emoji), botón remover con rollback si falla. Nuevo servicio `WishlistService` cliente de `GET/POST/DELETE /wishlist` + `POST /wishlist/search` (autenticados). Botón ❤️/🤍 en el header de `TourDetailPage` con toggle optimista (rollback en error, alert al usuario si 401). Nuevo overload `ApiService.DeleteAsync<T>(endpoint, body)` porque DELETE con body no es nativo de HttpClient. Registrado como 5to tab del tourist TabBar ("Deseos", posición 3 entre Carrito y Mis Viajes). Sin asset dedicado — corazón inline en el título del header.
+- **2026-07-15 — MO-22 + MO-23 + MO-24 (combo operarios)**: bloque coherente que cierra el gap de "Crear operarios / editar / reset password" pedido explícitamente por Luis. Piezas: `ProviderOperatorService` (cliente de los 5 endpoints /provider/users*), `OperatorsPage` (lista con avatar, badge de estado, tour principal, FAB "+", ActionSheet en tap con opciones Editar/Reset), `OperatorFormPage` (crear/editar unificado, multi-select de tours con CheckBox + Picker de tour principal), `ResetOperatorPasswordPage` (form simple). MO-23 integrado via `Share.Default.RequestAsync` — al crear u operar reset, se ofrece compartir credenciales por WhatsApp/otras apps (share sheet nativo). Acceso desde nuevo tile "👥 Operarios" en el `DashboardPage` del provider (no se sumó tab porque los 5 tabs actuales ya están al límite). Sin nueva tab en el TabBar del provider.
 
 ---
 
@@ -87,9 +88,9 @@ Se marcan las funcionalidades en 2 categorías:
 | Ver reseñas | `ProviderReviewsPage` | ✅ | |
 | **Responder reseñas** | ❌ | ❌ | Existe la view de reseñas, falta el flujo de respuesta |
 | Ver payouts + comprobantes | ❌ | ❌ | Sin `PayoutsPage` — falta construir |
-| **Crear operarios (`PROVIDER_OPERATOR`)** | ❌ | ❌ | **A construir** — Luis lo pidió explícitamente. Formulario corto + compartir clave temporal por WhatsApp / SMS |
-| Editar / reasignar operarios | ❌ | ❌ | A construir |
-| Resetear password operarios | ❌ | ❌ | A construir |
+| **Crear operarios (`PROVIDER_OPERATOR`)** | `OperatorsPage`, `OperatorFormPage`, `ProviderOperatorService` | ✅ | MO-22 cerrado 2026-07-15. Share sheet nativo (MO-23) al finalizar create + reset |
+| Editar / reasignar operarios | `OperatorFormPage` (mismo form) | ✅ | Multi-select tours + tour principal en el mismo form |
+| Resetear password operarios | `ResetOperatorPasswordPage` | ✅ | MO-24 cerrado 2026-07-15. Share sheet al finalizar |
 | Panel KYB / documentos | `KybStatusPage`, `KybRegistrationPage`, `KybDocumentsPage` | ✅ | Buena implementación |
 | Notificaciones push | ❌ | ❌ | **Prioridad alta según doc 14** |
 | Modo campo / offline | ❌ | ❌ | **Prioridad alta según doc 14** |
