@@ -189,11 +189,11 @@ price = providerPrice × (1 + slotPercentageTourya / 100)
 ```
 Donde:
 - `providerPrice` lo define el PROVIDER.
-- `slotPercentageTourya` (en puntos, ej. `15` = 15%) lo define BACKOFFICE/ADMIN.
+- `slotPercentageTourya` (en puntos, ej. `15` = 15%) lo define BACKOFFICE/ADMIN. 
 
 ### RN-015 — Comisión Tourya por default a nivel de Tour (implementado)
 
-✅ **Implementado en PR #163 (2026-07-09, BE-01/02)**. El campo `tour.porcentaje_tourya` (fracción decimal, ej. `0.15 = 15%`) es el default por tour que se hereda al crear cada slot nuevo. Elimina la ventana de "slot con 0% de comisión".
+✅ **Implementado en PR #163 (2026-07-09, BE-01/02)**. El campo `tour.porcentaje_tourya` (fracción decimal, ej. `0.15 = 15%`) es el default por tour que se hereda al crear cada slot nuevo. Elimina la ventana de "slot con 0% de comisión". Luego de definido el BACKOFFICE/ADMIN podrá editarlo cuando lo considere conveniente. 
 
 **Estado en dev tras migración 071**:
 - 38 tours existentes backfilleados a `0.15` (ninguno tenía valor previamente).
@@ -205,6 +205,7 @@ Donde:
 2. Cuando el PROVIDER (o cualquier flujo) crea un slot vía `TourScheduleConfigGeneralService.buildSlotsAndPricesFromRequest()` o `manageSlotsUpdate()`, el `slot_porcentaje_tourya` **hereda del tour**. Antes se hardcodeaba a `ZERO`.
 3. Fallback: si el tour no tiene `porcentaje_tourya` (edge case), cae a `ZERO` para no romper.
 4. BACKOFFICE puede sobrescribir el `slot_porcentaje_tourya` de un slot específico usando `tour_schedule_slot_override` (RN por rango de fechas).
+5. Luego de definido el campo `slot_porcentaje_tourya`, el BACKOFFICE/ADMIN podrá editarlo cuando lo considere conveniente. 
 
 ⚠️ **Notas**:
 - **Slots ya existentes NO se tocan** — mantienen su `slot_porcentaje_tourya` actual (posibles overrides). Si el ADMIN quiere aplicar el default a slots viejos, usa el endpoint dedicado.
@@ -224,8 +225,9 @@ Donde:
 ### RN-019 — El PROVIDER no ve la comisión Tourya
 ✅ Los responses del PROVIDER omiten `slotPercentageTourya`. Solo ven `providerPrice` y `price`. BACKOFFICE/ADMIN sí lo ven.
 
-### RN-020 — Precios por tipo de persona obligatorios
-✅ Cada slot debe tener un precio por cada `ageType` configurado (ADULT, CHILD, INFANT). El INFANT puede tener `providerPrice = 0`.
+### RN-020 — Precios por tour obligatorios
+✅ Para los tours donde el `priceType` = `individual` (por persona), Cada slot debe tener un precio por cada `ageType` configurado (ADULT, CHILD, INFANT). El INFANT puede tener `providerPrice = 0`. tambien aparece un `ageType` llamado `Cualquiera` (al guardarlo lo define como adulto) y cuando se selecciona el front no debe permitir configurar los otros precios, por lo que quiere decir que todos las turistas pagarán el mismo precio.
+✅ Para los tours donde el `priceType` = `grupo`, Cada slot solo debe tener un precio de `ageType` configurado (ADULT). esto quiere decir que debe aparecerle el `ageType` llamado `Cualquiera` (al guardarlo lo define como adulto).
 
 ### RN-021 — Capacidad ilimitada (limpieza de campo redundante, implementado)
 ✅ **Aclaración de Luis (2026-07-07)**: la capacidad ilimitada es una propiedad **del tour** — ya existe en `Tour.isUnlimitedCapacity`. El campo duplicado en `TourSchedule` es un remanente que debe **eliminarse**.
@@ -258,6 +260,7 @@ Requiere token de ADMIN. Aplica desde el próximo checkout (no requiere reinicia
 
 ### RN-023 — Validación de capacidad en checkout
 ✅ Al agregar al carrito, se valida que el slot tenga capacidad suficiente (`requestedUnits <= availability`). **Esta validación solo aplica si `Tour.isUnlimitedCapacity = false`**.
+✅ Para los tours donde el `priceType` = `individual` (por persona), si tiene 2 adultos en el carrito, se debe validar que `availability`>=2. Para los tours donde el `priceType` = `grupo` (el campo `maxPeople` del Tour debe ser visible antes de agregarlo al carrito ), la cantidad en el carrito al seleccionar el slot debe estar por default en 1 (no toma en cuenta el numero de turistas) pero el turista puede aumentarlo. al agregarlo al carrito se debe validar al igual la capacidad suficiente (`requestedUnits <= availability`). en los 
 
 ### RN-024 — Validación de monto total en checkout
 ✅ Si el pago incluye créditos: `amountCredit + amountPlatform == totalAmount` debe cumplirse, sino error.
