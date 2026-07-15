@@ -271,7 +271,7 @@ Canal WhatsApp para los agentes IA (ver [16 — Agentes IA](16-agentes-ia.md)):
 | Integración | Propósito | Estado |
 |-------------|-----------|--------|
 | **Webhook Wompi** | Confirmación de pago server-side | ✅ Aprobado — a implementar (RN-025) |
-| **Push Notifications (FCM)** | Notificar reservas, cancelaciones | No implementado |
+| **Push Notifications (FCM)** | Notificar reservas, cancelaciones, recordatorios | 🟡 MO-40 Fase A (backend base) implementada 2026-07-15 en rama `feature/fase-1-mo40-fase-a-push-backend`. Faltan Fases B/C (mobile) y D (hooks en flows) |
 | **Google Maps Geocoding** | Resolver lat/long desde direcciones | No implementado (se ingresan manualmente) |
 | **Google Maps Render** | Mostrar mapa en detalle de tour | Componente Syncfusion.Maps importado en mobile, no usado aún |
 | **DIAN (facturación electrónica)** | Cumplimiento factura para compras | No implementado |
@@ -290,6 +290,7 @@ Canal WhatsApp para los agentes IA (ver [16 — Agentes IA](16-agentes-ia.md)):
 | Wompi public key | `pub_test_*` | mobile `Constants.cs`, frontend env |
 | Wompi integrity secret | ✅ En GCP Secret Manager (`tourya-wompi-integrity-secret`) en dev. Fallback en `application.properties` como puente hasta quitar |
 | Gmail SMTP password | env var `MAIL_PASSWORD` (Cloud Run) |
+| Firebase Admin SDK JSON (FCM) | env var `FIREBASE_ADMIN_SDK_JSON` (Cloud Run, source: GCP Secret Manager `tourya-firebase-admin-sdk` — pendiente subir). Sin ella, `PushNotificationService` corre en modo no-op sin fallar (backend arranca igual en dev/CI) |
 | GCS Service Account key | ✅ Ya no se usan keys JSON. GitHub Actions autentica vía Workload Identity Federation (WIF). Cloud Run usa identidad del SA implícita |
 | AWS keys | env vars (Cloud Run / AWS legacy) |
 | Firebase API key | frontend env (no sensible) |
