@@ -169,7 +169,7 @@ Basado en el roadmap de [15 — MVP mobile estado](15-mvp-mobile-estado.md).
 
 | ID | Item | Prio | Talla | Depende | Referencia |
 |----|------|:----:|:-----:|---------|------------|
-| MO-40 | Firebase Cloud Messaging (push notifications) — turista, proveedor, operario | P1 | M | — | Doc 14 |
+| MO-40 🟡 | Firebase Cloud Messaging (push notifications) — turista, proveedor, operario. **Dividido en 4 fases:** A=backend base (device_token + endpoints + FCM Admin SDK, IMPLEMENTADO 2026-07-15 rama `feature/fase-1-mo40-fase-a-push-backend`), B=mobile registro (Plugin.Firebase + google-services.json), C=mobile recepción (handler + deep links), D=backend hooks (integrar `notify()` en reserva creada/cancelada/etc.) | P1 | M | — | Doc 14 |
 | MO-41 | Geolocalización: "tours cerca de mí" en `ExplorePage` | P2 | S | — | Doc 14 |
 | MO-42 | Geolocalización: "cómo llegar al punto de encuentro" en `TourDetailPage` (Syncfusion.Maps ya importado) | P2 | S | — | Doc 14 |
 | MO-43 | Deep-linking: compartir tour por WhatsApp con link universal | P2 | S | — | Doc 14 |
@@ -543,7 +543,7 @@ El **factor real de aceleración** no es 10× ni 20× (aunque el código puro s�
 | 1 | Tamaño exacto de imágenes (validar 1920px vs template Angular real) | Frontend + Luis | Antes de BE-10 / FE-03 |
 | 2 | Prioridad relativa entre "Backoffice avanzado" y "Mobile refinado" en Fase 4 | Luis | Al terminar Fase 3 |
 | 3 | iOS: ¿en Fase 5 o antes? | Luis | Al terminar Fase 2 |
-| 4 | Push provider para FCM (Firebase Messaging vs alternativas serverless) | Franklin | Al iniciar MO-40 |
+| 4 | ✅ ~~Push provider para FCM~~ **DECIDIDO 2026-07-15**: FCM (Firebase Cloud Messaging). Reusar proyecto Firebase `tourya-169d6` donde Franklin ya tiene acceso. Rechazadas: OneSignal (SaaS, pago), AWS SNS (nos ata a AWS que estamos saliendo) | Franklin | Decidido |
 | 5 | Política de retención de logs de agente | Franklin + Luis | Al iniciar IA-00 |
 
 ---

@@ -130,6 +130,12 @@
 				</exclusion>
 			</exclusions>
 		</dependency>
+		<!-- MO-40 Fase A: Firebase Admin SDK para enviar push notifications via FCM -->
+		<dependency>
+			<groupId>com.google.firebase</groupId>
+			<artifactId>firebase-admin</artifactId>
+			<version>9.4.0</version>
+		</dependency>
 		<dependency>
 			<groupId>com.networknt</groupId>
 			<artifactId>json-schema-validator</artifactId>
