@@ -116,6 +116,7 @@ Consolida todo el trabajo pendiente que emergió de los documentos [00–16](00-
 | FE-08 | Dashboard financiero del backoffice: GMV, net revenue, cuentas por pagar, CAC | P2 | L | — | Doc 01 roadmap |
 | FE-09 | Dashboard operativo del backoffice: tasa conversión/cancelación, tours de alto riesgo | P2 | L | — | Doc 01 roadmap |
 | FE-10 | Gestor de disputas | P2 | L | — | Doc 01 roadmap |
+| FE-11 | i18n de `/providers/requestproviders` (pantalla "Request Provider" — hoy toda en inglés). Traducir con ngx-translate: labels de sección (Basic Info, Provider Details), campos (Name, Document Number, Document Type, Service Type, RNT, Country, Department, City, Phone, Address), y botón "Submit Request". Reportada por Luis 2026-07-15 en review de flujo de activación. Candidato claro para hacer con agente IA (traducción es/en/pt masiva sobre un mismo componente) | P2 | S | — | WhatsApp Luis 2026-07-15 |
 
 **Subtotal frontend web**: ~3 días de agente + revisiones + prueba visual = **~5–7 días calendario** (los dashboards `FE-08/09/10` no cuentan aquí — van a Fase 4).
 
