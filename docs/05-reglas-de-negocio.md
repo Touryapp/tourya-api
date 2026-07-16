@@ -144,6 +144,8 @@ Solución propuesta: ver `social-login-google-facebook.md` (Token Exchange).
 
 **Mis Tours en español**: actualmente hay información para la creacion del tour en ingles. el boton `Create tour` debe decir `Crear Tour`. el boton `Edit tour` debe decir `Editar tour`. el boton `Edit gallery` debe decir `Editar galeria`. el boton `Schedule` debe decir `Programar disponibilidad.
 
+**Mis Tours en español**: actualmente hay información para la creacion del tour en ingles. el boton `Create tour` debe decir `Crear Tour`. el boton `Edit tour` debe decir `Editar tour`. el boton `Edit gallery` debe decir `Editar galeria`. el boton `Schedule` debe decir `Programar disponibilidad.
+
 ### RN-012 — Tour debe tener un único Provider asignado
 ✅ El backend resuelve el provider del JWT del PROVIDER que crea.
 
@@ -542,6 +544,9 @@ Body: {"value": {"value": 1}, "description": "Política RN-045 activa"}
 
 ### Reservas pueden compartir Payment
 ✅ Un `Payment` puede tener múltiples `Reservation`s (un solo pago para varios tours del carrito). 
+
+### Direcciones con google maps
+✅ en la direccion del tour y en la direccion del hospedaje en el checkout hay campos donde muestra las ubicaciones de google maps. actualmente muchas direcciones no se encuentran. por ejemplo no se encuentra ningun hotel en san andres islas. 
 
 ### Comisión de la pasarela (Wompi)
 ✅ Wompi cobra comisión por transacción (~2.99% + IVA). **Decisión inicial**: esta comisión es **absorbida por Tourya** (sale del `slotPercentageTourya`). Se revisará más adelante si el costo lo asume el proveedor.
