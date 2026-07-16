@@ -265,13 +265,14 @@ Requiere token de ADMIN. Aplica desde el próximo checkout (no requiere reinicia
 
 ### RN-023 — Validación de capacidad en checkout
 ✅ Al agregar al carrito, se valida que el slot tenga capacidad suficiente (`requestedUnits <= availability`). **Esta validación solo aplica si `Tour.isUnlimitedCapacity = false`**.
-✅ Para los tours donde el `priceType` = `individual` (por persona), si tiene 2 adultos en el carrito, se debe validar que `availability`>=2. Para los tours donde el `priceType` = `grupo` (el campo `maxPeople` del Tour debe ser visible antes de agregarlo al carrito ), la cantidad en el carrito al seleccionar el slot debe estar por default en 1 (no toma en cuenta el numero de turistas) pero el turista puede aumentarlo. al agregarlo al carrito se debe validar al igual la capacidad suficiente (`requestedUnits <= availability`). en los 
+✅ Para los tours donde el `priceType` = `individual` (por persona), si tiene 2 adultos en el carrito, se debe validar que `availability`>=2. Para los tours donde el `priceType` = `grupo` (el campo `maxPeople` del Tour debe ser visible antes de agregarlo al carrito ), la cantidad en el carrito al seleccionar el slot debe estar por default en 1 (no toma en cuenta el numero de turistas) pero el turista puede aumentarlo. al agregarlo al carrito se debe validar al igual la capacidad suficiente (`requestedUnits <= availability`). 
 
 ### RN-024 — Validación de monto total en checkout
 ✅ Si el pago incluye créditos: `amountCredit + amountPlatform == totalAmount` debe cumplirse, sino error.
 
 ### RN-025 — Una sola transacción Wompi por payment
 ✅ Cada `Payment` tiene un único `transactionId` de Wompi. Si Wompi retorna fallida la transacción, no se crea Payment ni se confirman reservas.
+
 
 ⚠️ NO hay webhook server-side de Wompi: la confirmación es client-side. Si el cliente cierra la app entre Wompi success y POST `/payment`, queda en limbo.
 
@@ -288,6 +289,7 @@ TEMPORAL → CONFIRMED → DELIVERED
                     ↘ CANCELED
                     ↘ CANCELED_RAIN (por lluvia, solo ADMIN)
 ```
+**Error al comprar un tour con tipo de precio GRUPO**: actualmente al colocar en el carrito un tour con tipo de precio `grupo`, luego de hacer el pago con wompi esta generando un error que dice `Error en la reserva. el pago fue exitoso pero hubo un error creando la reserva. Por favor contacte soporte`.
 
 ### RN-027 — Generación de QR al confirmar
 ✅ Al confirmar la reserva, se genera un QR con URL única (`qrUrl`). Se sube a GCS/S3.
