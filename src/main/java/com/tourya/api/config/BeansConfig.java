@@ -82,4 +82,15 @@ public class BeansConfig {
     public AuditorAware<Integer> auditorAware() {
         return new ApplicationAuditAware();
     }
+
+    // IA-01: RestTemplate para AnthropicClient. Un solo bean compartido evita
+    // costos de creacion + mantiene consistencia de timeouts. Timeouts
+    // conservadores: 30s conectividad (LLMs pueden ser lentos con prompts largos).
+    @Bean
+    public org.springframework.web.client.RestTemplate restTemplate() {
+        var factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(10_000);
+        factory.setReadTimeout(30_000);
+        return new org.springframework.web.client.RestTemplate(factory);
+    }
 }
