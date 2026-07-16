@@ -212,7 +212,7 @@ Ver diseño completo en [16](16-agentes-ia.md).
 | ID | Item | Prio | Talla | Depende | Referencia |
 |----|------|:----:|:-----:|---------|------------|
 | IA-00 🟢 | Migración: crear tabla `agent_audit_log` (prompt, modelo, tokens, costo, decisión, entidad afectada) — CERRADO 2026-07-15. Migración 076 + entidad JPA + repository. 3 índices (agent+date, entity, user+date). Sin service/endpoint (eso es IA-01). Habilitador del bloque IA | P1 | S | — | [16](16-agentes-ia.md) principio #4 |
-| IA-01 | Paquete `com.tourya.api.agents.shared`: `ILlmClient`, `AnthropicClient`, `PromptTemplate`, `BudgetGuard`, `AgentAuditWriter` | P1 | M | IA-00 | [16](16-agentes-ia.md) arq |
+| IA-01 🟢 | Paquete `com.tourya.api.agents.shared` — CERRADO 2026-07-16. `ILlmClient` + `AnthropicClient` (REST, no-op sin API key) + `AgentLlmResponse` record + `ModelPricing` + `PromptTemplate` (classpath) + `AgentRunResult<T>` sealed + `AgentAuditEntry` + `AgentAuditWriter @Async` + `BudgetGuard` (por agente en app_config). 13 unit tests JUnit + Mockito (7+6). Franklin sube `ANTHROPIC_API_KEY` a Secret Manager cuando active | P1 | M | IA-00 | [16](16-agentes-ia.md) arq |
 | IA-02 | Agente 1: **Travel Concierge** (búsqueda + carrito + FAQ) | P1 | M | IA-01 | [16](16-agentes-ia.md) |
 | IA-03 | Cuenta Twilio + WABA aprobado + plantillas de mensaje | P1 | M | — | [11](11-integraciones.md) |
 | IA-04 | Servicio `TwilioMessagingService` (envío + webhook inbound) | P1 | M | IA-03 | [11](11-integraciones.md) |
