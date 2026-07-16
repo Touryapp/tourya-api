@@ -250,7 +250,7 @@ Donde:
 ## 4. Carrito y checkout
 
 ### RN-022 — Hold temporal de 15 minutos (configurable, implementado)
-✅ Al hacer checkout (POST `/reservations`), se crean `Reservation`s en estado `TEMPORAL` con `expiresAt = now + N minutos`. Si el usuario no paga en ese tiempo, el job `TemporalReservationExpiryJob` (corre cada 60s) las cancela y libera el slot.
+✅ Al hacer checkout (POST `/reservations`), se crean `Reservation`s en estado `TEMPORAL` con `expiresAt = now + N minutos`. Si el usuario no paga en ese tiempo, el job `TemporalReservationExpiryJob` (corre cada 60s) las cancela (revisar porque actualmente las esta dejando en estado temportal) y libera el slot.
 
 ✅ **Implementado en PR #160 (2026-07-09)**: `ReservationService.createTemporalReservationHolds()` lee `HOLD_MINUTES` de `app_config` vía `appConfigService.getInt(HOLD_MINUTES, 15)`. Fallback silencioso a 15 si la key no está.
 
