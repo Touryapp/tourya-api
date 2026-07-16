@@ -485,6 +485,9 @@ Body: {"value": {"value": 1}, "description": "Política RN-045 activa"}
 
 ### RN-049 — Hasta 5 fotos por reseña
 ✅ Endpoint multipart: hasta 5 archivos en `images[]`.
+**Reglas obligatorias**:
+- Formato: JPEG, PNG o WebP
+- Tamaño ≤ `GALLERY_MAX_SIZE_MB` (default 1)
 
 ### RN-050 — Reseñas se publican directamente (hoy) — moderación IA en roadmap
 ✅ Hoy: desde la migración **040**, las nuevas reseñas se crean con `status = PUBLISHED` (sin moderación previa). Solo ADMIN puede ver reseñas en cualquier estado.
