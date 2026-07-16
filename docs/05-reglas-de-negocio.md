@@ -431,6 +431,13 @@ DRAFT → SUBMITTED → PRE_APPROVED → APPROVED
                  ↘ INCOMPLETE (loop)
                  ↘ CANCELED
 ```
+**Proceso de registro de proveedor**: todo el proceso debe estar completamente en español. La creacion del registro del proveedor tendrá los siguientes campos:
+1. llenar el formulario con la informacion: Informacion del Contacto (nombre, apellido, correo electronico, contraseña), informacion de la empresa(Tipo de documento, numero de documento, nombre de la empresa, tipo de servicio (debe ser seleccion multiple), pais, departamento ciudad, telefono de empresa, RNT, direccion de empresa (que muestre direcciones y lugares en la isla de san andres)).
+2. Al presionar el boton de `Registrarme` el back debe hacer lo siguiente: crear el registro de la cuenta del proveedor con la informacion enviada en el formulario, enviar un correo electrónico con el codigo para la activacion de la cuenta y por ultimo mostrar un modal con el siguiente mensaje: `¡Su registro de proveedor ha sido creado! Revisa tu correo electrónico para activar tu cuenta y continuar con el proceso`. El modal debe tener un boton que diga `Entendido, ir al inicio`, y al presionar el boton lo debe llevar al formulario de login.
+3. El correo electrónico enviado para la activacion de la cuenta debe tener lo siguiente:  Subject (`Activacion de cuenta Tourya`) y mensaje (`Hola` + campo `Nombre` `apellido` del contacto del proveedor, gracias por registrarte en Tourya! Para activar tu cuenta debes dar clic en el sigiente boton'. el boton debe decir `Activar cuenta`). al presoinar el boton debe mostrar una mensaje que diga `Activando tu cuenta... Por favor, espera mientras verificamos tu cuenta. Cuenta activada satisfactoriamente.`.
+4. Luego el contacto del proveedor debe ingresar al login y debe aparecer el formulario de solicitud de proveedor (Request provider) en español y el contacto del proveedor debe dar clic en el boton `Enviar solicitud`.
+5. Luego que el BACKOFFICE/ADMIN Pre-apruebe la solicitud del proveedor el proveedor debe adjuntar documentos requeridos de la empresa. luego el contacto del proveedor debe dar clic en el boton `Enviar documentos`
+6. Luego el BACKOFFICE/ADMIN pruebe aprobar, cancelar o solicitar mas informacion.
 
 ### RN-045 — Documentos obligatorios para KYB (implementado con feature flag, default OFF)
 
