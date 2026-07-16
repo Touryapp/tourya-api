@@ -142,6 +142,8 @@ Solución propuesta: ver `social-login-google-facebook.md` (Token Exchange).
 ### RN-011 — Todos los textos del tour requieren español
 ✅ La validación `@NotBlank` en `TranslatedField.es` se aplica al request de creación / update. Inglés y portugués son opcionales.
 
+**Mis Tours en español**: actualmente hay información para la creacion del tour en ingles. el boton `Create tour` debe decir `Crear Tour`. el boton `Edit tour` debe decir `Editar tour`. el boton `Edit gallery` debe decir `Editar galeria`. el boton `Schedule` debe decir `Programar disponibilidad.
+
 ### RN-012 — Tour debe tener un único Provider asignado
 ✅ El backend resuelve el provider del JWT del PROVIDER que crea.
 
@@ -174,9 +176,12 @@ Body: {"value": {"value": 10}, "description": "Ampliado por temporada de campañ
 }
 ```
 
-**Descartado del backlog original**: la sugerencia de "ancho recomendado 1920px" era solo recomendación, no obligación (Luis, RN-013 original). Loguear un warning server-side sin acción no aporta; el frontend puede sugerir 1920px pre-upload como recomendación de UX.
+**Error al subir imagenes en galareia**: actualmente la pantalla para subir imagenes a un tour (Tour Gallery) muestra un error en la pantalla `Gallery [object Object]`. en esa pantalla ocultar el frame superior que dice `Tour Gallery`.
+
+**Mis Tours en español**: actualmente hay información para la creacion del tour en ingles. el boton `Create tour` debe decir `Crear Tour`. el boton `Edit tour` debe decir `Editar tour`. el boton `Edit gallery` debe decir `Editar galeria`. el boton `Schedule` debe decir `Programar disponibilidad`. En la pantalla `Tour Gallery` el botón de enviar las imagenes debe decir `Subir imagenes`
 
 ✅ **UI implementada en PR tourya-front #59 (2026-07-10, FE-03)**: `tour-gallery.component` valida MIME, tamaño, orientación landscape, ancho mínimo y cuenta total antes de subir al backend. Umbrales leídos de `app_config` con fallback a los defaults. Los `issues[]` del backend se muestran en el mismo modal Swal si logran llegar (bypass o cambio server-side).
+
 
 ---
 
@@ -434,9 +439,9 @@ DRAFT → SUBMITTED → PRE_APPROVED → APPROVED
 **Proceso de registro de proveedor**: todo el proceso debe estar completamente en español. La creacion del registro del proveedor tendrá los siguientes campos:
 1. llenar el formulario con la informacion: Informacion del Contacto (nombre, apellido, correo electronico, contraseña), informacion de la empresa(Tipo de documento, numero de documento, nombre de la empresa, tipo de servicio (debe ser seleccion multiple), pais, departamento ciudad, telefono de empresa, RNT, direccion de empresa (que muestre direcciones y lugares en la isla de san andres)).
 2. Al presionar el boton de `Registrarme` el back debe hacer lo siguiente: crear el registro de la cuenta del proveedor con la informacion enviada en el formulario, enviar un correo electrónico con el codigo para la activacion de la cuenta y por ultimo mostrar un modal con el siguiente mensaje: `¡Su registro de proveedor ha sido creado! Revisa tu correo electrónico para activar tu cuenta y continuar con el proceso`. El modal debe tener un boton que diga `Entendido, ir al inicio`, y al presionar el boton lo debe llevar al formulario de login.
-3. El correo electrónico enviado para la activacion de la cuenta debe tener lo siguiente:  Subject (`Activacion de cuenta Tourya`) y mensaje (`Hola` + campo `Nombre` `apellido` del contacto del proveedor, gracias por registrarte en Tourya! Para activar tu cuenta debes dar clic en el sigiente boton'. el boton debe decir `Activar cuenta`). al presoinar el boton debe mostrar una mensaje que diga `Activando tu cuenta... Por favor, espera mientras verificamos tu cuenta. Cuenta activada satisfactoriamente.`.
+3. El correo electrónico enviado para la activacion de la cuenta debe tener lo siguiente:  Subject (`Activacion de cuenta Tourya`) y mensaje (`Hola` + campo `Nombre` `apellido` del contacto del proveedor, gracias por registrarte en Tourya! Para activar tu cuenta debes dar clic en el sigiente boton'. el boton debe decir `Activar cuenta`). al presoinar el boton debe mostrar una mensaje que diga `Activando tu cuenta... Por favor, espera mientras verificamos tu cuenta. Cuenta activada satisfactoriamente.`. en caso de que el contacto del proveedor no revise el correo a tiempo para activar la cuenta, el BACKOFFICE/ADMIN podrá enviarle el correo nuevamente.
 4. Luego el contacto del proveedor debe ingresar al login y debe aparecer el formulario de solicitud de proveedor (Request provider) en español y el contacto del proveedor debe dar clic en el boton `Enviar solicitud`.
-5. Luego que el BACKOFFICE/ADMIN Pre-apruebe la solicitud del proveedor el proveedor debe adjuntar documentos requeridos de la empresa. luego el contacto del proveedor debe dar clic en el boton `Enviar documentos`
+5. Luego que el BACKOFFICE/ADMIN Pre-apruebe la solicitud del proveedor el proveedor debe adjuntar documentos requeridos de la empresa. luego el contacto del proveedor debe dar clic en el boton `Enviar documentos` y debe mostrar un modal con el siguiente mensaje `Documentos enviados con éxito` y con un boton de Aceptar para cerrar el modal y volver al panel del proveedor. 
 6. Luego el BACKOFFICE/ADMIN pruebe aprobar, cancelar o solicitar mas informacion.
 
 ### RN-045 — Documentos obligatorios para KYB (implementado con feature flag, default OFF)
