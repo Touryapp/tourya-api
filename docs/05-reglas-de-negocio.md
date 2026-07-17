@@ -539,6 +539,8 @@ Body: {"value": {"value": 1}, "description": "Política RN-045 activa"}
 ### RN-054 — Reporte de actividad marítima por backoffice
 ✅ El BACKOFFICE/ADMIN registra reportes (`POST /maritime-activity-reports`) con bandera (flag) — verde / amarilla / roja. Estos reportes sirven como soporte para cancelaciones por mal tiempo.
 
+- **Cancelaciones por lluvia**: Cuando se crea un reporte de activida maritima (DIMAR) con bandera roja, un job debe buscar y cancelar todas las reservas donde la categoria y la subcategoria coincida con la del reporte, y que el dia de la reserva (`tour.reservationDate`) sea igual o este dentro de la fecha de inicio y fin del reporte. al cancelar cada reserva se debe crear un credito con el monto de la reserva y a nombre del turista de la reserva cancelada.
+
 📌 **Roadmap**: DIMAR envía un **PDF diario** con el reporte. Se creará un servicio que lea automáticamente el PDF y genere el `MaritimActivityReport`. Luis está revisando si DIMAR expone API o link estable.
 
 ---
