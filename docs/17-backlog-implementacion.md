@@ -180,8 +180,8 @@ Basado en el roadmap de [15 — MVP mobile estado](15-mvp-mobile-estado.md).
 
 | ID | Item | Prio | Talla | Depende | Referencia |
 |----|------|:----:|:-----:|---------|------------|
-| MO-50 | Modo offline: cache local de reservas del día para operario | P2 | M | — | Doc 15 Ciclo 5 |
-| MO-51 | Vista de reservas del operario mejorada (filtro por tour asignado, agrupación por hora) | P2 | S | — | Doc 15 Ciclo 5 |
+| MO-50 🟢 | Modo offline: cache local de reservas del día para operario — CERRADO 2026-07-17. `IReservationCacheService` con JSON en `FileSystem.CacheDirectory`. Dashboard hace save-on-success + fallback-on-error con banner "📴 Modo offline · última actualización hace X min" | P2 | M | — | Doc 15 Ciclo 5 |
+| MO-51 🟢 | Vista de reservas del operario mejorada — CERRADO 2026-07-17. Chips filtro por tour (auto-derivados) + agrupación por día (`CollectionView.IsGrouped` con `ReservationDayGroup`) + ordenamiento ascendente por `ScheduleDate + SlotTimeStart` | P2 | S | — | Doc 15 Ciclo 5 |
 
 **Subtotal mobile**: ~5–6 días de agente + revisiones + testing en dispositivo real + release cycles Play Store = **~2 semanas calendario** para el bloque D.1 + D.2 + D.3. Los D.4 y D.5 van a fases posteriores.
 
