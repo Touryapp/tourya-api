@@ -271,7 +271,7 @@ Canal WhatsApp para los agentes IA (ver [16 — Agentes IA](16-agentes-ia.md)):
 | Integración | Propósito | Estado |
 |-------------|-----------|--------|
 | **Webhook Wompi** | Confirmación de pago server-side | ✅ Aprobado — a implementar (RN-025) |
-| **Push Notifications (FCM)** | Notificar reservas, cancelaciones, recordatorios | 🟡 MO-40 Fase A (backend base) implementada 2026-07-15 en rama `feature/fase-1-mo40-fase-a-push-backend`. Faltan Fases B/C (mobile) y D (hooks en flows) |
+| **Push Notifications (FCM)** | Notificar reservas, cancelaciones, recordatorios | ✅ MO-40 completo (A→D) + MO-40b (hooks a `@TransactionalEventListener(AFTER_COMMIT)` + `@Async`). Los 5 flows publican `PushDomainEvent`s; el listener corre post-commit para que ningún fallo del stack push tumbe la tx de negocio |
 | **Google Maps Geocoding** | Resolver lat/long desde direcciones | No implementado (se ingresan manualmente) |
 | **Google Maps Render** | Mostrar mapa en detalle de tour | Componente Syncfusion.Maps importado en mobile, no usado aún |
 | **DIAN (facturación electrónica)** | Cumplimiento factura para compras | No implementado |
