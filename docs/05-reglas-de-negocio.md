@@ -548,6 +548,9 @@ Body: {"value": {"value": 1}, "description": "Política RN-045 activa"}
 ### Reservas pueden compartir Payment
 ✅ Un `Payment` puede tener múltiples `Reservation`s (un solo pago para varios tours del carrito). 
 
+### Asignar Reserva a otro Provider
+✅ el usuario ADMIN puede asignar una `Reserva` a otro PROVIDER (tiene un Tour con la misma subcategoria en estado aceptado) si y solo si el PROVIDER que aparecia inicialmente en la reserva manifiesta que no puede prestar el servicio. en caso de que no se encuentre un proveedor sustituto, el ADMIN puede cancelar la reserva para que se cree una crédito.
+
 ### Direcciones con google maps
 ✅ en la direccion del tour y en la direccion del hospedaje en el checkout hay campos donde muestra las ubicaciones de google maps. actualmente muchas direcciones no se encuentran. por ejemplo no se encuentra ningun hotel en san andres islas. 
 
