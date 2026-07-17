@@ -115,6 +115,7 @@ Solución propuesta: ver `social-login-google-facebook.md` (Token Exchange).
 3. El frontend debe forzar cambio de contraseña antes de continuar.
 4. El sub-usuario usa `PATCH /users` con `currentPassword + newPassword + confirmationPassword`.
 
+
 ✅ El PROVIDER puede resetear la clave del sub-usuario: `PUT /provider/users/{id}/reset-password` con nueva contraseña temporal.
 
 ---
@@ -129,6 +130,8 @@ Solución propuesta: ver `social-login-google-facebook.md` (Token Exchange).
 ⚠️ Roles NO asignables por API (asignación manual en BD):
 - `ADMIN` — solo puede existir **un único ADMIN** en toda la plataforma.
 
+✅ **Asignar Tours a Provider Operator**: al crear un sub-usuarios (`PROVIDER_OPERATOR`) el PROVIDER puede asignarle 1 o más Tours.
+
 ---
 
 ## 2. Tours y catálogo
@@ -136,13 +139,13 @@ Solución propuesta: ver `social-login-google-facebook.md` (Token Exchange).
 ### RN-009 — Tour empieza en estado CREATED
 ✅ Al crearse, todo tour está en `status = CREATED`. El PROVIDER debe enviarlo explícitamente a aprobación (`PUT /tour/user/submitTourById/{id}` → `SUBMITTED`).
 
+✅ **Contacto principal de un tour**: un tour puede tener varios sub-usuarios (`PROVIDER_OPERATOR`) asignados pero solo uno de ellos puede ser el principal.
+
 ### RN-010 — Solo ADMIN aprueba/rechaza tours
 ✅ Endpoints `admin/acceptTourById`, `admin/returnedTourById`, `admin/cancelTourById` requieren rol ADMIN.
 
 ### RN-011 — Todos los textos del tour requieren español
 ✅ La validación `@NotBlank` en `TranslatedField.es` se aplica al request de creación / update. Inglés y portugués son opcionales.
-
-**Mis Tours en español**: actualmente hay información para la creacion del tour en ingles. el boton `Create tour` debe decir `Crear Tour`. el boton `Edit tour` debe decir `Editar tour`. el boton `Edit gallery` debe decir `Editar galeria`. el boton `Schedule` debe decir `Programar disponibilidad.
 
 **Mis Tours en español**: actualmente hay información para la creacion del tour en ingles. el boton `Create tour` debe decir `Crear Tour`. el boton `Edit tour` debe decir `Editar tour`. el boton `Edit gallery` debe decir `Editar galeria`. el boton `Schedule` debe decir `Programar disponibilidad.
 
