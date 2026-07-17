@@ -162,7 +162,7 @@ Actores humanos y sistemas que interactúan con Tourya, con sus responsabilidade
 | Buscar tours | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Reservar tour | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Pagar con Wompi | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Ver mis reservas | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Ver mis reservas | ✅ | ✅ | ❌ | ❌ | ✅ |
 | Cancelar mi reserva | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Dejar reseña | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Transferir crédito | ✅ | ✅ | ❌ | ❌ | ❌ |
