@@ -117,10 +117,12 @@ Actores humanos y sistemas que interactúan con Tourya, con sus responsabilidade
 - Crear categorías y subcategorías de tours.
 - Crear tipos de documento KYB.
 - Crear / gestionar reportes marítimos (DIMAR).
-- Asignar la comisión Tourya (`PUT /tour-schedules/tours/{tourId}/percentage`).
+- Asignar y editar la comisión Tourya (`PUT /tour-schedules/tours/{tourId}/percentage`).
 - Subir comprobantes de pago a payout orders y marcarlas como pagadas.
+- Ver todas las reservas de todos los tours aceptados (de todos los PROVIDERS).
+- Asignar una reserva a otro PROVIDER que preste el mismo servicio.
 - Cancelar reservas por lluvia (`PUT /reservations/{id}/cancel/rain`).
-- Ver reseñas en cualquier estado (PENDING / PUBLISHED / CANCELED).
+- Ver reseñas en cualquier estado (PENDING / PUBLISHED / CANCELED). asignar la re
 - Acceso completo a actuator (Spring Boot Admin endpoints).
 
 > **Regla**: solo puede haber **un único usuario con rol ADMIN** en la plataforma. ADMIN y Super ADMIN son sinónimos — no hay distinción entre ellos.
