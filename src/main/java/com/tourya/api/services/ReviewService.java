@@ -16,6 +16,8 @@ import com.tourya.api.models.responses.ReviewResponse;
 import com.tourya.api.models.mapper.ReservationMapper;
 import com.tourya.api.models.mapper.ReservationPriceBreakdownMapper;
 import com.tourya.api.repository.*;
+import com.tourya.api.services.push.PushDomainEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -72,7 +74,7 @@ public class ReviewService {
     private final ProviderService providerService;
     private final IStorageService s3Service;
     private final com.tourya.api.config.security.JwtService jwtService;
-    private final PushNotificationService pushService; // MO-40 Fase D
+    private final ApplicationEventPublisher eventPublisher; // MO-40b: push via eventos AFTER_COMMIT
     private final org.springframework.security.core.userdetails.UserDetailsService userDetailsService;
     private final TouristProfileRepository touristProfileRepository;
 
@@ -490,9 +492,8 @@ public class ReviewService {
             if (review.getTourId() != null) {
                 refreshAndPersistTourRating(review.getTourId());
             }
-            // MO-40 Fase D: notificar al turista dueño de la review que el
-            // provider respondió. Best-effort — no falla si push falla.
-            notifyReviewAnsweredBestEffort(review);
+            // MO-40b: publica evento; listener corre AFTER_COMMIT + @Async.
+            publishReviewRepliedEvent(review);
         }
 
         // Cargar relaciones para la respuesta
@@ -502,29 +503,24 @@ public class ReviewService {
     }
 
     /**
-     * MO-40 Fase D: notifica al turista dueño de la review que el provider
-     * respondió. Traza el turista via la reservation asociada a la review.
-     * Silencioso en fallo — la respuesta ya se guardó.
+     * MO-40b: resuelve turista + tourName con la sesion JPA abierta y publica
+     * el evento. El listener corre en AFTER_COMMIT + @Async.
      */
-    private void notifyReviewAnsweredBestEffort(Review review) {
-        try {
-            if (review.getReservationId() == null) return;
-            Reservation reservation = reservationRepository.findById(review.getReservationId()).orElse(null);
-            if (reservation == null) return;
-            ShoppingCartItem item = shoppingCartItemRepository.findById(reservation.getItemId()).orElse(null);
-            if (item == null || item.getShoppingCart() == null || item.getShoppingCart().getUser() == null) return;
-            Integer touristUserId = item.getShoppingCart().getUser().getId();
+    private void publishReviewRepliedEvent(Review review) {
+        if (review.getReservationId() == null) return;
+        Reservation reservation = reservationRepository.findById(review.getReservationId()).orElse(null);
+        if (reservation == null || reservation.getItemId() == null) return;
+        ShoppingCartItem item = shoppingCartItemRepository.findById(reservation.getItemId()).orElse(null);
+        if (item == null || item.getShoppingCart() == null || item.getShoppingCart().getUser() == null) return;
+        Integer touristUserId = item.getShoppingCart().getUser().getId();
 
-            String tourName = null;
-            if (review.getTourId() != null) {
-                Tour tour = tourRepository.findById(review.getTourId()).orElse(null);
-                tourName = tour != null && tour.getName() != null ? tour.getName().getEs() : null;
-            }
-            pushService.notifyReviewRepliedForTourist(touristUserId, tourName, reservation.getReservationId());
-        } catch (Exception ex) {
-            log.warn("MO-40 push on review answered failed reviewId={}: {}",
-                    review.getId(), ex.getMessage());
+        String tourName = null;
+        if (review.getTourId() != null) {
+            Tour tour = tourRepository.findById(review.getTourId()).orElse(null);
+            tourName = tour != null && tour.getName() != null ? tour.getName().getEs() : null;
         }
+        eventPublisher.publishEvent(new PushDomainEvent.ReviewReplied(
+                touristUserId, tourName, reservation.getReservationId()));
     }
 
     /**

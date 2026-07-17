@@ -6,6 +6,7 @@ import com.tourya.api.models.User;
 import com.tourya.api.repository.CreditRepository;
 import com.tourya.api.repository.UserRepository;
 import com.tourya.api.services.EmailService;
+import com.tourya.api.services.push.PushDomainEvent;
 import jakarta.mail.MessagingException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -17,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
@@ -59,6 +61,7 @@ class CreditExpirationJobTest {
     @Mock private CreditRepository creditRepository;
     @Mock private UserRepository userRepository;
     @Mock private EmailService emailService;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private CreditExpirationJob job;
@@ -111,6 +114,8 @@ class CreditExpirationJobTest {
         verify(creditRepository).save(saved.capture());
         assertThat(saved.getValue().getReminder30dSentAt()).isNotNull();
         assertThat(saved.getValue().getReminder7dSentAt()).isNull();
+        // MO-40b: se publica evento de push, no llamada directa
+        verify(eventPublisher).publishEvent(new PushDomainEvent.CreditExpiringSoon(USER_ID, 30));
     }
 
     @Test
@@ -140,6 +145,7 @@ class CreditExpirationJobTest {
         verify(creditRepository).save(saved.capture());
         assertThat(saved.getValue().getReminder7dSentAt()).isNotNull();
         assertThat(saved.getValue().getReminder30dSentAt()).isNull();
+        verify(eventPublisher).publishEvent(new PushDomainEvent.CreditExpiringSoon(USER_ID, 7));
     }
 
     @Test
@@ -167,6 +173,7 @@ class CreditExpirationJobTest {
         verify(creditRepository).save(saved.capture());
         assertThat(saved.getValue().getStatus()).isEqualTo(CreditStatusEnum.EXPIRED);
         assertThat(saved.getValue().getExpiredNotifiedAt()).isNotNull();
+        verify(eventPublisher).publishEvent(new PushDomainEvent.CreditExpired(USER_ID));
     }
 
     @Test

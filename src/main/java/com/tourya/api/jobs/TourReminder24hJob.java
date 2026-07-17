@@ -5,9 +5,10 @@ import com.tourya.api.models.ShoppingCartItem;
 import com.tourya.api.models.Tour;
 import com.tourya.api.models.TourSchedule;
 import com.tourya.api.repository.ReservationRepository;
-import com.tourya.api.services.PushNotificationService;
+import com.tourya.api.services.push.PushDomainEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,7 +43,7 @@ public class TourReminder24hJob {
     private static final ZoneId BOGOTA = ZoneId.of("America/Bogota");
 
     private final ReservationRepository reservationRepository;
-    private final PushNotificationService pushService;
+    private final ApplicationEventPublisher eventPublisher; // MO-40b
 
     @Scheduled(cron = "0 0 8 * * *", zone = "America/Bogota")
     @Transactional(readOnly = true)
@@ -69,7 +70,8 @@ public class TourReminder24hJob {
                 Tour tour = schedule != null ? schedule.getTour() : null;
                 String tourName = tour != null && tour.getName() != null ? tour.getName().getEs() : null;
 
-                pushService.notifyTourReminderForTourist(touristUserId, tourName, reservation.getReservationId());
+                eventPublisher.publishEvent(new PushDomainEvent.TourReminder24h(
+                        touristUserId, tourName, reservation.getReservationId()));
                 sent++;
             } catch (Exception ex) {
                 log.warn("TourReminder24hJob: failed for reservation {}: {}",

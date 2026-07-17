@@ -6,11 +6,12 @@ import com.tourya.api.models.User;
 import com.tourya.api.repository.CreditRepository;
 import com.tourya.api.repository.UserRepository;
 import com.tourya.api.services.EmailService;
-import com.tourya.api.services.PushNotificationService;
+import com.tourya.api.services.push.PushDomainEvent;
 import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,7 +55,7 @@ public class CreditExpirationJob {
     private final CreditRepository creditRepository;
     private final UserRepository userRepository;
     private final EmailService emailService;
-    private final PushNotificationService pushService; // MO-40 Fase D
+    private final ApplicationEventPublisher eventPublisher; // MO-40b
 
     @Value("${application.mailing.frontend.credit-url:https://tourya.co/}")
     private String creditUsageUrl;
@@ -97,8 +98,9 @@ public class CreditExpirationJob {
                     credit.setReminder7dSentAt(LocalDateTime.now());
                 }
                 creditRepository.save(credit);
-                // MO-40 Fase D: push en paralelo al email (best-effort)
-                pushService.notifyCreditExpiringSoonForTourist(credit.getUserId(), daysAdvance);
+                // MO-40b: push via evento AFTER_COMMIT (paralelo al email)
+                eventPublisher.publishEvent(new PushDomainEvent.CreditExpiringSoon(
+                        credit.getUserId(), daysAdvance));
                 sent++;
             } catch (MessagingException | RuntimeException e) {
                 log.warn("CreditExpirationJob: reminder{}d failed for credit {}: {}",
@@ -129,8 +131,8 @@ public class CreditExpirationJob {
                         "Tu crédito Tourya ha vencido"
                 );
                 credit.setExpiredNotifiedAt(LocalDateTime.now());
-                // MO-40 Fase D: push en paralelo al email
-                pushService.notifyCreditExpiredForTourist(credit.getUserId());
+                // MO-40b: push via evento AFTER_COMMIT (paralelo al email)
+                eventPublisher.publishEvent(new PushDomainEvent.CreditExpired(credit.getUserId()));
                 notified++;
             } catch (MessagingException | RuntimeException e) {
                 log.warn("CreditExpirationJob: expired notice failed for credit {}: {}",
