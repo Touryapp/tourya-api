@@ -137,7 +137,7 @@ Solución propuesta: ver `social-login-google-facebook.md` (Token Exchange).
 ### RN-009 — Tour empieza en estado CREATED
 ✅ Al crearse, todo tour está en `status = CREATED`. El PROVIDER debe enviarlo explícitamente a aprobación (`PUT /tour/user/submitTourById/{id}` → `SUBMITTED`).
 
-✅ **Contacto principal de un tour**: un tour puede tener varios sub-usuarios (`PROVIDER_OPERATOR`) asignados pero solo uno de ellos puede ser el principal.
+✅ **Contacto principal de un tour**: un tour puede tener uno o varios sub-usuarios (`PROVIDER_OPERATOR`) asignados (esto ya sucede cuando se crea un `PROVIDER_OPERATOR` en la regla `RN-007` por lo que no hace falta construirlo). actualmente lo unico que falta construir, es que por cada Tour, el PROVIDER debe especificar cual de los `PROVIDER_OPERATOR` va a ser el contacto principal (marcarlo como principal✅).
 
 ### RN-010 — Solo ADMIN aprueba/rechaza tours
 ✅ Endpoints `admin/acceptTourById`, `admin/returnedTourById`, `admin/cancelTourById` requieren rol ADMIN.
