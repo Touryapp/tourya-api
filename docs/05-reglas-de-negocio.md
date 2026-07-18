@@ -130,8 +130,6 @@ Solución propuesta: ver `social-login-google-facebook.md` (Token Exchange).
 ⚠️ Roles NO asignables por API (asignación manual en BD):
 - `ADMIN` — solo puede existir **un único ADMIN** en toda la plataforma.
 
-✅ **Asignar Tours a Provider Operator**: al crear un sub-usuarios (`PROVIDER_OPERATOR`) el PROVIDER puede asignarle 1 o más Tours.
-
 ---
 
 ## 2. Tours y catálogo
