@@ -137,7 +137,7 @@ Solución propuesta: ver `social-login-google-facebook.md` (Token Exchange).
 ### RN-009 — Tour empieza en estado CREATED
 ✅ Al crearse, todo tour está en `status = CREATED`. El PROVIDER debe enviarlo explícitamente a aprobación (`PUT /tour/user/submitTourById/{id}` → `SUBMITTED`).
 
-✅ **Contacto principal de un tour**: un tour puede tener uno o varios sub-usuarios (`PROVIDER_OPERATOR`) asignados (esto ya sucede cuando se crea un `PROVIDER_OPERATOR` en la regla `RN-007` por lo que no hace falta construirlo). actualmente lo unico que falta construir, es que por cada Tour, el PROVIDER debe especificar cual de los `PROVIDER_OPERATOR` va a ser el contacto principal (marcarlo como principal✅).
+✅ **Contacto principal de un tour**: un tour puede tener uno o varios sub-usuarios (`PROVIDER_OPERATOR`) asignados (esto ya sucede cuando se crea un `PROVIDER_OPERATOR` en la regla `RN-007` por lo que no hace falta construirlo). actualmente lo unico que falta construir, es que por cada Tour, el PROVIDER debe especificar cual de los `PROVIDER_OPERATOR` va a ser el contacto principal (marcarlo como principal✅). por default, el PROVIDER es el contacto principal de cada tour. en caso de que el PROVIDER haya creado sub-usuarios (`PROVIDER_OPERATOR`), el PROVIDER puede colocar un sub-usuario como contacto principal.
 
 ### RN-010 — Solo ADMIN aprueba/rechaza tours
 ✅ Endpoints `admin/acceptTourById`, `admin/returnedTourById`, `admin/cancelTourById` requieren rol ADMIN.
@@ -292,6 +292,8 @@ TEMPORAL → CONFIRMED → DELIVERED
                     ↘ CANCELED
                     ↘ CANCELED_RAIN (por lluvia, solo ADMIN)
 ```
+**Contacto principal del tour**: al momento en que se genera la reserva, debe aparecer la informacion (nombre, telefono y correo electrónico) del contacto principal del tour.
+
 **Error al comprar un tour con tipo de precio GRUPO**: actualmente al colocar en el carrito un tour con tipo de precio `grupo`, luego de hacer el pago con wompi esta generando un error que dice `Error en la reserva. el pago fue exitoso pero hubo un error creando la reserva. Por favor contacte soporte`.
 
 ### RN-027 — Generación de QR al confirmar
