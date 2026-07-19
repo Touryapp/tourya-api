@@ -3,6 +3,7 @@ package com.tourya.api.repository;
 import com.tourya.api.models.responses.ReservationDetailsResponse;
 import com.tourya.api.models.Reservation;
 import com.tourya.api.constans.enums.DeliveryStatusEnum;
+import com.tourya.api.constans.enums.TourSubCategoryEnum;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import jakarta.persistence.LockModeType;
@@ -132,6 +133,40 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
         WHERE r.reservationId IN :ids
         """)
     List<Reservation> findAllByReservationIdIn(@Param("ids") List<Long> ids);
+
+    /**
+     * BE-23: reservas afectadas por un reporte DIMAR bandera roja.
+     * Une con shopping_cart_item → tour_schedule → tour, filtra por subcategoria,
+     * rango de fechas del reporte y ubicacion via tour_address.
+     * Solo trae reservas en estado abierto (excluye CANCELED, DELIVERED, etc.).
+     */
+    @Query("""
+        SELECT r FROM Reservation r,
+                    com.tourya.api.models.ShoppingCartItem sci,
+                    com.tourya.api.models.TourSchedule ts,
+                    com.tourya.api.models.Tour t
+        WHERE r.itemId = sci.id
+          AND sci.tourSchedule.id = ts.id
+          AND ts.tour.id = t.id
+          AND r.deliveryStatus IN :openStatuses
+          AND t.subCategory = :subCategory
+          AND ts.scheduleDate BETWEEN :startDate AND :endDate
+          AND EXISTS (
+              SELECT 1 FROM com.tourya.api.models.TourAddress ta
+              WHERE ta.tour.id = t.id
+                AND ta.country.id = :countryId
+                AND ta.state.id = :stateId
+                AND ta.city.id = :cityId
+          )
+        """)
+    List<Reservation> findAffectedByRedAlert(
+            @Param("subCategory") TourSubCategoryEnum subCategory,
+            @Param("countryId") Integer countryId,
+            @Param("stateId") Integer stateId,
+            @Param("cityId") Integer cityId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("openStatuses") List<DeliveryStatusEnum> openStatuses);
 
     @Query("""
         SELECT r

@@ -9,14 +9,17 @@ import com.tourya.api.models.MaritimActivityReport;
 import com.tourya.api.models.State;
 import com.tourya.api.models.request.MaritimActivityReportRequest;
 import com.tourya.api.models.responses.MaritimActivityReportResponse;
+import com.tourya.api.constans.enums.MaritimeFlagEnum;
 import com.tourya.api.repository.CityRepository;
 import com.tourya.api.repository.CountryRepository;
 import com.tourya.api.repository.MaritimActivityReportRepository;
 import com.tourya.api.repository.StateRepository;
+import com.tourya.api.services.maritime.events.MaritimeAlertCreatedEvent;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -39,6 +42,7 @@ public class MaritimActivityReportService {
     private final CountryRepository countryRepository;
     private final StateRepository stateRepository;
     private final CityRepository cityRepository;
+    private final ApplicationEventPublisher eventPublisher; // BE-23
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -60,7 +64,25 @@ public class MaritimActivityReportService {
                 .reportEndDate(request.getReportEndDate())
                 .build();
 
-        return toResponse(maritimActivityReportRepository.save(report));
+        MaritimActivityReport saved = maritimActivityReportRepository.save(report);
+
+        // BE-23: al crear un reporte RED, publicar evento para que un listener
+        // AFTER_COMMIT + @Async cancele las reservas afectadas + genere creditos.
+        // Solo se dispara para RED — GREEN/YELLOW son informativos.
+        if (saved.getFlag() == MaritimeFlagEnum.RED) {
+            eventPublisher.publishEvent(new MaritimeAlertCreatedEvent(
+                    saved.getId(),
+                    saved.getSubcategoryCode(),
+                    saved.getCountry() != null ? saved.getCountry().getId() : null,
+                    saved.getState() != null ? saved.getState().getId() : null,
+                    saved.getCity() != null ? saved.getCity().getId() : null,
+                    saved.getReportStartDate(),
+                    saved.getReportEndDate(),
+                    saved.getFlag()));
+            log.info("BE-23 MaritimeAlertCreatedEvent published for RED report {}", saved.getId());
+        }
+
+        return toResponse(saved);
     }
 
     @Transactional(readOnly = true)

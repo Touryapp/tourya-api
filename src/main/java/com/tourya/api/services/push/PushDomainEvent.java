@@ -56,4 +56,11 @@ public sealed interface PushDomainEvent {
     record CreditExpired(
             Integer userId
     ) implements PushDomainEvent {}
+
+    /** BE-23: notifica al turista que su reserva fue cancelada por bandera roja DIMAR. */
+    record ReservationCanceledByRain(
+            Integer touristUserId,
+            String tourName,
+            Long reservationId
+    ) implements PushDomainEvent {}
 }
