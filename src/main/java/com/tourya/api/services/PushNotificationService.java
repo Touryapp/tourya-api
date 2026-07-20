@@ -166,6 +166,19 @@ public class PushNotificationService {
                 Map.of("type", "review", "targetId", String.valueOf(reservationId)));
     }
 
+    /**
+     * BE-23: turista notificado que su reserva fue cancelada por bandera roja DIMAR.
+     * Se cancelo automaticamente y se genero un credito por el monto pagado.
+     * Deep-link → creditos (para que use el credito en otro tour).
+     */
+    public void notifyReservationCanceledByRainForTourist(Integer userId, String tourName, long reservationId) {
+        if (userId == null || userId <= 0) return;
+        sendToUser(userId,
+                "Reserva cancelada por condiciones climáticas",
+                "Tu reserva de " + safe(tourName) + " se canceló por alerta DIMAR. Te generamos un crédito.",
+                Map.of("type", "credit", "targetId", String.valueOf(reservationId)));
+    }
+
     private static String safe(String s) {
         return (s == null || s.isBlank()) ? "tu tour" : s;
     }

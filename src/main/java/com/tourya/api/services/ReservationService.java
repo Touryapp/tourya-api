@@ -38,9 +38,12 @@ import com.tourya.api.models.responses.ShoppingCartResponse;
 import com.tourya.api.models.request.AddItemToCartRequest;
 import com.tourya.api.models.request.SlotRequest;
 import com.tourya.api.repository.*;
+import com.tourya.api.services.maritime.events.MaritimeAlertCreatedEvent;
+import com.tourya.api.services.push.PushDomainEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.lang.Nullable;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -87,6 +90,7 @@ public class ReservationService {
     private final TourCancellationPolicyRepository tourCancellationPolicyRepository;
     private final CreditRepository creditRepository;
     private final MaritimActivityReportRepository maritimActivityReportRepository;
+    private final ApplicationEventPublisher eventPublisher; // BE-23
     private final TourScheduleConfigSlotRepository tourScheduleConfigSlotRepository;
     private final TourScheduleConfigRepository tourScheduleConfigRepository;
     private final AppConfigService appConfigService;
@@ -1160,6 +1164,117 @@ public class ReservationService {
         return reason == CancellationReasonEnum.CANNOT_ATTEND
                 || reason == CancellationReasonEnum.ILLNESS
                 || reason == CancellationReasonEnum.INABILITY_TO_TRAVEL;
+    }
+
+    /**
+     * BE-23: cancela retroactivamente todas las reservas afectadas por un reporte DIMAR
+     * bandera roja recién creado. Se invoca desde el listener AFTER_COMMIT + @Async, por
+     * lo que corre fuera de la tx del create del reporte.
+     *
+     * <p>Para cada reserva afectada:</p>
+     * <ul>
+     *   <li>Marca CANCELED + reason RAIN + cancellationDate.</li>
+     *   <li>Recalcula disponibilidad del slot.</li>
+     *   <li>Crea un {@link Credit} por el monto pagado a nombre del turista.</li>
+     *   <li>Publica evento push {@link PushDomainEvent.ReservationCanceledByRain}.</li>
+     * </ul>
+     *
+     * <p>Idempotente: skipea reservas ya CANCELED. Fallos por reserva individual se
+     * logean pero no interrumpen el batch.</p>
+     */
+    @Transactional
+    public void cancelAffectedByRedAlert(MaritimeAlertCreatedEvent event) {
+        com.tourya.api.constans.enums.TourSubCategoryEnum subCategory;
+        try {
+            subCategory = com.tourya.api.constans.enums.TourSubCategoryEnum.of(event.subcategoryCode());
+        } catch (Exception ex) {
+            log.warn("BE-23 unknown subcategory {} in alert {}, skipping",
+                    event.subcategoryCode(), event.reportId());
+            return;
+        }
+
+        List<DeliveryStatusEnum> openStatuses = List.of(
+                DeliveryStatusEnum.PENDING,
+                DeliveryStatusEnum.RESERVED,
+                DeliveryStatusEnum.IN_TRANSIT);
+
+        List<Reservation> affected = reservationRepository.findAffectedByRedAlert(
+                subCategory,
+                event.countryId(),
+                event.stateId(),
+                event.cityId(),
+                event.startDate(),
+                event.endDate(),
+                openStatuses);
+
+        if (affected.isEmpty()) {
+            log.info("BE-23 no affected reservations for alert {}", event.reportId());
+            return;
+        }
+
+        int ok = 0;
+        int failed = 0;
+        for (Reservation r : affected) {
+            try {
+                cancelOneByRedAlert(r, event.reportId());
+                ok++;
+            } catch (Exception e) {
+                failed++;
+                log.warn("BE-23 alert {} failed cancel reservationId={}: {}",
+                        event.reportId(), r.getReservationId(), e.getMessage());
+            }
+        }
+        log.info("BE-23 alert {} canceled {} reservations (failed isolated: {})",
+                event.reportId(), ok, failed);
+    }
+
+    private void cancelOneByRedAlert(Reservation r, Long reportId) {
+        // Idempotencia: si otra corrida ya la canceló, saltar.
+        if (r.getDeliveryStatus() == DeliveryStatusEnum.CANCELED) {
+            return;
+        }
+        if (r.getItemId() == null) {
+            log.warn("BE-23 alert {} reservationId={} without itemId, skipping",
+                    reportId, r.getReservationId());
+            return;
+        }
+
+        ShoppingCartItem item = shoppingCartItemRepository.findById(r.getItemId()).orElse(null);
+        if (item == null || item.getTourSchedule() == null) {
+            log.warn("BE-23 alert {} reservationId={} lacks cart/schedule linkage",
+                    reportId, r.getReservationId());
+            return;
+        }
+
+        Tour tour = tourRepository.findById(item.getTourSchedule().getTourId()).orElse(null);
+        if (tour == null) {
+            log.warn("BE-23 alert {} reservationId={} tour not found",
+                    reportId, r.getReservationId());
+            return;
+        }
+
+        r.setDeliveryStatus(DeliveryStatusEnum.CANCELED);
+        r.setCancellationReason(CancellationReasonEnum.RAIN);
+        r.setCancellationDate(LocalDateTime.now());
+        reservationRepository.save(r);
+
+        if (item.getSlot() != null && item.getSlot().getId() != null) {
+            tourScheduleSlotAvailabilityService.recalculate(item.getSlot().getId());
+        }
+
+        Credit credit = createCreditForReservation(r, tour);
+
+        Integer touristUserId = item.getShoppingCart() != null && item.getShoppingCart().getUser() != null
+                ? item.getShoppingCart().getUser().getId()
+                : null;
+        String tourName = tour.getName() != null ? tour.getName().getEs() : null;
+        if (touristUserId != null) {
+            eventPublisher.publishEvent(new PushDomainEvent.ReservationCanceledByRain(
+                    touristUserId, tourName, r.getReservationId()));
+        }
+
+        log.info("BE-23 alert {} reservation {} canceled by RED, creditId={}",
+                reportId, r.getReservationId(), credit != null ? credit.getId() : null);
     }
 
     /**

@@ -67,6 +67,14 @@ public class PushDomainEventListener {
                 () -> pushService.notifyCreditExpiredForTourist(e.userId()));
     }
 
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void on(PushDomainEvent.ReservationCanceledByRain e) {
+        safeSend("ReservationCanceledByRain", e.reservationId(),
+                () -> pushService.notifyReservationCanceledByRainForTourist(
+                        e.touristUserId(), e.tourName(), e.reservationId()));
+    }
+
     private void safeSend(String eventType, Long correlationId, Runnable send) {
         try {
             send.run();
