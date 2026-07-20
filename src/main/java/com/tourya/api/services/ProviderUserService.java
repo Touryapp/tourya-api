@@ -154,6 +154,8 @@ public class ProviderUserService {
 
                 .email(email)
 
+                .phone(request.getPhone() != null ? request.getPhone().trim() : null)
+
                 .password(passwordEncoder.encode(request.getTemporaryPassword()))
 
                 .enabled(true)
@@ -227,6 +229,12 @@ public class ProviderUserService {
         if (request.getLastname() != null) {
 
             user.setLastname(request.getLastname().trim());
+
+        }
+
+        if (request.getPhone() != null) {
+
+            user.setPhone(request.getPhone().trim().isEmpty() ? null : request.getPhone().trim());
 
         }
 
@@ -458,6 +466,8 @@ public class ProviderUserService {
 
                 .fullName(user.fullName())
 
+                .phone(user.getPhone())
+
                 .isPrimary(providerUser.getIsPrimary())
 
                 .accountEnabled(user.isEnabled())
@@ -468,6 +478,43 @@ public class ProviderUserService {
 
                 .build();
 
+    }
+
+    /**
+     * BE-22c: lista todos los operadores asignados a un tour, con flag `isPrincipal`
+     * marcando cuál es el contacto principal (a lo sumo uno). Valida que el tour
+     * pertenezca al provider autenticado (o al backoffice si se implementa después).
+     * Uso: alimenta el modal "Contacto principal" en el card del tour (BE-22b).
+     */
+    @Transactional(readOnly = true)
+    public List<ProviderOperatorResponse> listOperatorsByTour(Integer tourId, Authentication connectedUser) {
+        Provider provider = requireProviderOwner(connectedUser);
+        Tour tour = tourRepository.findTourByIdAndProviderId(tourId, provider.getId());
+        if (tour == null) {
+            throw new ResourceNotFoundException("Tour not found for provider. tourId=" + tourId);
+        }
+
+        return providerUserTourRepository.findByTourIdWithProviderUserAndUser(tourId).stream()
+                .map(link -> {
+                    ProviderUser pu = link.getProviderUser();
+                    User u = pu.getUser();
+                    return ProviderOperatorResponse.builder()
+                            .providerUserId(pu.getId())
+                            .userId(u.getId())
+                            .email(u.getEmail())
+                            .fullName(u.fullName())
+                            .phone(u.getPhone())
+                            .isPrimary(pu.getIsPrimary())
+                            .accountEnabled(u.isEnabled())
+                            .mustChangePassword(u.isMustChangePassword())
+                            .tours(List.of(ProviderOperatorTourResponse.builder()
+                                    .tourId(tourId)
+                                    .tourName(tour.getName() != null ? tour.getName().getEs() : null)
+                                    .isPrincipal(link.getIsPrincipal())
+                                    .build()))
+                            .build();
+                })
+                .toList();
     }
 
 }

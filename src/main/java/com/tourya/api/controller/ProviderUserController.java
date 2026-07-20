@@ -67,6 +67,14 @@ public class ProviderUserController {
                 providerUserService.updatePrincipalTour(providerUserId, tourId, connectedUser));
     }
 
+    @GetMapping("/tour/{tourId}")
+    @Operation(summary = "BE-22c: Listar operadores asignados a un tour del PROVIDER autenticado. Cada operador incluye flag isPrincipal.")
+    public ResponseEntity<List<ProviderOperatorResponse>> listOperatorsByTour(
+            @PathVariable Integer tourId,
+            Authentication connectedUser) {
+        return ResponseEntity.ok(providerUserService.listOperatorsByTour(tourId, connectedUser));
+    }
+
     @PutMapping("/{providerUserId}/reset-password")
     @Operation(summary = "Restablecer contraseña temporal",
             description = "El proveedor asigna una nueva contraseña temporal; el operador deberá cambiarla en el próximo login.")

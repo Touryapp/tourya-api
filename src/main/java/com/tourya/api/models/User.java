@@ -59,6 +59,13 @@ public class User implements UserDetails, Principal {
     private String uuidSocial;
 
     /**
+     * BE-22d: telefono de contacto del usuario. Usado por PROVIDER_OPERATOR
+     * como contacto principal del tour (RN-026). Nullable — hasta que el usuario
+     * lo cargue, el TourPrincipalOperatorService cae al provider.phone.
+     */
+    private String phone;
+
+    /**
      * Contador de intentos de login fallidos desde el ultimo login exitoso.
      * Se resetea a 0 en cada success. Usado por SEC-10 para lockout automatico.
      */
