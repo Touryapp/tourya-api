@@ -31,6 +31,20 @@ public interface ProviderUserTourRepository extends JpaRepository<ProviderUserTo
             """)
     Optional<ProviderUserTour> findPrincipalByTourId(@Param("tourId") Integer tourId);
 
+    /**
+     * BE-22c: todos los operadores asignados a un tour, con user + provider
+     * eager para poblar la UI del modal "contacto principal" del card del tour.
+     */
+    @Query("""
+            SELECT put FROM ProviderUserTour put
+            JOIN FETCH put.providerUser pu
+            JOIN FETCH pu.user
+            JOIN FETCH pu.provider
+            WHERE put.tour.id = :tourId
+            ORDER BY put.isPrincipal DESC, pu.id ASC
+            """)
+    List<ProviderUserTour> findByTourIdWithProviderUserAndUser(@Param("tourId") Integer tourId);
+
     @Modifying
     @Query("""
             UPDATE ProviderUserTour put

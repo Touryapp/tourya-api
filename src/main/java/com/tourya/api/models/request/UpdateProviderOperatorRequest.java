@@ -10,6 +10,9 @@ public class UpdateProviderOperatorRequest {
     private String firstname;
     private String lastname;
 
+    /** BE-22d: telefono de contacto del operador. Se actualiza si viene no-null. */
+    private String phone;
+
     /** Si se envía, reemplaza la asignación de tours del operador (no puede estar vacío). */
     private List<Integer> tourIds;
 

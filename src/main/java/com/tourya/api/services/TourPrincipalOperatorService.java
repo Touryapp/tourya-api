@@ -40,11 +40,16 @@ public class TourPrincipalOperatorService {
     private TourOperatorResponse fromOperatorLink(ProviderUserTour link) {
         User user = link.getProviderUser().getUser();
         Provider provider = link.getProviderUser().getProvider();
+        // BE-22d: preferir el phone del operador (user); si no esta cargado
+        // (backfill vacío en migración 077), caer al del provider — retrocompatible.
+        String phoneSource = user != null && user.getPhone() != null && !user.getPhone().isBlank()
+                ? user.getPhone()
+                : (provider != null ? provider.getPhone() : null);
         return TourOperatorResponse.builder()
                 .providerUserId(link.getProviderUser().getId())
                 .name(user != null ? user.fullName() : null)
                 .email(user != null ? user.getEmail() : null)
-                .phone(parsePhoneDigits(provider != null ? provider.getPhone() : null))
+                .phone(parsePhoneDigits(phoneSource))
                 .build();
     }
 

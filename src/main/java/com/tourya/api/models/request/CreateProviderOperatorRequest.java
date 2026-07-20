@@ -20,6 +20,10 @@ public class CreateProviderOperatorRequest {
     @Email
     private String email;
 
+    /** BE-22d: telefono de contacto del operador. Opcional. Usado como contacto principal del tour (RN-026). */
+    @Size(max = 20)
+    private String phone;
+
     /** Contraseña temporal que el proveedor comunica al operador; debe cambiarla en el primer acceso. */
     @NotBlank
     @Size(min = 8, message = "temporaryPassword should be 8 characters long minimum")

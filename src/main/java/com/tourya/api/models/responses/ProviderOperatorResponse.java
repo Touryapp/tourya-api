@@ -14,6 +14,8 @@ public class ProviderOperatorResponse {
     private Integer userId;
     private String email;
     private String fullName;
+    /** BE-22d: telefono del operador. Nullable hasta que lo carguen. */
+    private String phone;
     private Boolean isPrimary;
     private Boolean accountEnabled;
     /** true hasta que el operador cambie la contraseña temporal (PATCH /users). */
