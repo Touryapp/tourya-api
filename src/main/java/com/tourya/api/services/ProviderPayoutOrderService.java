@@ -90,7 +90,8 @@ public class ProviderPayoutOrderService {
             @Nullable LocalDate toDate) {
         User user = (User) connectedUser.getPrincipal();
         List<Role> roles = user.getRoles();
-        if (!Utils.isAdmin(roles)) {
+        // FE-15b: ADMIN + BACKOFFICE_OPERATION (subset P2 opción C — "subir pagos").
+        if (!Utils.isTouryaBackoffice(roles)) {
             throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
         }
         return buildListPage(
@@ -169,7 +170,8 @@ public class ProviderPayoutOrderService {
     public ProviderPayoutOrderDetailsResponse getDetailsForAdmin(Long orderId, Authentication connectedUser) {
         User user = (User) connectedUser.getPrincipal();
         List<Role> roles = user.getRoles();
-        if (!Utils.isAdmin(roles)) {
+        // FE-15b: ADMIN + BACKOFFICE_OPERATION (subset P2 opción C — "subir pagos").
+        if (!Utils.isTouryaBackoffice(roles)) {
             throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
         }
 
@@ -183,7 +185,8 @@ public class ProviderPayoutOrderService {
     public ProviderPayoutOrderDetailsResponse uploadAttachmentAndMarkPaid(Long orderId, MultipartFile file, Authentication connectedUser) throws IOException {
         User user = (User) connectedUser.getPrincipal();
         List<Role> roles = user.getRoles();
-        if (!Utils.isAdmin(roles)) {
+        // FE-15b: ADMIN + BACKOFFICE_OPERATION (subset P2 opción C — "subir pagos").
+        if (!Utils.isTouryaBackoffice(roles)) {
             throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
         }
 

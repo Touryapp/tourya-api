@@ -1,12 +1,15 @@
 package com.tourya.api.services;
 
 import com.tourya.api.common.PageResponse;
+import com.tourya.api.exceptions.InsufficientPrivilegesException;
 import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
+import com.tourya.api._utils.Utils;
 import com.tourya.api.models.City;
 import com.tourya.api.models.Country;
 import com.tourya.api.models.MaritimActivityReport;
 import com.tourya.api.models.State;
+import com.tourya.api.models.User;
 import com.tourya.api.models.request.MaritimActivityReportRequest;
 import com.tourya.api.models.responses.MaritimActivityReportResponse;
 import com.tourya.api.constans.enums.MaritimeFlagEnum;
@@ -49,6 +52,10 @@ public class MaritimActivityReportService {
 
     @Transactional
     public MaritimActivityReportResponse create(MaritimActivityReportRequest request, Authentication authentication) {
+        // FE-15b + H2: hasta ahora el endpoint POST /maritime-activity-reports
+        // solo pedia authenticated() en SecurityConfig — cualquier usuario podia
+        // crear reportes DIMAR. Restringido a ADMIN + BACKOFFICE_OPERATION (Luis P2 opción C).
+        requireBackoffice(authentication);
         validateReportDates(request.getReportStartDate(), request.getReportEndDate());
         LocationRefs location = resolveAndValidateLocation(request);
         validateCategoryAndSubcategory(request.getBusinessCategoryId(), request.getSubcategoryCode());
@@ -113,7 +120,9 @@ public class MaritimActivityReportService {
     }
 
     @Transactional
-    public MaritimActivityReportResponse update(Long id, MaritimActivityReportRequest request) {
+    public MaritimActivityReportResponse update(Long id, MaritimActivityReportRequest request, Authentication authentication) {
+        // FE-15b + H2: mismo guard que create.
+        requireBackoffice(authentication);
         MaritimActivityReport report = maritimActivityReportRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Maritime activity report not found with id: " + id));
 
@@ -134,11 +143,29 @@ public class MaritimActivityReportService {
     }
 
     @Transactional
-    public void delete(Long id) {
+    public void delete(Long id, Authentication authentication) {
+        // FE-15b + H2: mismo guard que create/update.
+        requireBackoffice(authentication);
         if (!maritimActivityReportRepository.existsById(id)) {
             throw new ResourceNotFoundException("Maritime activity report not found with id: " + id);
         }
         maritimActivityReportRepository.deleteById(id);
+    }
+
+    /**
+     * FE-15b + H2: cierra un agujero de seguridad preexistente. Hasta este cambio
+     * el endpoint POST/PUT/DELETE de reportes solo requeria autenticacion generica
+     * (SecurityConfig anyRequest().authenticated()). Ahora exige ADMIN o
+     * BACKOFFICE_OPERATION (subset P2 opción C de Luis: "gestionar reportes DIMAR").
+     */
+    private void requireBackoffice(Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof User user)) {
+            throw new InsufficientPrivilegesException("Autenticacion requerida.");
+        }
+        if (!Utils.isTouryaBackoffice(user.getRoles())) {
+            throw new InsufficientPrivilegesException(
+                    "Solo ADMIN o BACKOFFICE_OPERATION pueden gestionar reportes DIMAR.");
+        }
     }
 
     @Transactional(readOnly = true)

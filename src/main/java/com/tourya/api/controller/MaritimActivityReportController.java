@@ -67,14 +67,15 @@ public class MaritimActivityReportController {
     @Operation(summary = "Actualizar reporte")
     public ResponseEntity<MaritimActivityReportResponse> update(
             @PathVariable Long id,
-            @Valid @RequestBody MaritimActivityReportRequest request) {
-        return ResponseEntity.ok(maritimActivityReportService.update(id, request));
+            @Valid @RequestBody MaritimActivityReportRequest request,
+            Authentication authentication) {
+        return ResponseEntity.ok(maritimActivityReportService.update(id, request, authentication));
     }
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Eliminar reporte")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        maritimActivityReportService.delete(id);
+    public ResponseEntity<Void> delete(@PathVariable Long id, Authentication authentication) {
+        maritimActivityReportService.delete(id, authentication);
         return ResponseEntity.noContent().build();
     }
 
