@@ -543,15 +543,33 @@ Body: {"value": {"value": 1}, "description": "Política RN-045 activa"}
 
 📌 **Roadmap**: DIMAR envía un **PDF diario** con el reporte. Se creará un servicio que lea automáticamente el PDF y genere el `MaritimActivityReport`. Luis está revisando si DIMAR expone API o link estable.
 
+### RN-055 — Reasignación de reserva cuando el provider no puede atender (opción 3 confirmada por Luis 2026-07-22)
+El ADMIN puede intervenir cuando un provider ya no puede prestar el servicio de una reserva (por ejemplo, avisa a última hora que no puede cumplir).
+
+**Flujo esperado**:
+1. El provider original marca la reserva como "no puedo atender" (endpoint de decline). Se persiste `reservation.provider_declined_at` con timestamp.
+2. El ADMIN abre la reserva declinada y ve dos acciones habilitadas:
+   - **Reasignar a otro provider**: sistema busca providers con tour ACEPTADO de la misma `subcategory` que el original y estén disponibles en la fecha/slot. ADMIN elige uno del dropdown. Se cambia `reservation.tour_id` (o el vínculo equivalente al slot del nuevo tour), notifica al nuevo provider y al turista.
+   - **Cancelar con crédito**: si no hay providers sustitutos disponibles (o el ADMIN decide), la reserva se cancela y se le genera un `Credit` al turista con el monto original de la reserva (reutiliza la lógica de RN-054/BE-23).
+
+**Estados válidos para intervenir**: reserva no terminal (no `CANCELED`/`NO_SHOW`/`DELIVERED`).
+
+**Notificaciones**:
+- Turista: al reasignar recibe email con nuevo provider + link a su reserva actualizada. Al cancelar recibe email con crédito generado y su valor.
+- Provider nuevo (si reasignación): notificación push (FCM) + email de nueva reserva asignada.
+
+**Impacto técnico** (tracked en backlog como **BE-24 backend + FE-13 frontend**):
+- Migración: agregar `provider_declined_at TIMESTAMPTZ NULL` a `reservation`.
+- Endpoints: `PUT /provider/reservations/{id}/decline`, `PUT /admin/reservations/{id}/reassign` (body: `{newProviderId, reason}`), `PUT /admin/reservations/{id}/cancel-with-credit`.
+- UI ADMIN: modal con botón "Reasignar" (habilitado si `providerDeclinedAt IS NOT NULL`) + dropdown de providers sustitutos + fallback "Cancelar y generar crédito" si no hay sustitutos.
+- Auditar consumidores de `reservation.tour_id` antes del cambio (reporting, payouts, mobile del turista) porque reasignar altera este vínculo.
+
 ---
 
 ## Cosas que no son reglas, pero son inferencias importantes
 
 ### Reservas pueden compartir Payment
 ✅ Un `Payment` puede tener múltiples `Reservation`s (un solo pago para varios tours del carrito). 
-
-### Asignar Reserva a otro Provider
-✅ el usuario ADMIN puede asignar una `Reserva` a otro PROVIDER (tiene un Tour con la misma subcategoria en estado aceptado) si y solo si el PROVIDER que aparecia inicialmente en la reserva manifiesta que no puede prestar el servicio. en caso de que no se encuentre un proveedor sustituto, el ADMIN puede cancelar la reserva para que se cree una crédito.
 
 ### Direcciones con google maps
 ✅ en la direccion del tour y en la direccion del hospedaje en el checkout hay campos donde muestra las ubicaciones de google maps. actualmente muchas direcciones no se encuentran. por ejemplo no se encuentra ningun hotel en san andres islas. 
