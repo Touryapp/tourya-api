@@ -5,9 +5,11 @@ import com.tourya.api.constans.enums.DeliveryStatusEnum;
 import com.tourya.api.models.Credit;
 import com.tourya.api.models.Reservation;
 import com.tourya.api.models.ShoppingCartItem;
+import com.tourya.api.models.TourScheduleConfigSlot;
 import com.tourya.api.repository.CreditRepository;
 import com.tourya.api.repository.ReservationRepository;
 import com.tourya.api.repository.ShoppingCartItemRepository;
+import com.tourya.api.services.TourScheduleSlotAvailabilityService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -48,6 +50,7 @@ class TemporalReservationExpiryJobTest {
     @Mock private ReservationRepository reservationRepository;
     @Mock private ShoppingCartItemRepository shoppingCartItemRepository;
     @Mock private CreditRepository creditRepository;
+    @Mock private TourScheduleSlotAvailabilityService tourScheduleSlotAvailabilityService;
     @Mock private PlatformTransactionManager transactionManager;
 
     private TemporalReservationExpiryJob job;
@@ -58,7 +61,8 @@ class TemporalReservationExpiryJobTest {
         // ejecute el callback en cada iteracion.
         when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
         job = new TemporalReservationExpiryJob(
-                reservationRepository, shoppingCartItemRepository, creditRepository, transactionManager);
+                reservationRepository, shoppingCartItemRepository, creditRepository,
+                tourScheduleSlotAvailabilityService, transactionManager);
     }
 
     @Test
@@ -140,6 +144,57 @@ class TemporalReservationExpiryJobTest {
         verify(reservationRepository).save(ok1);
         verify(reservationRepository).save(boom);
         verify(reservationRepository).save(ok2);
+    }
+
+    @Test
+    @DisplayName("BE-27: reserva con item.slot → llama recalculate(slotId) tras cancelar")
+    void expiredWithItemAndSlot_callsRecalculate() {
+        Reservation r = temporalReservation(600L, 700L);
+        ShoppingCartItem item = new ShoppingCartItem();
+        item.setId(700L);
+        TourScheduleConfigSlot slot = new TourScheduleConfigSlot();
+        slot.setId(1030);
+        item.setSlot(slot);
+
+        when(reservationRepository.findExpiredTemporalReservations(any())).thenReturn(List.of(r));
+        when(shoppingCartItemRepository.findById(700L)).thenReturn(Optional.of(item));
+
+        job.expireTemporalReservations();
+
+        verify(tourScheduleSlotAvailabilityService).recalculate(1030);
+    }
+
+    @Test
+    @DisplayName("BE-27: reserva con itemId=NULL NO llama recalculate (no hay slot que ajustar)")
+    void expiredNullItemId_skipsRecalculate() {
+        Reservation r = temporalReservation(601L, null);
+        when(reservationRepository.findExpiredTemporalReservations(any())).thenReturn(List.of(r));
+
+        job.expireTemporalReservations();
+
+        verify(tourScheduleSlotAvailabilityService, never()).recalculate(any());
+    }
+
+    @Test
+    @DisplayName("BE-27: si recalculate falla NO propaga — la reserva ya quedo cancelada")
+    void expiredRecalculateFails_stillCancelsReservation() {
+        Reservation r = temporalReservation(602L, 701L);
+        ShoppingCartItem item = new ShoppingCartItem();
+        item.setId(701L);
+        TourScheduleConfigSlot slot = new TourScheduleConfigSlot();
+        slot.setId(1031);
+        item.setSlot(slot);
+
+        when(reservationRepository.findExpiredTemporalReservations(any())).thenReturn(List.of(r));
+        when(shoppingCartItemRepository.findById(701L)).thenReturn(Optional.of(item));
+        org.mockito.Mockito.doThrow(new RuntimeException("recalculate boom"))
+                .when(tourScheduleSlotAvailabilityService).recalculate(1031);
+
+        // No debe lanzar — la cancelacion es exitosa aunque el recalculate falle.
+        job.expireTemporalReservations();
+
+        verify(reservationRepository).save(r);
+        assertThat(r.getDeliveryStatus()).isEqualTo(DeliveryStatusEnum.CANCELED);
     }
 
     private Reservation temporalReservation(Long id, Long itemId) {
