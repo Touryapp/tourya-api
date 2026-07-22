@@ -572,11 +572,23 @@ public class TourScheduleConfigGeneralService {
 
     private TourScheduleConfigResponse mapToTourScheduleConfigResponse(TourScheduleConfig config, List<Role> roleList,
             Map<AgePriceType, AgeRangeConfig> ageConfigMap) {
-        return mapToTourScheduleConfigResponse(config, roleList, ageConfigMap, true);
+        return mapToTourScheduleConfigResponse(config, roleList, ageConfigMap, true, null);
     }
 
     private TourScheduleConfigResponse mapToTourScheduleConfigResponse(TourScheduleConfig config, List<Role> roleList,
             Map<AgePriceType, AgeRangeConfig> ageConfigMap, boolean includeConfigSlotPercentage) {
+        return mapToTourScheduleConfigResponse(config, roleList, ageConfigMap, includeConfigSlotPercentage, null);
+    }
+
+    /**
+     * TC-004: {@code scheduleDate} opcional. Si se pasa, cada slot expone bookings/availability
+     * calculados por (slot_id, scheduleDate) en runtime. Si es null se mantiene el valor
+     * denormalizado del slot config (comportamiento pre-TC-004, apropiado para vistas de
+     * edición de la config donde no hay una fecha específica).
+     */
+    private TourScheduleConfigResponse mapToTourScheduleConfigResponse(TourScheduleConfig config, List<Role> roleList,
+            Map<AgePriceType, AgeRangeConfig> ageConfigMap, boolean includeConfigSlotPercentage,
+            LocalDate scheduleDate) {
         boolean showTouryaFields = roleList != null && Utils.isTouryaBackoffice(roleList);
 
         TourScheduleConfigResponse responseDto = new TourScheduleConfigResponse();
@@ -586,7 +598,7 @@ public class TourScheduleConfigGeneralService {
         responseDto.setDaysOfWeek(config.getDaysOfWeek());
 
         Set<TourScheduleSlotResponse> slotDtos = config.getSlots().stream()
-                .map(slot -> mapSlotToResponse(slot, ageConfigMap, showTouryaFields, includeConfigSlotPercentage))
+                .map(slot -> mapSlotToResponse(slot, ageConfigMap, showTouryaFields, includeConfigSlotPercentage, scheduleDate))
                 .collect(Collectors.toSet());
         responseDto.setSlots(slotDtos);
         return responseDto;
@@ -594,19 +606,30 @@ public class TourScheduleConfigGeneralService {
 
     private TourScheduleSlotResponse mapSlotToResponse(TourScheduleConfigSlot slot,
             Map<AgePriceType, AgeRangeConfig> ageConfigMap, boolean showTouryaFields) {
-        return mapSlotToResponse(slot, ageConfigMap, showTouryaFields, true);
+        return mapSlotToResponse(slot, ageConfigMap, showTouryaFields, true, null);
     }
 
     private TourScheduleSlotResponse mapSlotToResponse(TourScheduleConfigSlot slot,
             Map<AgePriceType, AgeRangeConfig> ageConfigMap, boolean showTouryaFields,
-            boolean includeConfigSlotPercentage) {
+            boolean includeConfigSlotPercentage,
+            LocalDate scheduleDate) {
         TourScheduleSlotResponse slotDto = new TourScheduleSlotResponse();
         slotDto.setId(slot.getId());
         slotDto.setStartTime(slot.getStartTime());
         slotDto.setEndTime(slot.getEndTime());
         slotDto.setCapacity(slot.getCapacity());
-        slotDto.setBookings(slot.getBookings());
-        slotDto.setAvailability(slot.getAvailability());
+        // TC-004: si viene fecha, contar (slot_id, scheduleDate) en runtime. Si no, mantener denormalizado.
+        if (scheduleDate != null && slot.getId() != null) {
+            int bookings = tourScheduleSlotAvailabilityService.countBookingsForSlotOnDate(slot.getId(), scheduleDate);
+            int availability = slot.getCapacity() != null
+                    ? Math.max(0, slot.getCapacity() - bookings)
+                    : 0;
+            slotDto.setBookings(bookings);
+            slotDto.setAvailability(availability);
+        } else {
+            slotDto.setBookings(slot.getBookings());
+            slotDto.setAvailability(slot.getAvailability());
+        }
         slotDto.setMinCapacityCalc(slot.getMinCapacityCalc());
         slotDto.setCheckAvailability(slot.getCheckAvailability());
         if (showTouryaFields && includeConfigSlotPercentage) {
@@ -696,8 +719,9 @@ public class TourScheduleConfigGeneralService {
                     if (schedule.getConfigId() != null) {
                         TourScheduleConfig config = configById.get(schedule.getConfigId());
                         if (config != null) {
+                            // TC-004: pasar la fecha del schedule para que los slots reporten bookings/availability por-día.
                             TourScheduleConfigResponse configResponse =
-                                    mapToTourScheduleConfigResponse(config, roleList, ageConfigMap, false);
+                                    mapToTourScheduleConfigResponse(config, roleList, ageConfigMap, false, schedule.getScheduleDate());
                             tourScheduleOverrideService.applyToConfigResponse(
                                     schedule.getId(),
                                     configResponse,

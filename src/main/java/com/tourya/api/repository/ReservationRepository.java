@@ -217,6 +217,37 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
             Pageable pageable
     );
 
-
-
+    /**
+     * TC-004: cuenta unidades reservadas para un slot en una fecha específica.
+     *
+     * Suma unidades activas (TEMPORAL/PENDING/DELIVERED) respetando priceType:
+     *  - grupo: 1 unidad por reserva
+     *  - individual: suma de pax (shopping_cart_item_detail.quantity)
+     *
+     * Se cuenta por (shopping_cart_item.slot_id, tour_schedule.schedule_date) para
+     * evitar el bug del contador global slot.bookings (ver TC-004).
+     */
+    @Query(value = """
+        SELECT COALESCE(SUM(
+          CASE
+            WHEN t.price_type = 'grupo' THEN 1
+            ELSE COALESCE((
+              SELECT SUM(d.quantity)
+              FROM shopping_cart_item_detail d
+              WHERE d.shopping_cart_item_id = i.id
+            ), 0)
+          END
+        ), 0)
+        FROM reservation r
+        JOIN shopping_cart_item i ON i.id = r.item_id
+        JOIN tour_schedule ts ON ts.id = i.tour_schedule_id
+        JOIN tour t ON t.id = ts.tour_id
+        WHERE i.slot_id = :slotId
+          AND ts.schedule_date = :scheduleDate
+          AND r.delivery_status IN ('TEMPORAL', 'PENDING', 'DELIVERED')
+        """,
+        nativeQuery = true)
+    Integer countActiveBookingUnitsForSlotOnDate(
+            @Param("slotId") Integer slotId,
+            @Param("scheduleDate") LocalDate scheduleDate);
 }

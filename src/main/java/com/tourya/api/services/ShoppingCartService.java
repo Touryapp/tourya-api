@@ -136,7 +136,9 @@ public class ShoppingCartService {
                 : 0;
         TourScheduleConfigSlot slot = tourScheduleConfigSlotRepository.findById(slotRequest.getId().intValue())
                 .orElseThrow(() -> new ResourceNotFoundException("Slot no encontrado"));
-        tourScheduleSlotAvailabilityService.ensureSlotHasCapacity(tour, slot, totalPax);
+        // TC-004: capacity se valida contra el conteo (slot, fecha del schedule) — no el bookings global.
+        tourScheduleSlotAvailabilityService.ensureSlotHasCapacity(
+                tour, slot, tourSchedule.getScheduleDate(), totalPax);
     }
 
     /**

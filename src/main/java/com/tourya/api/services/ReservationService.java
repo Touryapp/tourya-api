@@ -222,7 +222,9 @@ public class ReservationService {
                 .orElseThrow(() -> new ResourceNotFoundException("Slot not found"));
         int participantTotal = item.getDetails() == null ? 0
                 : item.getDetails().stream().mapToInt(ShoppingCartItemDetail::getQuantity).sum();
-        tourScheduleSlotAvailabilityService.ensureSlotHasCapacity(tour, slot, participantTotal);
+        // TC-004: capacity se valida contra el conteo (slot, fecha del schedule) — no el bookings global.
+        tourScheduleSlotAvailabilityService.ensureSlotHasCapacity(
+                tour, slot, item.getTourSchedule().getScheduleDate(), participantTotal);
     }
 
     /**
@@ -1779,7 +1781,9 @@ public class ReservationService {
         log.info("Validating slot capacity for reschedule - newScheduleId: {}, targetSlotId: {}, requestedParticipants: {}",
                 newSchedule.getId(), slotToUse.getId(), newTotalQuantity);
         if (!Boolean.TRUE.equals(tourForCap.getIsUnlimitedCapacity())) {
-            tourScheduleSlotAvailabilityService.ensureSlotHasCapacity(tourForCap, slotToUse, newTotalQuantity);
+            // TC-004: la validación se hace contra el conteo del nuevo día, no el bookings global del slot config.
+            tourScheduleSlotAvailabilityService.ensureSlotHasCapacity(
+                    tourForCap, slotToUse, newSchedule.getScheduleDate(), newTotalQuantity);
         }
         
         // Crear SlotRequest temporal con el slotId y la nueva configQuantity
