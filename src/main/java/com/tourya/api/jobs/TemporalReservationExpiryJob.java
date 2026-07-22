@@ -8,6 +8,7 @@ import com.tourya.api.models.ShoppingCartItem;
 import com.tourya.api.repository.CreditRepository;
 import com.tourya.api.repository.ReservationRepository;
 import com.tourya.api.repository.ShoppingCartItemRepository;
+import com.tourya.api.services.TourScheduleSlotAvailabilityService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -25,15 +26,18 @@ public class TemporalReservationExpiryJob {
     private final ReservationRepository reservationRepository;
     private final ShoppingCartItemRepository shoppingCartItemRepository;
     private final CreditRepository creditRepository;
+    private final TourScheduleSlotAvailabilityService tourScheduleSlotAvailabilityService;
     private final TransactionTemplate perReservationTx;
 
     public TemporalReservationExpiryJob(ReservationRepository reservationRepository,
                                         ShoppingCartItemRepository shoppingCartItemRepository,
                                         CreditRepository creditRepository,
+                                        TourScheduleSlotAvailabilityService tourScheduleSlotAvailabilityService,
                                         PlatformTransactionManager transactionManager) {
         this.reservationRepository = reservationRepository;
         this.shoppingCartItemRepository = shoppingCartItemRepository;
         this.creditRepository = creditRepository;
+        this.tourScheduleSlotAvailabilityService = tourScheduleSlotAvailabilityService;
         // Hotfix #179b: cada reserva se procesa en su propia tx REQUIRES_NEW para
         // que un fallo aislado no marque rollback-only la tx del batch y arrastre
         // al resto (el job entraba en loop de UnexpectedRollbackException).
@@ -43,7 +47,9 @@ public class TemporalReservationExpiryJob {
 
     /**
      * Expira holds temporales vencidos. Cada reserva corre en su propia transaccion.
-     * Nota: liberacion de disponibilidad se recalcula al proximo hold/payment/cancel; aqui solo marca CANCELED.
+     * BE-27: al final de {@link #expireOne} se llama {@code recalculate(slotId)} para que
+     * {@code slot.bookings/availability} reflejen la liberacion del cupo (antes se dejaba
+     * inflado hasta el proximo hold, causando drift acumulado sobre el tiempo).
      */
     @Scheduled(fixedDelayString = "${tourya.temporalReservationExpiry.fixedDelayMs:60000}")
     public void expireTemporalReservations() {
@@ -81,7 +87,11 @@ public class TemporalReservationExpiryJob {
         }
 
         ShoppingCartItem item = shoppingCartItemRepository.findById(itemId).orElse(null);
+        Integer slotIdForRecalc = null;
         if (item != null) {
+            if (item.getSlot() != null && item.getSlot().getId() != null) {
+                slotIdForRecalc = item.getSlot().getId();
+            }
             // mantener el item en el carrito pero quitar la reserva temporal para permitir reintento
             item.setReservationId(null);
             shoppingCartItemRepository.save(item);
@@ -98,6 +108,17 @@ public class TemporalReservationExpiryJob {
         }
         if (!reservedCredits.isEmpty()) {
             creditRepository.saveAll(reservedCredits);
+        }
+
+        // BE-27: recalcular slot.bookings/availability para que reflejen que este hold libero cupo.
+        if (slotIdForRecalc != null) {
+            try {
+                tourScheduleSlotAvailabilityService.recalculate(slotIdForRecalc);
+            } catch (Exception e) {
+                // No propagar: el hold ya se cancelo. El drift se corrige al proximo touch del slot.
+                log.warn("BE-27: recalculate fallo para slot {} tras expirar reserva {}: {}",
+                        slotIdForRecalc, r.getReservationId(), e.getMessage());
+            }
         }
     }
 }
