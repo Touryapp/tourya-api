@@ -13,14 +13,21 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Bookings y availability viven en {@link TourScheduleConfigSlot}.
- * Bookings = suma de unidades de {@link Reservation} activas (TEMPORAL/PENDING/DELIVERED) por slot.
+ * TC-004: bookings/availability se calculan por (slot_id, schedule_date) en runtime.
+ *
+ * Las columnas denormalizadas {@code tour_schedule_config_slot.bookings} y {@code availability}
+ * quedan preservadas por compatibilidad pero ya no son la fuente de verdad — se contaba a nivel
+ * de config-slot y esa cifra se replicaba en todas las fechas del calendario mensual (bug reportado
+ * en el issue TC-004 el 2026-07-21).
+ *
+ * Nueva fuente de verdad: {@link ReservationRepository#countActiveBookingUnitsForSlotOnDate}.
  */
 @Service
 @RequiredArgsConstructor
@@ -59,9 +66,28 @@ public class TourScheduleSlotAvailabilityService {
     }
 
     /**
-     * Valida cupos en el slot usando capacity − bookings (no solo la columna availability).
+     * TC-004: cuenta unidades reservadas para un slot en una fecha específica
+     * respetando priceType (grupo=1 unidad por reserva, individual=suma de pax).
+     *
+     * @param slotId       id del {@link TourScheduleConfigSlot}
+     * @param scheduleDate fecha del schedule (no la del recalculate del slot config)
+     * @return unidades reservadas activas (TEMPORAL/PENDING/DELIVERED), 0 si no hay ninguna
      */
-    public void ensureSlotHasCapacity(Tour tour, TourScheduleConfigSlot slot, int participantTotal) {
+    public int countBookingsForSlotOnDate(Integer slotId, LocalDate scheduleDate) {
+        if (slotId == null || scheduleDate == null) {
+            return 0;
+        }
+        Integer count = reservationRepository.countActiveBookingUnitsForSlotOnDate(slotId, scheduleDate);
+        return count != null ? count : 0;
+    }
+
+    /**
+     * Valida cupos en el slot para una fecha específica (TC-004).
+     *
+     * @param scheduleDate fecha real del schedule que se está reservando; obligatoria para
+     *                     evitar el bug del bookings global (ver TC-004).
+     */
+    public void ensureSlotHasCapacity(Tour tour, TourScheduleConfigSlot slot, LocalDate scheduleDate, int participantTotal) {
         if (Boolean.TRUE.equals(tour.getIsUnlimitedCapacity())) {
             return;
         }
@@ -74,7 +100,7 @@ public class TourScheduleSlotAvailabilityService {
                     "El grupo supera el máximo de personas por reserva del tour (" + tour.getMaxPeople() + ")");
         }
         int slotUnits = isGrupo ? 1 : participantTotal;
-        int booked = slot.getBookings() != null ? slot.getBookings() : 0;
+        int booked = countBookingsForSlotOnDate(slot.getId(), scheduleDate);
         int available = Math.max(0, slot.getCapacity() - booked);
         if (slotUnits > available) {
             String unitLabel = isGrupo ? "cupos de grupo" : "plazas";
