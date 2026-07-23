@@ -543,26 +543,45 @@ Body: {"value": {"value": 1}, "description": "Política RN-045 activa"}
 
 📌 **Roadmap**: DIMAR envía un **PDF diario** con el reporte. Se creará un servicio que lea automáticamente el PDF y genere el `MaritimActivityReport`. Luis está revisando si DIMAR expone API o link estable.
 
-### RN-055 — Reasignación de reserva cuando el provider no puede atender (opción 3 confirmada por Luis 2026-07-22)
-El ADMIN puede intervenir cuando un provider ya no puede prestar el servicio de una reserva (por ejemplo, avisa a última hora que no puede cumplir).
+### RN-055 — Provider Decline: cancelación automática + crédito al turista (rediseño Luis 2026-07-23)
+Cuando un provider avisa que no puede atender una reserva ya pagada (aviso de última hora), el sistema procesa la cancelación automáticamente. **No hay reasignación manual del ADMIN** (rediseño confirmado por Luis en issue #193 el 2026-07-23; la propuesta original de "reasignar a otro provider" fue descartada por complejidad de precio/payout/capacidad).
 
-**Flujo esperado**:
-1. El provider original marca la reserva como "no puedo atender" (endpoint de decline). Se persiste `reservation.provider_declined_at` con timestamp.
-2. El ADMIN abre la reserva declinada y ve dos acciones habilitadas:
-   - **Reasignar a otro provider**: sistema busca providers con tour ACEPTADO de la misma `subcategory` que el original y estén disponibles en la fecha/slot. ADMIN elige uno del dropdown. Se cambia `reservation.tour_id` (o el vínculo equivalente al slot del nuevo tour), notifica al nuevo provider y al turista.
-   - **Cancelar con crédito**: si no hay providers sustitutos disponibles (o el ADMIN decide), la reserva se cancela y se le genera un `Credit` al turista con el monto original de la reserva (reutiliza la lógica de RN-054/BE-23).
+**Flujo para el TURISTA**:
+1. El provider marca la reserva como "no puedo atender" (endpoint decline). Se persiste `reservation.provider_declined_at` con timestamp.
+2. **Automáticamente** el sistema cancela la reserva y genera un `Credit` a favor del turista con el monto original (reusa la lógica de RN-054 / BE-23 — cancelación retroactiva con crédito).
+3. **Email al turista** con:
+   - Notificación de la cancelación por parte del provider.
+   - Confirmación del crédito generado y su valor.
+   - **Lista de tours alternativos** de la misma subcategoría del tour cancelado, invitándolo a usar el crédito.
+4. El turista decide:
+   - **Reservar otro tour** de su preferencia usando el crédito.
+   - **Solicitar reembolso** del dinero (flujo manual con el equipo de operaciones).
 
-**Estados válidos para intervenir**: reserva no terminal (no `CANCELED`/`NO_SHOW`/`DELIVERED`).
+**Flujo para el PROVEEDOR**:
+1. Del payout del proveedor se **excluyen** las reservas donde `reservation.provider_declined_at IS NOT NULL` (el proveedor no cobra por reservas que declinó).
+2. Roadmap: **penalizaciones al provider** según ventana temporal del decline:
+   - **≥ 48h antes** del tour: sin multa económica. Crédito al turista del 100%.
+   - **24h – 48h antes**: cobro del 50% de la comisión Tourya. Descenso leve en las búsquedas por 7 días. Crédito al turista del 100% + cupón adicional del 5% (disculpas).
+   - **< 24h antes**: cobro del 100% de la comisión. Descenso en las búsquedas por 15 días. Crédito al turista del 100% + cupón adicional del 10%.
+   - **NO_SHOW** (provider no llegó ni declinó): cobro de la comisión completa + multa fija (ej. USD 20). Suspensión de la cuenta por 7 días o expulsión definitiva si es reincidente. Crédito al turista del 100% + cupón adicional del 20%.
 
-**Notificaciones**:
-- Turista: al reasignar recibe email con nuevo provider + link a su reserva actualizada. Al cancelar recibe email con crédito generado y su valor.
-- Provider nuevo (si reasignación): notificación push (FCM) + email de nueva reserva asignada.
+**Estados válidos para el decline**: reserva no terminal (no `CANCELED`/`NO_SHOW`/`DELIVERED`).
 
-**Impacto técnico** (tracked en backlog como **BE-24 backend + FE-13 frontend**):
-- Migración: agregar `provider_declined_at TIMESTAMPTZ NULL` a `reservation`.
-- Endpoints: `PUT /provider/reservations/{id}/decline`, `PUT /admin/reservations/{id}/reassign` (body: `{newProviderId, reason}`), `PUT /admin/reservations/{id}/cancel-with-credit`.
-- UI ADMIN: modal con botón "Reasignar" (habilitado si `providerDeclinedAt IS NOT NULL`) + dropdown de providers sustitutos + fallback "Cancelar y generar crédito" si no hay sustitutos.
-- Auditar consumidores de `reservation.tour_id` antes del cambio (reporting, payouts, mobile del turista) porque reasignar altera este vínculo.
+**Impacto técnico** (tracked en backlog como **BE-24**; FE-13 queda cancelado porque ya no hay UI de reasignación):
+
+**Fase 1 (BE-24 core, arrancable ya)**:
+- Migración: `provider_declined_at TIMESTAMPTZ NULL` en `reservation`.
+- Endpoint: `PUT /provider/reservations/{id}/decline` — el provider marca la reserva. Trigger interno: cancela + crea crédito (reusa `MaritimeAlertEventListener` / BE-23) + envía email.
+- Ajustar `ProviderPayoutOrderService`: excluir reservas con `provider_declined_at IS NOT NULL` del payout.
+- Email template nueva `provider-declined-notification.html` con listado de tours alternativos (query por `sub_category` = tour cancelado, disponibilidad futura).
+
+**Fase 2 (roadmap penalizaciones, futuro)**:
+- Sistema completo de multas económicas según ventana temporal (48h/24-48h/<24h/no-show).
+- Ajuste automático de comisión al calcular payout de la reserva declinada.
+- Métrica de reputación del provider (descenso en búsquedas + suspensiones).
+- Cupones de disculpas al turista adicionales al crédito 100%.
+
+**Talla**: Fase 1 = M (~4-6 h); Fase 2 = XL (roadmap sin timeline definido).
 
 ---
 
