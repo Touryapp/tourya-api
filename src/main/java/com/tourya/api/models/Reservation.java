@@ -100,6 +100,13 @@ public class Reservation extends BaseEntity {
     @Column(name = "cancellation_date")
     private LocalDateTime cancellationDate;
 
+    /**
+     * BE-24 (RN-055): timestamp cuando el provider marcó "no puedo atender" la reserva.
+     * NULL = no declinada. Al setearse se cancela automáticamente + crédito + anula AccountPayable.
+     */
+    @Column(name = "provider_declined_at")
+    private OffsetDateTime providerDeclinedAt;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "payment_id", insertable = false, updatable = false)
     private Payment payment;

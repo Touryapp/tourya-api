@@ -52,6 +52,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -81,6 +82,7 @@ public class ReservationService {
     private final TourScheduleRepository tourScheduleRepository;
     private final TourRepository tourRepository;
     private final ProviderService providerService;
+    private final EmailService emailService;
     private final AccountPayableRepository accountPayableRepository;
     private final TourMainAttractionRepository tourMainAttractionRepository;
     private final TourIncludesExcludesRepository tourIncludesExcludesRepository;
@@ -1264,6 +1266,11 @@ public class ReservationService {
             tourScheduleSlotAvailabilityService.recalculate(item.getSlot().getId());
         }
 
+        // BE-24 fix colateral: al cancelar por lluvia también hay que anular el AccountPayable
+        // asociado, sino el ProviderPayoutOrderJob lo incluiría en el proximo payout del provider
+        // (doble pago: turista tiene credito Y provider recibe el pago).
+        voidAccountPayablesForReservation(r.getReservationId());
+
         Credit credit = createCreditForReservation(r, tour);
 
         Integer touristUserId = item.getShoppingCart() != null && item.getShoppingCart().getUser() != null
@@ -1326,6 +1333,9 @@ public class ReservationService {
         if (item.getSlot() != null && item.getSlot().getId() != null) {
             tourScheduleSlotAvailabilityService.recalculate(item.getSlot().getId());
         }
+
+        // BE-24 fix colateral: anular el AccountPayable (misma razon que en cancelOneByRedAlert).
+        voidAccountPayablesForReservation(reservation.getReservationId());
 
         Credit credit = createCreditForReservation(reservation, tour);
         log.info("Reservation {} canceled by rain successfully", reservationId);
@@ -2451,7 +2461,170 @@ public class ReservationService {
             
             totalPrice = totalPrice.add(detailTotalPrice);
         }
-        
+
         return totalPrice;
+    }
+
+    // ============================================================
+    // BE-24 Fase 1 (RN-055) — Provider decline
+    // ============================================================
+
+    /**
+     * BE-24 fix colateral: anula (marca como CANCELLED) los AccountPayable asociados a
+     * una reserva cancelada. Sin esto, el ProviderPayoutOrderJob los incluiría en el
+     * proximo payout y Tourya paga doble: el credito al turista + el payout al provider.
+     *
+     * <p>Aplica a cualquier cancelacion: por lluvia (BE-23), por decline (BE-24), o futura.
+     * Idempotente: si ya estan CANCELLED se saltan.</p>
+     */
+    private void voidAccountPayablesForReservation(Long reservationId) {
+        List<AccountPayable> aps = accountPayableRepository.findByReservationId(reservationId);
+        for (AccountPayable ap : aps) {
+            if (ap.getDeliveryStatus() != AccountPayableStatusEnum.CANCELLED) {
+                ap.setDeliveryStatus(AccountPayableStatusEnum.CANCELLED);
+            }
+        }
+        if (!aps.isEmpty()) {
+            accountPayableRepository.saveAll(aps);
+            log.info("BE-24: anulados {} AccountPayable(s) para reservationId={}", aps.size(), reservationId);
+        }
+    }
+
+    /**
+     * BE-24 (RN-055 rediseñada Luis 2026-07-23): el provider marca "no puedo atender".
+     * El sistema automaticamente:
+     * <ol>
+     *   <li>Setea {@code providerDeclinedAt = NOW()}.</li>
+     *   <li>Cancela la reserva ({@code deliveryStatus = CANCELED}, {@code reason = PROVIDER_DECLINED}).</li>
+     *   <li>Recalcula disponibilidad del slot.</li>
+     *   <li>Anula el AccountPayable del provider (fix colateral).</li>
+     *   <li>Crea un Credit al turista con el monto original.</li>
+     *   <li>Envía email al turista con notificacion + lista de tours alternativos.</li>
+     * </ol>
+     *
+     * <p><b>Guards</b>: solo el provider actual de la reserva puede declinarla. La reserva
+     * no debe estar en estado terminal (CANCELED/NO_SHOW/DELIVERED) ni haber sido ya declinada.</p>
+     */
+    @Transactional
+    public ReservationResponse declineReservationByProvider(Long reservationId, Authentication authentication) {
+        log.info("BE-24: provider declining reservation {}", reservationId);
+
+        User user = (User) authentication.getPrincipal();
+
+        Reservation reservation = reservationRepository.findByIdForUpdate(reservationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Reservation not found with id: " + reservationId));
+
+        if (reservation.getItemId() == null) {
+            throw new OperationNotPermittedException("La reserva no tiene un item de carrito asociado.");
+        }
+
+        if (reservation.getDeliveryStatus() == DeliveryStatusEnum.CANCELED
+                || reservation.getDeliveryStatus() == DeliveryStatusEnum.NO_SHOW
+                || reservation.getDeliveryStatus() == DeliveryStatusEnum.DELIVERED) {
+            throw new OperationNotPermittedException(
+                    "No se puede declinar una reserva en estado terminal (" + reservation.getDeliveryStatus() + ").");
+        }
+
+        if (reservation.getProviderDeclinedAt() != null) {
+            throw new OperationNotPermittedException("La reserva ya fue declinada por el provider.");
+        }
+
+        ShoppingCartItem item = shoppingCartItemRepository.findById(reservation.getItemId())
+                .orElseThrow(() -> new ResourceNotFoundException("Shopping cart item not found"));
+
+        if (item.getTourSchedule() == null || item.getTourSchedule().getTourId() == null) {
+            throw new OperationNotPermittedException("La reserva no tiene tour asociado.");
+        }
+
+        Tour tour = tourRepository.findById(item.getTourSchedule().getTourId())
+                .orElseThrow(() -> new ResourceNotFoundException("Tour not found"));
+
+        // Ownership guard: el user autenticado debe ser el provider actual del tour.
+        Provider currentProvider = providerService.findByUserAndStatusActive(user);
+        if (tour.getProvider() == null || !tour.getProvider().getId().equals(currentProvider.getId())) {
+            throw new InsufficientPrivilegesException(
+                    "Solo el provider actual de la reserva puede declinarla.");
+        }
+
+        // 1. Marcar decline + cancelar
+        reservation.setProviderDeclinedAt(OffsetDateTime.now());
+        reservation.setDeliveryStatus(DeliveryStatusEnum.CANCELED);
+        reservation.setCancellationReason(CancellationReasonEnum.PROVIDER_DECLINED);
+        reservation.setCancellationDate(LocalDateTime.now());
+        reservation = reservationRepository.save(reservation);
+
+        // 2. Recalcular disponibilidad del slot
+        if (item.getSlot() != null && item.getSlot().getId() != null) {
+            tourScheduleSlotAvailabilityService.recalculate(item.getSlot().getId());
+        }
+
+        // 3. Anular AccountPayable (fix colateral: evita doble pago)
+        voidAccountPayablesForReservation(reservation.getReservationId());
+
+        // 4. Crear credito al turista
+        Credit credit = createCreditForReservation(reservation, tour);
+
+        // 5. Email al turista con lista de tours alternativos (best-effort, no bloquea la tx)
+        sendProviderDeclinedEmailBestEffort(reservation, tour, item, credit);
+
+        log.info("BE-24: reservation {} declined by provider {}. Credit {} created, AP voided.",
+                reservationId, currentProvider.getId(), credit != null ? credit.getId() : "null");
+
+        ReservationResponse response = reservationMapper.toResponse(reservation);
+        enrichReservationResponse(response, reservation);
+        if (credit != null) {
+            response.setCredit(CreditResponse.builder()
+                    .id(credit.getId())
+                    .reservationId(credit.getReservationId())
+                    .amount(credit.getAmount())
+                    .creationDate(credit.getCreationDate())
+                    .expirationDate(credit.getExpirationDate())
+                    .status(credit.getStatus())
+                    .build());
+        }
+        return response;
+    }
+
+    /**
+     * BE-24: envia email al turista con la notificacion de cancelacion, el credito
+     * generado y una lista de tours alternativos de la misma subcategoria.
+     *
+     * <p>Best-effort: cualquier fallo se logea pero no propaga (la cancelacion ya
+     * ocurrio y es lo que importa).</p>
+     */
+    private void sendProviderDeclinedEmailBestEffort(Reservation reservation, Tour tour,
+                                                     ShoppingCartItem item, Credit credit) {
+        try {
+            if (item.getShoppingCart() == null || item.getShoppingCart().getUser() == null) {
+                log.warn("BE-24: reservationId={} sin usuario en carrito; email no enviado.",
+                        reservation.getReservationId());
+                return;
+            }
+            User tourist = item.getShoppingCart().getUser();
+            if (tourist.getEmail() == null || tourist.getEmail().isBlank()) {
+                log.warn("BE-24: turista sin email para reservationId={}", reservation.getReservationId());
+                return;
+            }
+
+            List<Tour> alternatives = tour.getSubCategory() != null
+                    ? tourRepository.findAlternativesBySubCategory(
+                            tour.getSubCategory(), tour.getId(), 5)
+                    : java.util.Collections.emptyList();
+
+            String tourName = tour.getName() != null ? tour.getName().getEs() : "tu tour";
+            java.math.BigDecimal creditAmount = credit != null ? credit.getAmount() : java.math.BigDecimal.ZERO;
+
+            emailService.sendProviderDeclinedNotification(
+                    tourist.getEmail(),
+                    tourist.fullName(),
+                    tourName,
+                    creditAmount,
+                    credit != null ? credit.getExpirationDate() : null,
+                    alternatives,
+                    "Reserva cancelada — tienes un crédito Tourya para tu próximo tour");
+        } catch (Exception ex) {
+            log.warn("BE-24: fallo enviando email de provider-decline para reservationId={}: {}",
+                    reservation.getReservationId(), ex.getMessage());
+        }
     }
 }

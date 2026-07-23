@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reserva cancelada — tienes un crédito Tourya</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 600px;
+            margin: 10px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #1f2937;
+            margin-top: 0;
+        }
+        h2 {
+            color: #1f2937;
+            font-size: 18px;
+            margin-top: 24px;
+        }
+        p {
+            color: #374151;
+            line-height: 1.5;
+        }
+        .credit-box {
+            background-color: #ecfdf5;
+            border: 1px solid #10b981;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .credit-amount {
+            font-size: 28px;
+            font-weight: bold;
+            color: #047857;
+            display: block;
+        }
+        .credit-expiration {
+            font-size: 13px;
+            color: #6b7280;
+            margin-top: 6px;
+        }
+        .alternatives {
+            margin-top: 8px;
+        }
+        .alt-item {
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .alt-name {
+            font-weight: 600;
+            color: #1f2937;
+        }
+        .alt-rating {
+            font-size: 13px;
+            color: #d97706;
+        }
+        .footer {
+            font-size: 12px;
+            color: #6b7280;
+            text-align: center;
+            margin-top: 30px;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 15px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Hola <span th:text="${username}">turista</span>,</h1>
+
+    <p>
+        Lamentamos informarte que el proveedor de tu reserva
+        <strong th:text="${tourName}">tu tour</strong> nos avisó que no podrá atenderla.
+    </p>
+
+    <p>
+        Como compensación te generamos un <strong>crédito Tourya</strong> por el valor total pagado:
+    </p>
+
+    <div class="credit-box">
+        <span class="credit-amount">
+            $<span th:text="${#numbers.formatDecimal(creditAmount, 0, 'COMMA', 2, 'POINT')}">0.00</span> COP
+        </span>
+        <div class="credit-expiration" th:if="${creditExpirationDate != null}">
+            Válido hasta <strong th:text="${#temporals.format(creditExpirationDate, 'dd/MM/yyyy')}">--/--/----</strong>
+        </div>
+    </div>
+
+    <p>
+        Puedes usar tu crédito para reservar cualquier otro tour en Tourya o
+        solicitar el reembolso del dinero contactando a nuestro equipo.
+    </p>
+
+    <h2 th:if="${alternatives != null and !#lists.isEmpty(alternatives)}">
+        Tours similares que te pueden interesar
+    </h2>
+
+    <div class="alternatives" th:if="${alternatives != null and !#lists.isEmpty(alternatives)}">
+        <div class="alt-item" th:each="alt : ${alternatives}">
+            <span class="alt-name" th:text="${alt.name}">Nombre del tour</span>
+            <span class="alt-rating">
+                ★ <span th:text="${#numbers.formatDecimal(alt.rating, 1, 1)}">0.0</span>
+            </span>
+        </div>
+    </div>
+
+    <p style="margin-top: 24px;">
+        Ingresa a la plataforma para explorar todas las opciones y utilizar tu crédito.
+    </p>
+
+    <div class="footer">
+        Este es un mensaje automático de Tourya. Si tienes alguna pregunta, respóndenos este correo.
+    </div>
+</div>
+</body>
+</html>
