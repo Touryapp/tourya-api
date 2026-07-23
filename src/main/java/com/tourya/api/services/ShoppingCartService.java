@@ -665,6 +665,18 @@ public class ShoppingCartService {
                         }
                     }
 
+                    // Fix #189 (TC-006): exponer priceType/maxPeople del tour al frontend
+                    // para que el resumen del carrito renderice "1 Grupo(s) (2 personas)".
+                    String tourPriceType = null;
+                    Integer tourMaxPeople = null;
+                    if (item.getTourSchedule() != null && item.getTourSchedule().getTour() != null) {
+                        Tour cartTour = item.getTourSchedule().getTour();
+                        if (cartTour.getPriceType() != null) {
+                            tourPriceType = cartTour.getPriceType().getValue();
+                        }
+                        tourMaxPeople = cartTour.getMaxPeople();
+                    }
+
                     return ShoppingCartItemResponse.builder()
                             .id(item.getId())
                             .productId(item.getProductId())
@@ -683,6 +695,8 @@ public class ShoppingCartService {
                             .providerTotalPrice(itemProviderTotal)
                             .status(item.getStatus())
                             .details(detailResponses)
+                            .priceType(tourPriceType)
+                            .maxPeople(tourMaxPeople)
                             .build();
                 })
                 .collect(Collectors.toList());
