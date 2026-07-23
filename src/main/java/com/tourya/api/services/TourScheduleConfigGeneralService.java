@@ -650,7 +650,11 @@ public class TourScheduleConfigGeneralService {
                         priceDto.setMinAge(0);
                         priceDto.setMaxAge(0);
                     }
-                    priceDto.setPrice(price.getPrice());
+                    // TC-008 (RN-019 actualizada 2026-07-23): el PROVIDER ya no ve el price cliente,
+                    // solo su providerPrice. showTouryaFields = ADMIN o BACKOFFICE_OPERATION.
+                    if (showTouryaFields) {
+                        priceDto.setPrice(price.getPrice());
+                    }
                     priceDto.setProviderPrice(price.getProviderPrice());
                     return priceDto;
                 })

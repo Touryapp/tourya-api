@@ -169,6 +169,7 @@ Actores humanos y sistemas que interactúan con Tourya, con sus responsabilidade
 | Crear tour | ❌ | ✅ | ❌ | ❌ | ❌ |
 | Crear schedule + precios | ❌ | ✅ | ❌ | ❌ | ❌ |
 | Ver `providerPrice` | ❌ | ✅ | ❌ | ✅ | ✅ |
+| Ver `price` (precio cliente) | ✅ | ❌ | ❌ | ✅ | ✅ |
 | Ver `slotPercentageTourya` | ❌ | ❌ | ❌ | ✅ | ✅ |
 | Asignar comisión Tourya | ❌ | ❌ | ❌ | ✅ | ✅ |
 | Crear sub-operadores | ❌ | ✅ | ❌ | ❌ | ❌ |
