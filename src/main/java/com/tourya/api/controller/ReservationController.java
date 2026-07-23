@@ -362,6 +362,28 @@ public class ReservationController {
      * @param authentication Autenticación del usuario
      * @return RescheduleResponse con estado de transacción, validación de precio y datos
      */
+    /**
+     * BE-24 (RN-055): el provider marca "no puedo atender" la reserva. Trigger automático:
+     * cancela + crea crédito al turista + envía email con tours alternativos + anula
+     * AccountPayable para evitar doble pago en el próximo payout.
+     */
+    @PutMapping("/{reservationId}/decline")
+    @Operation(
+            summary = "Provider declina reserva (BE-24, RN-055)",
+            description = "Solo el provider actual de la reserva puede declinarla. Dispara cancelación + crédito al turista + email + anula AccountPayable. Idempotente: si providerDeclinedAt ya no es null, retorna 400.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Reserva declinada y cancelada"),
+            @ApiResponse(responseCode = "404", description = "Reserva no encontrada"),
+            @ApiResponse(responseCode = "400", description = "Estado inválido (terminal / ya declinada)"),
+            @ApiResponse(responseCode = "403", description = "El user no es el provider actual de la reserva")
+    })
+    public ResponseEntity<ReservationResponse> declineReservationByProvider(
+            @Parameter(description = "ID de la reserva a declinar") @PathVariable Long reservationId,
+            Authentication authentication) {
+        log.info("BE-24: provider declining reservation {}", reservationId);
+        return ResponseEntity.ok(reservationService.declineReservationByProvider(reservationId, authentication));
+    }
+
     @PutMapping("/{reservationId}/reschedule")
     @Operation(summary = "Re-agendar reserva", description = "Re-agenda una reserva con nueva fecha y configuración. Maneja 3 casos: precio igual/menor (actualiza) o mayor (cancela y agrega al carrito)")
     @ApiResponses(value = {

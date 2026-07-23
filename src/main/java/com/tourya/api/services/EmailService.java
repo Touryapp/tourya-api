@@ -183,6 +183,52 @@ public class EmailService {
         mailSender.send(mimeMessage);
     }
 
+    /**
+     * BE-24 (RN-055): notifica al turista que su reserva fue cancelada porque el provider
+     * no puede atender, entrega el crédito compensatorio y lista de tours alternativos.
+     */
+    @Async
+    public void sendProviderDeclinedNotification(
+            String to,
+            String username,
+            String tourName,
+            java.math.BigDecimal creditAmount,
+            java.time.LocalDate creditExpirationDate,
+            List<com.tourya.api.models.Tour> alternatives,
+            String subject
+    ) throws MessagingException {
+        MimeMessage mimeMessage = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(
+                mimeMessage,
+                MULTIPART_MODE_MIXED,
+                UTF_8.name());
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("username", username);
+        properties.put("tourName", tourName);
+        properties.put("creditAmount", creditAmount);
+        properties.put("creditExpirationDate", creditExpirationDate);
+        // Presentar tours alternativos como estructuras simples (id, nombre, rating) para el template.
+        List<Map<String, Object>> alternativesData = new java.util.ArrayList<>();
+        if (alternatives != null) {
+            for (com.tourya.api.models.Tour t : alternatives) {
+                Map<String, Object> row = new HashMap<>();
+                row.put("id", t.getId());
+                row.put("name", t.getName() != null ? t.getName().getEs() : "");
+                row.put("rating", t.getRating() != null ? t.getRating() : 0);
+                alternativesData.add(row);
+            }
+        }
+        properties.put("alternatives", alternativesData);
+        Context context = new Context();
+        context.setVariables(properties);
+        helper.setFrom(fromEmail);
+        helper.setTo(to);
+        helper.setSubject(subject);
+        String template = templateEngine.process("provider_declined_notification", context);
+        helper.setText(template, true);
+        mailSender.send(mimeMessage);
+    }
+
     @Async
     public void sendPurchaseConfirmationEmail(
             String to,

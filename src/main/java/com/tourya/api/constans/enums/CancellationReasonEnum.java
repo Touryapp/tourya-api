@@ -35,7 +35,14 @@ public enum CancellationReasonEnum {
     /**
      * Cambio de planes del turista (BE-05, aprobado Luis 2026-07-07, RN-030).
      */
-    CHANGE_OF_PLANS
+    CHANGE_OF_PLANS,
+
+    /**
+     * BE-24 (RN-055): el provider avisó que no puede atender la reserva. Solo vía
+     * {@code PUT /reservations/{id}/decline}. Dispara cancelación automática +
+     * crédito al turista + anula {@code AccountPayable} del provider.
+     */
+    PROVIDER_DECLINED
 }
 
 
