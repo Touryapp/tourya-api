@@ -230,8 +230,12 @@ Donde:
 ### RN-018 — Override de precio puntual
 ✅ `TourSchedulePriceOverride` permite ajustar el precio de un slot en una fecha (ej. surge pricing, promoción).
 
-### RN-019 — El PROVIDER no ve la comisión Tourya
-✅ Los responses del PROVIDER omiten `slotPercentageTourya`. Solo ven `providerPrice` y `price`. BACKOFFICE/ADMIN sí lo ven.
+### RN-019 — El PROVIDER solo ve su `providerPrice`
+✅ **Actualizada 2026-07-23 (TC-008 #195, Luis)** — el PROVIDER no ve la comisión Tourya **ni el precio cliente (`price`)**. Los responses del PROVIDER omiten `slotPercentageTourya` **y `price`**. Solo ven su `providerPrice`. BACKOFFICE_OPERATION y ADMIN sí ven los 3 (`providerPrice`, `price`, `slotPercentageTourya`).
+
+**Motivación** (Luis TC-008): al PROVIDER no le interesa saber cuánto paga el turista al final — es información de negocio de Tourya. Solo debe ver su precio de operación.
+
+**Implementación**: `TourScheduleConfigGeneralService.mapSlotToResponse` línea 653 condiciona `priceDto.setPrice()` a `showTouryaFields = Utils.isTouryaBackoffice(roles)`. PROVIDER recibe `price = null` en el JSON.
 
 ### RN-020 — Precios por tour obligatorios
 ✅ Para los tours donde el `priceType` = `individual` (por persona), Cada slot debe tener un precio por cada `ageType` configurado (ADULT, CHILD, INFANT). El INFANT puede tener `providerPrice = 0`. tambien aparece un `ageType` llamado `Cualquiera` (al guardarlo lo define como adulto) y cuando se selecciona el front no debe permitir configurar los otros precios, por lo que quiere decir que todos las turistas pagarán el mismo precio.
