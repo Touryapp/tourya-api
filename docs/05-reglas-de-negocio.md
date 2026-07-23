@@ -587,6 +587,21 @@ Cuando un provider avisa que no puede atender una reserva ya pagada (aviso de ú
 
 **Talla**: Fase 1 = M (~4-6 h); Fase 2 = XL (roadmap sin timeline definido).
 
+### RN-056 — Ventana temporal para confirmar reserva (TC-007 #194, Luis 2026-07-23)
+✅ El PROVIDER (y `PROVIDER_OPERATOR`) solo puede marcar una reserva como `DELIVERED` (confirmarla / escanear el QR) **el mismo día** del tour (`reservation.reservationDate.toLocalDate()`). Antes o después, el endpoint responde `400` con mensaje `"Only can confirm reservation on the tour day (tourDate=X, today=Y)"` y el botón "Confirmar" queda oculto en la UI.
+
+**Motivación** (Luis TC-007): no se puede validar que el turista asistió si el tour aún no ha ocurrido, y confirmar después del día genera confusión con el flujo `NO_SHOW` (que `PendingReservationNoShowJob` ejecuta automáticamente a las 7am Bogotá del día siguiente).
+
+**Zona horaria**: `America/Bogota`. Antes el helper `computeCanConfirmReservation` usaba `LocalDate.now()` sin zona — bug latente en el borde del día si el server está en UTC.
+
+**Implementación**:
+- **Backend** — `ReservationService.consumeReservation` (línea 845): guard temporal que compara `reservation.getReservationDate().toLocalDate()` con `LocalDate.now(BOGOTA)`. Si difieren, `IllegalStateException` → 400.
+- **Backend** — `ReservationService.computeCanConfirmReservation` (línea 1358): usa `LocalDate.now(BOGOTA)` para el flag `canConfirmReservation` del response.
+- **Frontend** — el HTML ya respeta `canConfirmReservation` via `booking-management-config.service.ts:300`. Fix colateral: `mapProviderReservationToBooking` y `mapClientReservationToBooking` deben copiar el flag (antes solo `mapReservationToBooking` para modal de detalles lo copiaba, por eso el botón aparecía en la tabla de la lista).
+- **Mobile** — el mismo endpoint valida al escanear QR. No requiere cambio de código.
+
+**Aplica a**: PROVIDER y `PROVIDER_OPERATOR` — ambos tienen el permiso "Confirmar reservas (QR)" según matriz doc 03:175.
+
 ---
 
 ## Cosas que no son reglas, pero son inferencias importantes

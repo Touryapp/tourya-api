@@ -53,6 +53,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -73,6 +74,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional
 public class ReservationService {
+
+    /**
+     * TC-007 (RN-056): la ventana temporal para confirmar (consumir) una reserva
+     * y el flag {@code canConfirmReservation} se evalúan en zona Colombia.
+     */
+    private static final ZoneId BOGOTA = ZoneId.of("America/Bogota");
 
     private final ReservationRepository reservationRepository;
     private final PaymentRepository paymentRepository;
@@ -864,6 +871,20 @@ public class ReservationService {
             throw new IllegalStateException("Cannot consume a no-show reservation");
         }
 
+        // TC-007 (RN-056): solo se puede confirmar el mismo día del tour, en zona Colombia.
+        // Antes de este guard el PROVIDER podía adelantar la confirmación cualquier día que
+        // la reserva estuviera en PENDING, lo que hacía inconsistente el ciclo NO_SHOW.
+        if (reservation.getReservationDate() == null) {
+            throw new IllegalStateException("Reservation does not have a reservationDate");
+        }
+        LocalDate tourDate = reservation.getReservationDate().toLocalDate();
+        LocalDate todayInBogota = LocalDate.now(BOGOTA);
+        if (!tourDate.isEqual(todayInBogota)) {
+            throw new IllegalStateException(
+                    "Only can confirm reservation on the tour day (tourDate=" + tourDate
+                            + ", today=" + todayInBogota + ")");
+        }
+
         // 2. Obtener el shopping cart item relacionado
         final Long itemId = reservation.getItemId();
         ShoppingCartItem cartItem = shoppingCartItemRepository.findById(itemId)
@@ -1355,13 +1376,18 @@ public class ReservationService {
         return response;
     }
 
+    /**
+     * TC-007 (RN-056): solo se puede confirmar la reserva el mismo día del tour,
+     * en zona Colombia. Antes usaba {@code LocalDate.now()} sin zona — bug latente
+     * en el borde del día cuando el server está en UTC.
+     */
     private boolean computeCanConfirmReservation(String scheduleDate) {
         if (scheduleDate == null || scheduleDate.isBlank()) {
             return false;
         }
         try {
             String datePart = scheduleDate.length() >= 10 ? scheduleDate.substring(0, 10) : scheduleDate.trim();
-            return LocalDate.parse(datePart).isEqual(LocalDate.now());
+            return LocalDate.parse(datePart).isEqual(LocalDate.now(BOGOTA));
         } catch (Exception e) {
             return false;
         }
