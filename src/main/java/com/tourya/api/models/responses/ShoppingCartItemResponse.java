@@ -40,5 +40,17 @@ public class ShoppingCartItemResponse {
     private BigDecimal providerTotalPrice;
     private ShoppingCartStatusEnum status;
     private List<ShoppingCartItemDetailResponse> details;
+    /**
+     * Fix #189 (TC-006): expone el priceType del tour ("grupo" | "individual")
+     * para que el frontend pueda renderizar correctamente el resumen del carrito
+     * ("1 Grupo(s) (2 personas)" vs "2 personas"). Sin este campo el resumen caía
+     * al render de individual aunque el tour fuera de grupo.
+     */
+    private String priceType;
+    /**
+     * Fix #189 (TC-006): capacidad máxima por grupo. El frontend ya lo consume
+     * en {@code cart.service.ts} para validaciones de disponibilidad.
+     */
+    private Integer maxPeople;
 }
 
