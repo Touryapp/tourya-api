@@ -298,7 +298,7 @@ TEMPORAL → CONFIRMED → DELIVERED
 ```
 **Contacto principal del tour**: al momento en que se genera la reserva, debe aparecer la informacion (nombre, telefono y correo electrónico) del contacto principal del tour.
 
-**Error al comprar un tour con tipo de precio GRUPO**: actualmente al colocar en el carrito un tour con tipo de precio `grupo`, luego de hacer el pago con wompi esta generando un error que dice `Error en la reserva. el pago fue exitoso pero hubo un error creando la reserva. Por favor contacte soporte`.
+**Error al comprar un tour con tipo de precio GRUPO**: 🟢 **RESUELTO** (auditoría 2026-07-24). Cuando Luis reportó este bug (2026-07-19), el mensaje era el catch-all del `handlePaymentResult` en `cart-summary.component.ts:912` — se dispara para **cualquier** error tras el pago Wompi aprobado, no es específico de GRUPO. Auditoría de logs Cloud Run dev: los últimos errores 500 en `POST /payment` fueron entre `2026-07-15 21:24Z` y `2026-07-17 00:04Z` (todos causados por bug #179 / migración 075 device_token_fcm faltante). Desde el 17-jul (fix MO-40b + HOTFIX 075) **cero errores 500 en /payment**. Cero errores del `PaymentService` en los últimos 7 días. Luis probablemente vio el mensaje antes del fix y lo reportó 2 días después. La lógica GRUPO en `ReservationService.java:1945/2012/2485` no genera fallos en producción.
 
 ### RN-027 — Generación de QR al confirmar
 ✅ Al confirmar la reserva, se genera un QR con URL única (`qrUrl`). Se sube a GCS/S3.
