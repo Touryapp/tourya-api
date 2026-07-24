@@ -980,15 +980,19 @@ public class ReservationService {
         Integer finalProviderId = null;
         Integer customerUserId = null;
 
-        if (Utils.isProviderSide(roles)) {
+        // TC-005 Prueba 3 (fix #188 2026-07-23): chequear backoffice ANTES que providerSide.
+        // Usuarios ADMIN/BACKOFFICE_OPERATION que ademas tengan rol PROVIDER (dual role, caso
+        // real de Luis con user id=49) caian en la primera rama y forzaban filtro por
+        // providerId propio, ocultando la vista cross-provider. Ahora backoffice manda:
+        // requestedProviderId=null => SP no filtra => ve todo. Si backoffice pasa
+        // ?providerId=X explicito, se respeta.
+        if (Utils.isTouryaBackoffice(roles)) {
+            finalProviderId = requestedProviderId;
+        } else if (Utils.isProviderSide(roles)) {
             Provider provider = providerService.findByUserAndStatusActive(user);
             finalProviderId = provider.getId();
-        } else if (Utils.isTouryaBackoffice(roles)) {
-            finalProviderId = requestedProviderId;
-        } else if (!Utils.isTouryaBackoffice(roles) && !Utils.isProviderSide(roles)) {
-            customerUserId = user.getId();
         } else {
-            throw new InsufficientPrivilegesException("You have no privileges to perform this action.");
+            customerUserId = user.getId();
         }
 
         String status = (deliveryStatus != null) ? deliveryStatus.name() : null;
