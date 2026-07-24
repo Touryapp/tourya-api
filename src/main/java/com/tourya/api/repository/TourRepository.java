@@ -57,27 +57,32 @@ public interface TourRepository extends JpaRepository<Tour, Integer> {
      * Devuelve hasta {@code limit} tours ACCEPTED con la misma subcategoria (excluyendo el
      * tour cancelado) ordenados por rating descendente.
      *
-     * <p>No filtra por disponibilidad futura para no complicar el JPQL — el email solo
-     * muestra "revisa el catálogo" y el turista al hacer click ve los schedules disponibles.</p>
+     * <p>Native query con CAST explícito porque {@code tour.sub_category} es un tipo enum
+     * nativo de Postgres ({@code tour_subcategory_enum}) y JPQL no aplica el
+     * {@link org.hibernate.annotations.ColumnTransformer} de {@link Tour#subCategory} al WHERE.
+     * Fix issue #193 (2026-07-23): el JPQL previo fallaba con
+     * {@code operator does not exist: tour_subcategory_enum = character varying}.</p>
      */
     @Query(value = """
-            SELECT t FROM Tour t
+            SELECT * FROM tour t
             WHERE t.status = 'accepted'
-              AND t.subCategory = :subCategory
+              AND t.sub_category = CAST(:subCategory AS tour_subcategory_enum)
               AND t.id <> :excludeTourId
             ORDER BY t.rating DESC NULLS LAST
-            """)
+            """, nativeQuery = true)
     List<Tour> findAlternativesBySubCategoryQuery(
-            @Param("subCategory") TourSubCategoryEnum subCategory,
+            @Param("subCategory") String subCategory,
             @Param("excludeTourId") Integer excludeTourId,
             Pageable pageable);
 
     /**
-     * BE-24: wrapper conveniente con {@code Pageable} armado internamente.
+     * BE-24: wrapper conveniente que convierte el enum a su value ({@code getValue()})
+     * antes de pasarlo al native query.
      */
     default List<Tour> findAlternativesBySubCategory(TourSubCategoryEnum subCategory,
                                                      Integer excludeTourId, int limit) {
-        return findAlternativesBySubCategoryQuery(subCategory, excludeTourId,
+        String value = subCategory != null ? subCategory.getValue() : null;
+        return findAlternativesBySubCategoryQuery(value, excludeTourId,
                 org.springframework.data.domain.PageRequest.of(0, Math.max(1, limit)));
     }
 }
