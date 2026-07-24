@@ -140,33 +140,61 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
      * rango de fechas del reporte y ubicacion via tour_address.
      * Solo trae reservas en estado abierto (excluye CANCELED, DELIVERED, etc.).
      */
-    @Query("""
-        SELECT r FROM Reservation r,
-                    com.tourya.api.models.ShoppingCartItem sci,
-                    com.tourya.api.models.TourSchedule ts,
-                    com.tourya.api.models.Tour t
-        WHERE r.itemId = sci.id
-          AND sci.tourSchedule.id = ts.id
-          AND ts.tour.id = t.id
-          AND r.deliveryStatus IN :openStatuses
-          AND t.subCategory = :subCategory
-          AND ts.scheduleDate BETWEEN :startDate AND :endDate
+    /**
+     * BE-23: reservas afectadas por alerta DIMAR bandera roja (native query).
+     *
+     * <p>Fix issue #193 (2026-07-23): antes era JPQL con {@code AND t.subCategory = :subCategory},
+     * que fallaba con {@code operator does not exist: tour_subcategory_enum = character varying}
+     * porque {@code tour.sub_category} es enum nativo Postgres y JPQL no aplica el
+     * {@link org.hibernate.annotations.ColumnTransformer} de {@link com.tourya.api.models.Tour#subCategory}
+     * al WHERE. Native query con CAST explícito lo soluciona.</p>
+     *
+     * <p>El bug era latente porque este código sólo se dispara al crear un reporte
+     * {@code MaritimActivityReport} con {@code flag=RED} — evento que no había ocurrido en dev.</p>
+     */
+    @Query(value = """
+        SELECT r.* FROM reservation r
+            JOIN shopping_cart_item sci ON r.item_id = sci.id
+            JOIN tour_schedule ts ON sci.tour_schedule_id = ts.id
+            JOIN tour t ON ts.tour_id = t.id
+        WHERE r.delivery_status = ANY(CAST(:openStatuses AS text[]))
+          AND t.sub_category = CAST(:subCategory AS tour_subcategory_enum)
+          AND ts.schedule_date BETWEEN :startDate AND :endDate
           AND EXISTS (
-              SELECT 1 FROM com.tourya.api.models.TourAddress ta
-              WHERE ta.tour.id = t.id
-                AND ta.country.id = :countryId
-                AND ta.state.id = :stateId
-                AND ta.city.id = :cityId
+              SELECT 1 FROM tour_address ta
+              WHERE ta.tour_id = t.id
+                AND ta.country_id = :countryId
+                AND ta.state_id = :stateId
+                AND ta.city_id = :cityId
           )
-        """)
-    List<Reservation> findAffectedByRedAlert(
-            @Param("subCategory") TourSubCategoryEnum subCategory,
+        """, nativeQuery = true)
+    List<Reservation> findAffectedByRedAlertNative(
+            @Param("subCategory") String subCategory,
             @Param("countryId") Integer countryId,
             @Param("stateId") Integer stateId,
             @Param("cityId") Integer cityId,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate,
-            @Param("openStatuses") List<DeliveryStatusEnum> openStatuses);
+            @Param("openStatuses") String[] openStatuses);
+
+    /**
+     * BE-23: wrapper que convierte los enums al formato esperado por el native query.
+     * Mantiene la firma tipada para no romper los callers.
+     */
+    default List<Reservation> findAffectedByRedAlert(
+            TourSubCategoryEnum subCategory,
+            Integer countryId,
+            Integer stateId,
+            Integer cityId,
+            LocalDate startDate,
+            LocalDate endDate,
+            List<DeliveryStatusEnum> openStatuses) {
+        String subCategoryValue = subCategory != null ? subCategory.getValue() : null;
+        String[] statusNames = openStatuses == null ? new String[0]
+                : openStatuses.stream().map(Enum::name).toArray(String[]::new);
+        return findAffectedByRedAlertNative(subCategoryValue, countryId, stateId, cityId,
+                startDate, endDate, statusNames);
+    }
 
     @Query("""
         SELECT r
