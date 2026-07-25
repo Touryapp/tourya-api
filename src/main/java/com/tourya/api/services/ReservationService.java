@@ -857,32 +857,28 @@ public class ReservationService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Reservation not found with id: " + reservationId));
 
-        // Validar que la reserva esté en un estado válido para consumir
+        // TC-007 fix (#194): usar OperationNotPermittedException (mapeada a 400) en vez de
+        // IllegalStateException (que cae en el fallback 500 del GlobalExceptionHandler).
+        // Mensajes en español para exposicion directa al cliente.
         if (reservation.getDeliveryStatus() == DeliveryStatusEnum.DELIVERED) {
-            throw new IllegalStateException("Reservation is already consumed (DELIVERED)");
+            throw new OperationNotPermittedException("Esta reserva ya fue consumida.");
         }
-        
-        // Validar que la reserva no esté cancelada
         if (reservation.getDeliveryStatus() == DeliveryStatusEnum.CANCELED) {
-            throw new IllegalStateException("Cannot consume a canceled reservation");
+            throw new OperationNotPermittedException("No es posible confirmar una reserva cancelada.");
         }
-        
         if (reservation.getDeliveryStatus() == DeliveryStatusEnum.NO_SHOW) {
-            throw new IllegalStateException("Cannot consume a no-show reservation");
+            throw new OperationNotPermittedException("No es posible confirmar una reserva marcada como No Show.");
         }
 
         // TC-007 (RN-056): solo se puede confirmar el mismo día del tour, en zona Colombia.
-        // Antes de este guard el PROVIDER podía adelantar la confirmación cualquier día que
-        // la reserva estuviera en PENDING, lo que hacía inconsistente el ciclo NO_SHOW.
         if (reservation.getReservationDate() == null) {
-            throw new IllegalStateException("Reservation does not have a reservationDate");
+            throw new OperationNotPermittedException("La reserva no tiene fecha asignada.");
         }
         LocalDate tourDate = reservation.getReservationDate().toLocalDate();
         LocalDate todayInBogota = LocalDate.now(BOGOTA);
         if (!tourDate.isEqual(todayInBogota)) {
-            throw new IllegalStateException(
-                    "Only can confirm reservation on the tour day (tourDate=" + tourDate
-                            + ", today=" + todayInBogota + ")");
+            throw new OperationNotPermittedException(
+                    "La reserva solo puede confirmarse el día del tour (" + tourDate + ").");
         }
 
         // 2. Obtener el shopping cart item relacionado
@@ -1041,7 +1037,8 @@ public class ReservationService {
                 reservation.setCanRainCancel(false);
             }
 
-            reservation.setCanConfirmReservation(computeCanConfirmReservation(reservation.getScheduleDate()));
+            reservation.setCanConfirmReservation(computeCanConfirmReservation(
+                    reservation.getScheduleDate(), reservation.getReservationDeliveryStatus()));
             reservation.setTourOperator(tourPrincipalOperatorService.resolveForTourId(reservation.getTourId()));
         }
 
@@ -1385,7 +1382,16 @@ public class ReservationService {
      * en zona Colombia. Antes usaba {@code LocalDate.now()} sin zona — bug latente
      * en el borde del día cuando el server está en UTC.
      */
-    private boolean computeCanConfirmReservation(String scheduleDate) {
+    /**
+     * TC-007 fix (#194): el requerimiento original de Luis es "solo si status=PENDING Y
+     * today=reservationDate". Antes solo validabamos la fecha, por eso el flag salia true
+     * para reservas CANCELED del dia y el frontend pintaba el boton "Confirmar" (bug
+     * reportado por Luis 2026-07-25 con RES-316 declined).
+     */
+    private boolean computeCanConfirmReservation(String scheduleDate, String reservationDeliveryStatus) {
+        if (!"PENDING".equalsIgnoreCase(reservationDeliveryStatus)) {
+            return false;
+        }
         if (scheduleDate == null || scheduleDate.isBlank()) {
             return false;
         }
