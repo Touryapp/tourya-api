@@ -78,6 +78,10 @@ public class ReservationDetailsMapper {
                 .tourCategoryId(rs.getInt("tourcategoryid"))
                 .tourSubCategory(readOptionalString(rs, "toursubcategory"))
                 .tourProviderId(rs.getInt("tourproviderid"))
+                // TC-005 refinamientos (#188): nombre y foto principal del tour. readOptional*
+                // porque migraciones anteriores del SP no tenian estas columnas.
+                .providerName(readOptionalString(rs, "providername"))
+                .tourImageUrl(readOptionalString(rs, "tourimageurl"))
 
                 .tourScheduleId(rs.getInt("tourscheduleid"))
                 .scheduleDate(rs.getString("scheduledate"))
