@@ -870,22 +870,24 @@ public class ReservationService {
             throw new OperationNotPermittedException("No es posible confirmar una reserva marcada como No Show.");
         }
 
-        // TC-007 (RN-056): solo se puede confirmar el mismo día del tour, en zona Colombia.
-        if (reservation.getReservationDate() == null) {
-            throw new OperationNotPermittedException("La reserva no tiene fecha asignada.");
-        }
-        LocalDate tourDate = reservation.getReservationDate().toLocalDate();
-        LocalDate todayInBogota = LocalDate.now(BOGOTA);
-        if (!tourDate.isEqual(todayInBogota)) {
-            throw new OperationNotPermittedException(
-                    "La reserva solo puede confirmarse el día del tour (" + tourDate + ").");
-        }
-
-        // 2. Obtener el shopping cart item relacionado
+        // 2. Obtener el shopping cart item relacionado (movido arriba para validar scheduleDate)
         final Long itemId = reservation.getItemId();
         ShoppingCartItem cartItem = shoppingCartItemRepository.findById(itemId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Shopping cart item not found with id: " + itemId));
+
+        // TC-007 (RN-056) — corregido 2026-07-25 por Luis: comparar contra scheduleDate del
+        // ShoppingCartItem (fecha del tour_schedule), NO reservationDate. Antes usaba
+        // reservation.getReservationDate() por error de comunicacion inicial.
+        LocalDate scheduleDate = cartItem.getScheduleDate();
+        if (scheduleDate == null) {
+            throw new OperationNotPermittedException("La reserva no tiene fecha de agenda.");
+        }
+        LocalDate todayInBogota = LocalDate.now(BOGOTA);
+        if (!scheduleDate.isEqual(todayInBogota)) {
+            throw new OperationNotPermittedException(
+                    "La reserva solo puede confirmarse el día del tour (" + scheduleDate + ").");
+        }
 
         // 3. Obtener el tour schedule
         TourSchedule tourSchedule = cartItem.getTourSchedule();
