@@ -46,6 +46,10 @@ public class ReservationDetailsResponse {
     private Integer tourCategoryId;
     private String tourSubCategory;
     private Integer tourProviderId;
+    /** TC-005 refinamientos (#188): nombre del proveedor (provider.name). Solo se usa por ADMIN. */
+    private String providerName;
+    /** TC-005 refinamientos (#188): imagen principal del tour desde tour_gallery (primera por order_index). */
+    private String tourImageUrl;
 
     // --- Schedule ---
     private Integer tourScheduleId;
