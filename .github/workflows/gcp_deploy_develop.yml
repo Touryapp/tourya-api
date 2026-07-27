@@ -50,7 +50,13 @@ jobs:
             --port=${{ env.PORT }}
             --service-account=tourya-dev-cloud-run@tourya-project-dev.iam.gserviceaccount.com
             --vpc-connector=tourya-dev-vpc-connector
-            --min-instances=0
+            # INF-05 quick fix (#206): min-instances=1 preserva 1 instancia viva para que
+            # los @Scheduled jobs (PendingReservationNoShowJob, TemporalReservationExpiryJob,
+            # TourReminder24hJob, CreditExpirationJob, ProviderPayoutOrderJob, etc.) disparen.
+            # Cloud Run scale-to-zero mata @Scheduled porque no hay instancia corriendo cuando
+            # llega la hora del cron. Costo ~$5-10/mes en dev. Para prod: migrar a Cloud
+            # Scheduler externo con controllers internos (roadmap INF-06).
+            --min-instances=1
             --max-instances=2
             --memory=1Gi
             --cpu=1
