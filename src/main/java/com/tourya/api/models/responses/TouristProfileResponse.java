@@ -10,6 +10,7 @@ public class TouristProfileResponse {
     private Integer userId;
     private String firstName;
     private String lastName;
+    private String documentType;
     private String documentNumber;
     private String phone;
     private String email;

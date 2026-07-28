@@ -13,6 +13,9 @@ public class TouristProfileUpsertRequest {
     @Schema(example = "González")
     private String lastName;
 
+    @Schema(description = "Tipo de documento de identidad (CC/CE/PP/NIT/TI)", example = "CC")
+    private String documentType;
+
     @Schema(description = "Número de documento de identidad", example = "1020304050")
     private String documentNumber;
 

@@ -54,6 +54,7 @@ public class TouristProfileService {
 
         profile.setFirstName(request.getFirstName());
         profile.setLastName(request.getLastName());
+        profile.setDocumentType(request.getDocumentType());
         profile.setDocumentNumber(request.getDocumentNumber());
         profile.setPhone(request.getPhone());
         profile.setEmail(request.getEmail());
@@ -112,6 +113,7 @@ public class TouristProfileService {
                 .userId(profile.getUserId())
                 .firstName(profile.getFirstName())
                 .lastName(profile.getLastName())
+                .documentType(profile.getDocumentType())
                 .documentNumber(profile.getDocumentNumber())
                 .phone(profile.getPhone())
                 .email(profile.getEmail())
