@@ -2574,6 +2574,20 @@ public class ReservationService {
             throw new OperationNotPermittedException("La reserva no tiene tour asociado.");
         }
 
+        // TC-007 (#194 scope extra): no permitir declinar si la fecha del tour ya paso.
+        // Cuando scheduleDate < hoy la reserva debe transicionar a NO_SHOW via job, no
+        // via decline manual del provider (evita creditos retroactivos por reservas viejas).
+        LocalDate scheduleDate = item.getScheduleDate();
+        if (scheduleDate == null) {
+            throw new OperationNotPermittedException("La reserva no tiene fecha de agenda.");
+        }
+        LocalDate todayInBogota = LocalDate.now(BOGOTA);
+        if (scheduleDate.isBefore(todayInBogota)) {
+            throw new OperationNotPermittedException(
+                    "No se puede declinar: la fecha del tour (" + scheduleDate
+                            + ") ya paso. Debe esperar a que el job marque la reserva como NO_SHOW.");
+        }
+
         Tour tour = tourRepository.findById(item.getTourSchedule().getTourId())
                 .orElseThrow(() -> new ResourceNotFoundException("Tour not found"));
 
