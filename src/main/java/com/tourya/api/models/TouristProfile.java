@@ -39,6 +39,9 @@ public class TouristProfile {
     @Column(name = "last_name", length = 120)
     private String lastName;
 
+    @Column(name = "document_type", length = 50)
+    private String documentType;
+
     @Column(name = "document_number", length = 64)
     private String documentNumber;
 
