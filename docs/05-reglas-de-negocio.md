@@ -302,6 +302,7 @@ TEMPORAL → CONFIRMED → DELIVERED
 
 ### RN-027 — Generación de QR al confirmar
 ✅ Al confirmar la reserva, se genera un QR con URL única (`qrUrl`). Se sube a GCS/S3.
+✅ Los usuarios `PROVIDER` y `PROVIDER_OPERATOR` podrán ver toda la información de la reserva, pero la Información del cliente (`Reserva a nombre de:`, `Información del pagador`, `Información del Cliente`) la podrán ver solo 1 día antes del `scheduleDate` de la reserva. El usuario ADMIN y BACKOFFICE_OPERATION si podrán ver toda la información de la reserva desde el momento de que el cliente confirme la reserva.
 
 ### RN-028 — Formato de booking ID
 ✅ Los endpoints públicos aceptan dos formatos:
