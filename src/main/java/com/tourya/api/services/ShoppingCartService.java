@@ -588,6 +588,25 @@ public class ShoppingCartService {
      * @param statusFilter {@code ACTIVE} para carrito del usuario; {@code null} para listado/admin con todos los ítems
      */
     private ShoppingCartResponse buildShoppingCartResponse(ShoppingCart cart, ShoppingCartStatusEnum statusFilter) {
+        // TC-014 (#215 Luis 2026-08-03): purgar items del carrito con scheduleDate
+        // anterior a hoy antes de armar la respuesta. Los marcamos como ABANDONED
+        // para que la proxima consulta ni siquiera los vea (el filter ACTIVE de
+        // abajo los descarta). Se ejecuta solo cuando se pide el carrito del
+        // usuario (ACTIVE); el listado admin (statusFilter=null) no purga.
+        if (statusFilter == ShoppingCartStatusEnum.ACTIVE) {
+            LocalDate todayInBogota = LocalDate.now(CO_ZONE);
+            cart.getItems().stream()
+                    .filter(item -> item.getStatus() == ShoppingCartStatusEnum.ACTIVE)
+                    .filter(item -> item.getScheduleDate() != null
+                            && item.getScheduleDate().isBefore(todayInBogota))
+                    .forEach(item -> {
+                        log.info("TC-014: auto-purga cart item {} (scheduleDate={} < today={}) -> ABANDONED",
+                                item.getId(), item.getScheduleDate(), todayInBogota);
+                        item.setStatus(ShoppingCartStatusEnum.ABANDONED);
+                        shoppingCartItemRepository.save(item);
+                    });
+        }
+
         List<ShoppingCartItemResponse> itemResponses = cart.getItems().stream()
                 .filter(item -> statusFilter == null || item.getStatus() == statusFilter)
                 .map(item -> {
