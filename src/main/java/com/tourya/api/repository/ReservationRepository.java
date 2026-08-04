@@ -196,16 +196,19 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
                 startDate, endDate, statusNames);
     }
 
+    // TC-011 (#206 reabierto Luis 2026-08-03): aceptar lista de estados para que
+    // el job NO_SHOW procese tanto PENDING como RESCHEDULED (reservas reagendadas
+    // cuya nueva fecha ya paso). Antes era `= :status` unico.
     @Query("""
         SELECT r
         FROM Reservation r
         JOIN r.shoppingCartItem item
-        WHERE r.deliveryStatus = :status
+        WHERE r.deliveryStatus IN :statuses
           AND item.scheduleDate IS NOT NULL
           AND item.scheduleDate < :today
         """)
     List<Reservation> findPendingWithScheduleDateBefore(
-            @Param("status") DeliveryStatusEnum status,
+            @Param("statuses") List<DeliveryStatusEnum> statuses,
             @Param("today") LocalDate today
     );
 
