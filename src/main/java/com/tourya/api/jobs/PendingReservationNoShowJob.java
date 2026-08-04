@@ -28,16 +28,21 @@ public class PendingReservationNoShowJob {
     private final TourScheduleSlotAvailabilityService tourScheduleSlotAvailabilityService;
 
     /**
-     * Diario 7am (hora Colombia): marca como NO_SHOW las reservas PENDING cuyo scheduleDate ya pasó.
-     * BE-27: por cada NO_SHOW llama {@code recalculate(slotId)} para que {@code slot.bookings}
-     * refleje la liberacion del cupo (antes quedaba inflado con el drift acumulandose).
+     * Diario 7am (hora Colombia): marca como NO_SHOW las reservas cuyo scheduleDate
+     * ya pasó y siguen en un estado activo (PENDING o RESCHEDULED).
+     *
+     * <p>TC-011 (#206 reabierto Luis 2026-08-03): las reservas RESCHEDULED tambien
+     * deben pasar a NO_SHOW si la nueva fecha ya paso (antes solo procesaba PENDING).</p>
+     *
+     * <p>BE-27: por cada NO_SHOW llama {@code recalculate(slotId)} para que
+     * {@code slot.bookings} refleje la liberacion del cupo.</p>
      */
     @Scheduled(cron = "0 0 7 * * *", zone = "America/Bogota")
     @Transactional
     public void markNoShows() {
         LocalDate today = LocalDate.now(CO_ZONE);
         List<Reservation> pendingPast = reservationRepository.findPendingWithScheduleDateBefore(
-                DeliveryStatusEnum.PENDING,
+                List.of(DeliveryStatusEnum.PENDING, DeliveryStatusEnum.RESCHEDULED),
                 today
         );
         if (pendingPast.isEmpty()) return;
