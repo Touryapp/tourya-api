@@ -44,6 +44,13 @@ public class TourFullDataResponse {
 
     private List<Integer> tagIds = new ArrayList<>();
 
-    /** Solo visible para backoffice Tourya (ADMIN / BACKOFFICE_OPERATION). */
-
+    /**
+     * Solo visible para backoffice Tourya (ADMIN / BACKOFFICE_OPERATION).
+     *
+     * TC-015 (#218 Luis 2026-08-06): comision del tour como fraccion decimal
+     * (0.25 = 25%). Se persistia via PATCH /tour/admin/{id}/porcentajeTourya
+     * pero el response no la exponia -> ADMIN no podia verificar si el valor
+     * quedo guardado ni consultarlo despues.
+     */
+    private java.math.BigDecimal porcentajeTourya;
 }
