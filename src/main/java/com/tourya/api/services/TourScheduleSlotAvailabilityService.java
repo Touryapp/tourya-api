@@ -11,6 +11,7 @@ import com.tourya.api.repository.TourScheduleConfigRepository;
 import com.tourya.api.repository.TourScheduleConfigSlotRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -109,7 +110,15 @@ public class TourScheduleSlotAvailabilityService {
         }
     }
 
-    @Transactional
+    /**
+     * TC-011 (#206 reabierto Luis 2026-08-04): `REQUIRES_NEW` para aislar la
+     * transaccion del caller. Sin esto, si `Slot not found` (u otro runtime
+     * exception aqui) marcaba la transaccion externa del `PendingReservationNoShowJob`
+     * como rollback-only, revirtiendo TODOS los `save(reservation)` del job
+     * (log: `UnexpectedRollbackException: silently rolled back`). Efecto visible:
+     * el job decia "Marcadas 11 reservas" pero al hacer commit revertia todo.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recalculate(Integer slotId) {
         TourScheduleConfigSlot slot = tourScheduleConfigSlotRepository.findById(slotId)
                 .orElseThrow(() -> new ResourceNotFoundException("Slot not found"));
