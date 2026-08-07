@@ -146,6 +146,9 @@ public class TourMapper {
         tourFullDataResponse.setMinAge(tour.getMinAge());
         tourFullDataResponse.setRating(tour.getRating());
         tourFullDataResponse.setStatus(tour.getStatus());
+        // TC-015 (#218): exponer porcentajeTourya asi el ADMIN puede verlo
+        // en GET /tour/admin/consultDataTourById/{id} y verificar el PATCH.
+        tourFullDataResponse.setPorcentajeTourya(tour.getPorcentajeTourya());
         tourFullDataResponse.setProvider(providerMapper.toProviderResponse(tour.getProvider()));
         tourFullDataResponse.setTourOperator(tourPrincipalOperatorService.resolveForTour(tour));
         tourFullDataResponse.setLocations(tourAddressResponseList);
