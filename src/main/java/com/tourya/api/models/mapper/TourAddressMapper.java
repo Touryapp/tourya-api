@@ -30,9 +30,18 @@ public class TourAddressMapper {
         tourAddressResponse.setAddressType(tourAddress.getAddressType());
         tourAddressResponse.setLatitude(tourAddress.getLatitude());
         tourAddressResponse.setLongitude(tourAddress.getLongitude());
-        tourAddressResponse.setCountryId(tourAddress.getCountry().getId());
-        tourAddressResponse.setStateId(tourAddress.getState().getId());
-        tourAddressResponse.setCityId(tourAddress.getCity().getId());
+        if (tourAddress.getCountry() != null) {
+            tourAddressResponse.setCountryId(tourAddress.getCountry().getId());
+            tourAddressResponse.setCountryName(tourAddress.getCountry().getName());
+        }
+        if (tourAddress.getState() != null) {
+            tourAddressResponse.setStateId(tourAddress.getState().getId());
+            tourAddressResponse.setStateName(tourAddress.getState().getName());
+        }
+        if (tourAddress.getCity() != null) {
+            tourAddressResponse.setCityId(tourAddress.getCity().getId());
+            tourAddressResponse.setCityName(tourAddress.getCity().getName());
+        }
         return tourAddressResponse;
     }
     public void updateTourAddressFromRequest(TourAddressRequest request, TourAddress entity) {
