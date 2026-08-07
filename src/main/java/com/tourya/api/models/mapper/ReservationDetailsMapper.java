@@ -1,15 +1,21 @@
 package com.tourya.api.models.mapper;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tourya.api._utils.ReservationDisplayId;
 import com.tourya.api.models.TranslatedField;
 import com.tourya.api.models.responses.ReservationDetailsResponse;
+import com.tourya.api.models.responses.TravelerBreakdownDto;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collections;
+import java.util.List;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class ReservationDetailsMapper {
@@ -73,6 +79,10 @@ public class ReservationDetailsMapper {
 
                 .totalTourists(rs.getLong("totaltourists")) // BIGINT OK ✔
 
+                // TC-016 (#219): parseo del jsonb travelerbreakdown. readOptional* porque
+                // migraciones anteriores del SP no tenian esta columna (patron aditivo).
+                .travelerBreakdown(parseTravelerBreakdown(readOptionalString(rs, "travelerbreakdown")))
+
                 .tourId(rs.getInt("tourid"))
                 .tourName(tourName)
                 .tourCategoryId(rs.getInt("tourcategoryid"))
@@ -108,5 +118,17 @@ public class ReservationDetailsMapper {
                         ? rs.getTimestamp("cancellation_date").toLocalDateTime() : null)
 
                 .build();
+    }
+
+    private List<TravelerBreakdownDto> parseTravelerBreakdown(String json) {
+        if (json == null || json.isBlank()) {
+            return Collections.emptyList();
+        }
+        try {
+            return objectMapper.readValue(json, new TypeReference<List<TravelerBreakdownDto>>() {});
+        } catch (Exception ex) {
+            log.warn("Failed to parse travelerbreakdown JSON, returning empty list. json={}", json, ex);
+            return Collections.emptyList();
+        }
     }
 }

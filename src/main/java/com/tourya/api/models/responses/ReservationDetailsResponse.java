@@ -4,6 +4,8 @@ import com.tourya.api.models.TranslatedField;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 @Builder
 public class ReservationDetailsResponse {
@@ -39,6 +41,9 @@ public class ReservationDetailsResponse {
     private Integer productId;
 
     private Long totalTourists; // BIGINT ✔
+
+    /** TC-016 (#219): desglose de viajeros por ageType (ADULT/CHILD/INFANT) con cantidad. */
+    private List<TravelerBreakdownDto> travelerBreakdown;
 
     // --- Tour ---
     private Integer tourId;
