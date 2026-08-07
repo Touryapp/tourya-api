@@ -10,13 +10,13 @@ import lombok.Data;
 @Data
 public class TourAddressRequest {
     private Integer Id;
-    @NotNull(message = "countryId is mandatory")
+    // TC-017 (#220): country/state/city opcionales para permitir addressType=HOTEL_PICKUP
+    // (recogida en el hotel del cliente, sin ubicacion fisica del tour). El frontend
+    // valida la exclusividad segun el tipo elegido.
     private Integer countryId;
 
-    @NotNull(message = "stateId is mandatory")
     private Integer stateId;
 
-    @NotNull(message = "cityId is mandatory")
     private Integer cityId;
 
     private Double latitude = 0.0;
