@@ -1221,10 +1221,15 @@ public class ReservationService {
             return;
         }
 
+        // TC-018 (#227) Bug A hipotesis 3: se replica el bug de TC-011 (#206) — la lista
+        // original NO incluia RESCHEDULED, por lo que reservas reagendadas al dia del reporte
+        // quedaban fuera de la cancelacion. Agregamos RESCHEDULED (una reserva reagendada
+        // sigue siendo activa y debe cancelarse si el reporte cubre su nueva fecha).
         List<DeliveryStatusEnum> openStatuses = List.of(
                 DeliveryStatusEnum.PENDING,
                 DeliveryStatusEnum.RESERVED,
-                DeliveryStatusEnum.IN_TRANSIT);
+                DeliveryStatusEnum.IN_TRANSIT,
+                DeliveryStatusEnum.RESCHEDULED);
 
         List<Reservation> affected = reservationRepository.findAffectedByRedAlert(
                 subCategory,
@@ -1257,28 +1262,26 @@ public class ReservationService {
     }
 
     private void cancelOneByRedAlert(Reservation r, Long reportId) {
-        // Idempotencia: si otra corrida ya la canceló, saltar.
+        // Idempotencia: si otra corrida ya la canceló, saltar (return silencioso legitimo).
         if (r.getDeliveryStatus() == DeliveryStatusEnum.CANCELED) {
             return;
         }
+        // TC-018 (#227) Bug A hipotesis 4: los data-integrity errors (sin itemId, sin cart,
+        // sin tour) antes eran silent returns que dejaban el counter `failed` en 0 y hacian
+        // parecer que el hook corrio OK cuando en realidad no cancelo nada. Ahora lanzamos
+        // excepcion para que el catch outer los cuente y aparezcan en el log final.
         if (r.getItemId() == null) {
-            log.warn("BE-23 alert {} reservationId={} without itemId, skipping",
-                    reportId, r.getReservationId());
-            return;
+            throw new IllegalStateException("reservationId=" + r.getReservationId() + " without itemId");
         }
 
         ShoppingCartItem item = shoppingCartItemRepository.findById(r.getItemId()).orElse(null);
         if (item == null || item.getTourSchedule() == null) {
-            log.warn("BE-23 alert {} reservationId={} lacks cart/schedule linkage",
-                    reportId, r.getReservationId());
-            return;
+            throw new IllegalStateException("reservationId=" + r.getReservationId() + " lacks cart/schedule linkage");
         }
 
         Tour tour = tourRepository.findById(item.getTourSchedule().getTourId()).orElse(null);
         if (tour == null) {
-            log.warn("BE-23 alert {} reservationId={} tour not found",
-                    reportId, r.getReservationId());
-            return;
+            throw new IllegalStateException("reservationId=" + r.getReservationId() + " tour not found");
         }
 
         r.setDeliveryStatus(DeliveryStatusEnum.CANCELED);
