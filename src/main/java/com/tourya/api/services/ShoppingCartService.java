@@ -1,6 +1,7 @@
 package com.tourya.api.services;
 
 import com.tourya.api.constans.enums.AgePriceType;
+import com.tourya.api.constans.enums.MaritimeFlagEnum;
 import com.tourya.api.constans.enums.ShoppingCartStatusEnum;
 import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
@@ -64,6 +65,8 @@ public class ShoppingCartService {
     private final StateRepository stateRepository;
     private final CityRepository cityRepository;
     private final TourAddressRepository tourAddressRepository;
+    // TC-018 (#227) Bug B: guard duro contra add-to-cart cuando hay alerta DIMAR RED activa.
+    private final MaritimActivityReportRepository maritimActivityReportRepository;
 
     /**
      * Crea un nuevo carrito de compras para un usuario.
@@ -142,6 +145,45 @@ public class ShoppingCartService {
     }
 
     /**
+     * TC-018 (#227) Bug B: rechaza el add-to-cart si hay un reporte marItimo con
+     * flag=RED activo cuya ubicacion+subcategoria+rango de fechas coincide con el
+     * tour+scheduleDate. El SP `sp_get_tour_schedule_json` expone un flag
+     * `blockedByMaritimeReport` para deshabilitar el dia en el UI, pero un cliente
+     * puede saltarse ese guard llamando el endpoint directamente — por eso el
+     * backend duplica la validacion aqui como defense-in-depth.
+     */
+    private void validateNoActiveMaritimeAlert(Tour tour, LocalDate scheduleDate) {
+        if (tour == null || tour.getSubCategory() == null || scheduleDate == null) {
+            return;
+        }
+        List<TourAddress> addresses = tourAddressRepository.findByTourId(tour.getId());
+        if (addresses == null || addresses.isEmpty()) {
+            return;
+        }
+        // Chequea todas las locations del tour — si alguna cae bajo alerta RED, se bloquea.
+        for (TourAddress addr : addresses) {
+            if (addr.getCountry() == null || addr.getState() == null || addr.getCity() == null) {
+                continue; // HOTEL_PICKUP u otra location sin ubicacion fisica, no hay reporte que la cubra.
+            }
+            List<MaritimActivityReport> hits = maritimActivityReportRepository
+                    .findActiveRedReportsForSubcategoryAndLocation(
+                            MaritimeFlagEnum.RED,
+                            tour.getSubCategory().getValue(),
+                            scheduleDate,
+                            addr.getCountry().getId(),
+                            addr.getState().getId(),
+                            addr.getCity().getId());
+            if (!hits.isEmpty()) {
+                MaritimActivityReport report = hits.get(0);
+                throw new OperationNotPermittedException(String.format(
+                        "Tour no disponible en la fecha %s: alerta DIMAR RED vigente para %s en la ubicacion (%s - %s).",
+                        scheduleDate, tour.getSubCategory().getValue(),
+                        report.getReportStartDate(), report.getReportEndDate()));
+            }
+        }
+    }
+
+    /**
      * Agrega un item al carrito de compras.
      * Implementa la lógica de carrito activo único por usuario.
      * 
@@ -175,6 +217,8 @@ public class ShoppingCartService {
                     ? tourRepository.findById(tourSchedule.getTourId()).orElse(null)
                     : null;
             validateTourCapacityForCartRequest(tourSchedule, tour, request.getSlot());
+            // TC-018 (#227) Bug B: guard duro — rechaza si hay reporte DIMAR RED activo.
+            validateNoActiveMaritimeAlert(tour, tourSchedule.getScheduleDate());
         }
 
         // Calcular total price desde los details
@@ -330,6 +374,8 @@ public class ShoppingCartService {
                     ? tourRepository.findById(tourSchedule.getTourId()).orElse(null)
                     : null;
             validateTourCapacityForCartRequest(tourSchedule, tour, request.getSlot());
+            // TC-018 (#227) Bug B: mismo guard que addItemToCart — bulk endpoint tambien.
+            validateNoActiveMaritimeAlert(tour, tourSchedule.getScheduleDate());
         }
 
         // Calcular total price desde los details

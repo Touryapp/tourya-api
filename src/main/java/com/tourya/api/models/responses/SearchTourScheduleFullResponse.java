@@ -82,6 +82,12 @@ public class SearchTourScheduleFullResponse {
         private LocalTime endTime;
         private String status; // Si tienes enum (TourScheduleStatusEnum), cámbialo aquí
         private TourScheduleConfigResponse config; // Config asociada al schedule
+        /**
+         * TC-018 (#227) Bug B: true si existe un reporte DIMAR con flag=RED activo
+         * (subcategoría + ubicación del tour) cuyo rango de fechas contiene el
+         * scheduleDate. El frontend deshabilita el día en el modal de selección.
+         */
+        private Boolean blockedByMaritimeReport;
     }
 
     // ===================== CONFIG =====================
