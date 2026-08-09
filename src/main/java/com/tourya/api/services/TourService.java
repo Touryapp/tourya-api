@@ -331,9 +331,12 @@ public class TourService {
 
         for(TourAddressRequest request : incomingAddressRequests){
             TourAddress tourAddress;
-            Country country = getCountry(request.getCountryId());
-            State state = getState(request.getStateId());
-            City city = getCity(request.getCityId());
+            // TC-017 (#220): country/state/city pueden venir null cuando addressType=HOTEL_PICKUP
+            // (recogida en el hotel del cliente, sin ubicacion fisica). Guard evita
+            // IllegalArgumentException que lanzaria CrudRepository.findById(null) → 500 no manejado.
+            Country country = request.getCountryId() != null ? getCountry(request.getCountryId()) : null;
+            State state = request.getStateId() != null ? getState(request.getStateId()) : null;
+            City city = request.getCityId() != null ? getCity(request.getCityId()) : null;
 
 
             if(request.getId() != null && existingAddressesMap.containsKey(request.getId())){

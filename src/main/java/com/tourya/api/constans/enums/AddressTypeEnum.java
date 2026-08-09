@@ -23,7 +23,9 @@ public enum AddressTypeEnum {
     @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
     public static AddressTypeEnum of(String value) {
         for (AddressTypeEnum e : values()) {
-            if (e.value.equalsIgnoreCase(value)) {
+            // TC-017 (#220): acepta tanto el display value ("Hotel Pickup") como la key ("HOTEL_PICKUP")
+            // para tolerar frontends que envien cualquiera de los dos formatos.
+            if (e.value.equalsIgnoreCase(value) || e.name().equalsIgnoreCase(value)) {
                 return e;
             }
         }
