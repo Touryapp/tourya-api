@@ -130,6 +130,11 @@ public class MaritimActivityReportService {
         LocationRefs location = resolveAndValidateLocation(request);
         validateCategoryAndSubcategory(request.getBusinessCategoryId(), request.getSubcategoryCode());
 
+        // TC-018 (#227) Bug A hipotesis 1: capturar flag previo para saber si esta edicion
+        // TRANSICIONA el reporte a RED. En ese caso debemos publicar MaritimeAlertCreatedEvent
+        // igual que en create(), para que el listener AFTER_COMMIT cancele reservas.
+        MaritimeFlagEnum previousFlag = report.getFlag();
+
         report.setCountry(location.country());
         report.setState(location.state());
         report.setCity(location.city());
@@ -139,7 +144,28 @@ public class MaritimActivityReportService {
         report.setReportStartDate(request.getReportStartDate());
         report.setReportEndDate(request.getReportEndDate());
 
-        return toResponse(maritimActivityReportRepository.save(report));
+        MaritimActivityReport saved = maritimActivityReportRepository.save(report);
+
+        // TC-018 (#227): dispara el hook si el reporte ES RED tras la edicion. Cubre dos casos:
+        //   (a) transicion GREEN/YELLOW -> RED,
+        //   (b) reporte ya RED pero editado (p.ej. cambio de subcategoria, ubicacion o rango
+        //       de fechas) — necesitamos re-evaluar reservas afectadas con los nuevos criterios.
+        // El listener es idempotente por reserva (skip si ya CANCELED).
+        if (saved.getFlag() == MaritimeFlagEnum.RED) {
+            eventPublisher.publishEvent(new MaritimeAlertCreatedEvent(
+                    saved.getId(),
+                    saved.getSubcategoryCode(),
+                    saved.getCountry() != null ? saved.getCountry().getId() : null,
+                    saved.getState() != null ? saved.getState().getId() : null,
+                    saved.getCity() != null ? saved.getCity().getId() : null,
+                    saved.getReportStartDate(),
+                    saved.getReportEndDate(),
+                    saved.getFlag()));
+            log.info("BE-23 MaritimeAlertCreatedEvent published for RED report {} (update, previousFlag={})",
+                    saved.getId(), previousFlag);
+        }
+
+        return toResponse(saved);
     }
 
     @Transactional
