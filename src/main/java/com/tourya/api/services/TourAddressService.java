@@ -46,9 +46,10 @@ public class TourAddressService {
             Provider provider = providerService.findByUserAndStatusActive(user);
             Tour tour = getTour(tourId, provider.getId());
             TourAddress tourAddress = tourAddressMapper.toTourAddress(tourAddressRequest);
-            Country country = getCountry(tourAddressRequest.getCountryId());
-            State state = getState(tourAddressRequest.getStateId());
-            City city = getCity(tourAddressRequest.getCityId());
+            // TC-017 (#220): guard null para HOTEL_PICKUP sin ubicacion fisica.
+            Country country = tourAddressRequest.getCountryId() != null ? getCountry(tourAddressRequest.getCountryId()) : null;
+            State state = tourAddressRequest.getStateId() != null ? getState(tourAddressRequest.getStateId()) : null;
+            City city = tourAddressRequest.getCityId() != null ? getCity(tourAddressRequest.getCityId()) : null;
 
 
             tourAddress.setTour(tour);
@@ -70,9 +71,10 @@ public class TourAddressService {
             List<TourAddress> tourAddressList = new ArrayList<>();
             for(TourAddressRequest tourAddressRequest : tourAddressRequestList){
                 TourAddress tourAddress = tourAddressMapper.toTourAddress(tourAddressRequest);
-                Country country = getCountry(tourAddressRequest.getCountryId());
-                State state = getState(tourAddressRequest.getStateId());
-                City city = getCity(tourAddressRequest.getCityId());
+                // TC-017 (#220): guard null para HOTEL_PICKUP sin ubicacion fisica.
+                Country country = tourAddressRequest.getCountryId() != null ? getCountry(tourAddressRequest.getCountryId()) : null;
+                State state = tourAddressRequest.getStateId() != null ? getState(tourAddressRequest.getStateId()) : null;
+                City city = tourAddressRequest.getCityId() != null ? getCity(tourAddressRequest.getCityId()) : null;
                 tourAddress.setTour(tour);
                 tourAddress.setCountry(country);
                 tourAddress.setState(state);
