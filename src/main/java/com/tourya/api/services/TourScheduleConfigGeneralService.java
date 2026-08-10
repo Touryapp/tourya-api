@@ -223,7 +223,10 @@ public class TourScheduleConfigGeneralService {
                 .filter(PayloadIdUtils::isPersistedId)
                 .toList();
         for (Integer slotId : slotIds) {
-            tourScheduleSlotAvailabilityService.recalculate(slotId);
+            // TC-019 (#231): usar variante REQUIRED — el batch acaba de INSERTar los slots
+            // en esta misma tx y aun no commiteo. REQUIRES_NEW abriria una tx nueva con
+            // connection distinta que no los ve (READ COMMITTED) -> "Slot not found" -> 404.
+            tourScheduleSlotAvailabilityService.recalculateInSameTransaction(slotId);
         }
     }
 

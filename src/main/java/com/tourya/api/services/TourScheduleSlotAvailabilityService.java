@@ -117,9 +117,30 @@ public class TourScheduleSlotAvailabilityService {
      * como rollback-only, revirtiendo TODOS los `save(reservation)` del job
      * (log: `UnexpectedRollbackException: silently rolled back`). Efecto visible:
      * el job decia "Marcadas 11 reservas" pero al hacer commit revertia todo.
+     *
+     * TC-019 (#231): usar `recalculate` desde flujos donde el slot YA esta commiteado
+     * en BD (jobs, cancelaciones post-reserva). Para llamadas desde flujos donde el
+     * slot recien se creo/actualizo en la MISMA tx externa (batch de tour-schedule),
+     * usar `recalculateInSameTransaction` — sino REQUIRES_NEW no ve los INSERTs
+     * pendientes y lanza `ResourceNotFoundException("Slot not found")` -> 404.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recalculate(Integer slotId) {
+        doRecalculate(slotId);
+    }
+
+    /**
+     * TC-019 (#231): variante en la MISMA transaccion del caller. Usada por el batch
+     * de tour-schedule (create/update config) donde los slots recien fueron persistidos
+     * pero aun no commiteados. Si falla, marca la tx externa rollback-only — que es
+     * el comportamiento correcto: un slot faltante en el flujo de creacion es un bug real.
+     */
+    @Transactional
+    public void recalculateInSameTransaction(Integer slotId) {
+        doRecalculate(slotId);
+    }
+
+    private void doRecalculate(Integer slotId) {
         TourScheduleConfigSlot slot = tourScheduleConfigSlotRepository.findById(slotId)
                 .orElseThrow(() -> new ResourceNotFoundException("Slot not found"));
 
