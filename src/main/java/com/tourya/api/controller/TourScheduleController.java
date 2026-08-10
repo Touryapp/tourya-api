@@ -166,8 +166,12 @@ public class TourScheduleController {
     }
 
     @GetMapping("/templates")
-    public ResponseEntity<List<TourScheduleConfigResponse>> getTemplatesByProvider(Authentication connectedUser) {
-        return ResponseEntity.ok(configTemplateService.getConfigTemplatesByProvider(connectedUser));
+    public ResponseEntity<List<TourScheduleConfigResponse>> getTemplatesByProvider(
+            // TC-019 (#231): filtro opcional. Si viene, el SP filtra por sub_category = subCategory
+            // + templates con NULL quedan afuera (no aplican a subcategoria especifica).
+            @RequestParam(value = "subCategory", required = false) String subCategory,
+            Authentication connectedUser) {
+        return ResponseEntity.ok(configTemplateService.getConfigTemplatesByProvider(connectedUser, subCategory));
     }
 
     @PutMapping("/tours/{tourId}/percentage")

@@ -113,6 +113,15 @@ public class TourScheduleConfigGeneralService {
 
         config.setDaysOfWeek(new ArrayList<>(request.getDaysOfWeek()));
         config.setIsTemplate(request.getIsTemplate());
+        // TC-019 (#231): parsea el string subCategory al enum si viene. Tolera valores
+        // desconocidos (silent skip) — el frontend valida el catalogo.
+        if (request.getSubCategory() != null && !request.getSubCategory().isBlank()) {
+            try {
+                config.setSubCategory(com.tourya.api.constans.enums.TourSubCategoryEnum.of(request.getSubCategory()));
+            } catch (Exception ex) {
+                // Silent skip: subCategory desconocida no bloquea la creacion (retrocompatible).
+            }
+        }
         return config;
     }
 
@@ -234,6 +243,14 @@ public class TourScheduleConfigGeneralService {
         existingConfig.setLabel(request.getLabel());
         existingConfig.setDaysOfWeek(new ArrayList<>(request.getDaysOfWeek()));
         existingConfig.setIsTemplate(request.getIsTemplate()); // <-- Mapear isTemplate
+        // TC-019 (#231): permitir editar la subcategoria del template.
+        if (request.getSubCategory() != null && !request.getSubCategory().isBlank()) {
+            try {
+                existingConfig.setSubCategory(com.tourya.api.constans.enums.TourSubCategoryEnum.of(request.getSubCategory()));
+            } catch (Exception ex) {
+                // Silent skip.
+            }
+        }
     }
 
     /**

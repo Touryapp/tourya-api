@@ -22,8 +22,14 @@ public class TourConfigTemplateServiceImpl implements TourConfigTemplateService 
 
     @Override
     public List<TourScheduleConfigResponse> getConfigTemplatesByProvider(Authentication connectedUser) {
+        return getConfigTemplatesByProvider(connectedUser, null);
+    }
+
+    @Override
+    public List<TourScheduleConfigResponse> getConfigTemplatesByProvider(Authentication connectedUser, String subCategory) {
         User user = ((User) connectedUser.getPrincipal());
         Provider provider = providerService.findByUserAndStatusActive(user);
-        return repository.findByProviderId(provider);
+        String normalized = (subCategory != null && !subCategory.isBlank()) ? subCategory : null;
+        return repository.findByProviderIdAndSubCategory(provider, normalized);
     }
 }

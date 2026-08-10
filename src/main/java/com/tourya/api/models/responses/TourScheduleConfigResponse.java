@@ -16,4 +16,6 @@ public class TourScheduleConfigResponse {
     private String label;
     private List<String> daysOfWeek;
     private Set<TourScheduleSlotResponse> slots = new HashSet<>();
+    // TC-019 (#231): permite al frontend saber a que subcategoria aplica el template.
+    private String subCategory;
 }

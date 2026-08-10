@@ -27,4 +27,8 @@ public class TourScheduleConfigCreationRequest {
     @Valid // Habilita la validación anidada de los slots
     @NotEmpty(message = "La configuración debe tener al menos un slot de horario")
     private Set<TourScheduleConfigSlotDto> slots = new HashSet<>(); // CAMBIO: De List a Set, inicialización
+
+    // TC-019 (#231): subcategoria que aplica al template. Nullable (retrocompatible con
+    // clientes viejos). El frontend usa el valor del enum tal como se guarda en tour.sub_category.
+    private String subCategory;
 }

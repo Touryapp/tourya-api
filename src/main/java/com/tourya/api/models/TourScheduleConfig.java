@@ -1,6 +1,8 @@
 package com.tourya.api.models;
 
 import com.tourya.api.common.BaseEntity;
+import com.tourya.api.constans.enums.TourSubCategoryEnum;
+import com.tourya.api.constans.enums.TourSubCategoryEnumConverter;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
@@ -62,4 +64,10 @@ public class TourScheduleConfig extends BaseEntity {
 
     @Column(name = "is_template")
     private Boolean isTemplate;
+
+    // TC-019 (#231): subcategoria que aplica al template. NULL para templates legacy
+    // (creados antes de esta feature). El dropdown filtra por subCategory del tour.
+    @Convert(converter = TourSubCategoryEnumConverter.class)
+    @Column(name = "sub_category", columnDefinition = "tour_subcategory_enum")
+    private TourSubCategoryEnum subCategory;
 }
