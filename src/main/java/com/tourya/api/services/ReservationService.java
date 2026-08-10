@@ -1212,6 +1212,11 @@ public class ReservationService {
      */
     @Transactional
     public void cancelAffectedByRedAlert(MaritimeAlertCreatedEvent event) {
+        // TC-018 (#227 reabierto): log INFO detallado del inicio para diagnostico via Cloud Run logs.
+        log.info("BE-23 START cancelAffectedByRedAlert reportId={}, subcat={}, country={}, state={}, city={}, dates={}..{}, flag={}",
+                event.reportId(), event.subcategoryCode(), event.countryId(),
+                event.stateId(), event.cityId(), event.startDate(), event.endDate(), event.flag());
+
         com.tourya.api.constans.enums.TourSubCategoryEnum subCategory;
         try {
             subCategory = com.tourya.api.constans.enums.TourSubCategoryEnum.of(event.subcategoryCode());
@@ -1239,6 +1244,10 @@ public class ReservationService {
                 event.startDate(),
                 event.endDate(),
                 openStatuses);
+
+        // TC-018 (#227 reabierto): log del count antes del loop para saber si el query encontro reservas.
+        log.info("BE-23 alert {} query returned {} affected reservations (statuses={})",
+                event.reportId(), affected.size(), openStatuses);
 
         if (affected.isEmpty()) {
             log.info("BE-23 no affected reservations for alert {}", event.reportId());
