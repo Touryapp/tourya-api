@@ -55,6 +55,14 @@ public class MaritimActivityReportService {
         // FE-15b + H2: hasta ahora el endpoint POST /maritime-activity-reports
         // solo pedia authenticated() en SecurityConfig — cualquier usuario podia
         // crear reportes DIMAR. Restringido a ADMIN + BACKOFFICE_OPERATION (Luis P2 opción C).
+
+        // TC-018 (#227 3ra iter): log de entrada — Luis reporto que el hook no dispara aunque
+        // el reporte se cree con flag=RED. Instrumentacion para saber si `create()` corre
+        // y con que flag llega el request antes de cualquier validacion.
+        log.info("BE-23 create() called with flag={} subcategory={} dates={}..{}",
+                request.getFlag(), request.getSubcategoryCode(),
+                request.getReportStartDate(), request.getReportEndDate());
+
         requireBackoffice(authentication);
         validateReportDates(request.getReportStartDate(), request.getReportEndDate());
         LocationRefs location = resolveAndValidateLocation(request);
@@ -73,6 +81,10 @@ public class MaritimActivityReportService {
 
         MaritimActivityReport saved = maritimActivityReportRepository.save(report);
 
+        // TC-018 (#227 3ra iter): log del save + evaluacion del if.
+        log.info("BE-23 saved report id={}, flag={}, isRed={}",
+                saved.getId(), saved.getFlag(), saved.getFlag() == MaritimeFlagEnum.RED);
+
         // BE-23: al crear un reporte RED, publicar evento para que un listener
         // AFTER_COMMIT + @Async cancele las reservas afectadas + genere creditos.
         // Solo se dispara para RED — GREEN/YELLOW son informativos.
@@ -87,6 +99,8 @@ public class MaritimActivityReportService {
                     saved.getReportEndDate(),
                     saved.getFlag()));
             log.info("BE-23 MaritimeAlertCreatedEvent published for RED report {}", saved.getId());
+        } else {
+            log.info("BE-23 skipping event publish for report {} — flag is {}", saved.getId(), saved.getFlag());
         }
 
         return toResponse(saved);
