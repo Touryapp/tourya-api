@@ -27,10 +27,17 @@ public class TourConfigTemplateRepository {
         this.objectMapper = objectMapper;
     }
     public List<TourScheduleConfigResponse> findByProviderId(Provider provider) {
+        return findByProviderIdAndSubCategory(provider, null);
+    }
+
+    // TC-019 (#231): filtro opcional por subcategoria. Si viene null, devuelve todos los
+    // templates del provider. Si viene, filtra por c.sub_category = subCategory en el SP.
+    public List<TourScheduleConfigResponse> findByProviderIdAndSubCategory(Provider provider, String subCategory) {
         Integer  providerId = provider.getId();
 
-        Query query = entityManager.createNativeQuery("SELECT get_templates_by_provider(:providerId)");
+        Query query = entityManager.createNativeQuery("SELECT get_templates_by_provider(:providerId, :subCategory)");
         query.setParameter("providerId", providerId);
+        query.setParameter("subCategory", subCategory);
 
         List<String> results = query.getResultList();
         if (results == null || results.isEmpty()) {
