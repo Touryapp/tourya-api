@@ -6,6 +6,7 @@ import com.tourya.api.constans.enums.TourSubCategoryEnumConverter;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
+import org.hibernate.annotations.ColumnTransformer;
 
 import java.time.LocalDate;
 import java.util.HashSet;
@@ -67,7 +68,10 @@ public class TourScheduleConfig extends BaseEntity {
 
     // TC-019 (#231): subcategoria que aplica al template. NULL para templates legacy
     // (creados antes de esta feature). El dropdown filtra por subCategory del tour.
+    // TC-019 hotfix: @ColumnTransformer con cast explicito ?::tour_subcategory_enum —
+    // sin esto el driver JDBC manda varchar y PG rechaza (mismo pattern que Tour.subCategory).
     @Convert(converter = TourSubCategoryEnumConverter.class)
     @Column(name = "sub_category", columnDefinition = "tour_subcategory_enum")
+    @ColumnTransformer(write = "?::tour_subcategory_enum")
     private TourSubCategoryEnum subCategory;
 }
