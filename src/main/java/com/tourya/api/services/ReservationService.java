@@ -966,6 +966,23 @@ public class ReservationService {
      * @return Una página de {@link ReservationDetailsResponse}.
      */
     @Transactional(readOnly = true)
+    /**
+     * TC-021 (#236): true si la scheduleDate esta a >= 2 dias del hoy Colombia.
+     * Cuando returns true, el flow debe ocultar datos personales del cliente al PROVIDER.
+     * Fail-closed: si no puede parsear scheduleDate, esconde (mejor privacidad).
+     */
+    private boolean shouldHideCustomerData(String scheduleDate) {
+        if (scheduleDate == null || scheduleDate.isBlank()) return true;
+        try {
+            LocalDate schedule = LocalDate.parse(scheduleDate.substring(0, Math.min(10, scheduleDate.length())));
+            LocalDate today = LocalDate.now(BOGOTA);
+            long diffDays = java.time.temporal.ChronoUnit.DAYS.between(today, schedule);
+            return diffDays > 1;
+        } catch (Exception ex) {
+            return true;
+        }
+    }
+
     public PageResponse<ReservationDetailsResponse> getProviderReservations(
             int page,
             int size,
@@ -1013,14 +1030,32 @@ public class ReservationService {
                         size
                 );
 
+        // TC-021 (#236): scrub datos personales del cliente cuando caller es PROVIDER
+        // (no ADMIN/BACKOFFICE) y falta mas de 1 dia para el scheduleDate. Defense-in-depth
+        // del guard frontend en provider-tour-management (canSeeCustomerData). Evita que
+        // un provider bypass la UI llamando /reservations?providerId=X directamente.
+        boolean scrubCustomerData = Utils.isProviderSide(roles) && !Utils.isTouryaBackoffice(roles);
+
         for (ReservationDetailsResponse reservation : content) {
             enrichCustomerProfileImage(reservation);
+
+            if (scrubCustomerData && shouldHideCustomerData(reservation.getScheduleDate())) {
+                reservation.setPayerName(null);
+                reservation.setPayerEmail(null);
+                reservation.setPayerPhone(null);
+                reservation.setPayerDocumentType(null);
+                reservation.setPayerDocumentNumber(null);
+                reservation.setServiceResponsibleName(null);
+                reservation.setServiceResponsibleEmail(null);
+                reservation.setServiceResponsiblePhone(null);
+            }
+
             try {
                 RescheduleValidationResponse validation = validateRescheduleReservation(
                         reservation.getReservationId(), connectedUser);
                 reservation.setCanReschedule(validation.getCanReschedule());
             } catch (Exception e) {
-                log.warn("Error validating reschedule for reservation {}: {}", 
+                log.warn("Error validating reschedule for reservation {}: {}",
                         reservation.getReservationId(), e.getMessage());
                 reservation.setCanReschedule(false);
             }
