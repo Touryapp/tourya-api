@@ -53,7 +53,10 @@ public class TemporalReservationExpiryJob {
      */
     @Scheduled(fixedDelayString = "${tourya.temporalReservationExpiry.fixedDelayMs:60000}")
     public void expireTemporalReservations() {
-        LocalDateTime now = LocalDateTime.now(java.time.ZoneId.of("UTC"));
+        // TC-020 (#235 bug c): usar timezone Colombia — consistente con expiresAt guardado
+        // en Bogota desde ReservationService. Sin esto, la comparacion now vs expires_at
+        // desfasaba 5h y las reservas se expiraban tarde o temprano segun timezone.
+        LocalDateTime now = LocalDateTime.now(java.time.ZoneId.of("America/Bogota"));
         List<Reservation> expired = reservationRepository.findExpiredTemporalReservations(now);
         if (expired.isEmpty()) return;
 

@@ -132,7 +132,10 @@ public class ReservationService {
         // Usar una referencia consistente (UTC) para evitar expiraciones inmediatas por desfase de zona horaria
         // Duracion del hold desde app_config (fallback 15 min si la key no esta seteada)
         int holdMinutes = appConfigService.getInt(ConfigKeyEnum.HOLD_MINUTES, 15);
-        LocalDateTime expiresAt = LocalDateTime.now(java.time.ZoneId.of("UTC")).plusMinutes(holdMinutes);
+        // TC-020 (#235 bug c): usar timezone Colombia — el server corre en UTC pero la
+        // aplicacion es en Colombia. Sin esto, LocalDateTime almacena UTC pero el
+        // frontend lo interpreta como hora local -> mostraba horas +5h del real.
+        LocalDateTime expiresAt = LocalDateTime.now(BOGOTA).plusMinutes(holdMinutes);
 
         List<Long> requestedItemIds = new ArrayList<>();
         Map<Long, CreateTemporalReservationHoldRequest.ServiceResponsibleRequest> responsibleByItemId =
@@ -187,7 +190,8 @@ public class ReservationService {
                         "Falta responsable del servicio para el item del carrito: " + item.getId());
             }
             java.math.BigDecimal totalAmount = item.getTotalPrice() != null ? item.getTotalPrice() : java.math.BigDecimal.ZERO;
-            LocalDateTime reservationDateUtc = LocalDateTime.now(java.time.ZoneId.of("UTC"));
+            // TC-020 (#235 bug c): usar timezone Colombia (BOGOTA constant a nivel clase).
+            LocalDateTime reservationDateUtc = LocalDateTime.now(BOGOTA);
             Reservation reservation = Reservation.builder()
                     .paymentId(null) // Se setea en payment al confirmar
                     .itemId(item.getId())

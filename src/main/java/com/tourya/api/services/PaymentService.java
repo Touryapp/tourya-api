@@ -281,7 +281,8 @@ public class PaymentService {
     private List<Reservation> confirmTemporalReservations(Payment payment,
                                                          List<Reservation> reservationsToPay) {
         // Mantener coherencia con creación del hold (UTC) para evitar falsos expirados por zona horaria
-        java.time.LocalDateTime now = java.time.LocalDateTime.now(java.time.ZoneId.of("UTC"));
+        // TC-020 (#235 bug c): usar timezone Colombia — la aplicacion es en Colombia.
+        java.time.LocalDateTime now = java.time.LocalDateTime.now(java.time.ZoneId.of("America/Bogota"));
         List<Reservation> confirmed = new java.util.ArrayList<>();
 
         for (Reservation reservation : reservationsToPay) {
