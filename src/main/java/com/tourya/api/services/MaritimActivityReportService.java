@@ -46,6 +46,10 @@ public class MaritimActivityReportService {
     private final StateRepository stateRepository;
     private final CityRepository cityRepository;
     private final ApplicationEventPublisher eventPublisher; // BE-23
+    // TC-018 (#227 3ra iter): llamado directo — el listener AFTER_COMMIT no dispara
+    // en el pod dev (confirmado con logs: "published" aparece pero "LISTENER FIRED" no).
+    // Bypass del event bus llamando el service directamente. Idempotente por reserva.
+    private final ReservationService reservationService;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -89,7 +93,7 @@ public class MaritimActivityReportService {
         // AFTER_COMMIT + @Async cancele las reservas afectadas + genere creditos.
         // Solo se dispara para RED — GREEN/YELLOW son informativos.
         if (saved.getFlag() == MaritimeFlagEnum.RED) {
-            eventPublisher.publishEvent(new MaritimeAlertCreatedEvent(
+            MaritimeAlertCreatedEvent event = new MaritimeAlertCreatedEvent(
                     saved.getId(),
                     saved.getSubcategoryCode(),
                     saved.getCountry() != null ? saved.getCountry().getId() : null,
@@ -97,8 +101,22 @@ public class MaritimActivityReportService {
                     saved.getCity() != null ? saved.getCity().getId() : null,
                     saved.getReportStartDate(),
                     saved.getReportEndDate(),
-                    saved.getFlag()));
+                    saved.getFlag());
+            // Publicamos el evento (por si un listener externo lo necesita en el futuro).
+            eventPublisher.publishEvent(event);
             log.info("BE-23 MaritimeAlertCreatedEvent published for RED report {}", saved.getId());
+
+            // TC-018 (#227 3ra iter): llamado DIRECTO al service. El listener
+            // @TransactionalEventListener(AFTER_COMMIT) no dispara en el pod dev
+            // aunque el evento se publique. Llamado directo garantiza que la cancelacion
+            // ocurra. Try/catch para que un fallo del hook no rompa la creacion del reporte.
+            try {
+                reservationService.cancelAffectedByRedAlert(event);
+                log.info("BE-23 direct call cancelAffectedByRedAlert completed for report {}", saved.getId());
+            } catch (Exception ex) {
+                log.warn("BE-23 direct call cancelAffectedByRedAlert failed for report {}: {}",
+                        saved.getId(), ex.getMessage(), ex);
+            }
         } else {
             log.info("BE-23 skipping event publish for report {} — flag is {}", saved.getId(), saved.getFlag());
         }
@@ -166,7 +184,7 @@ public class MaritimActivityReportService {
         //       de fechas) — necesitamos re-evaluar reservas afectadas con los nuevos criterios.
         // El listener es idempotente por reserva (skip si ya CANCELED).
         if (saved.getFlag() == MaritimeFlagEnum.RED) {
-            eventPublisher.publishEvent(new MaritimeAlertCreatedEvent(
+            MaritimeAlertCreatedEvent event = new MaritimeAlertCreatedEvent(
                     saved.getId(),
                     saved.getSubcategoryCode(),
                     saved.getCountry() != null ? saved.getCountry().getId() : null,
@@ -174,9 +192,20 @@ public class MaritimActivityReportService {
                     saved.getCity() != null ? saved.getCity().getId() : null,
                     saved.getReportStartDate(),
                     saved.getReportEndDate(),
-                    saved.getFlag()));
+                    saved.getFlag());
+            eventPublisher.publishEvent(event);
             log.info("BE-23 MaritimeAlertCreatedEvent published for RED report {} (update, previousFlag={})",
                     saved.getId(), previousFlag);
+
+            // TC-018 (#227 3ra iter): mismo direct call que en create() — el listener
+            // AFTER_COMMIT no dispara. Llamado directo garantiza cancelacion.
+            try {
+                reservationService.cancelAffectedByRedAlert(event);
+                log.info("BE-23 direct call cancelAffectedByRedAlert completed for report {} (update)", saved.getId());
+            } catch (Exception ex) {
+                log.warn("BE-23 direct call cancelAffectedByRedAlert failed for report {} (update): {}",
+                        saved.getId(), ex.getMessage(), ex);
+            }
         }
 
         return toResponse(saved);
