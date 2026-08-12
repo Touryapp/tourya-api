@@ -603,6 +603,61 @@ Cuando un provider avisa que no puede atender una reserva ya pagada (aviso de ú
 
 **Aplica a**: PROVIDER y `PROVIDER_OPERATOR` — ambos tienen el permiso "Confirmar reservas (QR)" según matriz doc 03:175.
 
+### RN-057 — Reportes DIMAR con flag RED son inmutables (TC-018 #227, ciclo agosto 2026)
+✅ Al crear un `MaritimActivityReport` con `flag = RED`, el sistema cancela retroactivamente todas las reservas afectadas (misma `subCategory` + geografía + rango de fechas) y genera `Credit` a favor de cada turista. Este efecto es **irreversible** — no hay endpoint para "deshacer" la alerta ni para cancelar los créditos generados.
+
+**Consecuencia operativa**:
+- El BACKOFFICE debe **confirmar explícitamente** antes de guardar un reporte con flag=RED (modal en frontend PR #70 FE-15c).
+- Editar un reporte existente para llevarlo a RED (`update`) **también dispara** la cancelación (fix del Bug A en PR #229). Antes solo `create` disparaba el hook.
+- Las reservas con status `RESCHEDULED` **también** se cancelan (fix del Bug A en PR #229; antes solo `PENDING`).
+- Además del hook retroactivo, el `sp_get_tour_schedule_json` marca los días bloqueados con `blockedByMaritimeReport = true` (migración 085) y `ShoppingCartService.addItemToCart` rechaza el add si el cliente logra bypassear el frontend (**hard guard** — Bug B, PR #230).
+
+**Implementación** (5 iteraciones — ver TC-018 en doc 17):
+- El hook original con `@Async @TransactionalEventListener(AFTER_COMMIT)` **nunca se ejecutó** en producción por interacción con el `@Transactional` del service.
+- Fix final PR #239: **direct call** desde `MaritimActivityReportService.create/update` a `ReservationService.cancelAffectedByRedAlert()`. Bypass del listener.
+- Lección: eventos async son frágiles cuando el flujo también es async; el direct call gana cuando el "eventualmente" es inaceptable.
+
+### RN-058 — PROVIDER no ve datos del cliente hasta 1 día antes del tour (TC-021 #236, ciclo agosto 2026)
+✅ Cuando el rol es PROVIDER puro y falta **más de 1 día** para el tour (`reservationDate.toLocalDate() - today(Bogota) > 1`), los campos con datos del cliente se ocultan en el response:
+- `payerName`, `payerEmail`, `payerPhone`, `payerDocumentNumber` (datos del pagador Wompi).
+- `serviceResponsibleName`, `serviceResponsibleEmail`, `serviceResponsiblePhone` (responsable del servicio).
+
+**Motivación** (Luis TC-021): protección de datos personales del turista + evita que el provider contacte antes de tiempo o filtre datos. A partir del día anterior al tour, el provider necesita coordinar logística (hora exacta, punto de encuentro, allergias, etc.) y ahí sí ve todo.
+
+**Roles exceptuados**: ADMIN y `BACKOFFICE_OPERATION` ven los datos siempre (auditoría/soporte).
+
+**Implementación**:
+- Backend: `sp_get_provider_reservations` retorna las columnas siempre; el filtrado por rol y ventana temporal ocurre en Java (`ReservationService` post-mapping) antes de responder. Ver PR #241.
+- Frontend: tourya-front PR #106 hace mirror del scrub en las 4 vistas donde se muestran los datos del turista.
+
+**Zona horaria**: `America/Bogota` (ver [RN-060](#rn-060--fechas-del-sistema-en-zona-horaria-americabogota-tc-020-235-ciclo-agosto-2026)).
+
+### RN-059 — Tours siempre se guardan con nombre/descripción en `es` (TC-017 #220 opción B, ciclo agosto 2026)
+✅ Cuando un PROVIDER crea o edita un tour desde la UI en cualquier idioma (`es/en/pt`), el campo `TranslatedField` (`tour.name`, `tour.description`, etc.) siempre se persiste con el valor en el slot `es` — incluso si el PROVIDER escribió el texto en inglés o portugués.
+
+**Motivación** (Luis TC-017): el fallback automático del sistema es al español (RN-053). Si el PROVIDER crea un tour con UI en inglés y solo llena el slot `en`, el turista con UI en español ve string vacío. La opción B garantiza que siempre exista `es` (posiblemente igual al texto en el idioma que el provider escribió), consistente con el constraint DB `tour_name_es_required` (doc 08 §Constraints).
+
+**Alternativa descartada** (opción A): validación estricta que exige llenar `es` explícitamente. Rechazada por fricción en el wizard.
+
+**Implementación**: frontend tourya-front PR #107 — al armar el payload del tour, si el usuario está en `en/pt`, copia el texto también al slot `es` antes de mandar al backend. Backend intacto — el constraint DB lo garantiza post-facto.
+
+### RN-060 — Fechas del sistema en zona horaria America/Bogota (TC-020 #235, ciclo agosto 2026)
+✅ Toda fecha/hora generada por el backend (auditoría, reservationDate post-pago, jobs cron, guards temporales) se resuelve en `ZoneId.of("America/Bogota")`. Cloud Run corre por default en UTC — sin este forzado, `LocalDateTime.now()` "bare" (~28 sitios en services + jobs) tenía offset de 5 horas respecto al calendario del turista.
+
+**Efecto en negocio**:
+- El botón "Confirmar reserva" del PROVIDER (RN-056) ya no se activa "el día anterior" a las 19:00 Bogota por confundir con el UTC de medianoche.
+- `PendingReservationNoShowJob` (cron 7am) corre a las 7am Bogota real (antes 7am UTC = 2am Bogota).
+- `CreditExpirationJob` (5am Bogota) idem.
+- Audit `@CreatedDate`/`@LastModifiedDate` refleja hora Colombia (útil para soporte al leer logs).
+
+**Implementación** (PR #244, 2 capas):
+1. **Container/JVM**: `Dockerfile` instala `tzdata` + `ENV TZ=America/Bogota` + `-Duser.timezone=America/Bogota` en el ENTRYPOINT. Ver [doc 13 §Dockerfile](13-despliegue-cicd.md).
+2. **JPA Auditing**: `JpaAuditingConfig` expone un bean `DateTimeProvider` que retorna `LocalDateTime.now(BOGOTA)` — Spring Data JPA lo usa al poblar `@CreatedDate`/`@LastModifiedDate` (redundancia con la TZ del JVM, pero garantiza que si algún día se cambia la TZ del container, la auditoría permanece en Bogota).
+
+**Fix previo relacionado** (RN-056 / TC-007): `ReservationService.computeCanConfirmReservation` y `consumeReservation` ya usaban `LocalDate.now(BOGOTA)` explícitamente. RN-060 es la solución general para todos los `now()` bare del proyecto.
+
+**Ámbito**: aplica a **dev** y **prod** (mismo Dockerfile, ambos containers). Los desarrolladores locales dependen de la TZ de su máquina.
+
 ---
 
 ## Cosas que no son reglas, pero son inferencias importantes

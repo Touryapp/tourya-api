@@ -127,16 +127,29 @@ Tourya usa **dos mecanismos combinados**:
 |-----|-------------|
 | `USER` | Turista. Asignado al registrarse. |
 | `PROVIDER` | Operador titular. Asignado al aprobar KYB. |
-| `PROVIDER_OPERATOR` | Sub-usuario del PROVIDER. |
-| `ADMIN` | Admin Tourya (asignación manual en BD). |
-| `BACKOFFICE_OPERATION` | Operación Tourya (precios, payouts). |
+| `PROVIDER_OPERATOR` | Sub-usuario del PROVIDER. Ver [RN-058](05-reglas-de-negocio.md#rn-058) — no ve datos del cliente hasta 1 día antes del tour. |
+| `ADMIN` | Admin Tourya (asignación manual en BD). Menú admin completo en todas las vistas. |
+| `BACKOFFICE_OPERATION` | Operación Tourya (subset ver [FE-15b/c](17-backlog-implementacion.md)): ver reservas, subir pagos, gestionar reportes DIMAR. |
 
 ### Filtrado por scope
 
 ✅ El backend filtra automáticamente:
-- PROVIDER ve solo SUS tours/reservas/payouts (filtro por `providerId` del JWT).
-- PROVIDER_OPERATOR ve solo los tours que tiene asignados (`provider_user_tour`).
+- PROVIDER ve solo SUS tours/reservas/payouts (filtro por `providerId` del JWT). Además, datos del cliente ofuscados hasta 1 día antes del tour ([RN-058](05-reglas-de-negocio.md#rn-058)).
+- PROVIDER_OPERATOR ve solo los tours que tiene asignados (`provider_user_tour`). Mismo scrub que PROVIDER.
 - USER ve solo SUS reservas/créditos/wishlist.
+- ADMIN y BACKOFFICE_OPERATION ven todo (auditoría/soporte). `Utils.isTouryaBackoffice()` es el helper canónico.
+
+### Layout admin — sidebar por rol (TC-008 #195, ciclo agosto 2026)
+
+Al desplegar FE-15b/c (`BackofficeGuard` en Angular), aparecieron dos regresiones que llevaron al **TC-008 #195**:
+1. El sidebar admin se perdía al navegar entre vistas admin (no persistente en shell).
+2. El ADMIN entraba a `/admin/bookings-management` y veía solo los 3 items del subset BACKOFFICE (perdía acceso al resto del panel admin).
+
+**Fix definitivo** (tourya-front PRs #96, #109):
+- **Sidebar persistente**: se mueve al shell del `/admin/*` para que las navegaciones internas no lo remonten.
+- **Items por rol**: `ADMIN` mantiene TODO el menú admin en todas las vistas admin. `BACKOFFICE_OPERATION` ve solo 3 items (reservas, payouts, DIMAR). Los guards de ruta (`AdminGuard` vs `BackofficeGuard`) siguen aplicando — solo cambia la visibilidad del menú.
+
+**Regla operativa**: cuando se agregue una ruta admin nueva, decidir explícitamente si `BACKOFFICE_OPERATION` puede verla; por default va con `AdminGuard` (solo ADMIN).
 
 ---
 

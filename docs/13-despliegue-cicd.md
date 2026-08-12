@@ -202,30 +202,52 @@ gcloud beta builds triggers create github \
 
 ## Dockerfile (`tourya-api`)
 
-Multi-stage build:
+Multi-stage build. Estado actual tras TC-020 #235 (2026-08-11):
 
 ```Dockerfile
 # Stage 1: Build
-FROM maven:3.9.4-amazoncorretto-17 AS build
-COPY . /app
+FROM maven:3.9.4-eclipse-temurin-17 AS build
 WORKDIR /app
-RUN ./mvnw clean package -DskipTests
+COPY pom.xml .
+COPY src ./src
+RUN mvn clean package -DskipTests
 
 # Stage 2: Runtime
-FROM openjdk:17-jdk-slim
-COPY --from=build /app/target/*.jar /app/app.jar
-COPY nginx.conf.template /etc/nginx/conf.d/default.conf.template
-EXPOSE ${PORT:-8088}
-CMD ["sh", "-c", "envsubst < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && java -jar /app/app.jar"]
+FROM eclipse-temurin:17-jre-jammy
+
+# TC-020 #235 bug (c): forzar TZ Bogota en el container y en el JVM
+# Cloud Run defaults to UTC; sin esto, LocalDateTime.now() bare (~28 sitios en
+# services + jobs) resolvía a UTC en dev/prod → offset de 5h respecto al calendario
+# del turista. Ver RN-060 en doc 05.
+RUN apt-get update && apt-get install -y --no-install-recommends tzdata && rm -rf /var/lib/apt/lists/*
+ENV TZ=America/Bogota
+
+WORKDIR /app
+COPY --from=build /app/target/*SNAPSHOT.jar app.jar
+EXPOSE 8088
+ENTRYPOINT ["java", "-XX:+UnlockExperimentalVMOptions", "-XX:+UseContainerSupport", \
+            "-Djava.security.egd=file:/dev/./urandom", "-Duser.timezone=America/Bogota", \
+            "-jar", "/app/app.jar"]
 ```
 
 ### Nota sobre `PORT` env var
 
-✅ El Dockerfile usa `${PORT}` para que sea compatible con:
-- **AWS EC2**: `PORT=80` (default).
-- **GCP Cloud Run**: GCP inyecta `PORT=8080`.
+✅ Cloud Run inyecta `PORT=8080`. El backend Spring Boot lee `SERVER_PORT` desde `application.properties`; en Cloud Run se mapea al puerto expuesto. La entrada AWS EC2 fue retirada (ver `develop` post-migración GCP 2026-07).
 
-`nginx.conf` también usa `${PORT}` template, con `envsubst` al startup.
+### Timezone (TC-020 #235, ciclo agosto 2026)
+
+Cadena de defensa en profundidad para garantizar hora Colombia en toda fecha generada por el backend:
+
+1. **Container OS**: `tzdata` instalado + `ENV TZ=America/Bogota` → `/etc/localtime` apunta a `America/Bogota`.
+2. **JVM**: `-Duser.timezone=America/Bogota` en el `ENTRYPOINT` (redundante con TZ; garantiza el fallback si algún proceso spring lee la propiedad directamente).
+3. **JPA Auditing**: `JpaAuditingConfig` expone bean `DateTimeProvider` que retorna `LocalDateTime.now(BOGOTA)`. Spring Data JPA lo usa al poblar `@CreatedDate/@LastModifiedDate`.
+
+**Impacto operativo**:
+- Antes: `PendingReservationNoShowJob` cron "7am" corría a las 2am Bogota (7am UTC).
+- Después: corre a las 7am Bogota real (12pm UTC).
+- Igual para `CreditExpirationJob` (5am), `TourReminder24hJob` (8am), y todos los `now()` bare en `ReservationService`.
+
+Ver [RN-060 en doc 05](05-reglas-de-negocio.md#rn-060).
 
 ---
 
