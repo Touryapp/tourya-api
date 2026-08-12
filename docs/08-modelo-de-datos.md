@@ -1,6 +1,6 @@
 # 08 — Modelo de datos
 
-Schema PostgreSQL de Tourya: 68 tablas, 61 migraciones, ~20 stored procedures, índices, JSONB para i18n.
+Schema PostgreSQL de Tourya: 68 tablas, 88 migraciones, ~20 stored procedures, índices, JSONB para i18n.
 
 > Referencia complementaria: [04 — Entidades de dominio](04-entidades-dominio.md) para el lado JPA.
 
@@ -11,12 +11,12 @@ Schema PostgreSQL de Tourya: 68 tablas, 61 migraciones, ~20 stored procedures, �
 | Métrica | Valor |
 |---------|-------|
 | Total tablas | 68 |
-| Total migraciones aplicadas | 61 (numeradas `001_` a `061_`) |
+| Total migraciones aplicadas | 88 (numeradas `001_` a `088_`) |
 | Stored procedures de negocio | ~14 |
 | UUID helper functions | 6 (extensión `uuid-ossp`) |
 | Total índices | ~52 |
 | Tablas con columnas JSONB | 12 |
-| Tipos ENUM nativos PostgreSQL | 10+ |
+| Tipos ENUM nativos PostgreSQL | 11+ (incluye `tour_subcategory_enum` en `tour_schedule_config` desde migración 086) |
 
 ---
 
@@ -49,8 +49,13 @@ Schema PostgreSQL de Tourya: 68 tablas, 61 migraciones, ~20 stored procedures, �
 | `country` | Países |
 | `state` | Departamentos (Colombia tiene 32) |
 | `city` | Municipios |
-| `tour_address` | Direcciones de tours (encuentro, finalización, recogida) |
+| `tour_address` | Direcciones de tours (encuentro, finalización, recogida, **Hotel Pickup**) |
 | `provider` | Datos del operador (incluye dirección, RNT, NIT) |
+
+> 📌 **Cambio TC-017 (#220) — Hotel Pickup** (migración 087, 2026-08-11):
+> - `tour_address.country_id`, `state_id`, `city_id` pasan de `NOT NULL` a **NULLABLE**.
+> - Nuevo `CHECK constraint tour_address_geo_required_unless_hotel_pickup`: solo `address_type = 'Hotel Pickup'` admite los 3 geo IDs en NULL. Cualquier otro valor de `address_type` mantiene la exigencia previa (los 3 NOT NULL).
+> - Nuevo valor `HOTEL_PICKUP` en el enum `address_type` (display value: `"Hotel Pickup"`). Ver [RN — Hotel Pickup en doc 05](05-reglas-de-negocio.md) y [TC-017 en doc 17](17-backlog-implementacion.md).
 
 ### Tour core (8 tablas)
 
@@ -87,11 +92,15 @@ Schema PostgreSQL de Tourya: 68 tablas, 61 migraciones, ~20 stored procedures, �
 | Tabla | Propósito |
 |-------|-----------|
 | `tour_schedule` | Instancia concreta del tour en una fecha |
-| `tour_schedule_config` | Plantilla reutilizable |
+| `tour_schedule_config` | Plantilla reutilizable (**TC-019**: nueva columna `sub_category tour_subcategory_enum NULL` — migración 086) |
 | `tour_schedule_config_slot` | Franja horaria (capacity, bookings) |
 | `tour_schedule_config_price` | Precio por ageType (ADULT/CHILD/INFANT) |
 | `tour_schedule_price_override` | Override de precio por slot/fecha |
 | `tour_schedule_slot_price_override` | (variante) override slot |
+
+> 📌 **Cambio TC-019 (#231)** (migración 086, 2026-08-10): `tour_schedule_config.sub_category` permite filtrar templates por subcategoría del tour desde el combo del PROVIDER. Templates existentes quedan con NULL (no filtrable hasta que el PROVIDER edite el template y elija la subcat). `get_templates_by_provider` acepta parámetro `p_sub_category` opcional; templates con `sub_category = NULL` **se ocultan** cuando se pasa el filtro (no aplican a ninguna subcat).
+>
+> 📌 **TC-019 R1/R2 — backfill de márgenes** (migración 088, 2026-08-11): 444 slots tenían `slot_porcentaje_tourya = 0` (drift heredado — BE-02 solo hereda `tour.porcentaje_tourya` en slots NUEVOS). La migración 088 hace backfill al margen default del tour cuando el slot está en 0 y el tour tiene margen > 0, y recalcula `tour_schedule_config_price.price = provider_price * (1 + slot_pct)` en 783 filas con drift acumulado. Idempotente.
 
 ### Carrito y reservas (7 tablas)
 
@@ -136,8 +145,10 @@ Schema PostgreSQL de Tourya: 68 tablas, 61 migraciones, ~20 stored procedures, �
 
 | Tabla | Propósito |
 |-------|-----------|
-| `tourist_profile` | Perfil extendido del turista (1:1 con `_user`) |
+| `tourist_profile` | Perfil extendido del turista (1:1 con `_user`). **TC-009**: nueva columna `document_type varchar(50) NULL` — migración 083 |
 | `user_wishlist` | Tours favoritos (composite PK userId + tourId) |
+
+> 📌 **Cambio TC-009 (#196)** (migración 083, 2026-08-06): `tourist_profile.document_type` persiste el tipo de documento (`CC/CE/PP/NIT/TI`) para pre-llenar el checkout. Antes vivía solo en `payment.payer_document_type` y se re-preguntaba en cada compra. Sin enum: `varchar(50)` para compat con la columna homónima en `payment`. Frontend consumido en TC-020 #235 (PR #105) para mandar el `docType` real a Wompi (antes hardcodeaba `"CC"`).
 
 ### DIMAR / Maritime (1 tabla)
 
@@ -185,6 +196,23 @@ Reviews `PENDING → PUBLISHED` (no más moderación). RNT agregado a provider. 
 
 ### Fase 8 (migraciones 055-061) — Maritime + refinements finales
 Reportes DIMAR estructurados con location + dateRange. i18n completo en filtros. Backfill de provider_price histórico.
+
+### Fase 9 (migraciones 062-077) — Push, agentes IA, refresh tokens, notificaciones
+Refresh tokens (067), Wompi webhook (066), device tokens FCM (075), notificaciones de expiración de crédito (074), `agent_audit_log` (076), `_user.phone` para operadores (077). Bootstrap de `app_config` (068-073).
+
+### Fase 10 (migraciones 078-088) — TCs QA ciclo julio-agosto 2026
+Fase intensiva de bug-fixes reportados por Luis:
+- 078: `fn_slot_booked_units_on_schedule` — bookings por `(slot, fecha)` en runtime (TC-004).
+- 079: `sp_get_provider_reservations` respeta `price_type` grupo para `providerPrice` (TC-005).
+- 080: backfill drift de `slot.bookings` (BE-27).
+- 081: `reservation.provider_declined_at` (BE-24).
+- 082: `sp_get_provider_reservations` expone `providername` y `tourimageurl` (issue #188 refinamiento).
+- 083: `tourist_profile.document_type` (TC-009).
+- 084: `sp_get_provider_reservations` expone `travelerBreakdown` (TC-016 B).
+- 085: `sp_get_tour_schedule_json` con `blockedByMaritimeReport` (TC-018 Bug B). ⚠️ regresión accidental de TC-004 corregida en 088.
+- 086: `tour_schedule_config.sub_category` + `get_templates_by_provider(p_sub_category)` (TC-019).
+- 087: `tour_address` geo NULLABLE + CHECK Hotel Pickup (TC-017).
+- 088: backfill `slot_porcentaje_tourya` + `price` + restore TC-004 en `sp_get_tour_schedule_json` (TC-019 R1/R2/R3).
 
 ---
 
@@ -274,7 +302,8 @@ CREATE INDEX idx_tour_description_es ON tour ((description->>'es'));
 | `review_reason` | 6 opciones |
 | `shopping_cart_status_enum` | ACTIVE, PAID, COMPLETED, ABANDONED |
 | `tour_tag_category_enum` | 11 categorías (Acuáticas, Naturaleza, Playas, etc.) |
-| `address_type` | punto de encuentro, finalización, recogida |
+| `address_type` | punto de encuentro, finalización, recogida, **Hotel Pickup** (TC-017 mig 087) |
+| `tour_subcategory_enum` | (declarado en migración 016). Ahora también usado en `tour_schedule_config.sub_category` (TC-019 mig 086). Cast al persistir vía `@ColumnTransformer(write = "?::tour_subcategory_enum")` en `Tour.java:70` y en la entidad de config |
 | `inclusion_type` | incluido, no incluido |
 
 ---
@@ -339,6 +368,19 @@ CHECK (expiration_date >= creation_date)
 CHECK (status IN ('CREATED', 'CANCELED', 'DELETED'))
 ```
 
+### Hotel Pickup exceptúa NOT NULL geo (TC-017, migración 087)
+
+```sql
+-- tour_address.country_id, state_id, city_id son NULLABLE desde mig 087
+ALTER TABLE tour_address
+  ADD CONSTRAINT tour_address_geo_required_unless_hotel_pickup
+  CHECK (
+    address_type = 'Hotel Pickup'
+    OR (country_id IS NOT NULL AND state_id IS NOT NULL AND city_id IS NOT NULL)
+  );
+```
+Solo direcciones con `address_type = 'Hotel Pickup'` pueden omitir los 3 geo IDs (la ubicación real es el hotel del turista al momento de reservar). El enum guarda el **display value** (`"Hotel Pickup"`), no la key (`HOTEL_PICKUP`) — ver `AddressTypeEnumConverter`.
+
 ### Unique constraints
 
 - `_user.email` único.
@@ -377,6 +419,25 @@ CHECK (status IN ('CREATED', 'CANCELED', 'DELETED'))
 | 047-054 | Optimizaciones y overrides | ❓ | ❓ |
 | 055-058 | Maritime activity reports v2 | ❓ | ❓ |
 | 059-061 | Provider price fallback + backfill | ❓ | ❓ |
+| 066 | Wompi webhook event table | ✅ | ❓ |
+| 067 | Refresh token table | ✅ | ❓ |
+| 074 | Credit expiration notifications | ✅ (post-hoc, 2026-07-17) | ❓ |
+| 075 | Device token FCM | ✅ (post-hoc, 2026-07-17) | ❓ |
+| 076 | Agent audit log | ✅ (post-hoc, 2026-07-17) | ❓ |
+| 077 | `_user.phone` | ✅ | ❓ |
+| 078 | `fn_slot_booked_units_on_schedule` (TC-004) | ✅ | ❓ |
+| 079 | `sp_get_provider_reservations` con `price_type` grupo (TC-005) | ✅ | ❓ |
+| 080 | Backfill drift slot.bookings (BE-27) | ✅ | ❓ |
+| 081 | `reservation.provider_declined_at` (BE-24) | ✅ | ❓ |
+| 082 | `sp_get_provider_reservations` con `providername` + `tourimageurl` | ✅ | ❓ |
+| 083 | `tourist_profile.document_type` (TC-009) | ✅ | ❓ |
+| 084 | `sp_get_provider_reservations` con `travelerBreakdown` (TC-016 B) | ✅ | ❓ |
+| 085 | `sp_get_tour_schedule_json` con `blockedByMaritimeReport` (TC-018 B) — ⚠️ regresión de TC-004, corregida en 088 | ✅ | ❓ |
+| 086 | `tour_schedule_config.sub_category` + filtro en `get_templates_by_provider` (TC-019) | ✅ | ❓ |
+| 087 | `tour_address` geo NULLABLE + CHECK Hotel Pickup (TC-017) | ✅ | ❓ |
+| 088 | Backfill `slot_porcentaje_tourya` + `price` + restore SP TC-004 (TC-019) | ✅ | ❓ |
+
+⚠️ **Deuda operativa** (registrada en backlog como **INF-05**): las migraciones no se aplican automáticamente en el pipeline. Cada release requiere aplicarlas manualmente en dev (y luego en prod). Ver [doc 17 INF-05](17-backlog-implementacion.md) y feedback `how_to_apply_migrations.md`.
 
 📌 PENDIENTE — verificar estado real de migraciones por entorno.
 
