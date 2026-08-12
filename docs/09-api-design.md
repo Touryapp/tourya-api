@@ -183,6 +183,8 @@ Gestión de sub-usuarios del provider.
 | PUT | `/tour-schedules/tours/{tourId}/percentage` | JWT | BACKOFFICE/ADMIN |
 | PUT | `/tour-schedules/tours/{tourId}/percentage/{slotId}` | JWT | BACKOFFICE/ADMIN |
 
+> 📌 **Cambio TC-019 bug 4 (PR #247, 2026-08-12)** — `TourScheduleConfigSlotDto` (payload de `POST /config`, `PUT /config/{configId}` y `POST /batch`) expone ahora el campo opcional `slotPorcentajeTourya: number` (0-100 puntos, `@DecimalMin(0.0)` / `@DecimalMax(100.0)`, nullable). Se persiste **solo si el rol del caller es BACKOFFICE** (`Utils.isTouryaBackoffice(roles)`); PROVIDER lo ignora silenciosamente. Cuando se persiste, el backend recalcula `price = providerPrice × (1 + slotPct)` en el mismo request (idempotente). El endpoint per-schedule `PUT /percentage/{slotId}` no cambió — sigue siendo la vía para overrides puntuales sobre una fecha específica. Ver [RN-015](05-reglas-de-negocio.md) §Refinamiento 2026-08-12.
+
 ---
 
 ### 4. Búsqueda y públicos
