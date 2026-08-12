@@ -249,14 +249,20 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     );
 
     /**
-     * TC-004: cuenta unidades reservadas para un slot en una fecha específica.
+     * TC-004 + TC-019 (#231) bug 3: cuenta unidades reservadas para un slot en una fecha
+     * específica.
      *
-     * Suma unidades activas (TEMPORAL/PENDING/DELIVERED) respetando priceType:
+     * Suma unidades activas (TEMPORAL/PENDING/DELIVERED/RESCHEDULED) respetando priceType:
      *  - grupo: 1 unidad por reserva
      *  - individual: suma de pax (shopping_cart_item_detail.quantity)
      *
      * Se cuenta por (shopping_cart_item.slot_id, tour_schedule.schedule_date) para
      * evitar el bug del contador global slot.bookings (ver TC-004).
+     *
+     * RESCHEDULED cuenta como activa porque tras reagendar el item apunta al nuevo
+     * (slot, schedule) y el cliente asistira ese día — omitirla habilita oversell en
+     * la fecha destino (TC-019 #231 bug 3, Luis 2026-08-12). Debe mantenerse en sincronía
+     * con el helper SQL {@code fn_slot_booked_units_on_schedule} (migración 089).
      */
     @Query(value = """
         SELECT COALESCE(SUM(
@@ -275,7 +281,7 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
         JOIN tour t ON t.id = ts.tour_id
         WHERE i.slot_id = :slotId
           AND ts.schedule_date = :scheduleDate
-          AND r.delivery_status IN ('TEMPORAL', 'PENDING', 'DELIVERED')
+          AND r.delivery_status IN ('TEMPORAL', 'PENDING', 'DELIVERED', 'RESCHEDULED')
         """,
         nativeQuery = true)
     Integer countActiveBookingUnitsForSlotOnDate(
