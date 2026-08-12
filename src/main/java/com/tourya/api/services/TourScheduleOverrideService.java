@@ -178,16 +178,23 @@ public class TourScheduleOverrideService {
             if (slotId == null) {
                 continue;
             }
-            BigDecimal fraction = slotPct.getOrDefault(slotId, BigDecimal.ZERO);
-            if (showSlotPercentage) {
-                slot.setSlotPorcentajeTourya(TouryaPriceCalculator.toApiPercentPoints(fraction));
+            // TC-019 (#231): solo aplicar override SI existe uno explicito para (schedule, slot).
+            // Sin override, respetar el price base que ya trae el SP (calculado como
+            // provider_price * (1 + slot_porcentaje_tourya) al guardar la config). Sobreescribir
+            // con fraccion=0 hacia que reagendar mostrara price = providerPrice.
+            boolean hasOverride = slotPct.containsKey(slotId);
+            if (showSlotPercentage && hasOverride) {
+                slot.setSlotPorcentajeTourya(TouryaPriceCalculator.toApiPercentPoints(slotPct.get(slotId)));
             }
             if (slot.getPrices() == null) {
                 continue;
             }
-            for (SearchTourScheduleFullResponse.TourSchedulePriceResponse p : slot.getPrices()) {
-                if (p.getProviderPrice() != null) {
-                    p.setPrice(TouryaPriceCalculator.calculateSalePrice(p.getProviderPrice(), fraction));
+            if (hasOverride) {
+                BigDecimal fraction = slotPct.get(slotId);
+                for (SearchTourScheduleFullResponse.TourSchedulePriceResponse p : slot.getPrices()) {
+                    if (p.getProviderPrice() != null) {
+                        p.setPrice(TouryaPriceCalculator.calculateSalePrice(p.getProviderPrice(), fraction));
+                    }
                 }
             }
             if (slot.getHighestPrice() != null && slot.getPrices() != null && !slot.getPrices().isEmpty()) {
@@ -207,11 +214,12 @@ public class TourScheduleOverrideService {
         if (slot == null) {
             return;
         }
-        BigDecimal fraction = slot.getId() != null && slotFractionById.containsKey(slot.getId())
-                ? slotFractionById.get(slot.getId())
-                : BigDecimal.ZERO;
-        if (showSlotPercentage) {
-            slot.setSlotPorcentajeTourya(TouryaPriceCalculator.toApiPercentPoints(fraction));
+        // TC-019 (#231): fraction override es opcional. Sin override, respetar el % y precio
+        // base del slot/config (ya viene con el margen correcto en BD tras el backfill 088).
+        boolean hasFractionOverride = slot.getId() != null && slotFractionById.containsKey(slot.getId());
+        if (showSlotPercentage && hasFractionOverride) {
+            slot.setSlotPorcentajeTourya(
+                    TouryaPriceCalculator.toApiPercentPoints(slotFractionById.get(slot.getId())));
         }
         if (slot.getPrices() == null) {
             return;
@@ -219,9 +227,11 @@ public class TourScheduleOverrideService {
         for (TourSchedulePriceResponse price : slot.getPrices()) {
             if (price.getId() != null && priceById.containsKey(price.getId())) {
                 price.setPrice(priceById.get(price.getId()));
-            } else if (price.getProviderPrice() != null) {
-                price.setPrice(TouryaPriceCalculator.calculateSalePrice(price.getProviderPrice(), fraction));
+            } else if (hasFractionOverride && price.getProviderPrice() != null) {
+                price.setPrice(TouryaPriceCalculator.calculateSalePrice(
+                        price.getProviderPrice(), slotFractionById.get(slot.getId())));
             }
+            // else: sin override alguno → mantener el price base del config.
         }
     }
 

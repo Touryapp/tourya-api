@@ -113,6 +113,7 @@ public class ReservationService {
     private final TourPrincipalOperatorService tourPrincipalOperatorService;
     private final TourAddressMapper tourAddressMapper;
     private final TourIncludesExcludesMapper tourIncludesExcludesMapper;
+    private final TourScheduleOverrideService tourScheduleOverrideService; // TC-019 (#231) reschedule price uses overrides
 
     /**
      * Método createReservation removido - las reservas se crean automáticamente con los pagos
@@ -2535,8 +2536,12 @@ public class ReservationService {
                     .findFirst()
                     .orElseThrow(() -> new ResourceNotFoundException(
                             "Price not found for ageType " + ageType + " in slot " + slotId));
-            
-            BigDecimal unitPrice = priceConfig.getPrice();
+
+            // TC-019 (#231): usar precio efectivo (override por schedule si existe, si no el base
+            // del config — que ya viene con margen tras el backfill migracion 088). Antes usaba
+            // priceConfig.getPrice() directo, lo que ignoraba overrides ADMIN.
+            BigDecimal unitPrice = tourScheduleOverrideService.resolveSalePrice(
+                    newSchedule.getId(), priceConfig.getId(), priceConfig.getPrice());
             
             // Calcular precio según priceType del tour
             BigDecimal detailTotalPrice;

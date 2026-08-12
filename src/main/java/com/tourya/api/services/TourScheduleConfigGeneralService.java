@@ -316,14 +316,25 @@ public class TourScheduleConfigGeneralService {
             // BE-02 (RN-015): para slots nuevos, heredar el porcentaje default del tour.
             // Slots existentes conservan su slot_porcentaje_tourya actual (posiblemente
             // override manual del ADMIN).
+            //
+            // TC-019 (#231): si el slot existente tiene slotPorcentajeTourya = 0 (o null) pero
+            // el tour tiene margen > 0, tratamos ese 0 como "legacy no-inicializado" y heredamos
+            // el default del tour. Origen del 0: migracion 054 reset + slots creados antes de
+            // BE-02. Sin este fallback, updateSlotPrices calcula price = providerPrice * 1 = providerPrice.
             BigDecimal tourDefaultPct = tourForConfig != null && tourForConfig.getPorcentajeTourya() != null
                     ? tourForConfig.getPorcentajeTourya()
                     : BigDecimal.ZERO;
-            BigDecimal slotPct = isNewSlot
-                    ? tourDefaultPct
-                    : TouryaPriceCalculator.normalizePercentage(currentSlot.getSlotPorcentajeTourya());
+            BigDecimal existingSlotPct = TouryaPriceCalculator.normalizePercentage(currentSlot.getSlotPorcentajeTourya());
+            BigDecimal slotPct;
             if (isNewSlot) {
+                slotPct = tourDefaultPct;
                 currentSlot.setSlotPorcentajeTourya(tourDefaultPct);
+            } else if (existingSlotPct.compareTo(BigDecimal.ZERO) == 0
+                    && tourDefaultPct.compareTo(BigDecimal.ZERO) > 0) {
+                slotPct = tourDefaultPct;
+                currentSlot.setSlotPorcentajeTourya(tourDefaultPct);
+            } else {
+                slotPct = existingSlotPct;
             }
 
             updateSlotPrices(currentSlot, new HashSet<>(slotDto.getPrices()), slotPct, roleList);
@@ -458,13 +469,25 @@ public class TourScheduleConfigGeneralService {
             BigDecimal slotPorcentajeTourya, List<Role> roleList) {
         normalizeProviderPriceDto(priceDto);
         price.setAgeType(priceDto.getAgeType());
+
+        // TC-019 (#231): fuente de verdad = providerPrice * (1 + slotPct). No confiamos en el
+        // price que envia el FE (bug historico: pre-llenaba price = providerPrice sin margen y
+        // sobreescribia el precio correcto). Para BACKOFFICE seguimos permitiendo pisar el
+        // precio SOLO si el FE manda un price DISTINTO de providerPrice (override intencional).
         if (Utils.isTouryaBackoffice(roleList)) {
             price.setProviderPrice(priceDto.getProviderPrice());
-            if (priceDto.getPrice() != null) {
+            if (priceDto.getProviderPrice() != null) {
+                boolean feSentExplicitOverride = priceDto.getPrice() != null
+                        && priceDto.getPrice().compareTo(priceDto.getProviderPrice()) != 0;
+                if (feSentExplicitOverride) {
+                    price.setPrice(priceDto.getPrice());
+                } else {
+                    price.setPrice(TouryaPriceCalculator.calculateSalePrice(
+                            priceDto.getProviderPrice(), slotPorcentajeTourya));
+                }
+            } else if (priceDto.getPrice() != null) {
+                // Sin providerPrice: usar el price tal cual (fallback muy defensivo).
                 price.setPrice(priceDto.getPrice());
-            } else if (priceDto.getProviderPrice() != null) {
-                price.setPrice(TouryaPriceCalculator.calculateSalePrice(
-                        priceDto.getProviderPrice(), slotPorcentajeTourya));
             }
             return;
         }
