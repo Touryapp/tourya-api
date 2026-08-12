@@ -1,6 +1,6 @@
 # 08 — Modelo de datos
 
-Schema PostgreSQL de Tourya: 68 tablas, 88 migraciones, ~20 stored procedures, índices, JSONB para i18n.
+Schema PostgreSQL de Tourya: 68 tablas, 90 migraciones, ~20 stored procedures, índices, JSONB para i18n.
 
 > Referencia complementaria: [04 — Entidades de dominio](04-entidades-dominio.md) para el lado JPA.
 
@@ -11,7 +11,7 @@ Schema PostgreSQL de Tourya: 68 tablas, 88 migraciones, ~20 stored procedures, �
 | Métrica | Valor |
 |---------|-------|
 | Total tablas | 68 |
-| Total migraciones aplicadas | 88 (numeradas `001_` a `088_`) |
+| Total migraciones aplicadas | 90 (numeradas `001_` a `090_`) |
 | Stored procedures de negocio | ~14 |
 | UUID helper functions | 6 (extensión `uuid-ossp`) |
 | Total índices | ~52 |
@@ -200,7 +200,7 @@ Reportes DIMAR estructurados con location + dateRange. i18n completo en filtros.
 ### Fase 9 (migraciones 062-077) — Push, agentes IA, refresh tokens, notificaciones
 Refresh tokens (067), Wompi webhook (066), device tokens FCM (075), notificaciones de expiración de crédito (074), `agent_audit_log` (076), `_user.phone` para operadores (077). Bootstrap de `app_config` (068-073).
 
-### Fase 10 (migraciones 078-088) — TCs QA ciclo julio-agosto 2026
+### Fase 10 (migraciones 078-090) — TCs QA ciclo julio-agosto 2026
 Fase intensiva de bug-fixes reportados por Luis:
 - 078: `fn_slot_booked_units_on_schedule` — bookings por `(slot, fecha)` en runtime (TC-004).
 - 079: `sp_get_provider_reservations` respeta `price_type` grupo para `providerPrice` (TC-005).
@@ -213,6 +213,10 @@ Fase intensiva de bug-fixes reportados por Luis:
 - 086: `tour_schedule_config.sub_category` + `get_templates_by_provider(p_sub_category)` (TC-019).
 - 087: `tour_address` geo NULLABLE + CHECK Hotel Pickup (TC-017).
 - 088: backfill `slot_porcentaje_tourya` + `price` + restore TC-004 en `sp_get_tour_schedule_json` (TC-019 R1/R2/R3).
+- 089: `fn_slot_booked_units_on_schedule` incluye `RESCHEDULED` en el `IN` de delivery_status + backfill idempotente de `slot.bookings` (792 filas) y `slot.availability` (404 filas) con la definición nueva (TC-019 bug 3). Complementa mig 080. Ver [RN-061](05-reglas-de-negocio.md).
+- 090: backfill de drift entre `tour_schedule_config_price.price` y `provider_price × (1 + slot_pct)` — 4 filas en dev (slots 522/526/629 tour 43, slot 527 tour 36). Idempotente `WHERE ABS(...) > 0.01`. Complementa mig 088 cubriendo el caso `price != provider_price × (1 + slot_pct)` cuando `slot_pct > 0` (TC-019 bug 4). Habilita el flujo `TourScheduleConfigSlotDto.slotPorcentajeTourya` — ver [RN-015](05-reglas-de-negocio.md) refinamiento.
+
+> 📌 **Cambio TC-019 bug 4 (PR #247)** — nuevo campo `slotPorcentajeTourya` (0-100 puntos, nullable) en `TourScheduleConfigSlotDto`. Persistido en `tour_schedule_config_slot.slot_porcentaje_tourya` **solo si el rol es BACKOFFICE** al invocar `POST/PUT /tour-schedules/config` o `POST /tour-schedules/batch`. Recalcula `tour_schedule_config_price.price` en el mismo request (idempotente, siempre desde `providerPrice`).
 
 ---
 

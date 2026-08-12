@@ -221,6 +221,8 @@ Donde:
 
 ✅ **UI implementada en PR tourya-front #63 (2026-07-10, FE-05)** con backend habilitado en PR tourya-api #169: nuevo endpoint `PATCH /tours/admin/{tourId}/porcentajeTourya` que consume el `UpdatePorcentajeTouryaRequest` (que existía como dead code desde BE-01/02). El modal de aprobación de `tour-admin-detail` incluye un input numérico (0-100 %) pre-poblado con el valor actual del tour; al aceptar dispara `PATCH` + `PUT accept` si el valor cambió, o solo `PUT accept` si no. Edición del % **después** de aprobar el tour queda como FE-05b futuro.
 
+**Refinamiento 2026-08-12 (TC-019 #231 bug 4, PR #247)**: el `slotPorcentajeTourya` custom por slot ahora también se puede editar desde la ruta base de config-slot (`POST /tour-schedules/config`, `PUT /tour-schedules/config/{configId}`, `POST /tour-schedules/batch`) — antes solo estaba disponible el override per-schedule (`PUT /tour-schedules/tours/{tourId}/percentage/{slotId}`). El campo `slotPorcentajeTourya` (0-100 puntos, nullable) del `TourScheduleConfigSlotDto` se persiste **solo si el rol es BACKOFFICE** (`Utils.isTouryaBackoffice(roles)`); PROVIDER lo ignora silenciosamente. Cuando viene, `applyPriceDtoToEntity` recalcula `price = providerPrice × (1 + slotPct)` — idempotente (siempre computa desde `providerPrice`). Si viene null o el rol no es BACKOFFICE, cae al comportamiento previo (herencia del tour default en slots nuevos, reuso del pct existente en slots viejos). Migración 090 backfilleó 4 filas de drift acumulado.
+
 ### RN-016 — Asignación de comisión por rango de fechas
 ✅ `PUT /tour-schedules/tours/{tourId}/percentage` con `slotPercentageTourya + startDate + endDate` actualiza todos los slots de los `TourSchedule`s en ese rango.
 
@@ -657,6 +659,28 @@ Cuando un provider avisa que no puede atender una reserva ya pagada (aviso de ú
 **Fix previo relacionado** (RN-056 / TC-007): `ReservationService.computeCanConfirmReservation` y `consumeReservation` ya usaban `LocalDate.now(BOGOTA)` explícitamente. RN-060 es la solución general para todos los `now()` bare del proyecto.
 
 **Ámbito**: aplica a **dev** y **prod** (mismo Dockerfile, ambos containers). Los desarrolladores locales dependen de la TZ de su máquina.
+
+### RN-061 — Reservas `RESCHEDULED` cuentan como activas para disponibilidad (TC-019 #231 bug 3, ciclo agosto 2026)
+✅ El cálculo de bookings/disponibilidad por `(slot, fecha)` incluye reservas en estado `RESCHEDULED` — no solo `PENDING` y `DELIVERED`. Tras un reagendamiento, el `item` apunta al **nuevo** `(slot, schedule)`; ese día el cliente asiste y el slot debe reflejarlo.
+
+**Motivación** (TC-019 bug 3): antes del fix, la UI mostraba drift en ambos lados de un reagendamiento: el día viejo con `bookings` inflado (el helper todavía la contaba allí) y el día nuevo con `bookings=0` (no la contaba). El diseño post-TC-004 (RN sobre helper `fn_slot_booked_units_on_schedule` mig 078) no distinguía `RESCHEDULED` como estado activo, y BE-27 (mig 080) backfilleó bookings con esa misma definición.
+
+**Estados activos consolidados** (definición canónica desde ciclo agosto 2026):
+- `TEMPORAL` (hold del carrito).
+- `PENDING` (pagada, aún no consumida).
+- `DELIVERED` (asistió).
+- `RESCHEDULED` (movida a otra fecha — cuenta en la fecha destino).
+
+**Implementación** (PR #246, migración 089):
+1. **SQL** — `fn_slot_booked_units_on_schedule` recreada incluyendo `'RESCHEDULED'` en el `IN` de delivery_status. Backfill idempotente de `tour_schedule_config_slot.bookings` (792 filas) y `.availability` (404 filas) usando la definición nueva.
+2. **Java** — `ReservationRepository.countActiveBookingUnitsForSlotOnDate` (guard usado por `ensureSlotHasCapacity`) agrega `'RESCHEDULED'` para mantener consistencia con el helper SQL — evita oversell al validar capacidad en la fecha destino de un reagendamiento.
+
+**Verificación en dev** (Cloud SQL `tourya-dev-db`):
+- RES 335 (individual, 2 pax, RESCHEDULED, slot 1042, schedule 3465): helper `0 → 2`.
+- RES 333 (grupo, RESCHEDULED, slot 1032, schedule 3428): helper `0 → 1`.
+- Simulación de reagendamiento dentro de transacción con ROLLBACK: old_day `1 → 0`, new_day `0 → 1`.
+
+**Relación con RN-033** (reschedule): la RN-033 describe el proceso de reagendar; RN-061 aclara **cómo se contabiliza** la reserva reagendada para efectos de capacidad.
 
 ---
 
