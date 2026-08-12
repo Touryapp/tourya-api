@@ -9,7 +9,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
-@EnableJpaAuditing(auditorAwareRef = "auditorAware")
+@EnableJpaAuditing(auditorAwareRef = "auditorAware", dateTimeProviderRef = "bogotaDateTimeProvider")
 @EnableAsync
 @EnableScheduling
 @ComponentScan(basePackages = "com.tourya.api")
