@@ -85,6 +85,8 @@ class ReservationServiceRescheduleTest {
     @Mock private com.tourya.api.services.TourPrincipalOperatorService tourPrincipalOperatorService;
     @Mock private com.tourya.api.models.mapper.TourAddressMapper tourAddressMapper;
     @Mock private com.tourya.api.models.mapper.TourIncludesExcludesMapper tourIncludesExcludesMapper;
+    // TC-019 (#231): reschedule price calc ahora usa resolveSalePrice para respetar overrides.
+    @Mock private com.tourya.api.services.TourScheduleOverrideService tourScheduleOverrideService;
 
     @Mock private Authentication authentication;
 
