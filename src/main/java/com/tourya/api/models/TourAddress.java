@@ -39,21 +39,21 @@ public class TourAddress extends BaseEntity {
     private Tour tour;
 
     // Many-to-One relationship with Country
-    //@ManyToOne
+    // TC-017 (#220): nullable=true — HOTEL_PICKUP no tiene ubicacion fisica.
+    // La regla de negocio "geo requerido salvo Hotel Pickup" se enforce en la BD
+    // via CHECK constraint tour_address_geo_required_unless_hotel_pickup (migration 087).
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "country_id", nullable = false)
+    @JoinColumn(name = "country_id")
     private Country country;
 
     // Many-to-One relationship with State
-    //@ManyToOne
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "state_id", nullable = false)
+    @JoinColumn(name = "state_id")
     private State state;
 
     // Many-to-One relationship with City
-    //@ManyToOne
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "city_id", nullable = false)
+    @JoinColumn(name = "city_id")
     private City city;
 
     @Column(name = "latitude")
