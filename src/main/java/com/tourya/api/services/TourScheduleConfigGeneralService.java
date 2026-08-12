@@ -152,15 +152,19 @@ public class TourScheduleConfigGeneralService {
             // Antes se seteaba en ZERO y el ADMIN tenia que llamar despues a
             // PUT /tour-schedules/tours/{tourId}/percentage. Ahora nace ya con el valor
             // del tour; el ADMIN puede sobrescribirlo por rango de fechas via override.
+            //
+            // TC-019 (#231) bug 4: si el DTO trae slotPorcentajeTourya y el usuario es
+            // BACKOFFICE, se respeta el valor enviado (puede ser 0). Sino, se hereda tour default.
             BigDecimal tourDefaultPct = tourForConfig != null && tourForConfig.getPorcentajeTourya() != null
                     ? tourForConfig.getPorcentajeTourya()
                     : BigDecimal.ZERO;
-            slot.setSlotPorcentajeTourya(tourDefaultPct);
+            BigDecimal effectiveSlotPct = resolveSlotPctFromDto(slotDto, tourDefaultPct, roleList);
+            slot.setSlotPorcentajeTourya(effectiveSlotPct);
 
             if (slotDto.getPrices() != null) {
                 Set<TourScheduleConfigPrice> prices = new HashSet<>();
                 for (TourScheduleConfigPriceDto priceDto : slotDto.getPrices()) {
-                    TourScheduleConfigPrice price = buildPriceEntity(slot, priceDto, tourDefaultPct, roleList);
+                    TourScheduleConfigPrice price = buildPriceEntity(slot, priceDto, effectiveSlotPct, roleList);
                     prices.add(price);
                 }
                 slot.setPrices(prices);
@@ -168,6 +172,22 @@ public class TourScheduleConfigGeneralService {
             slots.add(slot);
         }
         return slots;
+    }
+
+    /**
+     * TC-019 (#231) bug 4: resuelve el slotPorcentajeTourya efectivo para persistir en la BD.
+     * Convierte el valor del DTO (puntos 0-100) a fraccion (0.0-1.0) via TouryaPriceCalculator.
+     * Solo BACKOFFICE puede setearlo (RN-015); providers usan el fallback.
+     */
+    private BigDecimal resolveSlotPctFromDto(TourScheduleConfigSlotDto slotDto, BigDecimal fallback,
+            List<Role> roleList) {
+        if (slotDto == null || slotDto.getSlotPorcentajeTourya() == null) {
+            return fallback;
+        }
+        if (!Utils.isTouryaBackoffice(roleList)) {
+            return fallback;
+        }
+        return TouryaPriceCalculator.fromApiPercentPoints(slotDto.getSlotPorcentajeTourya());
     }
 
     private Set<DayOfWeek> getValidDaysOfWeek(List<String> daysOfWeek) {
@@ -321,12 +341,24 @@ public class TourScheduleConfigGeneralService {
             // el tour tiene margen > 0, tratamos ese 0 como "legacy no-inicializado" y heredamos
             // el default del tour. Origen del 0: migracion 054 reset + slots creados antes de
             // BE-02. Sin este fallback, updateSlotPrices calcula price = providerPrice * 1 = providerPrice.
+            //
+            // TC-019 (#231) bug 4: si el DTO trae slotPorcentajeTourya explicito y el usuario es
+            // BACKOFFICE, ese valor pisa toda la logica anterior (fallback / herencia). Persistimos
+            // el nuevo pct en el slot base y ejecutamos updateSlotPrices con ese pct — lo que dispara
+            // applyPriceDtoToEntity y recalcula price = providerPrice * (1 + pct) en la BD base.
             BigDecimal tourDefaultPct = tourForConfig != null && tourForConfig.getPorcentajeTourya() != null
                     ? tourForConfig.getPorcentajeTourya()
                     : BigDecimal.ZERO;
             BigDecimal existingSlotPct = TouryaPriceCalculator.normalizePercentage(currentSlot.getSlotPorcentajeTourya());
+            BigDecimal explicitDtoPct = null;
+            if (slotDto.getSlotPorcentajeTourya() != null && Utils.isTouryaBackoffice(roleList)) {
+                explicitDtoPct = TouryaPriceCalculator.fromApiPercentPoints(slotDto.getSlotPorcentajeTourya());
+            }
             BigDecimal slotPct;
-            if (isNewSlot) {
+            if (explicitDtoPct != null) {
+                slotPct = explicitDtoPct;
+                currentSlot.setSlotPorcentajeTourya(explicitDtoPct);
+            } else if (isNewSlot) {
                 slotPct = tourDefaultPct;
                 currentSlot.setSlotPorcentajeTourya(tourDefaultPct);
             } else if (existingSlotPct.compareTo(BigDecimal.ZERO) == 0
