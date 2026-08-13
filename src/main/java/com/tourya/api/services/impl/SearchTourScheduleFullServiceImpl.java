@@ -34,6 +34,7 @@ public class SearchTourScheduleFullServiceImpl implements SearchTourScheduleFull
     private final ReviewRepository reviewRepository;
     private final TourRepository tourRepository;
     private final SearchTourScheduleSlotPercentageEnricher slotPercentageEnricher;
+    private final SearchTourAddressTypeEnricher addressTypeEnricher;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -48,6 +49,9 @@ public class SearchTourScheduleFullServiceImpl implements SearchTourScheduleFull
         Map<Integer, BigDecimal> avgRatingByTourId = loadAvgPublishedRatingByTourIds(content);
         fillTourRatingFallbackForSearch(content, avgRatingByTourId);
         slotPercentageEnricher.enrich(content, isTouryaBackoffice(connectedUser));
+        // Sprint 2 mobile — deuda 2A: expone tour.address.addressType (FIXED_LOCATION / HOTEL_PICKUP)
+        // sin tocar sp_get_tour_schedule_json. Batch de tour_address por tour_id.
+        addressTypeEnricher.enrich(content);
         return page.map(r -> enrichRating(enrichPriceFrom(enrichProfilePicture(r)), avgRatingByTourId));
     }
 

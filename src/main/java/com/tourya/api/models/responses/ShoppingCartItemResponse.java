@@ -52,5 +52,14 @@ public class ShoppingCartItemResponse {
      * en {@code cart.service.ts} para validaciones de disponibilidad.
      */
     private Integer maxPeople;
+
+    /**
+     * Sprint 2 mobile — deuda 2B: expone el {@code address_type} del meeting point
+     * del tour (FIXED_LOCATION / HOTEL_PICKUP) para que el mobile pueda distinguir
+     * casos Hotel Pickup en el checkout sin la deteccion heuristica de TC-017
+     * (empty-check de city+address). Poblado desde el primer {@code tour_address}
+     * asociado al tour del cart item; null para items de tipo SERVICE.
+     */
+    private String addressType;
 }
 
