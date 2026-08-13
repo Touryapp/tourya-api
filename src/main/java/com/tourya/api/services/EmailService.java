@@ -261,6 +261,92 @@ public class EmailService {
         mailSender.send(mimeMessage);
     }
 
+    /**
+     * TC-022 (#253): confirmacion al turista de que su solicitud de devolucion
+     * de credito fue recibida (status CREATED -> REFUND_REQUESTED).
+     */
+    @Async
+    public void sendCreditRefundRequestedEmail(
+            String to,
+            String username,
+            Long creditId,
+            Long reservationId,
+            java.math.BigDecimal amount,
+            java.time.LocalDateTime refundRequestedAt,
+            String subject
+    ) throws MessagingException {
+        MimeMessage mimeMessage = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(
+                mimeMessage,
+                MULTIPART_MODE_MIXED,
+                UTF_8.name());
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("username", username);
+        properties.put("creditId", creditId);
+        properties.put("reservationId", reservationId);
+        properties.put("amount", amount);
+        properties.put("refundRequestedAt", formatBogotaDateTime(refundRequestedAt));
+        Context context = new Context();
+        context.setVariables(properties);
+        helper.setFrom(fromEmail);
+        helper.setTo(to);
+        helper.setSubject(subject);
+        String template = templateEngine.process("credit_refund_requested", context);
+        helper.setText(template, true);
+        mailSender.send(mimeMessage);
+    }
+
+    /**
+     * TC-022 (#253): notificacion al turista de que el reembolso fue procesado
+     * (status REFUND_REQUESTED -> REFUNDED), con link al comprobante.
+     */
+    @Async
+    public void sendCreditRefundCompletedEmail(
+            String to,
+            String username,
+            Long creditId,
+            Long reservationId,
+            java.math.BigDecimal amount,
+            java.time.LocalDateTime refundedAt,
+            String proofUrl,
+            String subject
+    ) throws MessagingException {
+        MimeMessage mimeMessage = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(
+                mimeMessage,
+                MULTIPART_MODE_MIXED,
+                UTF_8.name());
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("username", username);
+        properties.put("creditId", creditId);
+        properties.put("reservationId", reservationId);
+        properties.put("amount", amount);
+        properties.put("refundedAt", formatBogotaDateTime(refundedAt));
+        properties.put("proofUrl", proofUrl);
+        Context context = new Context();
+        context.setVariables(properties);
+        helper.setFrom(fromEmail);
+        helper.setTo(to);
+        helper.setSubject(subject);
+        String template = templateEngine.process("credit_refund_completed", context);
+        helper.setText(template, true);
+        mailSender.send(mimeMessage);
+    }
+
+    /**
+     * Renderiza un {@link java.time.LocalDateTime} en zona {@code America/Bogota}
+     * con formato {@code dd/MM/yyyy HH:mm}. Los timestamps del dominio se
+     * persisten en Bogota, se re-aplica la zona por seguridad.
+     */
+    private String formatBogotaDateTime(java.time.LocalDateTime dt) {
+        if (dt == null) {
+            return "";
+        }
+        java.time.ZoneId bogota = java.time.ZoneId.of("America/Bogota");
+        return dt.atZone(bogota)
+                .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+    }
+
     @Async
     public void sendRequestProviderStatusEmail(
             String to,

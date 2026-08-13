@@ -15,8 +15,10 @@ import com.tourya.api.models.responses.TouristLookupResponse;
 import com.tourya.api.repository.CreditRepository;
 import com.tourya.api.repository.TouristProfileRepository;
 import com.tourya.api.repository.UserRepository;
+import com.tourya.api.services.credit.events.CreditRefundEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
@@ -51,6 +53,7 @@ public class CreditService {
     private final TouristProfileRepository touristProfileRepository;
     private final UserRepository userRepository;
     private final IStorageService storageService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(readOnly = true)
     public List<CreditResponse> getAllCredits(Authentication authentication, CreditStatusEnum status) {
@@ -157,6 +160,13 @@ public class CreditService {
         credit = creditRepository.save(credit);
 
         log.info("Credit {} refund requested by user {}", creditId, owner.getId());
+        // TC-022: email al turista via evento AFTER_COMMIT (fire-and-forget).
+        eventPublisher.publishEvent(new CreditRefundEvent.RefundRequested(
+                credit.getId(),
+                credit.getReservationId(),
+                credit.getUserId(),
+                credit.getAmount(),
+                credit.getRefundRequestedAt()));
         return mapToResponse(credit);
     }
 
@@ -190,6 +200,14 @@ public class CreditService {
         credit = creditRepository.save(credit);
 
         log.info("Credit {} refunded by admin/backoffice user {} with proof {}", creditId, user.getId(), url);
+        // TC-022: email al turista via evento AFTER_COMMIT (fire-and-forget).
+        eventPublisher.publishEvent(new CreditRefundEvent.RefundCompleted(
+                credit.getId(),
+                credit.getReservationId(),
+                credit.getUserId(),
+                credit.getAmount(),
+                credit.getRefundedAt(),
+                credit.getRefundProofUrl()));
         return mapToResponse(credit);
     }
 
