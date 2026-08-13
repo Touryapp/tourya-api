@@ -4,6 +4,8 @@ Análisis granular del código actual de `tourya-mobile` (MAUI Android) contra e
 
 > **Nota 2026-07-06**: este documento se actualizó tras la reescritura del doc 14 con el alcance definido por Luis. La categorización "construido pero cuestionable" se removió — las pantallas de crear tour, schedule template y schedule calendar **están alineadas con el alcance**.
 
+> **Nota 2026-08-13**: se agregó la sección "Estado post ciclo QA agosto" y la matriz "Gap con TCs 007-021" al final del doc. El diagnóstico y roadmap del cuerpo principal siguen vigentes en su lectura estratégica; los items concretos por TC se listan en el nuevo roadmap actualizado 2026-08-13.
+
 > **Objetivo**: dimensionar qué falta, qué sobra y en qué invertir a continuación para tener una app coherente con la posición estratégica acordada.
 
 ---
@@ -261,3 +263,174 @@ Para validar el alcance del doc 14 con datos:
 - [14 — Gap Web vs Mobile](14-gap-web-mobile.md) — framework y decisiones estratégicas.
 - [10 — Mobile spec](10-mobile-spec.md) — estructura técnica del MAUI (pantallas, VMs, servicios).
 - [01 — Visión y negocio](01-vision-y-negocio.md) — meta original de iso-funcionalidad y su matización.
+
+---
+
+## Estado al 2026-08-13 (post ciclo QA agosto)
+
+Auditoría técnica ejecutada tras el ciclo QA de agosto (TCs 007-021 mergeados a `develop` de `tourya-api` y `tourya-front` entre 24-jul y 13-ago) para dimensionar qué de esos cambios fue portado a mobile.
+
+### Cambios ocurridos en `tourya-mobile` desde 17-jul
+
+**Ninguno versionado.** El último commit sigue siendo `0bc518f` del 2026-04-10. Todo el trabajo posterior (MO-01 URL, MO-10 review UI, MO-11 wishlist, MO-12 credits, MO-20 responder reseñas, MO-21 payouts, MO-22/23/24 operarios, MO-31 compresión imágenes, MO-34 copiar plantilla, MO-40 push, MO-41/42/43 geo+deep-linking, MO-50/51 offline+filtros provider reservations) sigue vivo únicamente en el working tree local.
+
+`git status` al 2026-08-13:
+- **32 archivos modificados** desde `0bc518f` (incluye `Constants.cs`, `AppShell`, `MauiProgram`, 4 servicios base, 8 ViewModels, 8 Views).
+- **40 archivos nuevos** untracked (Models/Operator/, Models/Payout/, Models/Push/, Models/Wishlist/, 9 services nuevos, 5 ViewModels tourist, 5 ViewModels provider, 9 Views nuevas, `google-services.json`).
+- Total: **72 archivos con cambios sin commit ni push (MO-00 sigue abierto)**.
+
+### Estado de compilación 2026-08-13
+
+```
+dotnet build TouryaMobile/TouryaMobile.csproj -c Debug -f net10.0-android
+Compilación correcta. 0 Advertencia(s). 0 Errores. Tiempo 00:00:26
+```
+
+SDK usado: `.NET 10.0.300`. La app compila verde en el estado no-versionado actual.
+
+### URL backend actual
+
+`TouryaMobile/Constants.cs:9`:
+```csharp
+public const string ApiBaseUrl = "http://34.160.22.16/api/v1/";
+```
+
+Sigue siendo **HTTP** al LB GCP dev (MO-01 del 2026-07-13). El backend dev ya tiene HTTPS provisionado (`https://dev.tourya.co`), entonces esta constante **debería migrarse a `https://dev.tourya.co/api/v1/`** en el próximo ciclo mobile. `Constants.WebBaseUrl` (`https://dev.tourya.co`) y `Constants.WebHost` (`dev.tourya.co`) ya están en HTTPS desde MO-43.
+
+### Inventario ampliado
+
+Cambios vs inventario del snapshot 17-jul del cuerpo principal:
+
+- **Vistas**: 33 páginas .xaml (25 + 9 nuevas — se listan explícitamente en la sección "Cambios post-último-commit").
+- **Servicios**: 25 (14 + 11 nuevos: DeviceTokenSync, DistanceCalculator, ImageCompression, LocationHelper, PayoutOrder, ProviderOperator, PushNotificationHandler, ReservationCache, Wishlist + refactor de AuthHandler/ApiService/SecureStorage).
+- **ViewModels**: 35 (26 + 9 nuevos: CreateReview, Credits, TransferCredit, Wishlist, Operators, OperatorForm, ResetOperatorPassword, PayoutOrders, PayoutOrderDetails).
+
+### Deudas técnicas críticas abiertas al 2026-08-13
+
+De la tabla "Tech debt actual" del cuerpo principal (8 items), estado actual:
+
+| # | Item | Estado 2026-08-13 |
+|---|------|-------------------|
+| 1 | Sin remoto Git | 🔴 **Abierto** — riesgo #1. MO-00 pospuesto desde 2026-07-13. |
+| 2 | URL API hardcoded a IP legacy | 🟡 **Parcial** — se movió a LB GCP HTTP (MO-01), falta migrar a HTTPS `https://dev.tourya.co/api/v1/`. |
+| 3 | Syncfusion License sin registrar | 🔴 Abierto — banner de trial. |
+| 4 | `ForgotPasswordPage` sin endpoint backend | 🔴 Abierto. |
+| 5 | iOS no soportado | 🟢 Decisión de foco. |
+| 6 | Sin CI/CD para builds firmados | 🔴 Abierto — bloqueante para Play Store. |
+| 7 | Sin analytics / crash reporting | 🔴 Abierto. |
+| 8 | Sin política de privacidad / términos | 🔴 Abierto — bloqueante Play Store. |
+
+**Nuevas deudas post ciclo QA** (detalle en próxima sección):
+
+- **MO-DT9** — `document_type` del turista no editable en Profile y no seleccionable en Checkout (hardcoded "CC" en `CheckoutViewModel:36`).
+- **MO-DT17** — Hotel Pickup del tour no soportado en mobile (ni display en `TourDetailPage`, ni en `TourFormPage`).
+- **MO-DT18** — DIMAR RED / `blockedByMaritimeReport` no respetado por `TourDetailPage` add-to-cart.
+- **MO-DT14** — Cart mobile no detecta ni comunica items purgados automáticamente por el backend.
+- **MO-DT16** — `travelerBreakdown` por ageType no se renderiza en pantallas provider.
+- **MO-DT21** — Provider views no manejan explícitamente el scrub de datos cliente (`ClientReservation.PayerName?` ya es nullable pero XAML no muestra placeholder "🔒 Datos disponibles el día del tour").
+- **MO-DT19** — `ScheduleTemplateFormViewModel` hardcodea `AgeType = "ADULT"` en línea 233 (un solo precio por slot); backend soporta multi-ageType con `providerPrice` margen.
+
+---
+
+## Gap con ciclo QA agosto (TCs 007-021)
+
+Matriz de cross-reference: para cada TC mergeado en `develop` durante el ciclo QA de agosto, evaluación de si el cambio fue portado al mobile local y qué archivos habría que tocar.
+
+Convenciones: ✅ Portado · ⚠️ Parcial · ❌ No portado · 🟢 N/A (feature web-only o backend-only).
+
+| TC | Cambio backend/web | Estado mobile | Evidencia | Archivo(s) mobile a tocar |
+|----|---------------------|:-------------:|-----------|---------------------------|
+| **TC-007** | Guard temporal confirmar reserva + timezone Bogota en scheduleDate | ⚠️ | Sin guard visual client-side. `QrScannerViewModel` procesa el response del backend sin mensaje user-friendly si el backend rechaza por "muy temprano". Timezone lo maneja el backend (mobile solo consume string ISO). | `ViewModels/Provider/QrScannerViewModel.cs` (mapear código de error "temprano" a mensaje amigable). |
+| **TC-008** | Rol BACKOFFICE_OPERATION + sidebar admin | 🟢 | Feature web/admin-only. | — |
+| **TC-009** | `document_type` en tourist_profile + migración 083 + POST/GET endpoints | ❌ | `ProfilePage.xaml` no permite editar documento (solo `Initials`/`FullName`/`Email`). `CheckoutViewModel.cs:36` hardcodea `PayerDocumentType = "CC"`; XAML usa `Entry` libre (no `Picker`). `AuthResponse` no tiene `documentType`. | `Views/Tourist/ProfilePage.xaml` + `ProfileViewModel.cs` (nueva sección "Editar datos personales" con `Picker` documentType CC/CE/PP/TI); `Views/Tourist/CheckoutPage.xaml:49` (Entry → Picker prellenado con el perfil); `Models/Auth/AuthResponse.cs` (agregar `documentType`); nuevo endpoint client `GET /users/me/profile` y `PUT` en `AuthService.cs`. |
+| **TC-011** | Job NO_SHOW procesa RESCHEDULED | 🟢 | Backend-only. Mobile consume estados finales. | — |
+| **TC-012/013** | Guest-info-modal en checkout | ❌ | Grep `guestInfo` vacío. La app requiere login para todo el flujo (add-to-cart/checkout ya lo asumen autenticado). Definir si mobile abre flujo guest. | (Ver pregunta abierta P1) — potencial `Views/Tourist/GuestInfoModal.xaml` + refactor `CheckoutViewModel` si se aprueba. |
+| **TC-014** | Auto-purga cart items con scheduleDate vencido | ❌ | `CartViewModel` no compara cart pre/post-load ni muestra alerta. `ShoppingCartResponse` no expone flag `purgedItems`. El usuario ve items desaparecer sin explicación. | `ViewModels/Tourist/CartViewModel.cs` (diff pre/post-refresh, contar removidos); `Views/Tourist/CartPage.xaml` (banner "⚠️ Se eliminaron X reservas caducadas"). |
+| **TC-015** | ADMIN edita porcentajeTourya | 🟢 | Feature admin-only. | — |
+| **TC-016** | `travelerBreakdown` por ageType en reservas | ❌ | `ClientReservation` (`ReservationDtos.cs:8-81`) solo tiene `TotalTourists`; no hay `travelerBreakdown`. Idem `ReservationDetails`. Provider ve "3 turistas" sin saber composición. | `Models/Reservation/ReservationDtos.cs` (nuevo `TravelerBreakdownDto { AgeType, Quantity }` + campo en Client/Details); `Views/Provider/ProviderReservationsPage.xaml` (chip "2 Adultos · 1 Niño"); `Views/Tourist/ReservationDetailPage.xaml` y `Views/Provider/...ReservationDetailPage.xaml` (desglose completo). |
+| **TC-017** | Flag HOTEL_PICKUP + guardar en español + mensaje UI + i18n priceType + selector orden | ❌ (parcial dependencia con TC-019) | Grep `HOTEL_PICKUP`/`hotelPickup`/`AddressType` vacío en todo el repo mobile. `TourLocationDto` (`TourDetailResponse.cs:69-85`) no tiene `addressType`. `TourFormViewModel.cs` no permite elegir addressType. `TourDetailPage.xaml:120` renderiza siempre el punto de encuentro con coords. | (a) `Models/Tour/TourDetailResponse.cs` (agregar `AddressType` a `TourLocationDto`); (b) `Views/Tourist/TourDetailPage.xaml:120` ocultar cuando `AddressType == HOTEL_PICKUP` y mostrar mensaje traducido i18n (3 idiomas); (c) `Views/Provider/TourFormPage.xaml` + `TourFormViewModel.cs` + `Models/Provider/TourFormDtos.cs` (Picker addressType HOTEL_PICKUP / MEETING_POINT); (d) `Views/Tourist/CartPage.xaml` (chip "🏨 Pickup en hotel" en el item). |
+| **TC-018** | Reporte DIMAR RED bloquea carrito + cancela reservas retroactivamente | ❌ | Grep `dimar`/`maritime`/`blockedBy` vacío. `TourDetailViewModel.CanAddToCart` no chequea flag. `ProviderReservationsPage` no muestra badge de "Cancelada por DIMAR". | `Models/Tour/TourDetailResponse.cs` (agregar `blockedByMaritimeReport: bool`, `maritimeAlertMessage: TranslatedField?`); `ViewModels/Tourist/TourDetailViewModel.cs` (bloquear `CanAddToCart` + banner rojo); `Models/Reservation/ReservationDtos.cs` (agregar `cancellationReason` para distinguir DIMAR); `Views/Provider/ProviderReservationsPage.xaml` (badge "🌊 Cancelada por DIMAR"). |
+| **TC-019** | sub_category + batch schedule + precios con margen + backfill drift + reschedule booking count + slot pct recalc | ⚠️ | ✅ `TourFormViewModel.cs:60,319` + `TourFormPage.xaml:66-67` YA tienen SubCategory Picker (portado). ✅ `SlotPriceRequest.cs:52-54` YA tiene `providerPrice` para el margen (portado modelo). ❌ `ScheduleTemplateFormViewModel.cs:233` hardcodea `[new SlotPriceRequest { AgeType = "ADULT", Price = s.Price }]` — no soporta multi-ageType ni edición del margen. ❌ Batch schedule create no expuesto en UI. ❌ ScheduleCalendarPage no muestra desglose de precios con margen. | `ViewModels/Provider/ScheduleTemplateFormViewModel.cs` (soporte multi-precio por ageType + edición providerPrice); `Views/Provider/ScheduleTemplateFormPage.xaml` (repeater de precios); opcional `Views/Provider/ScheduleBatchCreatePage.xaml` nuevo. |
+| **TC-020** | docType real a Wompi + timezone JVM Bogota + botón Ver Reservas + refresh perfil | ⚠️ | `CheckoutViewModel:36` docType default "CC" con `Entry` libre — el user PUEDE escribir el correcto pero por defecto va "CC" (mismo bug que Wompi rechazaba). Timezone lo maneja backend. `PaymentConfirmationPage` a validar si tiene botón "Ver Reservas". Refresh perfil post-tx no se hace. | `Views/Tourist/CheckoutPage.xaml:49` (Entry → Picker con opciones CC/CE/PP/TI/NIT); `Views/Tourist/PaymentConfirmationPage.xaml` (botón "Ver mis reservas" navega a `//tourist/my-trips`); `ViewModels/Tourist/ProfileViewModel.cs` (refresh en `OnAppearing` post-tx). |
+| **TC-021** | Backend scrub datos cliente al PROVIDER cuando falta >1 día al tour | ⚠️ | `ClientReservation.PayerName?` ya es `string?` (nullable safe). Falta comportamiento explícito de UI: no romper cuando null y mostrar mensaje. `ProviderReservationsPage.xaml` bindings a validar. | `Views/Provider/ProviderReservationsPage.xaml` (fallback text "🔒 Datos disponibles el día del tour" cuando `PayerName == null`); `Views/Provider/...ReservationDetailPage.xaml` (idem); potencialmente flag `dataScrubbed` en `ClientReservation` para diferenciar "aún no visible" vs "nunca hubo dato". |
+
+**Resumen numérico:**
+
+- ✅ **0 TCs portados completos** (TC-019 sub_category está portado pero es 1 de 6 subitems).
+- ⚠️ **4 TCs parciales** (TC-007, TC-019, TC-020, TC-021).
+- ❌ **5 TCs no portados** (TC-009, TC-012/013, TC-014, TC-016, TC-017, TC-018).
+- 🟢 **3 TCs N/A** (TC-008, TC-011, TC-015).
+
+Los ❌ pesan más en la UX del turista (TC-009, TC-014, TC-017, TC-018) que en la del provider (TC-016 + refuerzo TC-021).
+
+---
+
+## Roadmap actualizado 2026-08-13 (post ciclo QA)
+
+Reemplaza los "Ciclos 0-6" del cuerpo principal para priorizar el gap del ciclo QA antes de features nuevas.
+
+### Ciclo 0 — Higiene (bloqueante, no negociable)
+
+1. **MO-00 — Crear repo `Touryapp/tourya-mobile` en GitHub** y `git push -u origin master`. Sin esto la próxima falla de disco borra 4 meses de trabajo (72 archivos untracked hoy).
+2. **MO-01b — Migrar URL API a HTTPS** `https://dev.tourya.co/api/v1/` en `Constants.cs:9`.
+3. **MO-02 — Registrar Syncfusion License** (env var + `SyncfusionLicenseProvider.RegisterLicense` en `MauiProgram.cs`).
+4. **MO-03 — CI/CD básico**: GitHub Actions build + APK firmado (Keystore en Secret Manager) + subida a Play Store internal track.
+5. **MO-04 — Habilitar Firebase Crashlytics** (`Plugin.Firebase.Crashlytics`) — sin visibilidad no hay operación seria.
+
+### Ciclo 1 — Portar QA agosto que impacta UX del turista (alta prioridad)
+
+1. **MO-DT9 (TC-009)** — Editar `document_type` en Profile + Picker en Checkout + prellenar del perfil.
+2. **MO-DT20 (TC-020)** — Reforzar checkout con Picker docType real + botón "Ver mis reservas" en confirmación + refresh perfil.
+3. **MO-DT17 (TC-017)** — Hotel Pickup end-to-end: mostrar mensaje traducido en `TourDetailPage`, ocultar mapa, chip en cart, addressType en TourFormPage.
+4. **MO-DT18 (TC-018)** — DIMAR RED: bloquear add-to-cart si `blockedByMaritimeReport = true` + banner rojo + notificar reservas canceladas al provider.
+5. **MO-DT14 (TC-014)** — Cart: detectar items purgados post-refresh + banner amarillo "Se eliminaron X reservas caducadas".
+
+### Ciclo 2 — Portar QA agosto que impacta UX del provider
+
+1. **MO-DT16 (TC-016)** — `travelerBreakdown` en `ProviderReservationsPage` y ambos `ReservationDetailPage`.
+2. **MO-DT21 (TC-021)** — Placeholder "🔒 Datos disponibles el día del tour" cuando el scrub deja nulls.
+3. **MO-DT7 (TC-007)** — Mapear código de error "guard temporal" del backend a mensaje user-friendly en `QrScannerViewModel`.
+4. **MO-DT19b (TC-019)** — Multi-ageType + `providerPrice` (margen) en `ScheduleTemplateFormViewModel` y su XAML.
+5. **MO-DT19c (TC-019)** — Batch schedule create UI si se prioriza (ver pregunta abierta P2).
+
+### Ciclo 3 — Refinar UX de creación/config del proveedor (arrastra del roadmap original)
+
+1. Autosave / borradores en el wizard de tour.
+2. Vista de calendario mejorada en schedule (día/semana/mes).
+3. Compresión de imágenes en wizard de tour (SkiaSharp ya está en el csproj vía MO-31).
+4. Upload en background.
+
+### Ciclo 4 — Features "solo mobile" pendientes
+
+De los items del doc 14 no portados por el ciclo QA:
+
+1. **Push Fase D**: definir con backend los payloads de notificación por evento (nueva reserva → provider, cancelación DIMAR → turista, etc.). Registro FCM (MO-40 Fase B) y handler (Fase C) ya están.
+2. **MO-43b — autoVerify de deep-links**: montar `.well-known/assetlinks.json` en `dev.tourya.co` para que el chooser desaparezca.
+3. **Widget "próxima reserva"** (turista + operario).
+4. **Wallet integration** (Apple Pay / Google Pay vía Wompi) — media prioridad, deprioritzar hasta salir de Android-only.
+
+### Ciclo 5 — Robustecer offline y rol operario
+
+1. Extender `IReservationCacheService` a la lista paginada del `ProviderReservationsPage` (hoy solo Dashboard).
+2. Reforzar vista de reservas del operario (agrupación por hora en el día).
+3. Fallback manual del QR — verificar que exista (deuda pendiente del doc 15 cuerpo).
+
+### Ciclo 6 — Integración con agentes IA (Fase 2)
+
+1. Travel Concierge en `ExplorePage` (según [16](16-agentes-ia.md)).
+2. Otros agentes según alcance de Luis.
+
+### Ciclo 7 — Guest checkout (si aplica)
+
+1. **MO-DT12/13 (TC-012/013)** — Guest info modal en checkout si se decide portar (ver pregunta abierta P1).
+
+---
+
+## Preguntas abiertas para Luis / Franklin
+
+- **P1 (TC-012/013 guest checkout)**: ¿el mobile debe permitir compra sin login (con guest-info-modal como el web) o queda auth-required? El web lo soporta post-TC-013. Impacto: si sí, es Ciclo 7 con ~1 semana de trabajo (nuevo modal + refactor `CheckoutViewModel` + endpoint client `/public/guest-checkout` a verificar en backend).
+- **P2 (TC-019 batch schedule mobile)**: ¿el provider mobile va a crear schedules en lote (batch) desde el móvil o eso se queda como flujo web? El doc 14 pone provider config como "solo cuando está en la oficina", entonces batch podría quedar solo-web.
+- **P3 (MO-00 repo Git)**: ¿seguimos posponiendo o ya lo creamos ahora que estamos por retomar el ciclo? Riesgo: 72 archivos untracked hoy, sin backup remoto.
+- **P4 (Syncfusion license)**: ¿se compra la license (~USD 995/dev/año Essential Studio) o migramos los controles Syncfusion (Maps, Charts) a alternativas free/OSS antes del release público? Bloqueante para Play Store por el banner de trial.
+- **P5 (iOS)**: ¿confirmamos que iOS queda fuera de scope para el MVP o se replantea? Ya se decidió Android-only pero el mercado turista colombiano tiene ~35% iOS.
+- **P6 (TC-017 addressType HOTEL_PICKUP en `TourFormPage`)**: ¿el provider mobile debe permitir crear tours con addressType HOTEL_PICKUP desde el móvil o eso queda solo-web?
