@@ -102,6 +102,8 @@ Gestión de sub-usuarios del provider.
 | PUT | `/tour/user/submitTourById/{tourId}` | JWT | PROVIDER |
 | GET | `/tour/details/{tourId}` | público u opt-in | Todos |
 
+> 📌 **Cambio PR #255 (2026-08-13)** — `TourFullDataResponse` expone ahora el campo opcional `blockedByMaritimeReport: boolean` (para cerrar la deuda mobile de TC-018 detectada en Sprint 2). Aplica a todos los endpoints que devuelven este DTO: `GET /public/tour/details/{tourId}`, `GET /public/consultDataTourById/{tourId}`, `GET /tour/details/{tourId}`, `GET /tour/user/consultDataTourById/{tourId}`, `GET /tour/admin/consultDataTourById/{tourId}` (y los mutadores admin que retornan el DTO — `acceptTourById`, `returnedTourById`, `cancelTourById`, `porcentajeTourya`, `submitTourById`, `saveCreateFullData`). Semántica: `true` si hay al menos un `MaritimActivityReport` en estado RED activo hoy (`LocalDate.now(America/Bogota)`) que matchee la subcategoría del tour y alguna de sus `locations` con geo. Hotel Pickup y locations sin geo se ignoran (DIMAR no las cubre) → `false` por defecto en esos casos. Reusa `MaritimActivityReportRepository.findActiveRedReportsForSubcategoryAndLocation` — mismo helper del guard duro `ShoppingCartService.validateNoActiveMaritimeAlert`. Antes del PR el flag solo lo exponía el search (`SearchTourScheduleFullResponse.schedules[].blockedByMaritimeReport`); ahora el detail también, para que mobile deshabilite el CTA "Reservar" sin depender del fallback 400 del carrito.
+
 #### `TourCategoryController` — `/tourCategory`
 | Método | Path | Auth |
 |--------|------|------|
@@ -194,6 +196,8 @@ Gestión de sub-usuarios del provider.
 |--------|------|------|
 | POST | `/tour/schedule/search` | público u opt-in |
 
+> 📌 **Cambio PR #255 (2026-08-13)** — `SearchTourScheduleFullResponse.AddressResponse` expone ahora el campo opcional `addressType: string` (`AddressTypeEnum.name()` — `"FIXED_LOCATION"` / `"HOTEL_PICKUP"` / etc., nullable si el enricher no matchea). Antes solo el detail traía este dato, obligando al mobile a heurística `empty(city) && empty(address) → HOTEL_PICKUP` (TC-017). Aplica a **todos los endpoints que usan `SearchTourScheduleFullService`**: `POST /tour/schedule/search`, `POST /public/tours/schedule/search` y `POST /wishlist/search`. Implementado con `SearchTourAddressTypeEnricher` (batch load Java, **sin tocar el SP `sp_get_tour_schedule_json`**): recolecta `tour_address` por `tour_id_in` y matchea por tupla `(country_id, state_id, city_id)` — incluye el caso HOTEL_PICKUP con los 3 nulls. Fallback: si el tour tiene una sola dirección, se usa esa. Sin N+1.
+
 #### `PublicController` — `/public`
 | Método | Path | Descripción |
 |--------|------|-------------|
@@ -235,6 +239,8 @@ Gestión de sub-usuarios del provider.
 | GET | `/reservations/{id}/reschedule/validate` | JWT | USER |
 | PUT | `/reservations/{id}/reschedule` | JWT | USER |
 
+> 📌 **Cambio PR #255 (2026-08-13)** — `ReservationResponse` expone ahora el campo opcional `travelerBreakdown: List<TravelerBreakdownDto>` (reusa el tipo ya existente del provider). Cada entrada trae `ageType` (`ADULT` / `CHILD` / `INFANT`), `count`, `unitPrice` y `providerUnitPrice`. Aplica a todos los endpoints que devuelven `ReservationResponse` — vista turista `GET /reservations/{id}`, `GET /reservations`, `GET /reservations/qr/{qrUrl}`, `GET /reservations/payment/{paymentId}`, listas por fecha / estado, etc. Antes solo la vista provider (`ReservationDetailsResponse` vía `sp_get_provider_reservations`, TC-016) traía este desglose; el turista tenía únicamente `priceBreakdown: ReservationPriceBreakdownResponse` (datos equivalentes pero distinto shape, agrupado por `age_price_type` de la tarifa). **Coexisten** ambos en la vista turista — `priceBreakdown` sigue como fuente autoritativa para totales, `travelerBreakdown` existe para que el mobile reuse el mismo componente de UI entre provider y turista sin duplicar renderers. Poblado en `ReservationService.enrichReservationResponse` desde `shopping_cart_item_detail` del carrito original.
+
 #### `ShoppingCartController` — `/shopping-cart`
 | Método | Path | Auth | Roles |
 |--------|------|------|-------|
@@ -248,6 +254,8 @@ Gestión de sub-usuarios del provider.
 | PUT | `/shopping-cart/{cartId}/items/{itemId}/status` | JWT | USER |
 | POST | `/shopping-cart/{cartId}/checkout` | JWT | USER |
 | DELETE | `/shopping-cart/{cartId}/clear` | JWT | USER |
+
+> 📌 **Cambio PR #255 (2026-08-13)** — `ShoppingCartItemResponse` expone ahora el campo opcional `addressType: string` (`AddressTypeEnum.name()`, nullable). Aplica a todos los endpoints que devuelven items del cart — `POST /shopping-cart`, `GET /shopping-cart`, `GET /shopping-cart/user`, `GET /shopping-cart/{cartId}`, `GET /shopping-cart/{cartId}/details`, `POST /shopping-cart/items`. Se mapea desde el primer `tour_address` asociado al tour del item (mismo patrón que `city` / `department` ya presentes). **`null` para items `SERVICE`** — no tienen dirección asociada. Cierra la deuda mobile TC-017 (antes el cliente heurística sobre `city`/`address` vacíos para inferir Hotel Pickup).
 
 #### `TourReservationController` — `/tour-reservations` (legacy)
 | Método | Path | Notas |
