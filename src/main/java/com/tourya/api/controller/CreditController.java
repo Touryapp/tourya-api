@@ -103,4 +103,22 @@ public class CreditController {
             Authentication authentication) {
         return ResponseEntity.ok(creditService.transferCredit(creditId, request, authentication));
     }
+
+    @PostMapping("/{creditId}/request-refund")
+    @Operation(
+            operationId = "touristRequestCreditRefund",
+            summary = "Turista solicita la devolucion en efectivo del credito (TC-022 #253)",
+            description = "Transicion CREATED -> REFUND_REQUESTED. Guards: credito propio, "
+                    + "status actual CREATED, saldo libre (amount - reservedAmount) > 0, no vencido."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Devolucion solicitada"),
+            @ApiResponse(responseCode = "400", description = "Transicion no permitida"),
+            @ApiResponse(responseCode = "404", description = "Credito no existe")
+    })
+    public ResponseEntity<CreditResponse> requestRefund(
+            @PathVariable("creditId") Long creditId,
+            Authentication authentication) {
+        return ResponseEntity.ok(creditService.requestRefund(creditId, authentication));
+    }
 }

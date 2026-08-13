@@ -88,6 +88,24 @@ public class Credit extends BaseEntity {
     @Column(name = "expired_notified_at")
     private LocalDateTime expiredNotifiedAt;
 
+    /**
+     * TC-022 (#253): timestamp de cuando el turista solicito la devolucion en efectivo.
+     */
+    @Column(name = "refund_requested_at")
+    private LocalDateTime refundRequestedAt;
+
+    /**
+     * TC-022 (#253): timestamp de cuando ADMIN/BACKOFFICE marco la devolucion como completada.
+     */
+    @Column(name = "refunded_at")
+    private LocalDateTime refundedAt;
+
+    /**
+     * TC-022 (#253): URL publica del comprobante de devolucion (S3/GCS).
+     */
+    @Column(name = "refund_proof_url", length = 500)
+    private String refundProofUrl;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reservation_id", insertable = false, updatable = false)
     private Reservation reservation;

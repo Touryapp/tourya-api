@@ -2,6 +2,8 @@ package com.tourya.api.repository;
 
 import com.tourya.api.models.Credit;
 import com.tourya.api.constans.enums.CreditStatusEnum;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -29,6 +31,11 @@ public interface CreditRepository extends JpaRepository<Credit, Long> {
      * Busca créditos por estado
      */
     List<Credit> findByStatus(CreditStatusEnum status);
+
+    /**
+     * TC-022: listado paginado por estado (para admin/backoffice global).
+     */
+    Page<Credit> findByStatus(CreditStatusEnum status, Pageable pageable);
 
     /**
      * Busca créditos por estado y ordenados por fecha de creación
