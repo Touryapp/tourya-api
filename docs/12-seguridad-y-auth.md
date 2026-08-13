@@ -129,15 +129,15 @@ Tourya usa **dos mecanismos combinados**:
 | `PROVIDER` | Operador titular. Asignado al aprobar KYB. |
 | `PROVIDER_OPERATOR` | Sub-usuario del PROVIDER. Ver [RN-058](05-reglas-de-negocio.md#rn-058) — no ve datos del cliente hasta 1 día antes del tour. |
 | `ADMIN` | Admin Tourya (asignación manual en BD). Menú admin completo en todas las vistas. |
-| `BACKOFFICE_OPERATION` | Operación Tourya (subset ver [FE-15b/c](17-backlog-implementacion.md)): ver reservas, subir pagos, gestionar reportes DIMAR. |
+| `BACKOFFICE_OPERATION` | Operación Tourya (subset ver [FE-15b/c](17-backlog-implementacion.md)): ver reservas, subir pagos, gestionar reportes DIMAR, gestionar devoluciones de crédito (TC-022 — `POST /admin/credits/{id}/upload-refund-proof` + `GET /admin/credits`). |
 
 ### Filtrado por scope
 
 ✅ El backend filtra automáticamente:
 - PROVIDER ve solo SUS tours/reservas/payouts (filtro por `providerId` del JWT). Además, datos del cliente ofuscados hasta 1 día antes del tour ([RN-058](05-reglas-de-negocio.md#rn-058)).
 - PROVIDER_OPERATOR ve solo los tours que tiene asignados (`provider_user_tour`). Mismo scrub que PROVIDER.
-- USER ve solo SUS reservas/créditos/wishlist.
-- ADMIN y BACKOFFICE_OPERATION ven todo (auditoría/soporte). `Utils.isTouryaBackoffice()` es el helper canónico.
+- USER ve solo SUS reservas/créditos/wishlist. En TC-022 (RN-062), el turista solicita la devolución de sus propios créditos vía `POST /credits/{id}/request-refund` — guard de ownership en `CreditService.requestRefund`.
+- ADMIN y BACKOFFICE_OPERATION ven todo (auditoría/soporte). `Utils.isTouryaBackoffice()` es el helper canónico. Aplica también al listado global de créditos (`GET /admin/credits`) y a la carga del comprobante de devolución (`POST /admin/credits/{id}/upload-refund-proof`) del flujo TC-022 — patrón consistente con `BackofficeGuard` de Angular (que expone ambas rutas en el sidebar admin bajo el item "Créditos").
 
 ### Layout admin — sidebar por rol (TC-008 #195, ciclo agosto 2026)
 

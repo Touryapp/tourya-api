@@ -362,6 +362,48 @@ Gestión de sub-usuarios del provider.
 | POST | `/credits/reserve` | JWT USER |
 | GET | `/credits/tourist-lookup?documentNumber=` | JWT |
 | POST | `/credits/{creditId}/transfer` | JWT USER |
+| POST | `/credits/{creditId}/request-refund` | JWT USER — TC-022 #253 |
+
+**TC-022 `/credits/{creditId}/request-refund`** (turista solicita devolución en efectivo — ver [RN-062](05-reglas-de-negocio.md#rn-062)):
+
+- Body: vacío.
+- Response 200: `CreditResponse` con `status: "REFUND_REQUESTED"` y `refundRequestedAt` seteado (Bogota).
+- Guards:
+  - Ownership: el crédito debe pertenecer al usuario del JWT (`credit.userId == auth.principal.id`), sino `OperationNotPermittedException`.
+  - Estado: `status == CREATED`, sino `OperationNotPermittedException` con mensaje del estado actual.
+  - Saldo libre: `(amount - reservedAmount) > 0`, sino `OperationNotPermittedException` ("no free balance available for refund").
+  - No vencido: `expirationDate >= today (Bogota)`, sino `OperationNotPermittedException` ("Cannot request refund on an expired credit").
+- Efectos: transición `CREATED → REFUND_REQUESTED`, persiste `refund_requested_at` (Bogota). El crédito ya no se puede usar en checkout ni transferir (checks existentes `status != CREATED` lo excluyen automáticamente).
+- Errores: 400 (transición no permitida), 404 (crédito no existe).
+
+#### `AdminCreditController` — `/admin/credits` (TC-022 #253)
+
+Endpoints backoffice/admin del flujo de devolución de créditos. Requieren rol **ADMIN** o **BACKOFFICE_OPERATION** — guard aplicado en el service vía `Utils.isTouryaBackoffice(roles)` (retorna `InsufficientPrivilegesException` → 403).
+
+| Método | Path | Auth | Roles |
+|--------|------|------|-------|
+| GET | `/admin/credits?status=&page=&size=&sort=` | JWT | ADMIN + BACKOFFICE_OPERATION |
+| POST | `/admin/credits/{creditId}/upload-refund-proof` (multipart) | JWT | ADMIN + BACKOFFICE_OPERATION |
+
+**`GET /admin/credits`** — listado global paginado de créditos con datos del turista embebidos:
+
+- Query params: `status` (opcional, filtra por `CreditStatusEnum`) + paginación estándar Spring (`page`, `size`, `sort`).
+- Response 200: `Page<CreditResponse>` con campos extra `touristName` y `touristEmail` en cada item.
+- Errores: 403 (rol insuficiente).
+
+**`POST /admin/credits/{creditId}/upload-refund-proof`** — sube el comprobante y marca la devolución completa (transición `REFUND_REQUESTED → REFUNDED`):
+
+- `Content-Type: multipart/form-data`.
+- Part `proof` (requerido): archivo del comprobante. **Validación**: MIME `application/pdf` / `image/png` / `image/jpeg` / `image/jpg`; tamaño ≤ 5MB (`REFUND_PROOF_MAX_BYTES`); no vacío.
+- Response 200: `CreditResponse` con `status: "REFUNDED"`, `refundedAt` (Bogota) y `refundProofUrl` (URL pública).
+- Efectos:
+  - Sube el archivo a `IStorageService` (S3 o GCS según env — `GcsStorageService` es la implementación en Cloud Run) al path `credit-refund-proofs/{creditId}/...` con nombre generado por el storage.
+  - Persiste transición + timestamps + URL.
+- Guards:
+  - Rol backoffice (403 si no).
+  - Archivo válido (400 con `IllegalArgumentException` si formato/tamaño/vacío no cumple).
+  - Estado: `status == REFUND_REQUESTED`, sino `OperationNotPermittedException` (400).
+- Errores: 400 (transición o archivo inválido), 403 (rol insuficiente), 404 (crédito no existe).
 
 #### `MaritimActivityReportController` — `/maritime-activity-reports`
 | Método | Path | Auth | Roles |
@@ -429,6 +471,7 @@ Claves configurables disponibles hoy (patrón JSON `{"value": N}` para escalares
 - `PATCH /public/save/review/{reviewId}` (≤5 fotos)
 - `POST /requestProvider/{requestId}/gallery`
 - `POST /provider/payout-orders/admin/{orderId}/proof`
+- `POST /admin/credits/{creditId}/upload-refund-proof` (JPG/PNG/PDF, ≤5MB) — TC-022 #253, ADMIN/BACKOFFICE_OPERATION
 
 ### Auth opt-in (público con datos extra si hay JWT)
 - `GET /tour/details/{tourId}`

@@ -1,6 +1,6 @@
 # 08 — Modelo de datos
 
-Schema PostgreSQL de Tourya: 68 tablas, 90 migraciones, ~20 stored procedures, índices, JSONB para i18n.
+Schema PostgreSQL de Tourya: 68 tablas, 91 migraciones, ~20 stored procedures, índices, JSONB para i18n.
 
 > Referencia complementaria: [04 — Entidades de dominio](04-entidades-dominio.md) para el lado JPA.
 
@@ -11,7 +11,7 @@ Schema PostgreSQL de Tourya: 68 tablas, 90 migraciones, ~20 stored procedures, �
 | Métrica | Valor |
 |---------|-------|
 | Total tablas | 68 |
-| Total migraciones aplicadas | 90 (numeradas `001_` a `090_`) |
+| Total migraciones aplicadas | 91 (numeradas `001_` a `091_`) |
 | Stored procedures de negocio | ~14 |
 | UUID helper functions | 6 (extensión `uuid-ossp`) |
 | Total índices | ~52 |
@@ -120,8 +120,10 @@ Schema PostgreSQL de Tourya: 68 tablas, 90 migraciones, ~20 stored procedures, �
 |-------|-----------|
 | `payment` | Transacción Wompi |
 | `payment_credit` | Link payment ↔ credit |
-| `credit` | Crédito a favor del turista |
+| `credit` | Crédito a favor del turista. **TC-022** (mig 091): 3 columnas nuevas `refund_requested_at TIMESTAMPTZ NULL`, `refunded_at TIMESTAMPTZ NULL`, `refund_proof_url VARCHAR(500) NULL` para el flujo de devolución en efectivo — ver [RN-062](05-reglas-de-negocio.md#rn-062) |
 | `account_payable` | Cuenta por pagar al provider |
+
+> 📌 **Cambio TC-022 (#253)** (migración 091, 2026-08-13): flujo de devolución en efectivo de crédito. Además de las 3 columnas nuevas en `credit`, la migración agrega los estados `REFUND_REQUESTED` y `REFUNDED` al catálogo del CHECK constraint `credit_status_check` (transiciones `CREATED → REFUND_REQUESTED` vía turista, `REFUND_REQUESTED → REFUNDED` vía ADMIN/BACKOFFICE con comprobante). **Bonus fix incluido en la misma migración**: la migración 074 (BE-19) empezó a persistir `'EXPIRED'` en `credit.status` sin actualizar el CHECK — la 091 normaliza el catálogo completo (`CREATED, RESERVED, CONSUMED, CANCELED, DELETED, EXPIRED, REFUND_REQUESTED, REFUNDED`) cerrando esa deuda latente. Ver también [RN-062](05-reglas-de-negocio.md#rn-062) y la sección "Credit status enum" más abajo.
 
 ### Payouts (4 tablas)
 
@@ -200,7 +202,7 @@ Reportes DIMAR estructurados con location + dateRange. i18n completo en filtros.
 ### Fase 9 (migraciones 062-077) — Push, agentes IA, refresh tokens, notificaciones
 Refresh tokens (067), Wompi webhook (066), device tokens FCM (075), notificaciones de expiración de crédito (074), `agent_audit_log` (076), `_user.phone` para operadores (077). Bootstrap de `app_config` (068-073).
 
-### Fase 10 (migraciones 078-090) — TCs QA ciclo julio-agosto 2026
+### Fase 10 (migraciones 078-091) — TCs QA ciclo julio-agosto 2026
 Fase intensiva de bug-fixes reportados por Luis:
 - 078: `fn_slot_booked_units_on_schedule` — bookings por `(slot, fecha)` en runtime (TC-004).
 - 079: `sp_get_provider_reservations` respeta `price_type` grupo para `providerPrice` (TC-005).
@@ -215,8 +217,11 @@ Fase intensiva de bug-fixes reportados por Luis:
 - 088: backfill `slot_porcentaje_tourya` + `price` + restore TC-004 en `sp_get_tour_schedule_json` (TC-019 R1/R2/R3).
 - 089: `fn_slot_booked_units_on_schedule` incluye `RESCHEDULED` en el `IN` de delivery_status + backfill idempotente de `slot.bookings` (792 filas) y `slot.availability` (404 filas) con la definición nueva (TC-019 bug 3). Complementa mig 080. Ver [RN-061](05-reglas-de-negocio.md).
 - 090: backfill de drift entre `tour_schedule_config_price.price` y `provider_price × (1 + slot_pct)` — 4 filas en dev (slots 522/526/629 tour 43, slot 527 tour 36). Idempotente `WHERE ABS(...) > 0.01`. Complementa mig 088 cubriendo el caso `price != provider_price × (1 + slot_pct)` cuando `slot_pct > 0` (TC-019 bug 4). Habilita el flujo `TourScheduleConfigSlotDto.slotPorcentajeTourya` — ver [RN-015](05-reglas-de-negocio.md) refinamiento.
+- 091: **TC-022** flujo de devolución en efectivo de crédito (issue #253). 3 columnas nuevas en `credit` (`refund_requested_at TIMESTAMPTZ NULL`, `refunded_at TIMESTAMPTZ NULL`, `refund_proof_url VARCHAR(500) NULL`) + normaliza `credit_status_check` para admitir los 8 valores del catálogo (`CREATED, RESERVED, CONSUMED, CANCELED, DELETED, EXPIRED, REFUND_REQUESTED, REFUNDED`) — cierra la deuda latente donde la mig 074 (BE-19) empezó a usar `'EXPIRED'` sin actualizar el CHECK. Aplicada a Cloud SQL dev (`tourya-dev-db`). Ver [RN-062](05-reglas-de-negocio.md#rn-062).
 
 > 📌 **Cambio TC-019 bug 4 (PR #247)** — nuevo campo `slotPorcentajeTourya` (0-100 puntos, nullable) en `TourScheduleConfigSlotDto`. Persistido en `tour_schedule_config_slot.slot_porcentaje_tourya` **solo si el rol es BACKOFFICE** al invocar `POST/PUT /tour-schedules/config` o `POST /tour-schedules/batch`. Recalcula `tour_schedule_config_price.price` en el mismo request (idempotente, siempre desde `providerPrice`).
+
+> 📌 **Cambio TC-022 (PR #254)** — nuevos estados `REFUND_REQUESTED` y `REFUNDED` en `CreditStatusEnum` + entity `Credit` con 3 campos nuevos + endpoints `POST /credits/{id}/request-refund` (turista) y `POST /admin/credits/{id}/upload-refund-proof` (multipart, BACKOFFICE/ADMIN) + `GET /admin/credits` paginado. Uso de `IStorageService` (S3 o GCS) para el comprobante en path `credit-refund-proofs/{creditId}/...`. Ver [RN-062](05-reglas-de-negocio.md#rn-062) y [doc 09 Credits](09-api-design.md).
 
 ---
 
@@ -368,9 +373,22 @@ CHECK (expiration_date >= creation_date)
 
 ### Credit status enum
 
+**Estado actual desde migración 091 (TC-022, 2026-08-13)** — catálogo normalizado que refleja todos los valores realmente en uso por el código:
+
 ```sql
-CHECK (status IN ('CREATED', 'CANCELED', 'DELETED'))
+CHECK (status IN (
+  'CREATED', 'RESERVED', 'CONSUMED',
+  'CANCELED', 'DELETED', 'EXPIRED',
+  'REFUND_REQUESTED', 'REFUNDED'
+))
 ```
+
+**Contexto histórico**:
+- Original: `('CREATED', 'CANCELED', 'DELETED')`.
+- La mig 074 (BE-19) empezó a persistir `'EXPIRED'` **sin** actualizar el CHECK — deuda latente que no explotó porque el valor caía por otro camino (nunca se rechazó un INSERT). La 091 la cierra.
+- La 091 agrega además `REFUND_REQUESTED` y `REFUNDED` para el flujo de RN-062.
+
+> **Nota**: `credit.status` es `VARCHAR(20)` con CHECK constraint — **no** un enum nativo PostgreSQL (a diferencia de `address_type` o `tour_subcategory_enum`). Esto simplifica agregar valores nuevos (basta con `ALTER TABLE ... DROP/ADD CONSTRAINT`) pero requiere que el Java `CreditStatusEnum` y el CHECK se mantengan sincronizados manualmente.
 
 ### Hotel Pickup exceptúa NOT NULL geo (TC-017, migración 087)
 

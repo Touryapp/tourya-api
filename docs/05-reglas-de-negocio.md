@@ -413,6 +413,37 @@ Body: {"value": {"value": 12}, "description": "Alineado con política oficial"}
 ### RN-039 — Consumo de créditos en pago híbrido
 ✅ El turista puede pagar parte con crédito y parte con tarjeta (`paymentType = CREDIT_AND_PLATFORM`). Validación: la suma debe igualar el total.
 
+### RN-062 — Devolución en efectivo de crédito (TC-022 #253, ciclo agosto 2026)
+✅ El turista puede solicitar la **devolución en efectivo** de un crédito activo con saldo libre (RN-035/036 aún vigente pero convertido a plata). El flujo es de **dos pasos** con roles distintos:
+
+1. **Turista solicita** (`POST /credits/{id}/request-refund`):
+   - Guards: crédito propio, `status = CREATED`, saldo libre `(amount - reservedAmount) > 0`, no vencido (`expirationDate >= today` Bogota).
+   - Transición: `CREATED → REFUND_REQUESTED`.
+   - Se persiste `refund_requested_at` (Bogota).
+   - Efecto: el crédito ya no se puede usar en checkout ni transferir (los checks existentes `status != CREATED` lo excluyen automáticamente — cero regresión).
+
+2. **ADMIN o BACKOFFICE_OPERATION completa** (`POST /admin/credits/{id}/upload-refund-proof`, multipart `proof`):
+   - Guards: rol backoffice (`Utils.isTouryaBackoffice`), `status = REFUND_REQUESTED`, archivo válido (JPG/PNG/PDF, ≤5MB).
+   - Comprobante se sube a la abstracción `IStorageService` (S3 o GCS según env — `GcsStorageService` implementa la interfaz en Cloud Run) al path `credit-refund-proofs/{creditId}/...`.
+   - Transición: `REFUND_REQUESTED → REFUNDED`.
+   - Se persiste `refunded_at` (Bogota) + `refund_proof_url` (URL pública del bucket).
+
+**Reembolsos manuales previos** a este PR quedan fuera del sistema — **no hay backfill**. Un crédito que Luis o el equipo hayan reembolsado antes en efectivo sigue en su estado original (`CREATED` o `CANCELED`) y el registro contable queda fuera de la BD Tourya. Solo los reembolsos posteriores a la migración 091 quedan trazados en `credit.refund_requested_at/refunded_at/refund_proof_url`.
+
+**No es reversible por diseño** — una vez `REFUNDED`, no hay endpoint para revertir. Si hay error operativo (comprobante equivocado, monto mal), el backoffice debe abrir otro crédito manualmente y compensar por fuera.
+
+**Implementación** (PR #254 backend, tourya-front PR #115, mobile commit local `2d770f8`, migración 091):
+- Migración 091: agrega 3 columnas al `credit` (`refund_requested_at`, `refunded_at`, `refund_proof_url` — todas TIMESTAMPTZ/VARCHAR nullable) + normaliza el CHECK constraint `credit_status_check` para admitir el catálogo completo `CREATED, RESERVED, CONSUMED, CANCELED, DELETED, EXPIRED, REFUND_REQUESTED, REFUNDED`. **Bonus fix**: la migración 074 (BE-19) empezó a persistir `'EXPIRED'` sin actualizar el CHECK; la 091 lo alinea al fin.
+- Enum `CreditStatusEnum` con `REFUND_REQUESTED` + `REFUNDED`.
+- `CreditService.requestRefund` (turista) y `uploadRefundProof` + `findAllForAdmin` (backoffice).
+- Nuevo `AdminCreditController` (`/admin/credits`) separado del `CreditController` turista — mismo patrón que el resto de endpoints backoffice.
+- Frontend Angular: botón "Solicitar devolución" + SweetAlert2 confirm en `/clients/my-profile?section=credits` (turista); nueva ruta `/admin/credits` con `AdminCreditsComponent` (tabla paginada + modal upload) — item "Créditos" agregado al sidebar admin. i18n ES/EN/PT completo.
+- Mobile MAUI: botón + confirm en `CreditsPage` (turista); chip visual REFUND_REQUESTED (amarillo) y REFUNDED (azul) + link "Ver comprobante". **Flujo admin queda web-only** (mobile no expone el upload — coherente con doc 14: backoffice es web-only).
+
+**Relación con otras RN**:
+- Complementa RN-035 (origen de créditos) — ahora también hay "salida en efectivo" además de "consumo en tour" y "transferencia".
+- RN-038 (transferencia): son mutuamente excluyentes por diseño — un crédito en `REFUND_REQUESTED` o `REFUNDED` no se puede transferir (checks existentes bloquean).
+
 ---
 
 ## 7. Payouts a proveedores
