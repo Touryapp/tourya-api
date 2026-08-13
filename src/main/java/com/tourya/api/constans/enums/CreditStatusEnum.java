@@ -37,7 +37,22 @@ public enum CreditStatusEnum {
      * todos los flujos de checkout y transferencia. El job CreditExpirationJob
      * hace la transicion CREATED -> EXPIRED en la fecha exacta de expiracion.
      */
-    EXPIRED
+    EXPIRED,
+
+    /**
+     * TC-022 (#253): el turista solicito la devolucion en efectivo del credito.
+     * Estado terminal para el turista (no puede reusar el credito). Espera a que
+     * un usuario ADMIN o BACKOFFICE_OPERATION suba el comprobante para pasar a REFUNDED.
+     * Transicion permitida: CREATED -> REFUND_REQUESTED.
+     */
+    REFUND_REQUESTED,
+
+    /**
+     * TC-022 (#253): ADMIN/BACKOFFICE_OPERATION confirmo la devolucion en efectivo
+     * y subio el comprobante (S3/GCS). Estado terminal.
+     * Transicion permitida: REFUND_REQUESTED -> REFUNDED.
+     */
+    REFUNDED
 }
 
 

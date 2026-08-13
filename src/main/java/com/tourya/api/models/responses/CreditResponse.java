@@ -28,6 +28,13 @@ public class CreditResponse {
     private LocalDate creationDate;
     private LocalDate expirationDate;
     private CreditStatusEnum status;
+
+    // TC-022 (#253): flujo de devolucion de creditos.
+    private LocalDateTime refundRequestedAt;
+    private LocalDateTime refundedAt;
+    private String refundProofUrl;
+
+    // TC-022: informacion embebida del turista (solo poblada en el listado admin).
+    private String touristName;
+    private String touristEmail;
 }
-
-
