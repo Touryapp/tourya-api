@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solicitud de devolución recibida</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 600px;
+            margin: 10px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #1f2937;
+            margin-top: 0;
+        }
+        .amount-badge {
+            font-size: 28px;
+            font-weight: bold;
+            color: #007bff;
+            text-align: center;
+            padding: 16px;
+            background-color: #eff6ff;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .details {
+            background-color: #f9fafb;
+            padding: 16px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .details p {
+            margin: 6px 0;
+        }
+        .info-box {
+            background-color: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            padding: 12px 16px;
+            border-radius: 4px;
+            margin: 20px 0;
+            color: #78350f;
+        }
+        .footer {
+            margin-top: 24px;
+            font-size: 12px;
+            color: #6b7280;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Recibimos tu solicitud de devolución</h1>
+    <p th:text="'Hola ' + ${username} + ','"></p>
+    <p>
+        Confirmamos que hemos recibido tu solicitud de devolución en efectivo del crédito
+        <strong th:text="'#' + ${creditId}"></strong>. A continuación un resumen:
+    </p>
+
+    <div class="amount-badge">
+        <span th:text="'$' + ${amount}"></span>
+    </div>
+
+    <div class="details">
+        <p><strong>Crédito:</strong> <span th:text="'#' + ${creditId}"></span></p>
+        <p><strong>Reserva de origen:</strong> <span th:text="'#' + ${reservationId}"></span></p>
+        <p><strong>Fecha de solicitud:</strong> <span th:text="${refundRequestedAt} + ' (hora Bogotá)'"></span></p>
+    </div>
+
+    <div class="info-box">
+        Nuestro equipo revisará tu solicitud y te notificaremos cuando el reembolso se haya realizado.
+        Recibirás el monto en la cuenta bancaria registrada en Tourya.
+    </div>
+
+    <p>
+        Si tienes preguntas mientras tanto, responde a este correo o escríbenos por WhatsApp.
+    </p>
+
+    <div class="footer">
+        <p>Tourya — Marketplace de experiencias turísticas.</p>
+    </div>
+</div>
+</body>
+</html>
