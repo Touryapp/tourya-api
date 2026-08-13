@@ -305,18 +305,18 @@ Cambios vs inventario del snapshot 17-jul del cuerpo principal:
 - **Servicios**: 25 (14 + 11 nuevos: DeviceTokenSync, DistanceCalculator, ImageCompression, LocationHelper, PayoutOrder, ProviderOperator, PushNotificationHandler, ReservationCache, Wishlist + refactor de AuthHandler/ApiService/SecureStorage).
 - **ViewModels**: 35 (26 + 9 nuevos: CreateReview, Credits, TransferCredit, Wishlist, Operators, OperatorForm, ResetOperatorPassword, PayoutOrders, PayoutOrderDetails).
 
-### Deudas técnicas críticas abiertas al 2026-08-13
+### Deudas técnicas críticas abiertas al 2026-08-13 (actualizado post cierre Sprint 2 mobile)
 
-De la tabla "Tech debt actual" del cuerpo principal (8 items), estado actual:
+De la tabla "Tech debt actual" del cuerpo principal (8 items), estado tras el cierre del Sprint 2 mobile:
 
-| # | Item | Estado 2026-08-13 |
-|---|------|-------------------|
-| 1 | Sin remoto Git | 🔴 **Abierto** — riesgo #1. MO-00 pospuesto desde 2026-07-13. |
-| 2 | URL API hardcoded a IP legacy | 🟡 **Parcial** — se movió a LB GCP HTTP (MO-01), falta migrar a HTTPS `https://dev.tourya.co/api/v1/`. |
-| 3 | Syncfusion License sin registrar | 🔴 Abierto — banner de trial. |
-| 4 | `ForgotPasswordPage` sin endpoint backend | 🔴 Abierto. |
-| 5 | iOS no soportado | 🟢 Decisión de foco. |
-| 6 | Sin CI/CD para builds firmados | 🔴 Abierto — bloqueante para Play Store. |
+| # | Item | Estado 2026-08-13 (post Sprint 2) |
+|---|------|-----------------------------------|
+| 1 | Sin remoto Git | 🔴 **Abierto — diferido por decisión operativa Franklin (P3)**. MO-00 pospuesto desde 2026-07-13; se retomará más adelante. Riesgo #1 persiste. |
+| 2 | URL API hardcoded a IP legacy | 🟢 **CERRADA** — MO-01b hecho: `Constants.cs:9` migrado a `https://dev.tourya.co/api/v1/` (HTTPS). Coherente con `Constants.WebBaseUrl`/`WebHost` ya en HTTPS desde MO-43. |
+| 3 | Syncfusion License sin registrar | 🟢 **CERRADA** — MO-02 hecho: license de **Touya Marketplace S.A.S.** registrada en `MauiProgram.cs` vía `SyncfusionLicenseProvider.RegisterLicense`. Fin del banner de trial. |
+| 4 | `ForgotPasswordPage` sin endpoint backend | 🔴 Abierto — sigue como feature muerta (no se abordó en Sprint 2). |
+| 5 | iOS no soportado | 🟢 **CERRADA por decisión (P5)** — MVP Android only confirmado. Se replanteará solo si el mercado empuja (~35% iOS en tourista colombiano) — no antes de ganar tracción en Android. |
+| 6 | Sin CI/CD para builds firmados | 🔴 Abierto — bloqueante para Play Store. Depende de MO-00 (sin repo no hay CI). |
 | 7 | Sin analytics / crash reporting | 🔴 Abierto. |
 | 8 | Sin política de privacidad / términos | 🔴 Abierto — bloqueante Play Store. |
 
@@ -420,9 +420,9 @@ De los items del doc 14 no portados por el ciclo QA:
 1. Travel Concierge en `ExplorePage` (según [16](16-agentes-ia.md)).
 2. Otros agentes según alcance de Luis.
 
-### Ciclo 7 — Guest checkout (si aplica)
+### Ciclo 7 — Guest checkout (si aplica) — 🚫 **CANCELADO 2026-08-13 (Luis)**
 
-1. **MO-DT12/13 (TC-012/013)** — Guest info modal en checkout si se decide portar (ver pregunta abierta P1).
+1. ~~**MO-DT12/13 (TC-012/013)** — Guest info modal en checkout si se decide portar (ver pregunta abierta P1).~~ **Ciclo cancelado**: Luis confirmó 2026-08-13 que el mobile obliga a crear cuenta. No hay flujo guest en mobile.
 
 ---
 
@@ -434,3 +434,50 @@ De los items del doc 14 no portados por el ciclo QA:
 - **P4 (Syncfusion license)**: ¿se compra la license (~USD 995/dev/año Essential Studio) o migramos los controles Syncfusion (Maps, Charts) a alternativas free/OSS antes del release público? Bloqueante para Play Store por el banner de trial.
 - **P5 (iOS)**: ¿confirmamos que iOS queda fuera de scope para el MVP o se replantea? Ya se decidió Android-only pero el mercado turista colombiano tiene ~35% iOS.
 - **P6 (TC-017 addressType HOTEL_PICKUP en `TourFormPage`)**: ¿el provider mobile debe permitir crear tours con addressType HOTEL_PICKUP desde el móvil o eso queda solo-web?
+
+---
+
+## Cierre Sprint 2 mobile 2026-08-13
+
+Cierre del ciclo mobile que porta al MAUI Android los 9 TCs del ciclo QA agosto que impactaban al mobile (los 3 N/A `TC-008/011/015` quedan como web-only por diseño; guest checkout `TC-012/013` queda cancelado por decisión de Luis) **y** el nuevo feature TC-022 (devolución de créditos, issue #253) que el mismo día se agregó al roadmap y se cerró en los 3 frentes en un solo día.
+
+### Estado del código MAUI al 2026-08-13 (post Sprint 2)
+
+- **Build**: verde en `dotnet build TouryaMobile/TouryaMobile.csproj -c Debug -f net10.0-android` con `.NET 10.0.300` — 0 errores, 0 advertencias.
+- **URL API**: migrada a HTTPS `https://dev.tourya.co/api/v1/` (MO-01b cerrado).
+- **Syncfusion License**: registrada a nombre de Touya Marketplace S.A.S. (MO-02 cerrado).
+- **Sin repo Git remoto** (MO-00): sigue diferido por decisión Franklin (P3 aún no).
+- **Sin CI/CD** (MO-03): bloqueado por MO-00.
+
+### TCs portados en el Sprint 2
+
+Los 9 TCs del ciclo QA agosto que aplicaban al mobile pasaron todos a **✅** en la matriz "Gap con ciclo QA agosto":
+
+| TC | Cambio portado a mobile | Piezas nuevas |
+|----|-------------------------|---------------|
+| **TC-009** | `documentType` del turista editable en `ProfilePage` (Picker CC/CE/PA/NIT) + `CheckoutViewModel` pre-fill desde profile. | Refactor de `AuthResponse` con `documentType`, endpoint client `GET /users/me/profile` + `PUT` en `AuthService`, sección "Editar datos personales" en `ProfilePage.xaml`, `Picker` en `CheckoutPage.xaml`. |
+| **TC-014** | Auto-purga cart items con `scheduleDate` vencido — detección client-side + alert al turista. | `CartViewModel` diff pre/post-refresh + banner en `CartPage.xaml`. |
+| **TC-017** | Display Hotel Pickup en 4 vistas mobile (TourDetail, Explore, Cart, ReservationDetail) + i18n `priceType` + nueva API `I18nService.T(key)` con tablas es/en/pt. | `AddressType` en `TourLocationDto`, getter `IsHotelPickup`, chip "🏨 Pickup en hotel", `I18nService` extendido con `T()` + diccionarios. Creación con `addressType=HOTEL_PICKUP` en `TourFormPage` queda como **deuda pendiente** (P6 aprobada Luis 2026-08-13 — para futuro ciclo). |
+| **TC-018** | DIMAR RED bloquea add-to-cart mobile + guard 400 backend + banner rojo. | `blockedByMaritimeReport` en `TourDetailResponse`, `TourDetailViewModel.CanAddToCart` chequea flag, banner + mensaje traducido. |
+| **TC-020** | `docType` real a Wompi mobile (no más hardcode `"CC"`) + botón "Ver mis reservas" en confirmación + refresh profile post-tx. | Picker en `CheckoutPage.xaml`, botón en `PaymentConfirmationPage`, refresh en `ProfileViewModel.OnAppearing`. |
+| **TC-016** | `travelerBreakdown` por `ageType` en reservas mobile — desglose "2 Adultos · 1 Niño" con nuevo `TravelerBreakdownConverter` + pluralización via `I18nService`. | Nuevo DTO `TravelerBreakdownDto`, chip en `ProviderReservationsPage`, desglose en ambos `ReservationDetailPage`. |
+| **TC-021** | Placeholder "🔒 Datos disponibles el día del tour" cuando el backend scrubbea datos cliente (PROVIDER puro, >1 día al tour). | Fallback text en `ProviderReservationsPage.xaml` + `ReservationDetailPage`. |
+| **TC-007** | Guard temporal QR scanner (solo día del tour Bogota) — mapeo de código de error backend a mensaje user-friendly en `QrScannerViewModel`. | Actualización de `QrScannerViewModel` para interpretar la excepción de guard temporal. |
+| **TC-019** | Multi-ageType en `ScheduleTemplateFormViewModel` mobile (antes hardcoded `AgeType = "ADULT"` en línea 233). | Repeater de precios en `ScheduleTemplateFormPage.xaml` + soporte multi-precio con `providerPrice` en el VM. Batch schedule create UI mobile (MO-DT19c) sigue **pendiente respuesta Luis** (P2). |
+
+Resultado: **mobile alineado 1:1 con web al 13-ago** para todos los TCs del ciclo QA agosto que aplicaban.
+
+### TC-022 (devolución de créditos, issue #253) — mobile cerrado el mismo día
+
+Feature nuevo que apareció el 13-ago y se cerró en los 3 frentes en un día:
+
+- **Backend** (PR api #254 + migración 091): 2 nuevos estados `REFUND_REQUESTED`/`REFUNDED` en `CreditStatusEnum` + 3 columnas nuevas en `credit` + 3 endpoints (`POST /credits/{id}/request-refund` turista, `POST /admin/credits/{id}/upload-refund-proof` ADMIN/BACKOFFICE multipart, `GET /admin/credits` paginado global). Ver [doc 09 §Credits](09-api-design.md) y [RN-062](05-reglas-de-negocio.md#rn-062).
+- **Frontend web** (PR front #115): turista con botón "Solicitar devolución" + SweetAlert2 confirm en `/clients/my-profile?section=credits`. Nueva ruta `/admin/credits` con `AdminCreditsComponent` (tabla paginada + modal upload). Item "Créditos" agregado al sidebar admin. i18n ES/EN/PT completo.
+- **Mobile MAUI** (commit local `2d770f8` mergeado a develop): turista con botón "Solicitar devolución" + confirm nativo en `CreditsPage`. Chip visual REFUND_REQUESTED (amarillo) y REFUNDED (azul) + link "Ver comprobante" cuando aplica. **Flujo admin queda web-only** (mobile no expone el upload — coherente con doc 14: backoffice es web-only por diseño).
+
+### Deudas y decisiones de scope registradas
+
+- **P6 TC-017 addressType HOTEL_PICKUP en `TourFormPage` mobile**: **SÍ** (Luis 2026-08-13). Provider mobile debe crear tours con `addressType=HOTEL_PICKUP`. Deuda registrada para futuro ciclo (Picker addressType en `TourFormPage.xaml` + `TourFormViewModel` + `TourFormDtos`).
+- **P1 TC-012/013 guest checkout mobile**: **NO** (Luis 2026-08-13). Mobile obliga a crear cuenta. **Ciclo 7 del roadmap cancelado**.
+- **P2 TC-019 batch schedule provider mobile**: sigue pendiente respuesta de Luis. Deuda MO-DT19c abierta.
+- **P3 (repo Git), P4 (Syncfusion license), P5 (iOS)**: respondidas por Franklin — decisiones grabadas en memoria del proyecto (`mobile_retomar_decisiones_2026-08-13.md`). Ver tabla de tech debt arriba.

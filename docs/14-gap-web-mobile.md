@@ -101,6 +101,7 @@ Convenciones:
 | Dejar reseña (con fotos) | ✅ | ✅ 🎯 |
 | Wishlist | ✅ | ✅ |
 | Créditos (ver, usar, transferir) | ✅ | ✅ |
+| **Solicitar devolución de crédito en efectivo** (TC-022 turista, [RN-062](05-reglas-de-negocio.md#rn-062)) | ✅ | ✅ |
 | Perfil turista | ✅ | ✅ |
 
 ### Proveedor (PROVIDER)
@@ -143,6 +144,7 @@ Convenciones:
 | Ver reportes | ✅ 🎯 | ❌ |
 | Subir comprobantes de payout | ✅ 🎯 | ❌ |
 | Reportes DIMAR | ✅ 🎯 | ❌ |
+| **Gestionar devoluciones de crédito** (TC-022 admin: `GET /admin/credits` + subir comprobante) | ✅ 🎯 | ❌ |
 
 ---
 
