@@ -440,6 +440,25 @@ Body: {"value": {"value": 12}, "description": "Alineado con política oficial"}
 - Frontend Angular: botón "Solicitar devolución" + SweetAlert2 confirm en `/clients/my-profile?section=credits` (turista); nueva ruta `/admin/credits` con `AdminCreditsComponent` (tabla paginada + modal upload) — item "Créditos" agregado al sidebar admin. i18n ES/EN/PT completo.
 - Mobile MAUI: botón + confirm en `CreditsPage` (turista); chip visual REFUND_REQUESTED (amarillo) y REFUNDED (azul) + link "Ver comprobante". **Flujo admin queda web-only** (mobile no expone el upload — coherente con doc 14: backoffice es web-only).
 
+**Notificaciones asincrónicas al turista** (PR #257, mismo día 2026-08-13):
+
+Cada transición de estado dispara un email al turista dueño del crédito. La ejecución es asincrónica y fuera de la tx principal (`@Async @TransactionalEventListener(AFTER_COMMIT)`) — mismo patrón robusto que MO-40b para push notifications:
+
+- Si la tx principal hace **rollback**, el email jamás se envía (el listener se dispara sólo `AFTER_COMMIT`).
+- Si el envío del email **falla** (SMTP caído, etc.), la tx principal ya cerró — no aborta la actualización del estado del crédito (fire-and-forget con `@Async`).
+
+Emails enviados:
+
+1. **`RefundRequested`** (transición `CREATED → REFUND_REQUESTED`): template `credit_refund_requested.html` en azul con mensaje "Solicitud recibida" + monto solicitado + timestamp. Sirve como confirmación de recepción al turista.
+2. **`RefundCompleted`** (transición `REFUND_REQUESTED → REFUNDED`): template `credit_refund_completed.html` en verde con CTA "Ver comprobante" enlazado a `refund_proof_url` + monto + timestamp de completado.
+
+**Solo español** (coherente con los templates existentes BE-18/19 de expiración de créditos). Multi-idioma queda registrado como deuda **TC-022c** en doc 17. Nueva deuda **TC-022b** también registrada: agregar columna `reason` a `Credit` para que el email mencione el motivo original del crédito (hoy los templates no lo muestran porque `Credit` sólo tiene `type`).
+
+Piezas:
+- Package `services.credit.events`: `CreditRefundEvent` sealed interface + 2 records snapshot (`RefundRequested`, `RefundCompleted`) + `CreditRefundEventListener`.
+- Publisher en `CreditService.requestRefund` y `CreditService.uploadRefundProof`.
+- Nuevo helper `EmailService.sendCreditRefundRequestedEmail` / `sendCreditRefundCompletedEmail`.
+
 **Relación con otras RN**:
 - Complementa RN-035 (origen de créditos) — ahora también hay "salida en efectivo" además de "consumo en tour" y "transferencia".
 - RN-038 (transferencia): son mutuamente excluyentes por diseño — un crédito en `REFUND_REQUESTED` o `REFUNDED` no se puede transferir (checks existentes bloquean).

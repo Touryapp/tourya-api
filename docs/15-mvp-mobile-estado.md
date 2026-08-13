@@ -481,3 +481,42 @@ Feature nuevo que apareció el 13-ago y se cerró en los 3 frentes en un día:
 - **P1 TC-012/013 guest checkout mobile**: **NO** (Luis 2026-08-13). Mobile obliga a crear cuenta. **Ciclo 7 del roadmap cancelado**.
 - **P2 TC-019 batch schedule provider mobile**: sigue pendiente respuesta de Luis. Deuda MO-DT19c abierta.
 - **P3 (repo Git), P4 (Syncfusion license), P5 (iOS)**: respondidas por Franklin — decisiones grabadas en memoria del proyecto (`mobile_retomar_decisiones_2026-08-13.md`). Ver tabla de tech debt arriba.
+
+---
+
+## Post-Sprint 2 — cierre P6 + P7 mobile (2026-08-13)
+
+Cierre del arrastre inmediato del Sprint 2 mobile: se implementa la decisión P6 aprobada por Luis y se agrega P7 (Meeting Point cascade + geolocation en `TourFormPage`) — que estaba latente como bug del CHECK backend `tour_address_geo_required_unless_hotel_pickup` (migración 087). Ambos cerrados en `tourya-mobile` local con merge a `develop`.
+
+### P6 — TourFormPage crea tours HOTEL_PICKUP (commit `35c205c` + merge `33dc18a`)
+
+Cumple la decisión Luis P6 = SÍ (2026-08-13). El provider mobile ahora puede crear tours con `addressType = HOTEL_PICKUP` desde el móvil, cerrando la asimetría con web.
+
+- **`TourFormPage.xaml` + `TourFormViewModel`**: nuevo `Picker` para `addressType` con opciones `MEETING_POINT` (default) y `HOTEL_PICKUP`.
+- **Comportamiento del Picker**: cuando el provider selecciona `HOTEL_PICKUP`, los campos geo (Country/State/City + latitude/longitude + address) quedan ocultos — coherente con el CHECK backend `tour_address_geo_required_unless_hotel_pickup` (migración 087) que sólo admite geo NULL cuando `address_type = 'Hotel Pickup'`.
+- **`TourFormDtos.cs`**: agregado `AddressType` al request/response del form.
+- **Sin cambios backend** — el enum + CHECK ya existen desde el ciclo TC-017.
+
+### P7 — TourFormPage Meeting Point con Country/State/City cascade + geolocation (commit `0a10ef7` + merge)
+
+Cierra un **bug latente** del CHECK backend: antes de este cierre, el mobile no capturaba geo cuando el provider elegía `MEETING_POINT` — los INSERT posteriores fallaban con `null value violates check constraint tour_address_geo_required_unless_hotel_pickup` porque `country_id/state_id/city_id/lat/lng` iban vacíos. P7 lo resuelve capturando geo real desde el mobile.
+
+- **`TourFormPage.xaml`**: sección Meeting Point con **3 `Picker` en cascada** — Country → State (filtrado por country) → City (filtrado por state).
+- **`LocationCatalogService` (nuevo)**: consume los 3 endpoints públicos existentes del backend:
+  - `GET /public/country/getAllCountryList`
+  - `GET /public/state/getAllStateByCountryIdList/{countryId}`
+  - `GET /public/city/getAllCityByStateIdList/{stateId}`
+  - Sin nuevos endpoints — reusa los que ya alimentan el frontend web.
+- **`ILocationHelperService` reutilizado (de MO-41)**: nuevo botón "Usar mi ubicación actual" en la sección Meeting Point → `Geolocation.Default.GetLocationAsync` (con permission on-demand) → pre-llena `latitude` y `longitude`.
+- **`TourFormViewModel`**: comandos `LoadCountriesCommand`, `OnCountryChangedCommand` (limpia state+city y carga states), `OnStateChangedCommand` (limpia city y carga cities), `UseCurrentLocationCommand`.
+- **Sin cambios backend** — todos los endpoints y validaciones ya existían.
+
+### Deudas nuevas registradas en el backlog
+
+Ambos merges dejaron deuda técnica identificada; se traza para futuros ciclos:
+
+- **P7b — `Syncfusion.Maui.Maps` embebido en TourForm**: hoy el provider ve lat/lng como números (o "usar mi ubicación" resuelve una vez). Falta un mapa embebido para arrastrar el pin y ajustar el punto exacto. Deuda de UX; depende de Syncfusion License (MO-02 cerrada) pero es refinamiento no bloqueante.
+- **P7c — Multi-location por tour en mobile**: el backend y el web soportan varias `TourLocation` por tour (array). El mobile actualmente sólo captura **una** location. Deuda funcional — hay tours reales con múltiples meeting points (San Andrés + tour multi-punto) que el provider no puede crear desde mobile.
+- **P7d — Cleanup de `AddLocation` / `RemoveLocation` no-op en `TourFormViewModel`**: hay comandos `AddLocationCommand` / `RemoveLocationCommand` heredados de una iteración previa que no hacen nada útil ahora que la UI es single-location. Cleanup pendiente; sacar el código muerto para no confundir en próximas iteraciones. Se elimina cuando se aborde P7c o antes si molesta.
+- **TC-022b — Agregar columna `reason` a `Credit` entity para que los emails de refund mencionen motivo original**: los templates `credit_refund_requested.html` y `credit_refund_completed.html` de PR #257 no pueden mostrar el motivo original del crédito porque la entidad `Credit` sólo tiene `type` (CANCELATION/RESCHEDULE/BONUS) y no un free-text con el detalle. Un turista que reciba el email no ve "tu tour del 15 de julio a Islas del Rosario fue cancelado por lluvia" — solo "devolución de tu crédito". Deuda de calidad de comunicación; requiere migración BD + backfill NULL + actualización de los publishers para pasar el `reason` al event snapshot.
+- **TC-022c — Multi-idioma en emails de refund (hoy solo ES)**: los 2 templates de PR #257 sólo tienen versión ES, coherente con los templates BE-18/19 de expiración de créditos que también son solo español. Migrar a ES/EN/PT es ítem aparte — impacta también BE-18/19 y otros correos transaccionales del backend. Fuera de scope de TC-022; se traza para cuando se decida i18n de comunicaciones del backend.
