@@ -4,6 +4,7 @@ package com.tourya.api.services;
 import com.tourya.api._utils.Utils;
 import com.tourya.api.common.PageResponse;
 import com.tourya.api.constans.enums.IncludeExcludeTypeEnum;
+import com.tourya.api.constans.enums.MaritimeFlagEnum;
 import com.tourya.api.constans.enums.UserRoleType;
 import com.tourya.api.constans.enums.TourStatusEnum;
 import com.tourya.api.exceptions.InsufficientPrivilegesException;
@@ -25,6 +26,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +41,7 @@ import java.util.stream.Collectors;
 public class TourService {
     private final TourRepository tourRepository;
     private final TourAddressRepository tourAddressRepository;
+    private final MaritimActivityReportRepository maritimActivityReportRepository;
     private final TourIncludesExcludesRepository tourIncludesExcludesRepository;
     private final TourMainAttractionRepository tourMainAttractionRepository;
     private final TourFaqRepository tourFaqRepository;
@@ -985,6 +989,49 @@ public class TourService {
             }
         } catch (Exception ignored) {
         }
+
+        // Sprint 2 mobile — deuda 1: expone el mismo flag DIMAR RED del search
+        // (SearchTourScheduleFullResponse.TourScheduleResponse.blockedByMaritimeReport)
+        // a nivel de tour para que TourDetailPage pueda deshabilitar el CTA "Reservar"
+        // sin necesidad de llamar al search. Semantica: hay al menos un reporte RED
+        // vigente HOY para la subcategoria del tour + alguna de sus locations.
+        // El guard duro sigue vivo en ShoppingCartService (defense-in-depth).
+        resp.setBlockedByMaritimeReport(isTourBlockedByActiveMaritimeReport(tour));
         return resp;
+    }
+
+    /**
+     * Sprint 2 mobile — deuda 1.
+     * true si existe un reporte DIMAR con flag=RED activo HOY (America/Bogota) cuya
+     * subcategoria coincide con la del tour Y cuya ubicacion coincide con al menos
+     * una de las locations del tour (country+state+city). HOTEL_PICKUP y locations
+     * sin geo se ignoran (no las cubre ningun reporte DIMAR).
+     */
+    private Boolean isTourBlockedByActiveMaritimeReport(Tour tour) {
+        if (tour == null || tour.getSubCategory() == null) {
+            return false;
+        }
+        LocalDate today = LocalDate.now(ZoneId.of("America/Bogota"));
+        List<TourAddress> addresses = tourAddressRepository.findByTourId(tour.getId());
+        if (addresses == null || addresses.isEmpty()) {
+            return false;
+        }
+        for (TourAddress addr : addresses) {
+            if (addr.getCountry() == null || addr.getState() == null || addr.getCity() == null) {
+                continue;
+            }
+            List<MaritimActivityReport> hits = maritimActivityReportRepository
+                    .findActiveRedReportsForSubcategoryAndLocation(
+                            MaritimeFlagEnum.RED,
+                            tour.getSubCategory().getValue(),
+                            today,
+                            addr.getCountry().getId(),
+                            addr.getState().getId(),
+                            addr.getCity().getId());
+            if (hits != null && !hits.isEmpty()) {
+                return true;
+            }
+        }
+        return false;
     }
 }

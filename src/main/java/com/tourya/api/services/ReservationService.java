@@ -29,6 +29,7 @@ import com.tourya.api.models.request.CreateTemporalReservationHoldRequest;
 import com.tourya.api.models.request.RescheduleReservationRequest;
 import com.tourya.api.models.responses.ReservationDetailsResponse;
 import com.tourya.api.models.responses.ReservationResponse;
+import com.tourya.api.models.responses.TravelerBreakdownDto;
 import com.tourya.api.models.responses.CreditResponse;
 import com.tourya.api.models.responses.TourIncludesExcludesResponse;
 import com.tourya.api.models.responses.CreateTemporalReservationHoldResponse;
@@ -334,6 +335,12 @@ public class ReservationService {
         }
 
         reservationPriceBreakdownMapper.applyToReservationResponse(response, item);
+
+        // Sprint 2 mobile — deuda 3: expone el mismo shape de desglose que la vista provider
+        // (ReservationDetailsResponse.travelerBreakdown / sp_get_provider_reservations, TC-016).
+        // Se calcula desde shopping_cart_item_detail — misma fuente que priceBreakdown, distinto
+        // tipo, para que el mobile pueda compartir el componente entre provider y turista.
+        response.setTravelerBreakdown(buildTravelerBreakdown(item));
         
         // Actividades (main attractions)
         List<String> activities = tourMainAttractionRepository.findByTourId(tourId).stream()
@@ -361,6 +368,31 @@ public class ReservationService {
         // No se calculan dinámicamente porque se guardan en la tabla reservation
 
         logIfPaymentPayerDiffersFromCartUser(reservation, item);
+    }
+
+    /**
+     * Sprint 2 mobile — deuda 3. Construye el desglose por ageType usando el mismo
+     * shape que {@link TravelerBreakdownDto} (vista provider), a partir de
+     * {@code shopping_cart_item_detail}. Retorna lista vacia (no null) para que
+     * el mobile pueda iterar sin null-check adicional.
+     */
+    private List<TravelerBreakdownDto> buildTravelerBreakdown(ShoppingCartItem item) {
+        if (item == null || item.getDetails() == null || item.getDetails().isEmpty()) {
+            return new ArrayList<>();
+        }
+        List<TravelerBreakdownDto> out = new ArrayList<>();
+        for (ShoppingCartItemDetail detail : item.getDetails()) {
+            if (detail == null || detail.getQuantity() == null || detail.getQuantity() <= 0) {
+                continue;
+            }
+            out.add(TravelerBreakdownDto.builder()
+                    .ageType(detail.getAgeType() != null ? detail.getAgeType().name() : null)
+                    .quantity(detail.getQuantity())
+                    .unitPrice(detail.getUnitPrice() != null ? detail.getUnitPrice().doubleValue() : null)
+                    .providerUnitPrice(detail.getProviderUnitPrice() != null ? detail.getProviderUnitPrice().doubleValue() : null)
+                    .build());
+        }
+        return out;
     }
 
     private void applyTourLocations(ReservationResponse response, List<TourAddress> addresses) {

@@ -695,6 +695,9 @@ public class ShoppingCartService {
                         slotEndTime = item.getSlot().getEndTime();
                     }
 
+                    // Sprint 2 mobile — deuda 2B: expone address_type del tour al mobile.
+                    String addressType = null;
+
                     if ("SERVICE".equalsIgnoreCase(item.getProductType())) {
                         // Cuando es SERVICE, obtener el nombre del servicio
                         TouryaService service = serviceRepository.findById(item.getProductId()).orElse(null);
@@ -725,6 +728,9 @@ public class ShoppingCartService {
                                     if (first.getCity().getState() != null) {
                                         department = first.getCity().getState().getName();
                                     }
+                                }
+                                if (first.getAddressType() != null) {
+                                    addressType = first.getAddressType().name();
                                 }
                             }
                         }
@@ -762,6 +768,7 @@ public class ShoppingCartService {
                             .details(detailResponses)
                             .priceType(tourPriceType)
                             .maxPeople(tourMaxPeople)
+                            .addressType(addressType)
                             .build();
                 })
                 .collect(Collectors.toList());

@@ -69,6 +69,17 @@ public class ReservationResponse {
     private BigDecimal providerTotalAmount;
     /** Desglose por tipo de turista (ADULT, CHILD, INFANT). */
     private List<ReservationPriceBreakdownResponse> priceBreakdown = new ArrayList<>();
+    /**
+     * Sprint 2 mobile — deuda 3: expone el mismo desglose por ageType que ya trae
+     * {@link ReservationDetailsResponse#getTravelerBreakdown()} (vista provider,
+     * calculada por {@code sp_get_provider_reservations}, TC-016). Permite al mobile
+     * del turista renderizar en ReservationDetailPage el mismo bloque que ve el
+     * provider. Se puebla desde {@code shopping_cart_item_detail} (ageType, quantity,
+     * unitPrice, providerUnitPrice) en {@code ReservationService.enrichReservationResponse}.
+     * Redundante con {@code priceBreakdown} pero se mantiene el mismo tipo del provider
+     * para poder compartir componente de UI entre ambas vistas.
+     */
+    private List<TravelerBreakdownDto> travelerBreakdown = new ArrayList<>();
     private String travellers;
     private List<String> activities;
     private List<String> extraServices;

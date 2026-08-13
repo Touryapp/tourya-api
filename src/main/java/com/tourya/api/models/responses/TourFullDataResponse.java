@@ -53,4 +53,14 @@ public class TourFullDataResponse {
      * quedo guardado ni consultarlo despues.
      */
     private java.math.BigDecimal porcentajeTourya;
+
+    /**
+     * Sprint 2 mobile: expone en el detalle publico del tour el mismo flag de
+     * bloqueo DIMAR que la busqueda ({@link SearchTourScheduleFullResponse.TourScheduleResponse#blockedByMaritimeReport}).
+     * true si existe un reporte DIMAR con flag=RED activo HOY (subcategoria +
+     * cualquiera de las locations del tour). El mobile lo usa en TourDetailPage
+     * para deshabilitar el CTA "Reservar" sin tener que llamar al search.
+     * Backend duplica el guard en ShoppingCartService.addItemToCart por seguridad.
+     */
+    private Boolean blockedByMaritimeReport;
 }

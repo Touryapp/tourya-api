@@ -1,5 +1,6 @@
 package com.tourya.api.models.responses;
 
+import com.tourya.api.constans.enums.AddressTypeEnum;
 import com.tourya.api.models.TranslatedField;
 import lombok.Getter;
 import lombok.Setter;
@@ -61,6 +62,15 @@ public class SearchTourScheduleFullResponse {
         private String address;
         private Double latitude;
         private Double longitude;
+        /**
+         * Sprint 2 mobile — deuda 2: expone el {@code address_type} del meeting point
+         * (FIXED_LOCATION / HOTEL_PICKUP). Antes el mobile hacia deteccion heuristica
+         * con empty-check de city+address (TC-017). Nulo si no se pudo resolver la
+         * fila de {@code tour_address} correspondiente al tuple (country, state, city).
+         * Poblado por {@link com.tourya.api.services.impl.SearchTourAddressTypeEnricher}
+         * (Java-side, no toca el SP {@code sp_get_tour_schedule_json}).
+         */
+        private AddressTypeEnum addressType;
     }
 
     @Getter
