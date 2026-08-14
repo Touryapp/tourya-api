@@ -103,6 +103,15 @@ public class AgentAuditLog {
     @Column(name = "error_message", columnDefinition = "text")
     private String errorMessage;
 
+    /**
+     * IA-02: metadata libre por agente (session_id, fraud_suspected,
+     * actions_executed[], escalated_to_human, etc.). Cada agente define su
+     * propio shape; forensia con {@code metadata->>'session_id'}. Nullable.
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "metadata", columnDefinition = "jsonb")
+    private String metadata;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 }

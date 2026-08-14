@@ -43,6 +43,7 @@ public class AgentAuditWriter {
                     .resultJson(entry.resultJson())
                     .promptInput(entry.promptInput())
                     .errorMessage(entry.errorMessage())
+                    .metadata(entry.metadata())
                     .createdAt(OffsetDateTime.now())
                     .build();
             repository.save(log);

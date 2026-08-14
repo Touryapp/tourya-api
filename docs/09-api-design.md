@@ -462,6 +462,36 @@ Claves configurables disponibles hoy (patrón JSON `{"value": N}` para escalares
 - `AUTH_LOCKOUT_BASE_BACKOFF_SECONDS` — base del backoff exponencial en segundos (default 60, cap 24h) — agregado 2026-07-09
 - `CANCELLATION_POLICY` — políticas de cancelación i18n (JSON estructurado, no usa el wrapper)
 
+#### `AgentController` — `/agents` (IA-02, agregado 2026-08-14)
+
+Endpoints REST de los agentes IA. Hoy solo expone Travel Concierge; futuros agentes (Support 24/7, Operator Support, etc.) se agregarán aquí.
+
+| Método | Path | Auth |
+|--------|------|------|
+| POST | `/agents/travel-concierge/chat` | JWT USER |
+
+**`POST /agents/travel-concierge/chat`** — Agente 1 del [doc 16](16-agentes-ia.md#agente-1--travel-concierge). El agente puede responder texto natural o disparar function calls contra búsqueda y carrito (loop max 5 iteraciones).
+
+- Body (`ConciergeChatRequest`):
+  - `sessionId` (string, required, max 128) — identifica la conversación multi-turno del turista. Persistido en `agent_audit_log.metadata->>'session_id'`. El cliente lo genera (UUID) en el primer mensaje y lo mantiene por sesión.
+  - `userMessage` (string, required, max 2000) — texto del turista en es/en/pt.
+  - `locale` (string, opcional, `es`/`en`/`pt`) — sugerencia explícita de idioma.
+  - `tourId` (int, opcional) — ID del tour foco de la conversación; el agente inyecta la ficha completa al contexto.
+  - `cartId` (long, opcional) — no es requerido (el agente resuelve el carrito activo del usuario si aplica).
+- Response 200 (`ConciergeChatResponse`):
+  - `assistantMessage` (string) — respuesta natural al turista en su idioma.
+  - `actionsExecuted[]` — lista de function calls disparados por el LLM (`search_tours`, `get_tour_detail`, `add_to_cart`, `get_cart`) con input parseado + `success` + `error?`.
+  - `fraudSuspected` (boolean) — flag interno del guard (3+ pagos fallidos por sessionId). **NUNCA se le comunica al turista** — la API lo expone al BFF/frontend para tagging operativo.
+  - `escalatedToHuman` (boolean) — `true` cuando un guardrail (intento de leak de secretos, budget agotado, error irrecuperable) bloqueó la request y el agente delega a humano.
+  - `sessionId` (string) — eco del input para conveniencia del cliente.
+- Provider LLM: Vertex AI Gemini 2.5 Pro (`AGENTS_PROVIDER=gemini`, default). Anthropic disponible como alternativa (`AGENTS_PROVIDER=anthropic + ANTHROPIC_API_KEY`).
+- Guardrails:
+  - Deny-list de palabras clave sensibles (`WOMPI_INTEGRITY_SECRET`, `JWT_SECRET`, `ANTHROPIC_API_KEY`, etc.) en el `userMessage` → responde genérico + audit `result_type=rejected`, `escalated_to_human=true`.
+  - Scrub de `providerPrice` / `slotPercentageTourya` / `slotPorcentajeTourya` / `porcentajeTourya` del contexto (cart + tour detail) antes de mandarlo al LLM — defense-in-depth aunque los DTOs actuales ya no exponen esos campos al turista.
+  - `BudgetGuard` (IA-01) por `AGENT_BUDGET_TRAVELCONCIERGE_USD_MONTHLY` (default $30 USD/mes) — si se agota escala a humano.
+- Auditoría: cada llamada persiste una fila en `agent_audit_log` (Principio rector #4 del doc 16) vía `AgentAuditWriter @Async`. Metadata JSONB incluye `session_id`, `fraud_suspected`, `actions_executed[]`, `escalated_to_human`.
+- Errores: 400 (validación DTO), 401 (JWT), 429 (rate limit si activo).
+
 #### `TestController` — `/api/v1`
 | Método | Path | Auth |
 |--------|------|------|

@@ -21,10 +21,18 @@ public final class ModelPricing {
     public static final String CLAUDE_HAIKU_4_5 = "claude-haiku-4-5-20251001";
     public static final String CLAUDE_OPUS_4_8 = "claude-opus-4-8";
 
+    // IA-02 (2026-08-14): Vertex AI Gemini pricing por 1M tokens (context <=200k).
+    // gemini-2.5-flash cubre lo que antes hacia Haiku (clasificacion), y
+    // gemini-2.5-pro cubre lo que antes hacia Sonnet (razonamiento + tool use).
+    public static final String GEMINI_2_5_FLASH = "gemini-2.5-flash";
+    public static final String GEMINI_2_5_PRO = "gemini-2.5-pro";
+
     private static final Map<String, Prices> PRICING = Map.of(
             CLAUDE_SONNET_5, new Prices(new BigDecimal("2.00"), new BigDecimal("10.00")),
             CLAUDE_HAIKU_4_5, new Prices(new BigDecimal("1.00"), new BigDecimal("5.00")),
-            CLAUDE_OPUS_4_8, new Prices(new BigDecimal("15.00"), new BigDecimal("75.00"))
+            CLAUDE_OPUS_4_8, new Prices(new BigDecimal("15.00"), new BigDecimal("75.00")),
+            GEMINI_2_5_FLASH, new Prices(new BigDecimal("0.075"), new BigDecimal("0.30")),
+            GEMINI_2_5_PRO, new Prices(new BigDecimal("1.25"), new BigDecimal("10.00"))
     );
 
     private static final BigDecimal ONE_MILLION = new BigDecimal("1000000");
