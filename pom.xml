@@ -136,6 +136,14 @@
 			<artifactId>firebase-admin</artifactId>
 			<version>9.4.0</version>
 		</dependency>
+		<!-- IA-02: Vertex AI Gemini para agentes IA (Franklin decidio Vertex over Anthropic:
+			 reusa GCP infra, ~40% mas barato, ILlmClient sigue provider-agnostic).
+			 Auth via ADC (SA en Cloud Run, gcloud auth application-default en local). -->
+		<dependency>
+			<groupId>com.google.cloud</groupId>
+			<artifactId>google-cloud-vertexai</artifactId>
+			<version>1.14.0</version>
+		</dependency>
 		<dependency>
 			<groupId>com.networknt</groupId>
 			<artifactId>json-schema-validator</artifactId>

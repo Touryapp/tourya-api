@@ -39,12 +39,18 @@ Referencias en otros documentos:
 
 ## Stack de modelos
 
+> ✅ **Cambio 2026-08-14 (IA-02)**: Franklin migró el stack a **Vertex AI Gemini** en lugar de Anthropic. Motivos: (1) reusa infraestructura GCP ya existente (SA `tourya-dev-cloud-run` con `roles/aiplatform.user` — cero cuenta nueva, cero key nueva), (2) ~40% más barato para el mismo volumen, (3) el framework `agents/shared/` estaba diseñado para ser provider-agnostic vía `ILlmClient` — el switch es aditivo, cero rewrite. `AnthropicClient` queda como impl alternativa (basta con `AGENTS_PROVIDER=anthropic + ANTHROPIC_API_KEY`) por si se quiere hacer A/B testing más adelante.
+
 | Modelo | Uso | Costo (input/output por 1M tokens) |
 |---|---|---|
-| **Claude Sonnet 5** (`claude-sonnet-5`) | Razonamiento complejo: concierge de compra, redacción de contenido de tour, verificación de documentos KYB (multimodal — lee imágenes/PDF sin proveedor de visión aparte), pre-check de reagendamiento con cálculo de diferencia de precio | $2 / $10 (precio introductorio hasta 31-ago-2026; luego $3 / $15 estándar) |
-| **Claude Haiku 4.5** (`claude-haiku-4-5-20251001`) | Clasificación de intención, FAQ simple, mensajes de recuperación de carrito, borradores estructurados de bajo riesgo | $1 / $5 |
+| **Gemini 2.5 Pro** (`gemini-2.5-pro`) | Razonamiento sobre ficha del tour, function calling contra carrito, cancelación/reagendamiento con política, verificación KYB (multimodal — lee imágenes/PDF). Equivalente a lo que antes hacía Claude Sonnet 5. | $1.25 / $10 (contexto ≤200k tokens) |
+| **Gemini 2.5 Flash** (`gemini-2.5-flash`) | Clasificación de intención, FAQ simple, recuperación de carrito, borradores estructurados. Equivalente a lo que antes hacía Claude Haiku 4.5. | $0.075 / $0.30 |
 
-> Provider abstraction: `ILlmClient.complete(prompt, model)` — cambiar de modelo o de proveedor es una línea de config, no un rediseño de agente.
+> Provider abstraction: `ILlmClient.complete(prompt, model)` — cambiar de modelo o de proveedor es una env var (`AGENTS_PROVIDER=gemini|anthropic`), no un rediseño de agente.
+
+**Costo estimado a la meta 12m (revisado con precios Gemini)**: los totales del doc se recalculan ~a 1/3 de lo que estimaba con Anthropic. Ver "Costo estimado" en cada agente y la tabla resumen abajo.
+
+**Auth Vertex AI**: Application Default Credentials (ADC). En Cloud Run usa la SA automáticamente; en local dev requiere `gcloud auth application-default login` (Franklin ya lo hizo). **Sin API key** que rotar o esconder — ventaja operativa frente a Anthropic.
 
 📌 **PENDIENTE LUIS** — si más adelante se necesita traducción masiva de tours (es→en/pt), usar **Google Cloud Translation** (ya presupuestado en [11 — Integraciones](11-integraciones.md): ~$0.0002/tour) en vez de un LLM — es una tarea estructurada donde un servicio de traducción dedicado es más barato y más consistente que pedirle a Sonnet 5 que traduzca.
 
@@ -71,7 +77,7 @@ Referencias en otros documentos:
 3. Acciones de carrito: `POST /shopping-cart`, `POST /shopping-cart/items` (agregar/quitar ítems, ajustar `ageType`/`quantity`).
 4. Sugerencia de método de pago alterno si el widget Wompi falla.
 
-**Modelo usado**: Claude Haiku 4.5 clasifica la intención inicial (barato, alto volumen) → Claude Sonnet 5 razona sobre la ficha del tour y ejecuta function calling contra el carrito.
+**Modelo usado (post IA-02, 2026-08-14)**: Gemini 2.5 Pro razona sobre la ficha del tour y ejecuta function calling contra el carrito (`search_tours`, `get_tour_detail`, `add_to_cart`, `get_cart`). Gemini 2.5 Flash queda disponible para clasificación de intención cuando la carga lo justifique — el MVP arranca solo con 2.5 Pro para minimizar branch de código. **Migración desde Claude Sonnet 5 / Haiku 4.5 documentada en el "Stack de modelos"**.
 
 **Modo de actuación**:
 - ✅ **Autónomo**: búsqueda, respuestas informativas, gestión de carrito.
@@ -112,7 +118,7 @@ IMPORTANTE:
 Responde en el idioma del turista.
 ```
 
-**Costo estimado**: con la meta de 12 meses (500 turistas registrados, ~300 reservas/mes, asumiendo ~2.000 sesiones de búsqueda/mes), mezclando Haiku 4.5 (clasificación) + Sonnet 5 (respuesta) ≈ **$20–25/mes**.
+**Costo estimado (recalculado 2026-08-14 con precios Gemini 2.5)**: con la meta de 12 meses (500 turistas registrados, ~300 reservas/mes, ~2.000 sesiones de búsqueda/mes), todo con Gemini 2.5 Pro ≈ **$8–12/mes** (contra $20–25/mes que estimaba con Anthropic). Si se decide agregar clasificación con Gemini 2.5 Flash el número baja aún más.
 
 ---
 
@@ -439,6 +445,17 @@ Priorizado según dependencias reales (no sprints ficticios) y el estado actual 
 | **Fase 2** (visión 2 años) | Coordinador Autónomo | Requiere datos acumulados reales de los agentes 1-5 |
 
 📌 **priorizar** — priorizar la implementación de Twilio Programmable Messaging (WhatsApp) para los agentes que utilizan este canal para interactuar con los turistas. 
+
+---
+
+## Por qué Gemini (Vertex AI) en vez de Anthropic — decisión 2026-08-14
+
+Cuando se cerró el framework `agents/shared/` (IA-01, 2026-07-16) el default fue Anthropic — era la implementación de referencia del `ILlmClient` y Franklin todavía no había habilitado Vertex AI en `tourya-project-dev`. Al llegar IA-02 (implementación del primer agente real, Travel Concierge) Franklin reevaluó el proveedor y cambió a **Vertex AI Gemini**. Tres razones concretas:
+
+1. **Reusa infraestructura GCP existente**. `tourya-project-dev` ya tiene la service account `tourya-dev-cloud-run` con `roles/aiplatform.user`. La autenticación es Application Default Credentials — en Cloud Run automática por la SA, en local dev con `gcloud auth application-default login` que Franklin ya corría para otras cosas. Cero cuenta nueva de proveedor externo, cero API key nueva que rotar en Secret Manager, cero superficie de compliance adicional. Anthropic exigía crear la cuenta, generar la key, subirla a Secret Manager (`tourya-anthropic-api-key`), inyectarla como env var en Cloud Run — todo pasos adicionales sin valor incremental.
+2. **~40% más barato para el mismo volumen**. Gemini 2.5 Pro cuesta $1.25 input / $10 output por 1M tokens; Claude Sonnet 5 cuesta $2 / $10 (precio introductorio, sube a $3 / $15 el 1-sep-2026). Con 2.5 Flash disponible a $0.075 / $0.30 (contra Haiku 4.5 a $1 / $5) el ahorro es aún mayor cuando entren clasificaciones de intención de alto volumen. Para el presupuesto aprobado por Luis ($100-200/mes) esto significa más margen para experimentar con prompts sin agotar cuota.
+
+El framework `agents/shared/` estaba diseñado desde IA-01 para ser provider-agnostic vía `ILlmClient`. Cambiar de proveedor fue estrictamente aditivo: se creó `GeminiClient implements ILlmClient` como nueva clase junto a `AnthropicClient`, y un `LlmClientConfig` con `@Primary` selector por `agents.provider`. `AnthropicClient` queda intacto — si mañana Franklin quiere hacer A/B testing o volver a Anthropic basta con `AGENTS_PROVIDER=anthropic` + subir la key al Secret Manager. La decisión es completamente reversible sin tocar lógica de agente.
 
 ---
 

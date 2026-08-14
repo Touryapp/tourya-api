@@ -24,5 +24,7 @@ public record AgentAuditEntry(
         String resultType,
         String resultJson,
         String promptInput,
-        String errorMessage
+        String errorMessage,
+        /** IA-02: metadata jsonb libre — session_id, fraud_suspected, actions_executed, etc. */
+        String metadata
 ) {}
