@@ -6,6 +6,8 @@ Análisis granular del código actual de `tourya-mobile` (MAUI Android) contra e
 
 > **Nota 2026-08-13**: se agregó la sección "Estado post ciclo QA agosto" y la matriz "Gap con TCs 007-021" al final del doc. El diagnóstico y roadmap del cuerpo principal siguen vigentes en su lectura estratégica; los items concretos por TC se listan en el nuevo roadmap actualizado 2026-08-13.
 
+> **Nota 2026-08-14**: se agregó la sección "Post-Sprint 3/4a/5a — cierre 2026-08-14" al final. Se actualizó la matriz "Gap Analysis contra el doc 14" con los cierres de Sprint 3 A/B (autosave + upload + calendar + copy prices), Sprint 4a (autoVerify + assetlinks), Sprint 5a (responder reseñas provider) y las 2 deudas nuevas MO-53 (reagendar 3 casuísticas turista) y MO-54 (`mustChangePassword` operario) detectadas por la auditoría Sprint 5b.
+
 > **Objetivo**: dimensionar qué falta, qué sobra y en qué invertir a continuación para tener una app coherente con la posición estratégica acordada.
 
 ---
@@ -75,45 +77,45 @@ Se marcan las funcionalidades en 2 categorías:
 | Checkout + Wompi WebView | `CheckoutPage`, `PaymentConfirmationPage`, `WompiHelper` | ✅ | |
 | Ver mis reservas + QR | `MyTripsPage`, `ReservationDetailPage` | ✅ | |
 | Cancelar reserva | En `ReservationDetailPage` | ✅ | |
-| Reagendar reserva | En `ReservationDetailPage` (a verificar) | ⚠️ verificar | Confirmar que el flujo esté completo con las 3 casuísticas (igual/menor/mayor precio) |
-| Dejar reseña (con fotos) | `CreateReviewPage`, `CreateReviewViewModel` | ✅ | MO-10 cerrado 2026-07-14. Cámara + galería, 5 fotos máx, multipart. Falta validar en device |
+| Reagendar reserva | ❌ | ❌ | Auditoría Sprint 5b (2026-08-14): `ReservationDetails` recibe `MaxReschedulingDate` + `CanReschedule` pero mobile los ignora, `IReservationService` no tiene método Reschedule y `ReservationDetailPage` no tiene botón "Reagendar". Registrado como deuda **MO-53 "Reagendar reserva turista con 3 casuísticas"** — ~4-6h |
+| Dejar reseña (con fotos) | `CreateReviewPage`, `CreateReviewViewModel` | ✅ | MO-10 (2026-07-14) + MO-31 (2026-07-15) confirmados: cámara + galería, 5 fotos máx, multipart, con compresión SkiaSharp cliente (1920px max + JPEG 80, ~85% ahorro) |
 | Ver / gestionar créditos (usar, transferir) | `CreditsPage`, `TransferCreditPage`, `CreditsViewModel`, `TransferCreditViewModel` | ✅ | MO-12 cerrado 2026-07-15. Saldo agregado + 3 secciones (Activos / Reservados / Historial) + transferir con lookup por documento |
 | Wishlist (lista de deseos) | `WishlistPage`, `WishlistViewModel`, `WishlistService` | ✅ | MO-11 cerrado 2026-07-15. Tab dedicado + toggle ❤️ desde `TourDetailPage` |
 | Perfil turista (foto, documento, dirección) | `ProfilePage` | ✅ | |
-| Notificaciones push | ❌ | ❌ | No implementado |
+| Notificaciones push | `IPushNotificationHandler` + FCM registro + hooks backend | ✅ | MO-40 completo (Fases A/B/C/D cerradas 2026-07-15). 5 flows: reserva confirmada, recordatorio 24h, crédito por expirar/expirado, respuesta review. Deep-links a Shell por `type + targetId` |
 | Geolocalización ("cerca de mí") | `ExploreViewModel.ToggleNearbyCommand` + `LocationHelperService` + `DistanceCalculator` (Haversine) | ✅ | MO-41 cerrado 2026-07-15. Chip toggle en ExplorePage, permission on-demand, ordena por distancia client-side, muestra "X km" en cada card. Sin backend nuevo |
-| Deep-linking | `MainActivity` IntentFilter + `Constants.WebBaseUrl` + `TourDetailViewModel.ShareTourCommand` | ✅ | MO-43 cerrado 2026-07-15. Compartir tour vía share sheet nativo + capture de link entrante que abre `TourDetailPage` directamente. Sin autoVerify (deuda MO-43b) |
+| Deep-linking | `MainActivity` IntentFilter con `AutoVerify=true` + `Constants.WebBaseUrl` + `TourDetailViewModel.ShareTourCommand` + `assetlinks.json` en `dev.tourya.co/.well-known/` | ✅ | MO-43 (2026-07-15) + Sprint 4a (2026-08-14). Compartir tour vía share sheet nativo + capture de link entrante que abre `TourDetailPage` directamente **sin chooser** — deuda MO-43b resuelta con `AutoVerify=true` en `MainActivity.cs` + assetlinks.json publicado en `tourya-front` PR #117 |
 
 ### Operador titular (PROVIDER)
 
 | Funcionalidad (doc 14) | Estado mobile | Categoría | Notas |
 |-------------------------|:-------------:|:---------:|-------|
 | Dashboard (ingresos, tours, KPIs) | `DashboardPage`, `DashboardViewModel` | ✅ | |
-| Crear tour (wizard) | `TourFormPage` (6+ steps) | ⚠️ refinar UX | Existe. Necesita: autosave/borradores, compresión de imágenes, upload en background, dictado de voz opcional |
-| Editar tour | `TourFormPage` | ⚠️ refinar UX | Idem |
-| Gestionar schedule (plantillas + slots + precios) | `ScheduleTemplateFormPage`, `ScheduleCalendarPage`, `TourSchedulesPage` | ⚠️ refinar UX | Existe. Vale la pena: vistas día/semana/mes claras, copiar precios de otro tour |
+| Crear tour (wizard) | `TourFormPage` (7 steps con Galería) + `TourDraftService` + `TourGalleryUploadService` + `AddressType` Picker + Meeting Point cascade | ✅ | Sprint 3 A + P6 + P7 (2026-08-13/14). Autosave en `AppDataDirectory/tour_draft.json`, upload background con `SemaphoreSlim(3)` + progress per-item + retry, addressType HOTEL_PICKUP soportado, Meeting Point con Country/State/City en cascada + geolocation. Deudas restantes: dictado de voz (P3) + `Syncfusion.Maui.Maps` embebido (P7b) + multi-location (P7c) |
+| Editar tour | `TourFormPage` | ✅ | Idem — reusa el mismo wizard con autosave + upload background |
+| Gestionar schedule (plantillas + slots + precios) | `ScheduleTemplateFormPage`, `ScheduleCalendarPage`, `TourSchedulesPage` + `SfCalendar` toggle Día/Semana/Mes + "💰 Copiar precios de otro tour" | ✅ | Sprint 3 B (2026-08-14). `ScheduleCalendarPage` con toggle Día/Semana/Mes vía `SfCalendar` + special dates predicate. Botón "💰 Copiar precios de otro tour" en `ScheduleTemplateFormPage` reusando endpoint TC-019 `GET /tour-schedules/templates?tourId={id}` + nuevo `ScheduleService.GetTemplatesForTourAsync` |
 | Ver / gestionar reservas | `ProviderReservationsPage` | ✅ | |
 | Confirmar reserva (QR scanner) | `QrScannerPage`, ZXing | ✅ 🎯 | Valor core del mobile |
-| Marcar reserva manualmente | En `ProviderReservationsPage` | ⚠️ verificar | Confirmar que exista el fallback manual del QR |
+| Marcar reserva manualmente | `QrScannerPage.xaml:29-34` botón "Ingresar manualmente" + `QrScannerViewModel.ProcessManualEntryAsync` (`:164-183`) | ✅ | Auditoría Sprint 5b (2026-08-14): vive en `QrScannerPage` (correcto UX — donde el operador está haciendo el scan), no en `ProviderReservationsPage`. Reusa el mismo pipeline QR con guard TC-007 |
 | Ver reseñas | `ProviderReviewsPage` | ✅ | |
-| **Responder reseñas** | ❌ | ❌ | Existe la view de reseñas, falta el flujo de respuesta |
+| **Responder reseñas** | `ProviderReviewsPage` + `ProviderReviewsViewModel` + `StringNotEmptyToBoolConverter` + 7 keys i18n | ✅ | Sprint 5a cerrado 2026-08-14. Flujo completo de responder reseñas reusando `ReviewService.ReplyToReviewAsync` (existía por MO-20). Cierra el gap del doc 14 "Responder reseñas provider" |
 | Ver payouts + comprobantes | `PayoutOrdersPage`, `PayoutOrderDetailsPage`, `PayoutOrderService` | ✅ | MO-21 cerrado 2026-07-15. Lista con 4 totales agregados + filtro por status + detalle con reservas + descarga comprobante via `Launcher` del sistema. Sin filtros de fecha en v1 (deuda MO-21b) |
 | **Crear operarios (`PROVIDER_OPERATOR`)** | `OperatorsPage`, `OperatorFormPage`, `ProviderOperatorService` | ✅ | MO-22 cerrado 2026-07-15. Share sheet nativo (MO-23) al finalizar create + reset |
 | Editar / reasignar operarios | `OperatorFormPage` (mismo form) | ✅ | Multi-select tours + tour principal en el mismo form |
 | Resetear password operarios | `ResetOperatorPasswordPage` | ✅ | MO-24 cerrado 2026-07-15. Share sheet al finalizar |
 | Panel KYB / documentos | `KybStatusPage`, `KybRegistrationPage`, `KybDocumentsPage` | ✅ | Buena implementación |
-| Notificaciones push | ❌ | ❌ | **Prioridad alta según doc 14** |
+| Notificaciones push | `IPushNotificationHandler` + FCM + hook "provider nueva reserva recibida" | ✅ | MO-40 completo (Fases A/B/C/D cerradas 2026-07-15). Nueva reserva post-pago dispara push al provider (dedup por proveedor) |
 | Modo campo / offline | `IReservationCacheService` + fallback en Dashboard | ✅ | MO-50 cerrado 2026-07-17. JSON en `FileSystem.CacheDirectory`, save-on-success, fallback-on-error con banner "📴 Modo offline". Solo reservas del día en Dashboard v1 |
 
 ### Operario (`PROVIDER_OPERATOR`)
 
 | Funcionalidad (doc 14) | Estado mobile | Categoría | Notas |
 |-------------------------|:-------------:|:---------:|-------|
-| Login con clave temporal + cambio | Compartido con LoginPage | ⚠️ verificar | Confirmar UI de "mustChangePassword" al hacer login |
+| Login con clave temporal + cambio | ❌ | ❌ | Auditoría Sprint 5b (2026-08-14): `AuthResponse` DTO no tiene `mustChangePassword`, `LoginViewModel.LoginAsync` navega al home sin chequear, no existe `ChangePasswordPage` ni endpoint self-service en `AuthService`. Solo `ProviderOperatorService.ResetPassword` (MO-24) para que PROVIDER resetee — no self-service del operario. **Security issue moderado**. Registrado como deuda **MO-54 "Forzar cambio password primer login operario"** — ~3-4h |
 | Ver reservas de tours asignados | `ProviderReservationsPage` (compartida con PROVIDER) | ✅ | Backend filtra por scope; verificar UX específica |
 | Escanear QR | `QrScannerPage` | ✅ 🎯 | Core del rol |
-| Confirmar reserva manualmente | En `ProviderReservationsPage` | ⚠️ verificar | |
-| Notificaciones de nueva reserva | ❌ | ❌ | Push pendiente |
+| Confirmar reserva manualmente | `QrScannerPage.xaml:29-34` botón "Ingresar manualmente" + `QrScannerViewModel.ProcessManualEntryAsync` (`:164-183`) | ✅ | Auditoría Sprint 5b (2026-08-14): vive en `QrScannerPage` (donde el operador está haciendo el scan). Reusa el pipeline QR con guard TC-007 |
+| Notificaciones de nueva reserva | `IPushNotificationHandler` + FCM + hook backend | ✅ | MO-40 completo (Fases A/B/C/D cerradas 2026-07-15). Nueva reserva post-pago dispara push al provider owner de la reserva |
 | Widget / home "próximas reservas del día" | ❌ | ❌ | |
 
 ### Backoffice / ADMIN
@@ -131,13 +133,13 @@ Recap de lo que el doc 14 propone como prioridad de inversión mobile:
 | Feature | Estado actual | Prioridad |
 |---------|:-------------:|:---------:|
 | Escaneo QR (operario, operador) | ✅ hecho | — |
-| Notificaciones push (turista, operador, operario) | ❌ | **Alta** |
-| Cámara para reseñas | ⚠️ falta UI de crear reseña | **Alta** |
-| Geolocalización ("cerca de mí", "cómo llegar") | ❌ | **Alta** |
-| Deep-linking (compartir tours por WhatsApp) | ❌ | Media |
+| Notificaciones push (turista, operador, operario) | ✅ hecho (MO-40 A/B/C/D — 2026-07-15) | — |
+| Cámara para reseñas | ✅ hecho (MO-10 + MO-31 — 2026-07-14/15) | — |
+| Geolocalización ("cerca de mí", "cómo llegar") | ✅ hecho (MO-41 + MO-42 — 2026-07-15) | — |
+| Deep-linking (compartir tours por WhatsApp) | ✅ hecho (MO-43 — 2026-07-15 + autoVerify Sprint 4a — 2026-08-14) | — |
 | Wallet integration (Apple Pay / Google Pay vía Wompi) | ❌ | Media |
 | Widget "próxima reserva" | ❌ | Baja |
-| Modo offline (reservas del día para operario) | ❌ | Media-Alta |
+| Modo offline (reservas del día para operario) | ✅ hecho (MO-50 — 2026-07-17) | — |
 | Escaneo OCR docs KYB | ❌ | Baja (upload manual ya funciona) |
 | Compartir en redes | ❌ | Baja |
 
@@ -330,6 +332,11 @@ De la tabla "Tech debt actual" del cuerpo principal (8 items), estado tras el ci
 - **MO-DT21** — Provider views no manejan explícitamente el scrub de datos cliente (`ClientReservation.PayerName?` ya es nullable pero XAML no muestra placeholder "🔒 Datos disponibles el día del tour").
 - **MO-DT19** — `ScheduleTemplateFormViewModel` hardcodea `AgeType = "ADULT"` en línea 233 (un solo precio por slot); backend soporta multi-ageType con `providerPrice` margen.
 
+**Deudas nuevas registradas por auditoría Sprint 5b (2026-08-14)**:
+
+- **MO-53** — **Reagendar reserva turista con 3 casuísticas (igual/menor/mayor precio)**. `ReservationDetails` ya recibe `MaxReschedulingDate` + `CanReschedule` del backend pero mobile los ignora; `IReservationService` no tiene método Reschedule; `ReservationDetailPage` no tiene botón "Reagendar". Estimación ~4-6h. P1.
+- **MO-54** — **Forzar cambio password primer login operario (`mustChangePassword`)**. `AuthResponse` DTO no tiene el campo, `LoginViewModel.LoginAsync` navega al home sin chequear, no existe `ChangePasswordPage` ni endpoint self-service en `AuthService`. Solo `ProviderOperatorService.ResetPassword` (MO-24) permite que el PROVIDER resetee — no self-service. **Security issue moderado**: operario recién creado usa clave temporal sin forzar cambio. Estimación ~3-4h. P1.
+
 ---
 
 ## Gap con ciclo QA agosto (TCs 007-021)
@@ -520,3 +527,56 @@ Ambos merges dejaron deuda técnica identificada; se traza para futuros ciclos:
 - **P7d — Cleanup de `AddLocation` / `RemoveLocation` no-op en `TourFormViewModel`**: hay comandos `AddLocationCommand` / `RemoveLocationCommand` heredados de una iteración previa que no hacen nada útil ahora que la UI es single-location. Cleanup pendiente; sacar el código muerto para no confundir en próximas iteraciones. Se elimina cuando se aborde P7c o antes si molesta.
 - **TC-022b — Agregar columna `reason` a `Credit` entity para que los emails de refund mencionen motivo original**: los templates `credit_refund_requested.html` y `credit_refund_completed.html` de PR #257 no pueden mostrar el motivo original del crédito porque la entidad `Credit` sólo tiene `type` (CANCELATION/RESCHEDULE/BONUS) y no un free-text con el detalle. Un turista que reciba el email no ve "tu tour del 15 de julio a Islas del Rosario fue cancelado por lluvia" — solo "devolución de tu crédito". Deuda de calidad de comunicación; requiere migración BD + backfill NULL + actualización de los publishers para pasar el `reason` al event snapshot.
 - **TC-022c — Multi-idioma en emails de refund (hoy solo ES)**: los 2 templates de PR #257 sólo tienen versión ES, coherente con los templates BE-18/19 de expiración de créditos que también son solo español. Migrar a ES/EN/PT es ítem aparte — impacta también BE-18/19 y otros correos transaccionales del backend. Fuera de scope de TC-022; se traza para cuando se decida i18n de comunicaciones del backend.
+
+---
+
+## Post-Sprint 3/4a/5a — cierre 2026-08-14
+
+Cierre de 3 sprints mobile sucesivos + auditoría 5b. Todos los cambios viven en `tourya-mobile` local (MO-00 sigue abierto: `develop` local mergea las ramas pero no hay remoto Git).
+
+### Sprint 3 A — Autosave + upload background en `TourFormPage` (cierra MO-30 + MO-32)
+
+- **`TourDraftService`**: nuevo servicio que persiste el estado del wizard de creación de tour en `AppDataDirectory/tour_draft.json`. Guarda cada cambio del form como snapshot JSON, recupera al reabrir la app si hubo crash o cierre inesperado. Cierra deuda MO-30 (autosave/borradores).
+- **`TourGalleryUploadService`**: upload de imágenes en background con `SemaphoreSlim(3)` (3 uploads paralelos máximo), progress per-item (0-100%) y retry en fallo transitorio. El wizard ahora no bloquea al provider mientras suben las imágenes — puede seguir configurando otros steps. Cierra deuda MO-32 (upload background).
+- **`TourFormPage` Step 7 Galería**: nueva sección UI dentro del wizard que permite adjuntar imágenes de la galería del tour con progress bar por imagen y estado "subiendo / subida / falló → retry".
+
+### Sprint 3 B — Vista calendario + copiar precios (cierra MO-33 + reabre alcance MO-34)
+
+- **`ScheduleCalendarPage`** con `SfCalendar` (Syncfusion) + toggle Día/Semana/Mes vía botones + special dates predicate (marca los días con slots configurados). Cierra deuda MO-33 (vista calendario mejorada).
+- **Botón "💰 Copiar precios de otro tour"** en `ScheduleTemplateFormPage`. Ahora reusa el endpoint TC-019 `GET /tour-schedules/templates?tourId={id}` con nuevo método `ScheduleService.GetTemplatesForTourAsync` — el provider puede filtrar plantillas **por el tour destino** (antes MO-34 quedó en "Copiar de otra plantilla" mostrando TODAS las del provider porque el response no incluía `tourId`; TC-019 lo agregó). Cierra el gap del alcance original del backlog "Copiar precios de otro tour".
+
+### Sprint 4a — autoVerify + assetlinks (cierra MO-43b)
+
+- **`MainActivity.cs`** con `AutoVerify=true` en el `IntentFilter` del deep-link para `https://dev.tourya.co/clients/tours-detail/*`. Android ahora abre la app **sin chooser** cuando el usuario tapea un link (antes MO-43 mostraba "Abrir con Chrome o Tourya?" porque faltaba autoVerify).
+- **Depende de `tourya-front` PR #117** mergeado: publica `assetlinks.json` en `public/.well-known/assetlinks.json` con el fingerprint SHA-256 del keystore de la app. Android descarga el JSON y valida la asociación automáticamente.
+- Cierra deuda MO-43b registrada en MO-43 (2026-07-15).
+
+### WompiHelper cleanup — hardening del checkout (mismo Sprint 4a)
+
+- **Reemplazado `EscapeJs` manual** (solo escapaba `'` y newlines) por `System.Text.Json.JsonSerializer.Serialize` que cubre XSS/escape completo. Vulnerabilidad **moderada** cerrada: user-input del turista (nombre, teléfono, doc, email) que llegaba al HTML/JS del `WompiHelper.BuildCheckoutHtml` ya no puede escaparse del contexto JS con caracteres exóticos.
+- **`redirectUrl`** ahora usa `Constants.WebBaseUrl` (antes hardcodeado a la URL de producción). Coherente con la migración a HTTPS `dev.tourya.co` (MO-01b). `CheckoutViewModel.cs:176`.
+
+### Sprint 5a — Responder reseñas provider (cierra ❌ doc 14 "Responder reseñas provider")
+
+- **`ProviderReviewsViewModel` + `ProviderReviewsPage`** con flujo completo de responder reseñas — TextEditor + botón Enviar/Cancelar + estado de loading.
+- **7 keys i18n nuevas** en `I18nService` (es/en/pt) para labels, placeholders y mensajes de éxito/error.
+- **Nuevo `StringNotEmptyToBoolConverter`** para habilitar el botón Enviar solo cuando el TextEditor tiene contenido.
+- **Reusa `ReviewService.ReplyToReviewAsync`** (existía desde MO-20 con el fix del multipart) — sin cambios backend, sin cambios en el service.
+- Cierra el gap ❌ del doc 14 "Responder reseñas provider" y actualiza a ✅ la fila correspondiente de la matriz "Gap Analysis contra el doc 14".
+
+### Sprint 5b — Auditoría de 3 ítems ⚠️ del doc 14 (sin fixes, solo reporte)
+
+Se auditaron los 3 ítems que aún estaban marcados ⚠️ verificar en la matriz "Gap Analysis contra el doc 14". Resultado:
+
+1. **Reagendar reserva turista con 3 casuísticas** — ❌ NO IMPLEMENTADO. Registrado como deuda **MO-53** (~4-6h, P1). Fila del doc 14 actualizada de ⚠️ → ❌.
+2. **Confirmar reserva manualmente (fallback QR)** — ✅ YA IMPLEMENTADO en `QrScannerPage.xaml:29-34` + `QrScannerViewModel.cs:164-183`. El doc 15 decía "En `ProviderReservationsPage`" (ubicación incorrecta); la implementación real vive en `QrScannerPage` (UX correcto — el operador está scaneando ahí). Filas del doc 14 actualizadas de ⚠️ → ✅.
+3. **Login `mustChangePassword` operario** — ❌ NO IMPLEMENTADO. Solo `ProviderOperatorService.ResetPassword` (MO-24) permite que el PROVIDER resetee — no self-service del operario. **Security issue moderado**. Registrado como deuda **MO-54** (~3-4h, P1). Fila del doc 14 actualizada de ⚠️ → ❌.
+
+### Estado del MVP mobile tras estos sprints
+
+Con Sprint 3 A/B + 4a + 5a cerrados y las 2 deudas nuevas (MO-53/54) trackeadas:
+
+- **Turista**: cerrado 100% del alcance del doc 14 excepto MO-53 (reagendar 3 casuísticas) y la integración con Travel Concierge (agente IA — fuera de scope MVP mobile).
+- **Provider**: cerrado 100% del alcance del doc 14 — responder reseñas cerrada, TourFormPage completo con Hotel Pickup + Meeting Point cascade + autosave + upload background, ScheduleCalendarPage con calendario + copiar precios.
+- **Operario**: cerrado excepto MO-54 (`mustChangePassword` primer login). Manual confirm + push funcionando.
+- **Features "solo mobile"**: cerrado push + geo + deep-linking + offline + cámara para reseñas. Pendientes: wallet integration + widget "próxima reserva" (baja prioridad).
