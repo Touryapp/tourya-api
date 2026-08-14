@@ -10,6 +10,8 @@ Análisis granular del código actual de `tourya-mobile` (MAUI Android) contra e
 
 > **Nota 2026-08-14b**: se agregó la sección "Post-Sprint 6 — cierre 2026-08-14b" al final. Cierran las 2 deudas registradas por la auditoría Sprint 5b: **MO-54** (`mustChangePassword` operario, Sprint 6a) y **MO-53** (reagendar reserva turista con 3 casuísticas, Sprint 6b). Filas correspondientes de la matriz "Gap Analysis contra el doc 14" pasan ❌ → ✅. Se retiran de la lista "Deudas nuevas registradas por auditoría Sprint 5b" (ahora vacía). Adicional: WompiHelper cleanup (cierre técnico chico del hardening Sprint 4a).
 
+> **Nota 2026-08-14c**: se agregó la sección "Post-Sprint 7 — cierre 2026-08-14c" al final. Cierra **MO-56** (offline extendido operario): `IReservationCacheService` ahora cachea también la lista paginada del `ProviderReservationsPage` (antes MO-50 solo cacheaba el Dashboard). Fila "Modo campo / offline" de la matriz "Gap Analysis contra el doc 14" actualizada — ahora cubre Dashboard **+** ProviderReservationsPage. Item 2 del Sprint 7 (sub-grouping por franja horaria mañana/mediodía/tarde) queda como **MO-56b** pendiente de decisión Franklin — hoy hay agrupación por día + orden ascendente por hora dentro del día (MO-51), pero sin sub-grupos por franja.
+
 > **Objetivo**: dimensionar qué falta, qué sobra y en qué invertir a continuación para tener una app coherente con la posición estratégica acordada.
 
 ---
@@ -107,7 +109,7 @@ Se marcan las funcionalidades en 2 categorías:
 | Resetear password operarios | `ResetOperatorPasswordPage` | ✅ | MO-24 cerrado 2026-07-15. Share sheet al finalizar |
 | Panel KYB / documentos | `KybStatusPage`, `KybRegistrationPage`, `KybDocumentsPage` | ✅ | Buena implementación |
 | Notificaciones push | `IPushNotificationHandler` + FCM + hook "provider nueva reserva recibida" | ✅ | MO-40 completo (Fases A/B/C/D cerradas 2026-07-15). Nueva reserva post-pago dispara push al provider (dedup por proveedor) |
-| Modo campo / offline | `IReservationCacheService` + fallback en Dashboard | ✅ | MO-50 cerrado 2026-07-17. JSON en `FileSystem.CacheDirectory`, save-on-success, fallback-on-error con banner "📴 Modo offline". Solo reservas del día en Dashboard v1 |
+| Modo campo / offline | `IReservationCacheService` + fallback en `DashboardPage` **y** `ProviderReservationsPage` | ✅ | MO-50 cerrado 2026-07-17 (Dashboard). **MO-56 cerrado 2026-08-14 (Sprint 7, commit `34d32ae` + merge `29dd8d6`)** extiende el cache a la lista paginada del `ProviderReservationsPage`: cache JSON separado `provider_reservations_page.json`, save-on-success en cada `LoadMore`, fallback-on-error con banner "📴 Modo offline · última actualización hace X min" reusando estilo del Dashboard, `_hasMorePages=false` en fallback evita paginar contra backend caído. Cero cambios backend |
 
 ### Operario (`PROVIDER_OPERATOR`)
 
@@ -651,3 +653,56 @@ Con Sprint 6a + 6b cerrados + WompiHelper cleanup:
 
 - **Doc 05 (reglas de negocio)**: no se toca. MO-53 usa la RN-033 (reagendamiento) ya documentada; MO-54 no introduce RN nueva (es UX/security, no regla de negocio).
 - **Doc 09 (API design)**: no se toca. Los endpoints `PATCH /users` (change password) y `PUT /reservations/{id}/reschedule` **ya existían en backend** y ya están documentados — este sprint es su primer consumo desde mobile.
+
+---
+
+## Post-Sprint 7 — cierre 2026-08-14c
+
+Cierre del ítem "Modo offline extendido" del Ciclo 5 del roadmap original. Todos los cambios viven en `tourya-mobile` local (MO-00 sigue abierto — sin remoto Git).
+
+### Sprint 7 — MO-56 offline extendido operario (commit `34d32ae` + merge `29dd8d6`)
+
+Extiende el cache offline de MO-50 (Dashboard) al `ProviderReservationsPage` — el operario en el bote o el muelle sin señal ya no queda ciego a la lista completa de reservas, no solo a las del día del Dashboard.
+
+- **Contexto pre-sprint**:
+  - **MO-50** (2026-07-17) creó `IReservationCacheService` con `SaveTodayDashboardAsync` / `LoadTodayDashboardAsync` en `FileSystem.CacheDirectory/reservations_today.json`. `DashboardViewModel.LoadDashboardAsync` intenta backend → si OK guarda cache; si falla carga cache + activa `IsOfflineMode` + banner amarillo "📴 Modo offline · última actualización hace X min".
+  - **MO-51** (2026-07-17) rehizo `ProviderReservationsPage` con chips filtro por tour + agrupación por día usando `CollectionView.IsGrouped` + `ReservationDayGroup : ObservableCollection<ClientReservation>`, ordenamiento ascendente por `ScheduleDate + SlotTimeStart`. **Filtro y agrupación son puramente client-side sobre las páginas ya cargadas — NO cacheaba offline.**
+  - **Gap real detectado**: cuando el operario pierde señal, solo el Dashboard sigue funcionando; la lista paginada del `ProviderReservationsPage` queda sin datos aunque el usuario ya haya scrolleado varias páginas.
+
+- **Backend sin cambios** — el endpoint `GET /provider/reservations` ya existía y se sigue consumiendo igual; todo el trabajo del Sprint 7 es client-side caching.
+
+- **Mobile**:
+  - **`IReservationCacheService`** extendido con 2 métodos nuevos:
+    - `SaveProviderReservationsAsync(List<ClientReservation> reservations, CancellationToken ct)` — persiste la lista acumulada (todas las páginas cargadas hasta el momento) como snapshot JSON.
+    - `LoadProviderReservationsAsync(CancellationToken ct)` — devuelve `CachedReservations?` (record con `Reservations` + `CachedAt: DateTime` para el banner "hace X min"). `null` si no hay cache o si el JSON está corrupto.
+  - **Nuevo path**: `FileSystem.CacheDirectory/provider_reservations_page.json` — separado del `reservations_today.json` de MO-50 para no colisionar. Se re-guarda **en cada `LoadMore` exitoso** para que el snapshot refleje siempre lo último que el operario alcanzó a ver.
+  - **`ProviderReservationsViewModel`**:
+    - `LoadReservationsAsync` — en el success path invoca `_cache.SaveProviderReservationsAsync(_allReservations, ct)` fire-and-forget (best-effort — un fallo de disco NO aborta el flow del usuario).
+    - Nuevo `LoadReservationsCatchAsync` que ante error backend intenta `_cache.LoadProviderReservationsAsync(ct)`, popula la lista con el cache, setea `IsOfflineMode = true` + `CachedAtDisplay = "Modo offline · última actualización hace X min"`, y **fuerza `_hasMorePages = false`** para que el `LoadMoreCommand` no intente paginar contra un backend caído. Un pull-to-refresh cuando vuelve la señal reinicia el flow limpiamente.
+    - Nuevas `ObservableProperty` `IsOfflineMode` + `CachedAtDisplay`.
+  - **`ProviderReservationsPage.xaml`**: `Grid` reestructurado a `RowDefinitions="Auto,Auto,*"` (antes `Auto,*`). La nueva fila 1 aloja el banner amarillo con `IsVisible="{Binding IsOfflineMode}"` y `Text="{Binding CachedAtDisplay}"` — reusa el estilo visual (color, padding, borde) del banner del Dashboard MO-50 para coherencia visual entre las 2 vistas offline.
+  - **2 keys i18n nuevas** en `I18nService.cs` en es/en/pt:
+    - `reservation.offline.banner` con placeholder `{0}` = minutos — texto largo cuando >= 1 min.
+    - `reservation.offline.banner.recent` — texto corto "hace unos segundos" cuando < 1 min.
+
+- **Item 2 del brief (sub-grouping por franja horaria) — NO implementado**. Auditoría del ViewModel confirma que `RebuildFiltersAndGroups` ya hace `OrderBy(ScheduleDate).ThenBy(SlotTimeStart).GroupBy(ScheduleDate)` desde MO-51 — es decir, agrupación por día + orden ascendente por hora dentro del día, pero **sin sub-grupos por franja horaria** (mañana/mediodía/tarde). El agente respetó el brief que decía "consultar a Franklin si no está claro". Queda como **MO-56b** pendiente de decisión Franklin — si vale una iteración corta para agregar franjas dentro de cada día en el `CollectionView.IsGrouped`.
+
+- **Deudas técnicas descubiertas** (menores, no bloqueantes):
+  - Baseline de warnings del build mobile es **140**, no 139 como decía la memoria del prompt. Verificado con stash + rebuild limpio en la rama sin cambios.
+  - 2 warnings pre-existentes MAUIG2045 en `ProviderReservationsPage.xaml` por `LoadReservationsCommand` / `LoadMoreCommand` — el source generator no las ve. No fueron introducidas por el Sprint 7; podrían silenciarse con `x:DataType` + `BindingBase.EnableCollectionSynchronization` pero fuera de scope.
+
+### Estado del MVP mobile tras Sprint 7
+
+Con MO-56 cerrado:
+
+- **Turista**: sin cambios vs Sprint 6 (100% del alcance del doc 14 excepto integración con Travel Concierge — fuera de scope MVP mobile).
+- **Provider**: sin cambios vs Sprint 5a (100% del alcance del doc 14).
+- **Operario**: **modo campo/offline ahora cubre Dashboard + lista paginada de reservas**. El operario en el bote/muelle sin señal puede ver todas las reservas que ya cargó — no solo las del día del Dashboard. Login `mustChangePassword` cerrado en Sprint 6a. MO-40 push funcionando. QR scanner + manual entry funcionando. **Sin gaps abiertos vs doc 14.**
+- **Features "solo mobile"**: cerrado push + geo + deep-linking + offline **extendido** + cámara para reseñas. Pendientes de baja prioridad, no bloqueantes: wallet integration + widget "próxima reserva".
+- **Deudas nuevas Sprint 7**: **MO-56b** (sub-grouping por franja horaria — decisión pendiente Franklin).
+
+### Notas sobre docs no tocados en este sync
+
+- **Doc 05 (reglas de negocio)**: no se toca. MO-56 es UX/perf, no regla de negocio.
+- **Doc 09 (API design)**: no se toca. Sin endpoints backend nuevos — todo es client-side caching sobre `GET /provider/reservations` que ya existía.
+- **Doc 14 (gap web vs mobile)**: no se toca. La categoría "Modo offline (operario)" ya estaba listada como feature ⚡ Media-Alta; su cierre se refleja en el doc 15 (este documento) sin cambiar la matriz del doc 14.
