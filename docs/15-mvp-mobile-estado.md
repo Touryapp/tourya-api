@@ -8,6 +8,8 @@ Análisis granular del código actual de `tourya-mobile` (MAUI Android) contra e
 
 > **Nota 2026-08-14**: se agregó la sección "Post-Sprint 3/4a/5a — cierre 2026-08-14" al final. Se actualizó la matriz "Gap Analysis contra el doc 14" con los cierres de Sprint 3 A/B (autosave + upload + calendar + copy prices), Sprint 4a (autoVerify + assetlinks), Sprint 5a (responder reseñas provider) y las 2 deudas nuevas MO-53 (reagendar 3 casuísticas turista) y MO-54 (`mustChangePassword` operario) detectadas por la auditoría Sprint 5b.
 
+> **Nota 2026-08-14b**: se agregó la sección "Post-Sprint 6 — cierre 2026-08-14b" al final. Cierran las 2 deudas registradas por la auditoría Sprint 5b: **MO-54** (`mustChangePassword` operario, Sprint 6a) y **MO-53** (reagendar reserva turista con 3 casuísticas, Sprint 6b). Filas correspondientes de la matriz "Gap Analysis contra el doc 14" pasan ❌ → ✅. Se retiran de la lista "Deudas nuevas registradas por auditoría Sprint 5b" (ahora vacía). Adicional: WompiHelper cleanup (cierre técnico chico del hardening Sprint 4a).
+
 > **Objetivo**: dimensionar qué falta, qué sobra y en qué invertir a continuación para tener una app coherente con la posición estratégica acordada.
 
 ---
@@ -77,7 +79,7 @@ Se marcan las funcionalidades en 2 categorías:
 | Checkout + Wompi WebView | `CheckoutPage`, `PaymentConfirmationPage`, `WompiHelper` | ✅ | |
 | Ver mis reservas + QR | `MyTripsPage`, `ReservationDetailPage` | ✅ | |
 | Cancelar reserva | En `ReservationDetailPage` | ✅ | |
-| Reagendar reserva | ❌ | ❌ | Auditoría Sprint 5b (2026-08-14): `ReservationDetails` recibe `MaxReschedulingDate` + `CanReschedule` pero mobile los ignora, `IReservationService` no tiene método Reschedule y `ReservationDetailPage` no tiene botón "Reagendar". Registrado como deuda **MO-53 "Reagendar reserva turista con 3 casuísticas"** — ~4-6h |
+| Reagendar reserva | `RescheduleReservationPage` + `RescheduleReservationViewModel` + `IReservationService.RescheduleReservationAsync` + botón "Reagendar" en `ReservationDetailPage` (visible sólo si `canReschedule==true`) | ✅ | **MO-53 CERRADO 2026-08-14 (Sprint 6b, commit `58d7a4f` + merge `1af997a`)**. Consume `PUT /reservations/{id}/reschedule` (backend ya existía por BE-20 / RN-033) — cero cambios backend. Dispatch client-side por `priceComparison` de la respuesta: **EQUAL/LOWER** → alert de confirmación + volver a Mis Viajes; **HIGHER** → alert explicando el flujo + `navigate //tourist/cart` porque el backend NO abre Wompi por el delta, sino que cancela la reserva anterior, abre crédito por lo pagado y agrega el nuevo tour al carrito (`status=CANCELLED_AND_ADDED_TO_CART`) — mismo patrón que web, intencional. 12 keys i18n `reservation.reschedule.*` + `common.ok` |
 | Dejar reseña (con fotos) | `CreateReviewPage`, `CreateReviewViewModel` | ✅ | MO-10 (2026-07-14) + MO-31 (2026-07-15) confirmados: cámara + galería, 5 fotos máx, multipart, con compresión SkiaSharp cliente (1920px max + JPEG 80, ~85% ahorro) |
 | Ver / gestionar créditos (usar, transferir) | `CreditsPage`, `TransferCreditPage`, `CreditsViewModel`, `TransferCreditViewModel` | ✅ | MO-12 cerrado 2026-07-15. Saldo agregado + 3 secciones (Activos / Reservados / Historial) + transferir con lookup por documento |
 | Wishlist (lista de deseos) | `WishlistPage`, `WishlistViewModel`, `WishlistService` | ✅ | MO-11 cerrado 2026-07-15. Tab dedicado + toggle ❤️ desde `TourDetailPage` |
@@ -111,7 +113,7 @@ Se marcan las funcionalidades en 2 categorías:
 
 | Funcionalidad (doc 14) | Estado mobile | Categoría | Notas |
 |-------------------------|:-------------:|:---------:|-------|
-| Login con clave temporal + cambio | ❌ | ❌ | Auditoría Sprint 5b (2026-08-14): `AuthResponse` DTO no tiene `mustChangePassword`, `LoginViewModel.LoginAsync` navega al home sin chequear, no existe `ChangePasswordPage` ni endpoint self-service en `AuthService`. Solo `ProviderOperatorService.ResetPassword` (MO-24) para que PROVIDER resetee — no self-service del operario. **Security issue moderado**. Registrado como deuda **MO-54 "Forzar cambio password primer login operario"** — ~3-4h |
+| Login con clave temporal + cambio | `AuthResponse.mustChangePassword` + guard en `LoginViewModel` + `ChangePasswordPage` + `ChangePasswordViewModel` + `AuthService.ChangeMyPasswordAsync` + `ApiService.PatchAsync<TRequest>` | ✅ | **MO-54 CERRADO 2026-08-14 (Sprint 6a, commit `8f50f1b` + merge `8693c97`)**. Consume `PATCH /users` (backend ya lo exponía en `UserController.java:30-38`) y `AuthenticationResponse.mustChangePassword` — cero cambios backend, primer consumo desde mobile. `LoginViewModel.LoginAsync` chequea el flag y navega a `//change-password` bloqueando el home; hasta cambiar la clave el operario no puede navegar. Ruta en `AppShell.xaml`, DI en `MauiProgram.cs`, 11 keys i18n `auth.changePassword.*` (es/en/pt). Cierra el security issue moderado del operario recién creado con clave temporal por PROVIDER (MO-24) |
 | Ver reservas de tours asignados | `ProviderReservationsPage` (compartida con PROVIDER) | ✅ | Backend filtra por scope; verificar UX específica |
 | Escanear QR | `QrScannerPage` | ✅ 🎯 | Core del rol |
 | Confirmar reserva manualmente | `QrScannerPage.xaml:29-34` botón "Ingresar manualmente" + `QrScannerViewModel.ProcessManualEntryAsync` (`:164-183`) | ✅ | Auditoría Sprint 5b (2026-08-14): vive en `QrScannerPage` (donde el operador está haciendo el scan). Reusa el pipeline QR con guard TC-007 |
@@ -332,10 +334,10 @@ De la tabla "Tech debt actual" del cuerpo principal (8 items), estado tras el ci
 - **MO-DT21** — Provider views no manejan explícitamente el scrub de datos cliente (`ClientReservation.PayerName?` ya es nullable pero XAML no muestra placeholder "🔒 Datos disponibles el día del tour").
 - **MO-DT19** — `ScheduleTemplateFormViewModel` hardcodea `AgeType = "ADULT"` en línea 233 (un solo precio por slot); backend soporta multi-ageType con `providerPrice` margen.
 
-**Deudas nuevas registradas por auditoría Sprint 5b (2026-08-14)**:
+**Deudas nuevas registradas por auditoría Sprint 5b (2026-08-14)**: — **ninguna abierta**. Ambas cerradas por Sprint 6 (2026-08-14b):
 
-- **MO-53** — **Reagendar reserva turista con 3 casuísticas (igual/menor/mayor precio)**. `ReservationDetails` ya recibe `MaxReschedulingDate` + `CanReschedule` del backend pero mobile los ignora; `IReservationService` no tiene método Reschedule; `ReservationDetailPage` no tiene botón "Reagendar". Estimación ~4-6h. P1.
-- **MO-54** — **Forzar cambio password primer login operario (`mustChangePassword`)**. `AuthResponse` DTO no tiene el campo, `LoginViewModel.LoginAsync` navega al home sin chequear, no existe `ChangePasswordPage` ni endpoint self-service en `AuthService`. Solo `ProviderOperatorService.ResetPassword` (MO-24) permite que el PROVIDER resetee — no self-service. **Security issue moderado**: operario recién creado usa clave temporal sin forzar cambio. Estimación ~3-4h. P1.
+- ~~**MO-53** — Reagendar reserva turista con 3 casuísticas~~ → **CERRADA Sprint 6b** (commit `58d7a4f` + merge `1af997a`). Ver sección "Post-Sprint 6 — cierre 2026-08-14b" abajo.
+- ~~**MO-54** — Forzar cambio password primer login operario~~ → **CERRADA Sprint 6a** (commit `8f50f1b` + merge `8693c97`). Ver sección "Post-Sprint 6 — cierre 2026-08-14b" abajo.
 
 ---
 
@@ -580,3 +582,72 @@ Con Sprint 3 A/B + 4a + 5a cerrados y las 2 deudas nuevas (MO-53/54) trackeadas:
 - **Provider**: cerrado 100% del alcance del doc 14 — responder reseñas cerrada, TourFormPage completo con Hotel Pickup + Meeting Point cascade + autosave + upload background, ScheduleCalendarPage con calendario + copiar precios.
 - **Operario**: cerrado excepto MO-54 (`mustChangePassword` primer login). Manual confirm + push funcionando.
 - **Features "solo mobile"**: cerrado push + geo + deep-linking + offline + cámara para reseñas. Pendientes: wallet integration + widget "próxima reserva" (baja prioridad).
+
+---
+
+## Post-Sprint 6 — cierre 2026-08-14b
+
+Cierre en bloque de las 2 deudas Sprint 5b (MO-53 + MO-54) + cierre técnico del WompiHelper cleanup abierto por Sprint 4a. Todos los cambios viven en `tourya-mobile` local (MO-00 sigue abierto — sin remoto Git).
+
+### Sprint 6a — MO-54 `mustChangePassword` operario (commit `8f50f1b` + merge `8693c97`)
+
+Cierra el **security issue moderado** registrado por Sprint 5b: el operario recién creado por el PROVIDER (via `ProviderOperatorService.ResetPassword` de MO-24) recibía una clave temporal pero el mobile lo dejaba entrar al home sin forzarlo a cambiarla.
+
+- **Backend sin cambios** — ya exponía todo lo necesario:
+  - `AuthenticationResponse.mustChangePassword` en la respuesta del `POST /auth/authenticate`.
+  - Endpoint self-service `PATCH /users` en `UserController.java:30-38` que acepta el cambio de contraseña del usuario autenticado.
+  - Este sprint es el **primer consumo desde mobile** de ambas piezas.
+- **Mobile**:
+  - **`AuthResponse`** (`Models/Auth/AuthResponse.cs`): nuevo campo `mustChangePassword: bool`.
+  - **`LoginViewModel.LoginAsync`**: guard que chequea `authResponse.MustChangePassword` post-persist. Si `true`, `Shell.Current.GoToAsync("//change-password")` en vez de navegar al home. Bloquea el flujo hasta que el operario cambie la clave.
+  - **`ChangePasswordPage` + `ChangePasswordViewModel`** nuevas: formulario simple (contraseña actual + nueva + confirmar) con validación client-side + botón "Cambiar".
+  - **`ChangePasswordRequest` DTO** (`Models/Auth/ChangePasswordRequest.cs`).
+  - **`AuthService.ChangeMyPasswordAsync`**: método cliente del `PATCH /users`.
+  - **`ApiService.PatchAsync<TRequest>`**: nuevo helper generic para PATCH con body JSON (antes sólo existían `PatchAsync<TRequest, TResponse>` y `PatchMultipartAsync`).
+  - **Ruta `change-password`** registrada en `AppShell.xaml` fuera de las tabs (no navegable manualmente por el user, sólo via el guard).
+  - **DI** en `MauiProgram.cs` (VM + Page + Service extension).
+  - **11 keys i18n** `auth.changePassword.*` en es/en/pt: title, subtitle, currentPassword/newPassword/confirmPassword labels + placeholders, submit button, success/error messages.
+
+### Sprint 6b — MO-53 reagendar reserva turista 3 casuísticas (commit `58d7a4f` + merge `1af997a`)
+
+Cierra la deuda MO-53 de Sprint 5b. Cubre las 3 casuísticas de RN-033 (EQUAL / LOWER / HIGHER precio) desde mobile.
+
+- **Backend sin cambios** — ya exponía `PUT /reservations/{id}/reschedule` (`ReservationController:387`, implementado en BE-20). Este sprint es el **primer consumo desde mobile**.
+- **Contrato del backend (importante para entender la implementación mobile)**:
+  - Response `RescheduleReservationResponse` incluye `priceComparison: EQUAL/LOWER/HIGHER` + `status`.
+  - **EQUAL** → reserva reagendada al nuevo día al mismo precio; nueva reserva con la nueva fecha, la anterior marcada `RESCHEDULED`. `status = RESCHEDULED`.
+  - **LOWER** → reserva reagendada; se abre crédito al turista por la diferencia. `status = RESCHEDULED`.
+  - **HIGHER** → **sorpresa del contrato**: el backend **NO** abre Wompi directo por el delta. Cancela la reserva anterior, abre crédito por el valor pagado y **agrega el nuevo tour al carrito** con el precio nuevo. `status = CANCELLED_AND_ADDED_TO_CART`. El turista completa el pago via el checkout normal del carrito — mismo patrón que web, decisión intencional del backend para reusar el pipeline de checkout.
+- **Mobile**:
+  - **`IReservationService.RescheduleReservationAsync(reservationId, newDate)`**: método cliente del endpoint.
+  - **`RescheduleReservationRequest` + `RescheduleReservationResponse`** DTOs en `Models/Reservation/` (con `priceComparison` enum-like string y `status`).
+  - **Botón "Reagendar"** en `ReservationDetailPage`: visible **sólo si `canReschedule == true`** (el flag ya venía en `ReservationDetails.CanReschedule` desde antes; MO-53 activa el uso).
+  - **`RescheduleReservationPage` + `RescheduleReservationViewModel`** nuevas:
+    - Lista de días disponibles (fuente: mismo servicio de schedules del tour, bounded por `MaxReschedulingDate` del backend).
+    - Al tap → confirm dialog → llama `RescheduleReservationAsync`.
+    - Dispatch client-side por `response.priceComparison`:
+      - **EQUAL / LOWER** → `DisplayAlert` con mensaje explicando el resultado (incluye monto del crédito nuevo si LOWER) + `GoToAsync("//tourist/my-trips")`.
+      - **HIGHER** → `DisplayAlert` explicando "tu reserva anterior fue cancelada, se abrió un crédito por lo pagado y el nuevo tour está en tu carrito; completá el pago para reservarlo" + `GoToAsync("//tourist/cart")`.
+  - **12 keys i18n** `reservation.reschedule.*` en es/en/pt (title, subtitle, submit, mensajes por casuística, error genérico) + `common.ok` (utility key reusable).
+
+### WompiHelper cleanup (commit `2cecbb2` + merge — cierre técnico chico)
+
+Cierre técnico del hardening abierto por Sprint 4a. Sale como commit separado pero conceptualmente es la misma línea del WompiHelper.
+
+- **`EscapeJs` manual** (que sólo escapaba `'` y newlines) reemplazado por `System.Text.Json.JsonSerializer.Serialize` para cubrir XSS/escape completo: `<`, `\`, `</script>`, unicode, etc. Cierra vulnerabilidad latente donde user-input del turista embebido en el HTML/JS del `WompiHelper.BuildCheckoutHtml` podía escaparse del contexto JS con caracteres exóticos (no explotable trivialmente desde la UI actual pero mala higiene).
+- **`redirectUrl`** ahora usa `Constants.WebBaseUrl` (antes hardcodeado a la URL de producción). Coherente con MO-01b (`Constants.ApiBaseUrl` migrado a `https://dev.tourya.co/api/v1/`). `CheckoutViewModel.cs:176`.
+
+### Estado del MVP mobile tras Sprint 6
+
+Con Sprint 6a + 6b cerrados + WompiHelper cleanup:
+
+- **Turista**: cerrado 100% del alcance del doc 14 **excepto** la integración con Travel Concierge (agente IA — fuera de scope MVP mobile). MO-53 cerrado.
+- **Provider**: cerrado 100% del alcance del doc 14 (sin cambios respecto al Sprint 5a).
+- **Operario**: cerrado 100% del alcance del doc 14. MO-54 cerrado — el security issue moderado ya no existe.
+- **Features "solo mobile"**: cerrado push + geo + deep-linking + offline + cámara para reseñas. Pendientes: wallet integration + widget "próxima reserva" (baja prioridad, no bloqueantes).
+- **Deudas nuevas Sprint 5b**: **cero abiertas** (MO-53 + MO-54 cerradas por Sprint 6).
+
+### Notas sobre docs no tocados en este sync
+
+- **Doc 05 (reglas de negocio)**: no se toca. MO-53 usa la RN-033 (reagendamiento) ya documentada; MO-54 no introduce RN nueva (es UX/security, no regla de negocio).
+- **Doc 09 (API design)**: no se toca. Los endpoints `PATCH /users` (change password) y `PUT /reservations/{id}/reschedule` **ya existían en backend** y ya están documentados — este sprint es su primer consumo desde mobile.
