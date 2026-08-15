@@ -492,6 +492,60 @@ Endpoints REST de los agentes IA. Hoy solo expone Travel Concierge; futuros agen
 - Auditoría: cada llamada persiste una fila en `agent_audit_log` (Principio rector #4 del doc 16) vía `AgentAuditWriter @Async`. Metadata JSONB incluye `session_id`, `fraud_suspected`, `actions_executed[]`, `escalated_to_human`.
 - Errores: 400 (validación DTO), 401 (JWT), 429 (rate limit si activo).
 
+#### `OperatorSupportController` — `/agents/operator-support` (IA-07, agregado 2026-08-14)
+
+Endpoints REST del agente **Operator Support** (Agente 4 del [doc 16](16-agentes-ia.md#agente-4--operator-support)). Cuatro capabilities action-specific (no chat unificado): cada endpoint es un caso de uso puntual del wizard de tour + gestión de reseñas del provider. Todos requieren JWT con rol `PROVIDER` o `PROVIDER_OPERATOR`.
+
+| Método | Path | Auth |
+|--------|------|------|
+| POST | `/agents/operator-support/suggest-tour-content` | JWT PROVIDER / PROVIDER_OPERATOR |
+| POST | `/agents/operator-support/price-alert/{tourId}` | JWT PROVIDER / PROVIDER_OPERATOR |
+| POST | `/agents/operator-support/draft-review-reply/{reviewId}` | JWT PROVIDER / PROVIDER_OPERATOR |
+| POST | `/agents/operator-support/validate-gallery` | JWT PROVIDER / PROVIDER_OPERATOR |
+
+**`POST /agents/operator-support/suggest-tour-content`** — Genera un borrador de contenido SEO para el wizard.
+- Body (`SuggestTourContentRequest`):
+  - `tourId` (int, opcional) — para editar tours existentes; valida ownership antes de ejecutar.
+  - `draft` (object, required) — datos parciales: `name`, `categoryId`, `subcategory`, `durationMinutes`, `minAge`, `priceType`, `isUnlimitedCapacity`, `currentDescription`, `maxPeople` (todos opcionales).
+- Response 200 (`TourContentSuggestion`):
+  - `nameSuggestions[]` (3 nombres) + `descriptionSuggestion` (200-400 palabras en español, RN-011) + `tagSuggestions[]` (5-10 slugs del catálogo `tags`) + `reasoning` + `escalatedToHuman`.
+- Provider LLM: **Gemini 2.5 Pro**, 1 call (generación pura, sin function calling).
+
+**`POST /agents/operator-support/price-alert/{tourId}`** — Analiza si el precio del tour está alineado con comparables.
+- Response 200 (`PriceAlert`):
+  - `severity` (`OK` / `WARN` / `CRITICAL` / `UNKNOWN`) — heurística: ≤15% del median = OK, 15-35% = WARN, >35% = CRITICAL, <3 comparables = UNKNOWN.
+  - `currentAvgPrice` (BigDecimal) — promedio ADULT del tour actual (precio público, nunca `providerPrice` interno).
+  - `comparablePriceRange` (`{min, max, median}`) — rango observado en tours con la misma subcategoría, hasta 20 comparables.
+  - `comparablesCount` (int) + `reasoning` + `escalatedToHuman`.
+- **RN-014**: solo alerta, jamás modifica `providerPrice`.
+- Provider LLM: Gemini 2.5 Pro con heurística fallback si el JSON es inválido (el service computa severity localmente).
+
+**`POST /agents/operator-support/draft-review-reply/{reviewId}`** — Borrador de respuesta a una reseña.
+- Response 200 (`DraftReviewReplyResponse`):
+  - `draftText` (60-150 palabras) + `detectedLocale` (`es` / `en` / `pt`) + `tone` (`PROFESSIONAL` / `WARM` / `APOLOGETIC`) + `reasoning` + `escalatedToHuman`.
+- Autorización: verifica que `review.tourId` pertenece a un tour del provider del usuario autenticado.
+- El backend **no publica** la respuesta — la devuelve al frontend. El operador aprueba y llama a `PATCH /public/save/review/{reviewId}` (endpoint existente en `ReviewController`).
+- Provider LLM: Gemini 2.5 Pro, 1 call.
+
+**`POST /agents/operator-support/validate-gallery`** — Validación pre-upload de metadata de galería (RN-013). **Cero costo LLM**.
+- Body (`ValidateGalleryRequest`):
+  - `images[]` — array de `{filename, sizeBytes, widthPx, heightPx, format}`. El frontend envía solo metadata (no bytes).
+- Response 200 (`ValidateGalleryResponse`):
+  - `isValid` (boolean) + `issues[]` (`{severity ERROR|WARNING, code, message, fileIndex}`) + `suggestions[]`.
+- Reglas: max 7 imágenes (`GALLERY_MAX_IMAGES_PER_TOUR`), max 5 MB (`GALLERY_MAX_SIZE_MB`), min 800px (`GALLERY_MIN_WIDTH_PX`), horizontal, formato JPEG/PNG/WebP + WARNING advisory si el ancho es menor a 1920px. Reusa los mismos umbrales de `app_config` que `GalleryValidator`.
+
+**Guardrails comunes (idénticos a IA-02)**:
+- Deny-list de secretos (`WOMPI_INTEGRITY_SECRET`, `JWT_SECRET`, `ANTHROPIC_API_KEY`, `WOMPI_EVENTS_SECRET`, `FIREBASE_ADMIN_SDK_JSON`, `GEMINI_API_KEY`) en cualquier input textual → `escalatedToHuman=true` + audit `result_type=rejected` sin llamar al LLM.
+- Scrub recursivo de `providerPrice` / `slotPercentageTourya` / `slotPorcentajeTourya` / `porcentajeTourya` en cualquier JSON al LLM.
+- `BudgetGuard` por `AGENT_BUDGET_OPERATORSUPPORT_USD_MONTHLY` (default $20 USD/mes) — si se agota escala a humano.
+- Autorización owner-based: el service valida que el `PROVIDER` autenticado sea el owner del tour (`tour.provider.id == providerService.findByUser(user).id`) — para `draft-review-reply` la validación es transitiva vía `review.tourId`.
+
+**Traducción es→en/pt DEFERRED a IA-09** (Google Cloud Translation): el service ya deja el TODO listo — es 1 wire-up cuando IA-09 exista. Hoy la descripción sugerida es solo español (cumple RN-011).
+
+**Feature flag**: `agents.operator.enabled=${AGENTS_OPERATOR_ENABLED:true}` para apagar el agente sin re-deploy.
+
+Errores: 400 (validación DTO), 401 (falta rol PROVIDER/PROVIDER_OPERATOR o el recurso no pertenece al provider — `InsufficientPrivilegesException`), 404 (tour/review no encontrado).
+
 #### `TestController` — `/api/v1`
 | Método | Path | Auth |
 |--------|------|------|

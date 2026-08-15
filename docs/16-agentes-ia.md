@@ -204,14 +204,24 @@ Responde en el idioma del turista.
 4. Alerta de precio desalineado vs. tours comparables (`providerPrice`) — **solo alerta, nunca cambia el precio**: el operador siempre decide su `providerPrice` (RN-014).
 5. Borrador de respuesta a la reseña — el operador aprueba o edita antes de publicar.
 
-**Modelo usado**: Claude Sonnet 5 para redacción y tags. Para la traducción es→en/pt, delegar a **Google Cloud Translation** cuando se implemente (más barato y consistente que pedírselo al LLM — ver Stack de modelos arriba).
+**Modelo usado**: **Gemini 2.5 Pro** para redacción y tags (backend cerrado 2026-08-14 con Vertex AI en vez del Sonnet 5 del diseño original — mismo motivo que IA-02: reusa infra GCP + ~40% más barato). Para la traducción es→en/pt, delegar a **Google Cloud Translation** cuando se implemente (IA-09) — el `OperatorSupportService` ya deja el TODO listo (`// TODO IA-09`), es 1 wire-up cuando el service exista.
 
 **Modo de actuación**:
 - ✅ **Genera borrador** de descripción/tags — el operador aprueba antes de `PUT /tour/user/submitTourById/{id}`.
 - ⚠️ **Solo alerta** en pricing, nunca modifica `providerPrice`.
 - ✅ **Genera borrador** de respuesta a reseña vía `PATCH /public/save/review/{reviewId}` — el operador lo aprueba, nunca se publica solo.
 
-**Costo estimado**: con la meta de 150 tours en 12 meses (creación + ediciones) y ~15% de reservas que dejan reseña (RN meta) ≈ **$2–4/mes**.
+**Estado backend**: 🟢 cerrado 2026-08-14 (IA-07). 4 endpoints action-specific bajo `/agents/operator-support/*`:
+- `POST /suggest-tour-content` — nombres + descripción SEO + tags (Gemini 2.5 Pro, 1 call).
+- `POST /price-alert/{tourId}` — severity + rango comparables (Gemini 2.5 Pro, 1 call; heurística fallback si el LLM devuelve JSON inválido).
+- `POST /draft-review-reply/{reviewId}` — borrador + tono + idioma (Gemini 2.5 Pro, 1 call).
+- `POST /validate-gallery` — validación pre-upload (sin LLM, reusa reglas de `GalleryValidator`, cero costo).
+
+Guardrails idénticos a IA-02 (deny-list secretos + scrub `providerPrice`/`slotPercentageTourya` + budget guard + audit siempre). Autorización owner-based: el `PROVIDER`/`PROVIDER_OPERATOR` solo opera sobre tours/reseñas de su propio provider — `requireTourOwnership` valida antes de cualquier call al LLM.
+
+**Traducción es→en/pt DEFERRED a IA-09**: el `OperatorSupportService` no la implementa (RN-011 solo exige `es`); cuando IA-09 exista se agrega 1 método que delega en `ITranslationService` — ya hay `// TODO IA-09` marcado en el código.
+
+**Costo estimado con Gemini**: con la meta de 150 tours en 12 meses (creación + ediciones) y ~15% de reservas que dejan reseña (RN meta) ≈ **$1–2/mes** (baja vs los $2–4 originales del brief con Sonnet 5).
 
 ---
 
