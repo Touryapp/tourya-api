@@ -12,6 +12,8 @@ Análisis granular del código actual de `tourya-mobile` (MAUI Android) contra e
 
 > **Nota 2026-08-14c**: se agregó la sección "Post-Sprint 7 — cierre 2026-08-14c" al final. Cierra **MO-56** (offline extendido operario): `IReservationCacheService` ahora cachea también la lista paginada del `ProviderReservationsPage` (antes MO-50 solo cacheaba el Dashboard). Fila "Modo campo / offline" de la matriz "Gap Analysis contra el doc 14" actualizada — ahora cubre Dashboard **+** ProviderReservationsPage. Item 2 del Sprint 7 (sub-grouping por franja horaria mañana/mediodía/tarde) queda como **MO-56b** pendiente de decisión Franklin — hoy hay agrupación por día + orden ascendente por hora dentro del día (MO-51), pero sin sub-grupos por franja.
 
+> **Nota 2026-08-14d**: se agregó la sección "Post-Sprint 8 — cierre 2026-08-14d" al final. Sprint 8 completo en 3 frentes paralelos (~1 día calendario): **IA-02 backend** (Travel Concierge con Vertex AI Gemini + function calling + guardrails + migración 092 aplicada a Cloud SQL dev), **FE-Concierge Angular** (widget flotante en `ExplorePage`+`TourDetailPage`+`CartPage`, PR #118 mergeado), **MO-Concierge MAUI** (`ConciergeChatPage` modal + FAB en 3 páginas, commit local `7c76f39` + merge `190f1ba`). Fila "Buscar tours con Travel Concierge (IA)" de la matriz Gap Analysis actualizada ⚠️ parcial → ✅. Primera integración funcional del agente IA en cualquier cliente Tourya. **Franklin habilitó infra GCP**: Vertex AI API + rol `roles/aiplatform.user` a la SA de Cloud Run.
+
 > **Objetivo**: dimensionar qué falta, qué sobra y en qué invertir a continuación para tener una app coherente con la posición estratégica acordada.
 
 ---
@@ -75,7 +77,7 @@ Se marcan las funcionalidades en 2 categorías:
 | Funcionalidad (doc 14) | Estado mobile | Categoría | Notas |
 |-------------------------|:-------------:|:---------:|-------|
 | Registro / login (email + Facebook + Google) | `LoginPage`, `RegisterPage` | ✅ | |
-| Buscar tours con Travel Concierge (IA) | `ExplorePage` | ⚠️ parcial | Búsqueda con filtros existe, falta integración con agente IA — ver [16](16-agentes-ia.md) |
+| Buscar tours con Travel Concierge (IA) | `ExplorePage` + `TourDetailPage` + `CartPage` con FAB "Concierge Tourya" → `ConciergeChatPage` modal (mobile) / `ConciergeChatWidget` (web) | ✅ | Sprint 8 cerrado 2026-08-14. Widget conversacional en 3 páginas consume `POST /agents/travel-concierge/chat` (IA-02) — el agente ejecuta function calls contra búsqueda + carrito + FAQ. Backend con Vertex AI Gemini 2.5 Pro (ver [16](16-agentes-ia.md)). Session ID rota en logout. Guardrails en backend: escalado humano si prompt injection, scrub de campos internos, contador fraude por session. |
 | Ver detalle de tour + galería | `TourDetailPage` | ✅ | |
 | Agregar al carrito | `CartPage` | ✅ | |
 | Checkout + Wompi WebView | `CheckoutPage`, `PaymentConfirmationPage`, `WompiHelper` | ✅ | |
@@ -706,3 +708,89 @@ Con MO-56 cerrado:
 - **Doc 05 (reglas de negocio)**: no se toca. MO-56 es UX/perf, no regla de negocio.
 - **Doc 09 (API design)**: no se toca. Sin endpoints backend nuevos — todo es client-side caching sobre `GET /provider/reservations` que ya existía.
 - **Doc 14 (gap web vs mobile)**: no se toca. La categoría "Modo offline (operario)" ya estaba listada como feature ⚡ Media-Alta; su cierre se refleja en el doc 15 (este documento) sin cambiar la matriz del doc 14.
+
+---
+
+## Post-Sprint 8 — cierre 2026-08-14d
+
+Cierre del **Agente 1 Travel Concierge** end-to-end en los 3 frentes del stack (backend + web + mobile) en el mismo día. Es la **primera integración funcional de un agente IA en cualquier cliente Tourya**. El framework `agents/shared/` (IA-01) se estrenó con este agente; el resto de los 4 agentes core del doc 16 puede seguir el mismo patrón.
+
+### Contexto — Sprint 8 en 3 frentes paralelos
+
+Franklin autorizó Sprint 8 tras cerrar Sprint 7 mobile. Auditoría previa confirmó que el framework `com.tourya.api.agents.shared` (IA-00 + IA-01) ya estaba listo (9 clases: `ILlmClient`, `AnthropicClient`, `BudgetGuard`, `PromptTemplate`, `ModelPricing`, `AgentAuditWriter`, `AgentAuditEntry`, `AgentLlmResponse`, `AgentRunResult`) — solo faltaba la implementación del Travel Concierge en sí.
+
+**Decisión clave — provider LLM:** Franklin propuso usar Vertex AI Gemini en vez de Anthropic. Razones aceptadas: (1) reusa credenciales GCP existentes vía ADC — cero cuenta nueva ni API key nueva a manejar; (2) ~40% más barato que Anthropic para el mismo volumen (Gemini 2.5 Flash $0.075/$0.30 vs Claude Haiku $1/$5 por 1M tokens); (3) el framework `ILlmClient` era ya provider-agnostic — cambio es aditivo, no requiere reescribir agentes.
+
+**Infra GCP habilitada por Franklin (2026-08-14)**:
+- `aiplatform.googleapis.com` API activada en `tourya-project-dev`.
+- Rol `roles/aiplatform.user` asignado a la SA `tourya-dev-cloud-run@tourya-project-dev.iam.gserviceaccount.com`.
+- Región elegida: `us-central1` (más modelos disponibles que `us-east1`).
+
+### Sprint 8 IA-02 — backend Travel Concierge con Vertex AI Gemini (PR #263 → develop commit `122ce62`)
+
+Piezas nuevas en el backend `tourya-api`:
+
+- **`GeminiClient implements ILlmClient`** en `com.tourya.api.agents.shared`: cliente Vertex AI usando el SDK oficial `google-cloud-vertexai:1.14.0`. Auth via **Application Default Credentials** (ADC) — en Cloud Run usa la SA automáticamente, en local dev usa `gcloud auth application-default login`. Contrato del `ILlmClient` respetado: **nunca throws**; si el call falla devuelve `AgentLlmResponse.error(msg)`; si `agents.gemini.enabled=false` devuelve `.disabled()`. Persiste `AgentAuditEntry` al final vía `AgentAuditWriter` con tokens in/out + costo (usa `ModelPricing` extendido con entradas Gemini 2.5 Pro $1.25/$10 y Flash $0.075/$0.30).
+- **`LlmClientConfig`**: `@Configuration` con `@Primary` selector según `agents.provider=${AGENTS_PROVIDER:gemini}`. `AnthropicClient` queda como impl alternativa — si mañana Franklin quiere A/B test o cambio de provider es 1 env var, no reescritura.
+- **`TravelConciergeService`**: agente en `com.tourya.api.agents.concierge`. Loop de **function calling max 5 iteraciones** contra `TourService`, `ShoppingCartService`, `SearchTourScheduleFullService`. 4 funciones expuestas al LLM:
+  - `search_tours(query, categoryIds?, dateFrom?, dateTo?, ...)` → llama al SP `sp_get_tour_schedule_json`.
+  - `get_tour_detail(tourId)` → llama al endpoint del `TourDetailResponse`.
+  - `add_to_cart(tourScheduleId, slotId, scheduleDate, details[{ageType, quantity}])` → llama a `POST /shopping-cart/items` (server-side, no expone el JWT).
+  - `get_cart()` → llama a `GET /shopping-cart`.
+- **`AgentController`**: nuevo endpoint `POST /agents/travel-concierge/chat` autenticado JWT (rol USER). Body: `ConciergeChatRequest {sessionId, userMessage, locale, context {tourId?, cartId?}}`. Response envelope `ApiResponse<ConciergeChatResponse>` con `assistantMessage`, `actionsExecuted[]`, `fraudSuspected`, `escalatedToHuman`.
+- **Guardrails implementados en código** (no solo en el system prompt):
+  - **Deny-list secretos**: si `userMessage` o `context` contiene `WOMPI_INTEGRITY_SECRET` o `JWT_SECRET`, **jamás** se llama al LLM — se responde con mensaje genérico + `escalatedToHuman=true` + audit con `resultType=rejected`.
+  - **Scrub pre-envío**: filtro que elimina `providerPrice`, `slotPercentageTourya`, `slotPorcentajeTourya`, `porcentajeTourya` del contexto antes de armar el prompt (defense-in-depth aunque los DTOs ya no los exponen al turista). Verificado con test que inspecciona el prompt final.
+  - **Contador fraude por sessionId**: contador in-memory de menciones de "pago fall"/"wompi error"/"tarjeta rechaz" por session; umbral 3 → `fraud_suspected=true` en el metadata (nunca se muestra al turista).
+- **Migración 092** `092_agent_concierge_metadata.sql`: `ALTER TABLE agent_audit_log ADD COLUMN IF NOT EXISTS metadata JSONB` + índice GIN `idx_agent_audit_log_metadata`. Idempotente. **Aplicada a Cloud SQL dev el 2026-08-14** con el patrón docker+psql documentado, ANTES del merge (regla operativa reforzada por Franklin).
+- **Tests**: 9 tests JUnit + Mockito con `MockLlmClient` (queue de respuestas hardcoded para escenarios deterministas): consulta simple sin function call, búsqueda de tour (verifica que llamó a `TourService`), agregar al carrito (verifica que llamó a `ShoppingCartService`), guardrail secretos (verifica `capturedPrompts().size() == 0` — el LLM ni se llama), guardrail scrub top-level + anidado en arrays, contador fraude (3 chats mismo sessionId → 3ro devuelve `fraudSuspected=true` sin mencionar "fraud" al usuario). Cobertura 80%+ del `TravelConciergeService`.
+- **Prompt** `resources/prompts/concierge.v1.txt`: versión inicial del system prompt basado en el doc 16 §Agente 1.
+
+Docs actualizados por este PR: 00 log 2026-08-14 + changelog v2.88, 09 nueva sección `AgentController`, 16 §Stack de modelos (Gemini 2.5 Pro/Flash + costo recalculado ~$8-12/mes) + §Agente 1 Modelo usado + nueva sub-sección "Por qué Gemini en vez de Anthropic", 17 IA-02 🟢 con detalle completo.
+
+### Sprint 8 FE-Concierge — widget Angular (PR tourya-front #118 → develop commit `7404b4d`)
+
+Piezas nuevas en el frontend `tourya-front`:
+
+- **`TravelConciergeService`** en `src/app/shared/services/`: método `chat(message, context?)` que arma request + genera `sessionId` con `crypto.randomUUID()` persistido en `sessionStorage` (no localStorage — para que multi-tab tenga sesiones distintas). Locale tomado del `TranslateService` actual (es/en/pt). Consume `POST ${environment.apiUrl}/agents/travel-concierge/chat` vía `HttpClient` + interceptor JWT.
+- **Modelos** en `src/app/shared/models/concierge.model.ts`: `ConciergeChatRequest`, `ConciergeChatResponse`, `ConciergeAction`.
+- **`ConciergeChatWidget`** (component en `src/app/shared/common/concierge-chat-widget/`): FAB flotante fijo `bottom-right`. Colapsado = círculo con ícono chat; expandido = panel 380×500px desktop / full-screen mobile <640px. Panel expandido con header "Concierge Tourya" + botón cerrar, historial burbujas usuario/asistente, input textarea + botón enviar, loading dots, chips clickeables para acciones ejecutadas ("🔍 3 tours encontrados" / "✅ Agregado al carrito"), banner amarillo cuando `escalatedToHuman=true` con ocultamiento de input.
+- **Integración en 3 páginas** (ajustadas a la estructura real del repo — más granular que el brief inicial):
+  - `list-tours` (Explore): widget sin context — el asistente hace function calls al search.
+  - `tours-detail`: widget con `[tourId]="currentTourId"` — el asistente responde dudas del tour específico. `currentTourId` cambiado de private → public para binding bajo `strictTemplates=true`.
+  - `cart-summary`: widget sin `cartId` — el `cartId` no está expuesto públicamente y agregarlo era out-of-scope; el backend deriva el carrito activo del JWT (correcto y verificado).
+- **i18n**: bloque nuevo `concierge.*` en `public/i18n/{es,en,pt}.json` con 10 keys (title, welcome, placeholder, send, thinking, error, escalated, action.searched, action.addedToCart, action.cartFailed).
+- **Build production verde** — 0 warnings nuevos (baseline conservado). Strict templates atrapó el binding público.
+
+**Adaptaciones vs brief inicial** (razonables, se aprueban): estructura real del repo es `src/app/shared/{services,models,common}/` con componentes `standalone: false` declarados en `SharedModule` — no `src/app/{services,models,components}/` standalone como decía el brief. i18n vive en `public/i18n/` no en `src/assets/i18n/`.
+
+### Sprint 8 MO-Concierge — widget MAUI (commit local `7c76f39` + merge local `190f1ba`)
+
+Piezas nuevas en el mobile `tourya-mobile` (sin remoto Git, merge local a `develop` del worktree principal):
+
+- **Modelos** en `TouryaMobile/Models/Agents/ConciergeModels.cs`: `ConciergeChatRequest`, `ConciergeChatResponse`, `ConciergeAction`, `ConciergeContext` (records).
+- **`IConciergeService` + `ConciergeService`** en `Services/`: método `ChatAsync(message, context?, ct)`. Session ID persistido en `SecureStorage` con key `Constants.StorageKeys.ConciergeSessionId = "concierge_session_id"` (para que sobreviva app restart del mismo user). Locale leído de `I18nService.CurrentLanguage`. Consume `POST {Constants.ApiBaseUrl}/agents/travel-concierge/chat` vía `ApiService.PostAsync<TRequest, TResponse>` (helper generic ya existía).
+- **`ConciergeChatPage.xaml{,.cs}`** en `Views/Agents/`: página modal que se abre con `Shell.Current.GoToAsync("concierge?tourId=X&cartId=Y")`. `CollectionView` con burbujas usuario/asistente + chips por acción ejecutada + Entry + botón enviar + `ActivityIndicator` + banner amarillo si `escalatedToHuman=true`.
+- **`ConciergeChatViewModel`** en `ViewModels/Agents/`: `Messages` (`ObservableCollection<ConciergeMessage>`), `CurrentInput`, `IsBusy`, `IsEscalated`. **Divergencia patrón**: comandos expuestos como propiedades explícitas `new AsyncRelayCommand(...)` en el constructor en vez de `[RelayCommand]` — necesario para no introducir warnings MAUIG2045 (RelayCommand + XAML source-gen no se coordinan) y respetar el baseline 140. Sirve como blueprint para un futuro cleanup del codebase (~100 warnings MAUIG2045 pre-existentes por el mismo patrón).
+- **FAB "Concierge Tourya"** en `TourDetailPage.xaml`, `CartPage.xaml`, `ExplorePage.xaml`: ícono chat + color primario Tourya + `bottom-right` con padding 16dp. Tap → navega a `concierge?tourId=X` / `concierge?cartId=Y` / (sin params en Explore).
+- **Ruta `concierge`** registrada en `AppShell.xaml` fuera de las tabs (no navegable manualmente — solo por FABs).
+- **DI en `MauiProgram.cs`**: `AddSingleton<IConciergeService, ConciergeService>` + `AddTransient<ConciergeChatViewModel>` + `AddTransient<ConciergeChatPage>`.
+- **Rotación de session en logout**: `ISecureStorageService` extendido con `Get/Set/RemoveConciergeSessionIdAsync`; `SecureStorageService.ClearAllAsync` remueve la key colgado del barrido existente; `AuthService.LogoutAsync` invoca además `_storage.RemoveConciergeSessionIdAsync()` ANTES de `ClearAllAsync` (defense-in-depth doble llamada). En el próximo chat, `ConciergeService.GetOrCreateSessionIdAsync` no encuentra la key → genera `Guid.NewGuid()` → persiste. Próximo user arranca con hilo fresco.
+- **10 keys i18n** `concierge.*` en `Services/I18nService.cs` en es/en/pt.
+- **Build**: `dotnet build -c Debug -f net10.0-android` verde. **140 warnings baseline conservado** — 0 warnings nuevos. 0 errores.
+
+### Estado del MVP mobile tras Sprint 8
+
+Con IA-02 backend + FE-Concierge web + MO-Concierge mobile cerrados:
+
+- **Turista web**: Travel Concierge activo en `list-tours` + `tours-detail` + `cart-summary`. Búsqueda conversacional + gestión de carrito + FAQ ancladas en la ficha real del tour — sin inventar precio/política/disponibilidad (guardrails backend). Puede escalar a humano vía banner cuando corresponde.
+- **Turista mobile**: Travel Concierge activo en `ExplorePage` + `TourDetailPage` + `CartPage` con FAB → modal. **Turista mobile cerró el último ⚠️ parcial del doc 14** ("Buscar tours con Travel Concierge (IA)") — ahora es ✅. **100% del alcance del doc 14 cerrado**.
+- **Provider / Operario**: sin cambios vs Sprint 7 (100% del alcance cerrado). Los agentes 4 (Operator Support) y 5 (Backoffice Support) del doc 16 siguen en el backlog (`IA-07`, `IA-08`).
+- **Backend**: `TravelConciergeService` productivo, framework `agents/shared/` estrenado, migración 092 aplicada a dev. Anthropic queda como impl alternativa por si Franklin quiere cambiar.
+- **Deudas nuevas Sprint 8**: **cero abiertas de MVP mobile**. Deudas técnicas menores (todas no bloqueantes): (a) el patrón `AsyncRelayCommand` como propiedad explícita solo se aplicó a los 2 comandos nuevos del concierge — los ~100 MAUIG2045 pre-existentes quedan como oportunidad de cleanup futuro; (b) tests unitarios mobile siguen ausentes (el codebase mobile no tiene xUnit setup — deuda de infra de testing, no del sprint).
+
+### Notas sobre docs no tocados en este sync
+
+- **Doc 05 (reglas de negocio)**: no se toca. El Travel Concierge no introduce RN nueva — respeta RN-014 (`providerPrice` inmutable para el agente), RN-019 (`slotPercentageTourya` inmutable), RN-025 (Wompi integrity secret jamás expuesto al LLM), RN-033 (reagendamiento sigue vía backend).
+- **Doc 12 (seguridad y autenticación)**: no se toca. Los guardrails están documentados en doc 16 §Agente 1; las vulnerabilidades C-1/C-2 ya listadas siguen igual (el concierge NUNCA recibe el `integrity_secret` — verificado con deny-list).
+- **Doc 14 (gap web vs mobile)**: no se toca. La categoría "Búsqueda conversacional / Travel Concierge" del doc 14 se refleja acá en el doc 15 (Gap Analysis matrix actualizada) sin cambiar la del doc 14.
