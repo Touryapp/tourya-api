@@ -14,6 +14,8 @@ Análisis granular del código actual de `tourya-mobile` (MAUI Android) contra e
 
 > **Nota 2026-08-14d**: se agregó la sección "Post-Sprint 8 — cierre 2026-08-14d" al final. Sprint 8 completo en 3 frentes paralelos (~1 día calendario): **IA-02 backend** (Travel Concierge con Vertex AI Gemini + function calling + guardrails + migración 092 aplicada a Cloud SQL dev), **FE-Concierge Angular** (widget flotante en `ExplorePage`+`TourDetailPage`+`CartPage`, PR #118 mergeado), **MO-Concierge MAUI** (`ConciergeChatPage` modal + FAB en 3 páginas, commit local `7c76f39` + merge `190f1ba`). Fila "Buscar tours con Travel Concierge (IA)" de la matriz Gap Analysis actualizada ⚠️ parcial → ✅. Primera integración funcional del agente IA en cualquier cliente Tourya. **Franklin habilitó infra GCP**: Vertex AI API + rol `roles/aiplatform.user` a la SA de Cloud Run.
 
+> **Nota 2026-08-15**: se agregó la sección "Post-Sprint 9 — cierre 2026-08-15" al final. Sprint 9 completo en 3 frentes (backend + web + mobile) — **segundo agente IA end-to-end**, mismo patrón validado con IA-02 pero action-specific (no chat). **IA-07 backend** (PR #265 mergeado el 2026-08-14, 4 endpoints action-specific bajo `/agents/operator-support/*` con guardrails idénticos a IA-02, cero migración BD reusa `agent_audit_log.metadata`). **FE Operator Support Angular** (PR #119 mergeado, 4 touchpoints aditivos en `add-tour`+`tour-schedule`+`tour-gallery`+`provider-reviews`). **MO Operator Support MAUI** (commit local `b6de801` + merge `cc45149`, mismos 4 touchpoints — el agente descubrió que en mobile los precios del tour viven en `ScheduleTemplateForm` no en `TourFormPage`, y puso el price-alert donde tiene sentido). El provider ahora tiene asistencia IA en su flujo entero: nombre/descripción/tags del tour, alerta de pricing vs mercado, validación de galería pre-upload, borrador de respuesta a reseñas.
+
 > **Objetivo**: dimensionar qué falta, qué sobra y en qué invertir a continuación para tener una app coherente con la posición estratégica acordada.
 
 ---
@@ -794,3 +796,95 @@ Con IA-02 backend + FE-Concierge web + MO-Concierge mobile cerrados:
 - **Doc 05 (reglas de negocio)**: no se toca. El Travel Concierge no introduce RN nueva — respeta RN-014 (`providerPrice` inmutable para el agente), RN-019 (`slotPercentageTourya` inmutable), RN-025 (Wompi integrity secret jamás expuesto al LLM), RN-033 (reagendamiento sigue vía backend).
 - **Doc 12 (seguridad y autenticación)**: no se toca. Los guardrails están documentados en doc 16 §Agente 1; las vulnerabilidades C-1/C-2 ya listadas siguen igual (el concierge NUNCA recibe el `integrity_secret` — verificado con deny-list).
 - **Doc 14 (gap web vs mobile)**: no se toca. La categoría "Búsqueda conversacional / Travel Concierge" del doc 14 se refleja acá en el doc 15 (Gap Analysis matrix actualizada) sin cambiar la del doc 14.
+
+---
+
+## Post-Sprint 9 — cierre 2026-08-15
+
+Cierre del **segundo agente IA productivo end-to-end** (Agente 4 del doc 16). Sprint 9 completo en 3 frentes secuenciales (backend → web → mobile) el 14-15 de agosto. A diferencia de IA-02 Travel Concierge que fue **chat conversacional**, IA-07 Operator Support se diseñó como **4 endpoints action-specific** — el provider tiene 4 casos de uso bien delimitados (sugerir contenido, alerta pricing, borrador reseña, validar galería) que se integran como touchpoints aditivos en flujos existentes, no como un widget aparte. **Cero regresión**: si el provider no toca los botones `✨`, todos los flujos funcionan igual que antes.
+
+### Sprint 9 IA-07 backend — 4 endpoints action-specific (PR #265 mergeado 2026-08-14, commit `bc3ff92`)
+
+Detalle completo en changelog v2.90 del doc 00. Resumen:
+
+- **4 endpoints** bajo `/agents/operator-support/*` autenticados JWT rol PROVIDER/PROVIDER_OPERATOR:
+  - `POST /suggest-tour-content` — nombres SEO + descripción 200-400 palabras en español + tags del catálogo `tour_tag_mapping`.
+  - `POST /price-alert/{tourId}` — severity `OK`/`WARN`/`CRITICAL`/`UNKNOWN` + rango min/max/median comparables. **Guardrail RN-014**: solo alerta, nunca cambia el precio.
+  - `POST /draft-review-reply/{reviewId}` — borrador + tone `PROFESSIONAL`/`WARM`/`APOLOGETIC` + `detectedLocale`. El operador aprueba antes de publicar vía `PATCH /public/save/review/{reviewId}` (backend NO publica solo).
+  - `POST /validate-gallery` — **cero costo LLM**, reusa `GalleryValidator` sobre metadata pre-upload.
+- **`OperatorSupportService`** con guardrails idénticos a IA-02 (deny-list secretos, scrub `providerPrice`/`slotPercentageTourya`, budget guard, audit siempre). Autorización owner-based (`requireTourOwnership`) valida antes de cualquier LLM call.
+- **Modelo Gemini 2.5 Pro** — reusa GCP ADC, ~40% más barato que Sonnet 5. Costo esperado **$1-2/mes**.
+- **`OperatorSupportRepository`** con 2 native queries para comparables usando `price` público (nunca `provider_price` interno entre operadores — protección adicional del precio de otros proveedores).
+- **3 prompts versionados** `prompts/operator-support/*.v1.txt`.
+- **11 tests JUnit** con `MockLlmClient` — happy paths, malformed JSON defensive parsing, auth 401, guardrails deny-list, guardrails scrub, heurística sin LLM.
+- **Cero migración BD** (reusa `agent_audit_log.metadata JSONB` de IA-02 mig 092).
+- **Feature flag** `AGENTS_OPERATOR_ENABLED`. **Traducción es→en/pt DEFERRED a IA-09** (TODO en el service, 1 wire-up cuando IA-09 exista).
+- **Deuda menor detectada**: `InsufficientPrivilegesException` mapea a HTTP **401** (no 403) en `GlobalExceptionHandler:224` — inconsistencia del codebase; se mantuvo consistencia con el resto de controllers. Cleanup opcional futuro.
+
+### Sprint 9 FE Operator Support Angular — 4 touchpoints (PR #119 mergeado 2026-08-15, commit `383a4c6`)
+
+Piezas nuevas en el frontend `tourya-front`:
+
+- **`OperatorSupportService`** en `src/app/shared/services/` con 4 métodos: `suggestTourContent`, `getPriceAlert`, `draftReviewReply`, `validateGallery`. Consume `POST ${environment.apiUrl}/agents/operator-support/*` vía `HttpClient` + interceptor JWT.
+- **Modelos** en `src/app/shared/models/operator-support.model.ts`.
+- **Touchpoint 1 — sugerir contenido** (`add-tour` component, monolítico no wizard):
+  - Botón `✨ Sugerir con IA` en el header de la sección Descripción.
+  - Al click → modal con 3 secciones: **Nombres candidatos** (chips clickeables), **Descripción sugerida** (textarea readonly + "Usar" / "Descartar"), **Tags sugeridos** (chips multi-select + "Agregar seleccionados").
+  - **Nunca reemplaza silenciosamente** — todo pasa por click explícito.
+- **Touchpoint 2 — price alert** (`tour-schedule` component):
+  - Un badge único al top de la sección Prices (multi-slot × multi-age — endpoint idempotente por `tourId`), refrescado on-blur.
+  - 🟢 OK / 🟡 WARN / 🔴 CRITICAL con rango de mercado. Nunca cambia el precio.
+- **Touchpoint 3 — validate-gallery** (`tour-gallery` component):
+  - Pre-upload con metadata local (`img.onload` para `naturalWidth`/`naturalHeight` + `file.size`/`file.type`) → llama backend con array de todas las imágenes.
+  - Renderiza `issues[]` estructurados inline; si alguna es CRITICAL bloquea el upload con Swal.
+  - **Fallback silencioso** si el endpoint no responde (mismo patrón que Sprint 7 offline).
+- **Touchpoint 4 — draft-review-reply** (`provider-reviews` component):
+  - Botón `✨ Borrador con IA` en cada card de reseña sin responder.
+  - Al click → pre-llena el TextEditor existente con el draft + label "Tono detectado". El provider edita si quiere y publica con el flujo existente.
+- **20 keys i18n** `operatorSupport.*` en `public/i18n/{es,en,pt}.json`.
+- **Build production verde**, 0 warnings nuevos.
+
+**Deudas detectadas** (menores):
+- FE solo tiene `subCategory: code` string en los DTOs, el endpoint espera `subcategoryId: number` — se envía `null`. Deuda de alineación de tipos si la calidad de sugerencias baja.
+- `ProviderReview.id` es `string?`, se hace `Number(reviewId)` con guard antes de llamar al endpoint.
+
+### Sprint 9 MO Operator Support MAUI — 4 touchpoints (commit local `b6de801` + merge `cc45149`, 2026-08-15)
+
+Piezas nuevas en el mobile `tourya-mobile` (sin remoto Git, merge local a `develop` del worktree principal):
+
+- **Modelos** en `Models/Agents/OperatorSupportModels.cs`.
+- **`IOperatorSupportService` + `OperatorSupportService`** en `Services/`. Reusa `ApiService.PostAsync<TRequest, TResponse>` (mismo patrón que `ConciergeService`).
+- **DI singleton** en `MauiProgram.cs`.
+- **Descubrimiento estructural clave**: en mobile los precios del tour viven en **`ScheduleTemplateForm`** (no en `TourFormPage` como el web) — el agente descubrió esto y adaptó el brief: puso el price-alert donde tiene sentido, en el form de plantilla donde el provider realmente edita precios.
+- **Touchpoint 1 — sugerir contenido** (`TourFormPage.xaml`, wizard multi-step):
+  - Botón "✨ Sugerir con IA" en el step Descripción.
+  - Nueva **`OperatorSuggestModalPage`** en `Views/Agents/` con `VerticalStackLayout` + `ScrollView` — 3 secciones apilables: nombres, descripción, tags.
+- **Touchpoint 2 — price alert** (`ScheduleTemplateFormPage.xaml` + `ScheduleTemplateFormViewModel.cs`):
+  - Banner con `DataTriggers` para OK/WARN/CRITICAL en la parte superior del form de plantilla.
+  - `EventToCommandBehavior` con `EventName="Unfocused"` en cada Entry de Price (multi-slot × multi-age) → refresca la alerta al cambiar cualquier precio.
+- **Touchpoint 3 — validate-gallery** (`TourFormPage.xaml` step Galería):
+  - Pre-upload usando `SKBitmap.Decode` de SkiaSharp (ya está por MO-31) para leer `Width`, `Height`, `Length`.
+  - Backend valida via `ValidateGalleryAsync` server-side.
+  - Fallback silencioso.
+- **Touchpoint 4 — draft-review-reply** (`ProviderReviewsPage.xaml` + `ProviderReviewsViewModel.cs`):
+  - Botón "✨ Borrador con IA" en cada reseña sin responder.
+  - Al tap → pre-llena el TextEditor del Sprint 5a (el que ya se usa para responder) + label chico "Tono detectado".
+- **21 keys i18n** `operatorSupport.*` en `I18nService` en es/en/pt.
+- **Patrón comandos MAUI**: `AsyncRelayCommand` como propiedad explícita en el constructor (NO `[RelayCommand]`) — blueprint del Sprint 8 MO-Concierge conservado. Baseline **140 warnings intacto**, 0 warnings nuevos, 0 errores.
+
+**Nota sobre el flow del sprint MO**: el agente stopped por corte de proceso durante el sprint. Alcanzó a hacer todo el trabajo (14 archivos, 803 líneas) sobre `develop` compartido en el checkout principal (sin worktree ni rama). **Recovery manual**: verifiqué build verde 0/0, creé rama `feature/mobile-sprint9-operator-support`, commit del working tree, merge local no-ff a `develop`, cleanup de rama.
+
+### Estado del MVP mobile tras Sprint 9
+
+- **Turista**: sin cambios vs Sprint 8 (100% del alcance mobile del doc 14 cerrado).
+- **Provider**: **con asistencia IA en el flujo entero** — creación/edición de tour (nombre + descripción + tags + validación galería), pricing (alerta vs mercado), respuesta a reseñas (borrador + tono).
+- **Operario**: sin cambios vs Sprint 7 (100% del alcance cerrado).
+- **Backend**: 2 agentes IA productivos (IA-02 Travel Concierge + IA-07 Operator Support). Framework `agents/shared/` productivo con dos consumers del `ILlmClient` (`GeminiClient` + `AnthropicClient` alternativo).
+- **Deudas nuevas Sprint 9**: cero abiertas de MVP. Menores no bloqueantes: alineación tipos `subcategoryId: number` (FE + MO), `reviewId: number` en MO Review DTO, `InsufficientPrivilegesException` 401 vs 403 (backend, deuda pre-existente).
+
+### Notas sobre docs no tocados en este sync
+
+- **Doc 05 (reglas de negocio)**: no se toca. IA-07 respeta RN-014 (`providerPrice` inmutable — solo alerta), RN-013 (galería reusa `GalleryValidator` server-side), RN-050 (moderación reseñas queda para IA-10).
+- **Doc 12 (seguridad)**: no se toca. Guardrails idénticos a IA-02, ya documentados en doc 16.
+- **Doc 14 (gap web vs mobile)**: no se toca. IA-07 es refinamiento de features ya listadas (no cambia el alcance del doc 14).
+- **Doc 16 (agentes IA)**: ya actualizado en v2.90 (§Agente 4 estado backend cerrado + modelo Gemini + costo recalculado + TODO traducción DEFERRED a IA-09). Este sync no necesita tocarlo.
