@@ -52,7 +52,7 @@ Referencias en otros documentos:
 
 **Auth Vertex AI**: Application Default Credentials (ADC). En Cloud Run usa la SA automáticamente; en local dev requiere `gcloud auth application-default login` (Franklin ya lo hizo). **Sin API key** que rotar o esconder — ventaja operativa frente a Anthropic.
 
-📌 **PENDIENTE LUIS** — si más adelante se necesita traducción masiva de tours (es→en/pt), usar **Google Cloud Translation** (ya presupuestado en [11 — Integraciones](11-integraciones.md): ~$0.0002/tour) en vez de un LLM — es una tarea estructurada donde un servicio de traducción dedicado es más barato y más consistente que pedirle a Sonnet 5 que traduzca.
+✅ **IMPLEMENTADO 2026-08-15 (IA-09)** — traducción automática es→en/pt-BR de los campos JSONB del tour vía **Google Cloud Translation v3** (~$0.0002/tour, ver [11 — Integraciones](11-integraciones.md) §5). Se ejecuta en background con `@TransactionalEventListener(AFTER_COMMIT)` + `@Async` (mismo patrón que `CreditRefundEventListener`) — el save del tour responde sin esperar al call. Guardrail: no sobrescribe en/pt que el provider haya escrito manualmente. Endpoint admin `POST /admin/tours/{tourId}/retranslate` para backfill de tours legacy.
 
 ---
 
@@ -204,7 +204,7 @@ Responde en el idioma del turista.
 4. Alerta de precio desalineado vs. tours comparables (`providerPrice`) — **solo alerta, nunca cambia el precio**: el operador siempre decide su `providerPrice` (RN-014).
 5. Borrador de respuesta a la reseña — el operador aprueba o edita antes de publicar.
 
-**Modelo usado**: **Gemini 2.5 Pro** para redacción y tags (backend cerrado 2026-08-14 con Vertex AI en vez del Sonnet 5 del diseño original — mismo motivo que IA-02: reusa infra GCP + ~40% más barato). Para la traducción es→en/pt, delegar a **Google Cloud Translation** cuando se implemente (IA-09) — el `OperatorSupportService` ya deja el TODO listo (`// TODO IA-09`), es 1 wire-up cuando el service exista.
+**Modelo usado**: **Gemini 2.5 Pro** para redacción y tags (backend cerrado 2026-08-14 con Vertex AI en vez del Sonnet 5 del diseño original — mismo motivo que IA-02: reusa infra GCP + ~40% más barato). Para la traducción es→en/pt-BR, **IA-09 cerrado 2026-08-15**: el hook ya no vive en `OperatorSupportService` sino en `TourService.saveCreateOrUpdateFullData` (event → listener AFTER_COMMIT → `TourTranslationApplier` async), así IA-07 sigue devolviendo español (RN-011) y la traducción a los otros idiomas ocurre sola cuando el operador guarda el tour. Ver §5 en [11 — Integraciones](11-integraciones.md).
 
 **Modo de actuación**:
 - ✅ **Genera borrador** de descripción/tags — el operador aprueba antes de `PUT /tour/user/submitTourById/{id}`.
@@ -219,7 +219,7 @@ Responde en el idioma del turista.
 
 Guardrails idénticos a IA-02 (deny-list secretos + scrub `providerPrice`/`slotPercentageTourya` + budget guard + audit siempre). Autorización owner-based: el `PROVIDER`/`PROVIDER_OPERATOR` solo opera sobre tours/reseñas de su propio provider — `requireTourOwnership` valida antes de cualquier call al LLM.
 
-**Traducción es→en/pt DEFERRED a IA-09**: el `OperatorSupportService` no la implementa (RN-011 solo exige `es`); cuando IA-09 exista se agrega 1 método que delega en `ITranslationService` — ya hay `// TODO IA-09` marcado en el código.
+**Traducción es→en/pt-BR (IA-09 cerrado 2026-08-15)**: el `OperatorSupportService` sigue devolviendo español (RN-011: el operador aprueba en su idioma). El hook real vive en `TourService.saveCreateOrUpdateFullData` — cuando el operador confirma el tour, se publica `TourTranslationEvent`; `TourTranslationEventListener` corre AFTER_COMMIT y delega en `TourTranslationApplier.translateTourAsync` (Google Cloud Translation v3). El guardrail no sobrescribe en/pt si el operador ya los escribió (o aceptó una sugerencia).
 
 **Costo estimado con Gemini**: con la meta de 150 tours en 12 meses (creación + ediciones) y ~15% de reservas que dejan reseña (RN meta) ≈ **$1–2/mes** (baja vs los $2–4 originales del brief con Sonnet 5).
 

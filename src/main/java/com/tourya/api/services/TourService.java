@@ -15,7 +15,9 @@ import com.tourya.api.models.mapper.*;
 import com.tourya.api.models.request.*;
 import com.tourya.api.models.responses.*;
 import com.tourya.api.repository.*;
+import com.tourya.api.services.translation.TourTranslationEvent;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -63,6 +65,8 @@ public class TourService {
     private final TourItineraryMapper tourItineraryMapper;
     private final TourCancellationPolicyMapper tourCancellationPolicyMapper;
     private final TourGalleryMapper tourGalleryMapper;
+    /** IA-09: publisher para {@link TourTranslationEvent} tras create/update de tour. */
+    private final ApplicationEventPublisher eventPublisher;
 
 
     private static final String NOT_PRIVILEGES = "You have no privileges to perform this action.";
@@ -186,11 +190,19 @@ public class TourService {
         User user = ((User) connectedUser.getPrincipal());
         List<Role> roleList = user.getRoles();
         if(Utils.isProvider(roleList)){
+            TourFullDataResponse response;
             if(tourFullDataRequest.getId() == null){
-                return processCreateTourFullData(user, tourFullDataRequest);
+                response = processCreateTourFullData(user, tourFullDataRequest);
             }else{
-                return processUpdateTourFullData(tourFullDataRequest.getId(), user, tourFullDataRequest);
+                response = processUpdateTourFullData(tourFullDataRequest.getId(), user, tourFullDataRequest);
             }
+            // IA-09: dispara traduccion asincrona es -> en/pt-BR de los campos JSONB.
+            // El listener corre AFTER_COMMIT: si esta tx hace rollback, no se dispara.
+            // Guardrail (no sobrescribir en/pt ya rellenos) vive en TourTranslationApplier.
+            if (response != null && response.getId() != null) {
+                eventPublisher.publishEvent(new TourTranslationEvent(response.getId()));
+            }
+            return response;
         }else{
             throw new InsufficientPrivilegesException(NOT_PRIVILEGES);
         }
