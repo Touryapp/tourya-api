@@ -429,6 +429,30 @@ Tourya ya usa **Cloud Logging + Cloud Monitoring** (GCP, ver [13 — Despliegue]
 
 Configurar alertas generales del backend es prerequisito de higiene operativa **antes** de sumarle alertas específicas de agentes IA. Costo de Cloud Monitoring básico: prácticamente cero para el volumen inicial.
 
+### Backend cerrado 2026-08-15 (IA-11) — endpoints `/admin/agents/*`
+
+✅ **Cerrado v2.93**: en lugar de armar el dashboard directamente en Cloud Monitoring (que fuerza a mirar cada agente en un panel diferente y no cruza fácil con `metadata->>'capability'` de OperatorSupport), se expone una API dedicada sobre `agent_audit_log` que la UI admin en Angular consume en el sprint siguiente. Los mismos números alimentan las alertas de Cloud Monitoring por scrape periódico si Franklin las quiere activar más adelante.
+
+Nuevo package `com.tourya.api.agents.observability` con `AgentObservabilityService` + `AgentObservabilityRepository` (JDBC + `percentile_cont` + `date_trunc` + operadores JSONB `->>`, `@>`). Nuevo `AgentObservabilityController` bajo `/admin/agents` — **solo ADMIN o BACKOFFICE_OPERATION** (guard vía `Utils.isTouryaBackoffice`, mismo patrón que `AdminCreditController`).
+
+| Método | Path | Descripción |
+|---|---|---|
+| GET | `/admin/agents/summary?from&to&agent` | 1 fila por agente en el rango: `totalCalls`, `tokensIn`, `tokensOut`, `costUsd`, `avgLatencyMs`, `successRate`, `escalatedRate`. Default últimos 30 días. |
+| GET | `/admin/agents/timeseries?from&to&agent&granularity` | Serie por bucket + agente. `granularity` ∈ `day|week|month` (default `day`, no whitelisted → `day`). |
+| GET | `/admin/agents/latency?from&to&agent&capability` | Percentiles `p50/p95/p99/min/max` por `duration_ms`. Si viene `capability` se agrupa por `metadata->>'capability'` (hoy sólo lo persiste OperatorSupport). |
+| GET | `/admin/agents/top-consumers?from&to&agent&limit` | Top-N usuarios por call count (empate por costo). `LEFT JOIN _user` para el email. `user_id` puede ser null (calls anónimos pre-login). Default limit=10, max=100. |
+| GET | `/admin/agents/result-types?from&to` | Distribución `success/error/rejected` por agente (donde `success = suggestion + autonomous_action`). |
+| GET | `/admin/agents/overrides?from&to&agent` | Override rate **proxy MVP (Opción A)**: `overrideRateProxy = escalatedRate + errorRate`. Ver deuda IA-11b abajo. |
+
+**Guardrails de la API**: (1) nunca expone `prompt_input`, `result_json` ni el `metadata` completo — solo agregados; (2) rol insuficiente → `InsufficientPrivilegesException` (401 vía `GlobalExceptionHandler`); (3) `Cache-Control: private, max-age=60` en la respuesta para que refresh masivo del frontend no golpee la BD (queries de agregación son caras); (4) reutiliza los índices existentes de la migración `076_agent_audit_log.sql` (`idx_agent_audit_log_agent_date`, `idx_agent_audit_log_user_date`, `idx_agent_audit_log_metadata` GIN) — no requiere migración nueva.
+
+**Deuda IA-11b (Opción B override rate)**: hoy no existe tracking explícito de "el humano editó/descartó la sugerencia" en `agent_audit_log`. Para IA-07 (Operator Support) los 4 endpoints devuelven la sugerencia pero no persisten el outcome cuando el provider guarda el tour. Para computar override rate real habría que:
+1. Agregar columna `human_outcome VARCHAR(20) NULL` en `agent_audit_log` con dominio `KEPT | EDITED | DISCARDED`.
+2. Hook desde el frontend (Angular) en el wizard de tour que reporta el outcome de cada sugerencia después del guardar.
+3. Cambiar `overrides` para computar `overrideRate = 100 * (EDITED + DISCARDED) / (KEPT + EDITED + DISCARDED)` en vez del proxy actual.
+
+Se registra como IA-11b (deuda separada) — el MVP arranca con el proxy escalatedRate + errorRate, que ya cubre el caso "el agente no pudo cerrar solo" (guardrails disparados, secretos, budget agotado, error irrecuperable).
+
 ---
 
 ## Privacidad y seguridad
