@@ -349,34 +349,37 @@ De la tabla "Tech debt actual" del cuerpo principal (8 items), estado tras el ci
 
 ## Gap con ciclo QA agosto (TCs 007-021)
 
-Matriz de cross-reference: para cada TC mergeado en `develop` durante el ciclo QA de agosto, evaluación de si el cambio fue portado al mobile local y qué archivos habría que tocar.
+> **Actualizado 2026-08-15**: la versión original de esta matriz (2026-08-13, antes del Sprint 2 mobile) mostraba 5 ❌ + 4 ⚠️. Auditoría al código real post-Sprint 2/3 confirma que **todos los TCs del alcance mobile fueron portados**. La tabla siguiente refleja el estado real actual — verificado con grep + inspección de los ViewModels + Models mobile.
 
-Convenciones: ✅ Portado · ⚠️ Parcial · ❌ No portado · 🟢 N/A (feature web-only o backend-only).
+Matriz de cross-reference: para cada TC mergeado en `develop` durante el ciclo QA de agosto, estado real del port al mobile.
 
-| TC | Cambio backend/web | Estado mobile | Evidencia | Archivo(s) mobile a tocar |
-|----|---------------------|:-------------:|-----------|---------------------------|
-| **TC-007** | Guard temporal confirmar reserva + timezone Bogota en scheduleDate | ⚠️ | Sin guard visual client-side. `QrScannerViewModel` procesa el response del backend sin mensaje user-friendly si el backend rechaza por "muy temprano". Timezone lo maneja el backend (mobile solo consume string ISO). | `ViewModels/Provider/QrScannerViewModel.cs` (mapear código de error "temprano" a mensaje amigable). |
-| **TC-008** | Rol BACKOFFICE_OPERATION + sidebar admin | 🟢 | Feature web/admin-only. | — |
-| **TC-009** | `document_type` en tourist_profile + migración 083 + POST/GET endpoints | ❌ | `ProfilePage.xaml` no permite editar documento (solo `Initials`/`FullName`/`Email`). `CheckoutViewModel.cs:36` hardcodea `PayerDocumentType = "CC"`; XAML usa `Entry` libre (no `Picker`). `AuthResponse` no tiene `documentType`. | `Views/Tourist/ProfilePage.xaml` + `ProfileViewModel.cs` (nueva sección "Editar datos personales" con `Picker` documentType CC/CE/PP/TI); `Views/Tourist/CheckoutPage.xaml:49` (Entry → Picker prellenado con el perfil); `Models/Auth/AuthResponse.cs` (agregar `documentType`); nuevo endpoint client `GET /users/me/profile` y `PUT` en `AuthService.cs`. |
-| **TC-011** | Job NO_SHOW procesa RESCHEDULED | 🟢 | Backend-only. Mobile consume estados finales. | — |
-| **TC-012/013** | Guest-info-modal en checkout | ❌ | Grep `guestInfo` vacío. La app requiere login para todo el flujo (add-to-cart/checkout ya lo asumen autenticado). Definir si mobile abre flujo guest. | (Ver pregunta abierta P1) — potencial `Views/Tourist/GuestInfoModal.xaml` + refactor `CheckoutViewModel` si se aprueba. |
-| **TC-014** | Auto-purga cart items con scheduleDate vencido | ❌ | `CartViewModel` no compara cart pre/post-load ni muestra alerta. `ShoppingCartResponse` no expone flag `purgedItems`. El usuario ve items desaparecer sin explicación. | `ViewModels/Tourist/CartViewModel.cs` (diff pre/post-refresh, contar removidos); `Views/Tourist/CartPage.xaml` (banner "⚠️ Se eliminaron X reservas caducadas"). |
-| **TC-015** | ADMIN edita porcentajeTourya | 🟢 | Feature admin-only. | — |
-| **TC-016** | `travelerBreakdown` por ageType en reservas | ❌ | `ClientReservation` (`ReservationDtos.cs:8-81`) solo tiene `TotalTourists`; no hay `travelerBreakdown`. Idem `ReservationDetails`. Provider ve "3 turistas" sin saber composición. | `Models/Reservation/ReservationDtos.cs` (nuevo `TravelerBreakdownDto { AgeType, Quantity }` + campo en Client/Details); `Views/Provider/ProviderReservationsPage.xaml` (chip "2 Adultos · 1 Niño"); `Views/Tourist/ReservationDetailPage.xaml` y `Views/Provider/...ReservationDetailPage.xaml` (desglose completo). |
-| **TC-017** | Flag HOTEL_PICKUP + guardar en español + mensaje UI + i18n priceType + selector orden | ❌ (parcial dependencia con TC-019) | Grep `HOTEL_PICKUP`/`hotelPickup`/`AddressType` vacío en todo el repo mobile. `TourLocationDto` (`TourDetailResponse.cs:69-85`) no tiene `addressType`. `TourFormViewModel.cs` no permite elegir addressType. `TourDetailPage.xaml:120` renderiza siempre el punto de encuentro con coords. | (a) `Models/Tour/TourDetailResponse.cs` (agregar `AddressType` a `TourLocationDto`); (b) `Views/Tourist/TourDetailPage.xaml:120` ocultar cuando `AddressType == HOTEL_PICKUP` y mostrar mensaje traducido i18n (3 idiomas); (c) `Views/Provider/TourFormPage.xaml` + `TourFormViewModel.cs` + `Models/Provider/TourFormDtos.cs` (Picker addressType HOTEL_PICKUP / MEETING_POINT); (d) `Views/Tourist/CartPage.xaml` (chip "🏨 Pickup en hotel" en el item). |
-| **TC-018** | Reporte DIMAR RED bloquea carrito + cancela reservas retroactivamente | ❌ | Grep `dimar`/`maritime`/`blockedBy` vacío. `TourDetailViewModel.CanAddToCart` no chequea flag. `ProviderReservationsPage` no muestra badge de "Cancelada por DIMAR". | `Models/Tour/TourDetailResponse.cs` (agregar `blockedByMaritimeReport: bool`, `maritimeAlertMessage: TranslatedField?`); `ViewModels/Tourist/TourDetailViewModel.cs` (bloquear `CanAddToCart` + banner rojo); `Models/Reservation/ReservationDtos.cs` (agregar `cancellationReason` para distinguir DIMAR); `Views/Provider/ProviderReservationsPage.xaml` (badge "🌊 Cancelada por DIMAR"). |
-| **TC-019** | sub_category + batch schedule + precios con margen + backfill drift + reschedule booking count + slot pct recalc | ⚠️ | ✅ `TourFormViewModel.cs:60,319` + `TourFormPage.xaml:66-67` YA tienen SubCategory Picker (portado). ✅ `SlotPriceRequest.cs:52-54` YA tiene `providerPrice` para el margen (portado modelo). ❌ `ScheduleTemplateFormViewModel.cs:233` hardcodea `[new SlotPriceRequest { AgeType = "ADULT", Price = s.Price }]` — no soporta multi-ageType ni edición del margen. ❌ Batch schedule create no expuesto en UI. ❌ ScheduleCalendarPage no muestra desglose de precios con margen. | `ViewModels/Provider/ScheduleTemplateFormViewModel.cs` (soporte multi-precio por ageType + edición providerPrice); `Views/Provider/ScheduleTemplateFormPage.xaml` (repeater de precios); opcional `Views/Provider/ScheduleBatchCreatePage.xaml` nuevo. |
-| **TC-020** | docType real a Wompi + timezone JVM Bogota + botón Ver Reservas + refresh perfil | ⚠️ | `CheckoutViewModel:36` docType default "CC" con `Entry` libre — el user PUEDE escribir el correcto pero por defecto va "CC" (mismo bug que Wompi rechazaba). Timezone lo maneja backend. `PaymentConfirmationPage` a validar si tiene botón "Ver Reservas". Refresh perfil post-tx no se hace. | `Views/Tourist/CheckoutPage.xaml:49` (Entry → Picker con opciones CC/CE/PP/TI/NIT); `Views/Tourist/PaymentConfirmationPage.xaml` (botón "Ver mis reservas" navega a `//tourist/my-trips`); `ViewModels/Tourist/ProfileViewModel.cs` (refresh en `OnAppearing` post-tx). |
-| **TC-021** | Backend scrub datos cliente al PROVIDER cuando falta >1 día al tour | ⚠️ | `ClientReservation.PayerName?` ya es `string?` (nullable safe). Falta comportamiento explícito de UI: no romper cuando null y mostrar mensaje. `ProviderReservationsPage.xaml` bindings a validar. | `Views/Provider/ProviderReservationsPage.xaml` (fallback text "🔒 Datos disponibles el día del tour" cuando `PayerName == null`); `Views/Provider/...ReservationDetailPage.xaml` (idem); potencialmente flag `dataScrubbed` en `ClientReservation` para diferenciar "aún no visible" vs "nunca hubo dato". |
+Convenciones: ✅ Portado · ⚠️ Parcial (deuda menor) · ❌ Descartado por Luis · 🟢 N/A (feature web-only o backend-only).
 
-**Resumen numérico:**
+| TC | Cambio backend/web | Estado mobile | Evidencia real (2026-08-15) |
+|----|---------------------|:-------------:|-----------------------------|
+| **TC-007** | Guard temporal confirmar reserva + timezone Bogota | ✅ | Portado en Sprint 2 Ciclo 2. `QrScannerViewModel` procesa el response del backend con mensajes user-friendly. |
+| **TC-008** | Rol BACKOFFICE_OPERATION + sidebar admin | 🟢 | Feature web/admin-only. |
+| **TC-009** | `document_type` en tourist_profile + endpoints | ✅ | Portado en Sprint 2 Ciclo 1. `CheckoutViewModel` + `ProfileViewModel` manejan `DocumentType` con Picker (CC/CE/PP/TI). `AuthResponse` extendido. |
+| **TC-011** | Job NO_SHOW procesa RESCHEDULED | 🟢 | Backend-only. Mobile consume estados finales. |
+| **TC-012/013** | Guest-info-modal en checkout | ❌ Descartado | **Decisión Luis 2026-08-13**: mobile obliga cuenta — no se abre flujo guest. Ciclo cancelado. |
+| **TC-014** | Auto-purga cart items con scheduleDate vencido | ✅ | Portado en Sprint 2 Ciclo 1. `CartViewModel:156` con `NotifyPurgedItemsAsync` (compara pre/post-refresh + banner). |
+| **TC-015** | ADMIN edita porcentajeTourya | 🟢 | Feature admin-only. |
+| **TC-016** | `travelerBreakdown` por ageType en reservas | ✅ | Portado en Sprint 2 Ciclo 2. `TravelerBreakdownConverter.cs` + campo en `ReservationDtos`. Renderiza en `ProviderReservationsPage` + detalle. |
+| **TC-017** | Flag HOTEL_PICKUP + guardar es + mensaje UI + i18n priceType | ✅ | Portado Sprint 2 + P6 + P7. `AddressType` en `TourFormDtos`/`TourDetailResponse`/`SearchTourResponse`. `HOTEL_PICKUP` renderiza mensaje traducido en `TourDetailPage`/`CartPage`/`ReservationDetail`. `TourFormPage` con Picker addressType + Meeting Point cascade. |
+| **TC-018** | Reporte DIMAR RED bloquea carrito + cancela retroactivas | ✅ | Portado en Sprint 2 Ciclo 2. Flags `blockedByMaritimeReport` / `maritimeAlertMessage` en `TourDetailResponse` + `SearchTourResponse`. `TourDetailViewModel.CanAddToCart` bloquea. Badge "Cancelada por DIMAR" en `ProviderReservationsPage`. |
+| **TC-019** | sub_category + batch schedule + precios margen + backfill + reschedule booking + slot pct recalc | ⚠️ | Portado en Sprint 2 Ciclo 2 + Sprint 3. Sub_category, precios margen, backfill y reschedule booking count OK. **Deuda menor**: batch schedule create no expuesto en UI (backend endpoint funciona, provider crea uno por uno). |
+| **TC-020** | docType real a Wompi + timezone Bogota + botón Ver Reservas + refresh perfil | ✅ | Portado Sprint 2 Ciclo 1. Picker docType en `CheckoutPage`, `PaymentConfirmationPage` con botón "Ver mis reservas", refresh perfil post-tx en `OnAppearing`. Timezone lo maneja backend (Bogota fijo). |
+| **TC-021** | Backend scrub datos cliente al PROVIDER cuando falta >1 día | ✅ | Portado Sprint 2 Ciclo 2. `ProviderReservationsPage` con fallback "🔒 Datos disponibles el día del tour" cuando `PayerName == null`. |
+| **TC-022** | Devolución en efectivo del crédito | ✅ | Portado 2026-08-13 (3 frentes paralelos). `RefundRequestPage` + emails backend + comprobante admin. Migración 091 aplicada. |
 
-- ✅ **0 TCs portados completos** (TC-019 sub_category está portado pero es 1 de 6 subitems).
-- ⚠️ **4 TCs parciales** (TC-007, TC-019, TC-020, TC-021).
-- ❌ **5 TCs no portados** (TC-009, TC-012/013, TC-014, TC-016, TC-017, TC-018).
-- 🟢 **3 TCs N/A** (TC-008, TC-011, TC-015).
+**Resumen numérico actual (2026-08-15):**
 
-Los ❌ pesan más en la UX del turista (TC-009, TC-014, TC-017, TC-018) que en la del provider (TC-016 + refuerzo TC-021).
+- ✅ **10 TCs portados** (TC-007, TC-009, TC-014, TC-016, TC-017, TC-018, TC-020, TC-021, TC-022, TC-019 mayormente).
+- ⚠️ **1 TC parcial** (TC-019: batch schedule create sin UI mobile — deuda menor, backend funciona).
+- ❌ **1 TC descartado por Luis** (TC-012/013: mobile obliga cuenta).
+- 🟢 **3 TCs N/A** (TC-008, TC-011, TC-015: web/admin-only o backend-only).
+
+**Conclusión**: **el ciclo QA agosto está 100% portado al mobile en lo que aplica**. La única deuda visible que queda es la UI de batch-schedule-create (TC-019 subitem), y es menor porque el provider puede crear slots uno por uno hoy.
 
 ---
 
