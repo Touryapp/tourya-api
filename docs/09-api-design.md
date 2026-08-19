@@ -546,6 +546,46 @@ Endpoints REST del agente **Operator Support** (Agente 4 del [doc 16](16-agentes
 
 Errores: 400 (validación DTO), 401 (falta rol PROVIDER/PROVIDER_OPERATOR o el recurso no pertenece al provider — `InsufficientPrivilegesException`), 404 (tour/review no encontrado).
 
+#### `AgentObservabilityController` — `/admin/agents` (IA-11, agregado 2026-08-15)
+
+Dashboard de observabilidad de agentes IA para el admin. Todos los endpoints requieren JWT + rol `ADMIN` o `BACKOFFICE_OPERATION` (guard en `AgentObservabilityService` vía `Utils.isTouryaBackoffice`, mismo patrón que `AdminCreditController` — TC-022 #253). Nunca exponen `prompt_input`, `result_json` ni el `metadata` completo — solo agregados numéricos derivados de `agent_audit_log`. Respuestas con `Cache-Control: private, max-age=60` para amortiguar refresh masivo del frontend.
+
+| Método | Path | Auth |
+|--------|------|------|
+| GET | `/admin/agents/summary` | JWT ADMIN / BACKOFFICE_OPERATION |
+| GET | `/admin/agents/timeseries` | JWT ADMIN / BACKOFFICE_OPERATION |
+| GET | `/admin/agents/latency` | JWT ADMIN / BACKOFFICE_OPERATION |
+| GET | `/admin/agents/top-consumers` | JWT ADMIN / BACKOFFICE_OPERATION |
+| GET | `/admin/agents/result-types` | JWT ADMIN / BACKOFFICE_OPERATION |
+| GET | `/admin/agents/overrides` | JWT ADMIN / BACKOFFICE_OPERATION |
+
+**`GET /admin/agents/summary?from&to&agent`** — 1 fila por agente en el rango.
+- Query params: `from`, `to` (YYYY-MM-DD, UTC, inclusive; default últimos 30 días), `agent` (opcional, ej. `TravelConcierge` | `OperatorSupport`).
+- Response 200: `List<AgentSummaryDto>` con `{agent, totalCalls, tokensIn, tokensOut, costUsd, avgLatencyMs, successRate, escalatedRate}`. `successRate` agrupa `suggestion + autonomous_action`; `escalatedRate` mira `metadata->>'escalated_to_human' = true`.
+
+**`GET /admin/agents/timeseries?from&to&agent&granularity`** — serie temporal.
+- Query params: `granularity` ∈ `day|week|month` (default `day`, valores no whitelisted → `day`). El bucket sale de `date_trunc(:granularity, created_at)`.
+- Response 200: `List<AgentTimeseriesPointDto>` con `{date, agent, calls, costUsd, avgLatencyMs}`.
+
+**`GET /admin/agents/latency?from&to&agent&capability`** — percentiles p50/p95/p99/min/max.
+- Query params: `capability` (opcional; hoy sólo `OperatorSupport` persiste `metadata->>'capability'` con valores `suggest_tour_content | price_alert | draft_review_reply`).
+- Response 200: `List<LatencyDistributionDto>` con `{agent, capability, p50, p95, p99, min, max}`. Los percentiles vienen de `percentile_cont(0.5/0.95/0.99) WITHIN GROUP (ORDER BY duration_ms)`. Si sin `capability`, `LatencyDistributionDto.capability = null`.
+
+**`GET /admin/agents/top-consumers?from&to&agent&limit`** — top-N usuarios por call count.
+- Query params: `limit` (default 10, max 100).
+- Response 200: `List<TopConsumerDto>` con `{userId, userEmail, calls, costUsd}` ordenado `calls DESC, costUsd DESC`. `LEFT JOIN _user` para el email; `user_id`/`userEmail` pueden ser `null` (calls anónimos del Concierge pre-login).
+
+**`GET /admin/agents/result-types?from&to`** — distribución de `result_type` por agente.
+- Response 200: `List<ResultTypeDistributionDto>` con `{agent, success, error, rejected}` donde `success = suggestion + autonomous_action` (los dos valores que hoy representan "el agente cerró OK", ver migración `076_agent_audit_log.sql`).
+
+**`GET /admin/agents/overrides?from&to&agent`** — override rate proxy MVP (Opción A).
+- Response 200: `List<OverrideMetricsDto>` con `{agent, capability, totalSuggestions, escalated, errored, escalatedRate, errorRate, overrideRateProxy}`. Se agrupa por `agent_name + metadata->>'capability'`. `overrideRateProxy = escalatedRate + errorRate` — aproximación a "casos donde el agente no cerró solo".
+- **Deuda IA-11b (Opción B)**: para computar override rate verdadero hace falta agregar columna `human_outcome VARCHAR(20) NULL` en `agent_audit_log` (`KEPT|EDITED|DISCARDED`) + hook desde el frontend en el wizard de tour que reporta el outcome cuando el provider guarda. Documentado como deuda separada en [16 — Agentes IA §Observabilidad](16-agentes-ia.md#observabilidad-de-agentes).
+
+**Índices que sostienen estos queries**: los tres creados en la migración `076_agent_audit_log.sql` (`idx_agent_audit_log_agent_date (agent_name, created_at DESC)`, `idx_agent_audit_log_user_date (user_id, created_at DESC) WHERE user_id IS NOT NULL`, `idx_agent_audit_log_metadata` GIN sobre `metadata`) — no requirió migración nueva.
+
+Errores: 401 (falta rol ADMIN o BACKOFFICE_OPERATION — `InsufficientPrivilegesException`).
+
 #### `AdminTourTranslationController` — `/admin/tours` (IA-09)
 | Método | Path | Auth | Descripción |
 |--------|------|------|-------------|
