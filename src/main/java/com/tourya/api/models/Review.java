@@ -16,6 +16,7 @@ import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -86,6 +87,24 @@ public class Review extends BaseEntity {
 
     @Column(name = "reason_id")
     private Integer reasonId;
+
+    // IA-10 — Moderacion asistida por agente 6.
+    // moderation_status = NULL indica review pre-IA-10 (o agente apagado) — NO
+    // implica "aprobado", solo "no evaluado". Nunca cambia el `status` publico
+    // de la reseña (RN-050: hoy PUBLISHED directo; el agente solo flaggea).
+    @Column(name = "moderation_status", length = 20)
+    private String moderationStatus;
+
+    /** IA-10: JSON array de flags (SPAM|OFFENSIVE|OFF_TOPIC|POTENTIAL_FRAUD|INAPPROPRIATE_MEDIA). */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "moderation_flags", columnDefinition = "jsonb")
+    private String moderationFlags;
+
+    @Column(name = "moderation_reasoning", columnDefinition = "TEXT")
+    private String moderationReasoning;
+
+    @Column(name = "moderated_at")
+    private LocalDateTime moderatedAt;
 
     // Relaciones
     @ManyToOne(fetch = FetchType.LAZY)

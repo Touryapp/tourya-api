@@ -16,6 +16,7 @@ import com.tourya.api.models.responses.ReviewResponse;
 import com.tourya.api.models.mapper.ReservationMapper;
 import com.tourya.api.models.mapper.ReservationPriceBreakdownMapper;
 import com.tourya.api.repository.*;
+import com.tourya.api.agents.moderation.ReviewModerationEvent;
 import com.tourya.api.services.push.PushDomainEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import lombok.RequiredArgsConstructor;
@@ -197,6 +198,12 @@ public class ReviewService {
         if (files != null && !files.isEmpty()) {
             saveAttachmentsFromMultipartFiles(review.getId(), files, user.getId());
         }
+
+        // IA-10: dispara la moderacion asistida por el Agente 6. AFTER_COMMIT +
+        // @Async — la respuesta HTTP al turista NO espera el LLM (RN-050: la
+        // reseña ya se publico, el agente solo flaggea metadata paralela para
+        // que backoffice filtre). El listener nunca throws.
+        eventPublisher.publishEvent(new ReviewModerationEvent(review.getId()));
 
         // Cargar relaciones para la respuesta (recargar desde BD para incluir attachments recién guardados)
         review = reviewRepository.findById(review.getId()).orElse(review);
