@@ -546,6 +546,52 @@ Endpoints REST del agente **Operator Support** (Agente 4 del [doc 16](16-agentes
 
 Errores: 400 (validación DTO), 401 (falta rol PROVIDER/PROVIDER_OPERATOR o el recurso no pertenece al provider — `InsufficientPrivilegesException`), 404 (tour/review no encontrado).
 
+#### `BackofficeSupportController` — `/admin/agents/backoffice-support` (IA-08, agregado 2026-08-19)
+
+Endpoints REST del agente **Backoffice Support** (Agente 5 del [doc 16](16-agentes-ia.md#agente-5--backoffice-support)). Cuatro capabilities action-specific admin — cada endpoint asiste una tarea puntual del backoffice (KYB, prevalidación de tour, borrador DIMAR, conciliación de payouts). Todos requieren JWT + rol `ADMIN` o `BACKOFFICE_OPERATION` (guard en `BackofficeSupportService` vía `Utils.isTouryaBackoffice`, mismo patrón que IA-11).
+
+| Método | Path | Auth |
+|--------|------|------|
+| POST | `/admin/agents/backoffice-support/kyb-checklist/{requestProviderId}` | JWT ADMIN / BACKOFFICE_OPERATION |
+| POST | `/admin/agents/backoffice-support/tour-prevalidation/{tourId}` | JWT ADMIN / BACKOFFICE_OPERATION |
+| POST | `/admin/agents/backoffice-support/dimar-draft?date=&providerId=` | JWT ADMIN / BACKOFFICE_OPERATION |
+| POST | `/admin/agents/backoffice-support/payout-anomalies?from=&to=` | JWT ADMIN / BACKOFFICE_OPERATION |
+
+**`POST /admin/agents/backoffice-support/kyb-checklist/{requestProviderId}`** — checklist KYB pre-verificado.
+- Deterministico: cruza los documentos subidos (`request_provider_gallery`) contra el catálogo obligatorio (`RequestProviderDocumentType` filtrado por `mandatory=true`, RN-045). Un renglón por documento con `{documentType, present, issues[], status: OK|WARN|CRITICAL}`.
+- LLM (Gemini 2.5 Pro, opcional) aporta `reasoning` + `overallStatus` (COMPLETE/INCOMPLETE/REJECTED — REJECTED cuando hay 3+ items CRITICAL).
+- Response 200: `KybChecklistResponse` con `{requestProviderId, overallStatus, items[], reasoning, escalatedToHuman}`. Si el LLM falla o el input tiene un secreto de la deny-list, se degrada al checklist deterministico y `escalatedToHuman=true`.
+- **RN-010 + RN-046**: el agente NUNCA aprueba. El ADMIN decide `pre-approve/approve` a partir del checklist.
+
+**`POST /admin/agents/backoffice-support/tour-prevalidation/{tourId}`** — pre-validación antes de `acceptTourById`.
+- Verificaciones deterministicas: RN-011 español obligatorio en `name`+`description`, RN-013 galería mínima 3 imágenes (`GALLERY_EMPTY` CRITICAL / `GALLERY_FEW_IMAGES` WARN), RN-046 `cancellationPolicyType` seteado (`CANCELLATION_POLICY_MISSING` / `CANCELLATION_POLICY_TYPE_MISSING` CRITICAL).
+- LLM opcional solo aporta el resumen natural para el ADMIN. El veredicto `canApprove` viene del código: `true` cuando no hay issues CRITICAL.
+- Response 200: `TourPrevalidationResponse` con `{tourId, canApprove, issues[TourIssueItem], reasoning, escalatedToHuman}`. Cada `TourIssueItem` es `{severity: CRITICAL|WARN|INFO, code, field, message}`.
+
+**`POST /admin/agents/backoffice-support/dimar-draft?date=&providerId=`** — borrador de manifiesto DIMAR (RN-054).
+- **Sin LLM** — agregación estructurada. Query nativa `ReservationRepository.findConfirmedForProviderOnDate(providerId, scheduleDate)` que une `reservation → shopping_cart_item → tour_schedule → tour` filtrando por `provider_id`, `schedule_date` y `delivery_status IN ('PENDING','DELIVERED')`.
+- Query params: `date` (YYYY-MM-DD, fecha del zarpe), `providerId`. Ambos obligatorios.
+- Response 200: `DimarDraftResponse` con `{date, providerId, totalPassengers, passengers[DimarPassengerRow], notes}`. Cada `DimarPassengerRow` es `{reservationId, tourName, payerName, documentType, documentNumber, ageType, quantity}` — expandido por `shopping_cart_item_detail.age_type`. `payer_*` vienen de `payment`.
+- Se audita igual (capability `dimar_draft`, `tokens_in=0`, `tokens_out=0`, `model=DEFAULT`) para trackear volumen sin costo.
+- **RN-054 sigue 100% manual**: el agente pre-arma; el humano revisa y sube a DIMAR.
+
+**`POST /admin/agents/backoffice-support/payout-anomalies?from=&to=`** — conciliación `ProviderPayoutOrder` vs `AccountPayable`.
+- Query params: `from`, `to` (YYYY-MM-DD, UTC, inclusive). Se cargan las órdenes con `ProviderPayoutOrderRepository.findFiltered(null, null, from, to)`; por cada orden se traen sus líneas (`ProviderPayoutOrderReservation.findByPayoutOrderId`) y por cada línea se compara `amount` con el `AccountPayable` enlazado (RN-042 `amount al operador = providerPrice x quantity`).
+- Códigos detectados: `MISMATCH` (línea vs AP no coinciden), `MISSING_ACCOUNT_PAYABLE` (línea sin AP enlazado), `TOTAL_DRIFT` (`amountTotal` de la orden ≠ suma de líneas). Severidad `WARN` (solo mismatches) o `CRITICAL` (missing AP o total drift).
+- LLM opcional aporta `explanation` en lenguaje natural por anomalía.
+- Response 200: `List<PayoutAnomalyResponse>` — lista vacía = todo concilia. Cada `PayoutAnomalyResponse` es `{payoutOrderId, providerId, payDate, amountTotalOrder, items[PayoutAnomalyItem], explanation, severity}`.
+- **El agente NUNCA modifica montos** — RN-042 blindado. Solo señala.
+
+**Guardrails cruzados de las 4 capabilities**:
+- Deny-list de secretos (`WOMPI_INTEGRITY_SECRET`, `WOMPI_EVENTS_SECRET`, `JWT_SECRET`, `ANTHROPIC_API_KEY`, `FIREBASE_ADMIN_SDK_JSON`, `GEMINI_API_KEY`) en cualquier input textual → rechazo `resultType=rejected`, `escalated_to_human=true`, sin llamar al LLM.
+- Scrub recursivo en JsonNode de `providerPrice`/`slotPercentageTourya`/`slotPorcentajeTourya`/`porcentajeTourya`/`providerUnitPrice` antes de pasar al modelo (defense-in-depth — hoy los inputs al LLM no traen estos campos, pero el guard corre igual).
+- `BudgetGuard.canRun("BackofficeSupport")` con cap default $20/mes (`AGENT_BUDGET_BACKOFFICESUPPORT_USD_MONTHLY` de la migración 076 — ya existente). Si se agota, el agente sigue devolviendo la parte deterministica y solo se pierde el `reasoning`/`explanation` del LLM.
+- Audit obligatorio en `agent_audit_log.metadata` JSONB con `agent="BackofficeSupport"`, `capability="kyb_checklist|tour_prevalidation|dimar_draft|payout_anomalies"`, tokens/costo por call.
+
+**Feature flag opcional**: `agents.backoffice.enabled` (no wired al MVP — el agente corre siempre siempre que el guard de rol pase).
+
+Errores: 400 (params inválidos: `date`/`providerId` null o `from`>`to`), 401 (falta rol ADMIN/BACKOFFICE_OPERATION), 404 (`RequestProvider`/`Tour` no encontrado).
+
 #### `AgentObservabilityController` — `/admin/agents` (IA-11, agregado 2026-08-15)
 
 Dashboard de observabilidad de agentes IA para el admin. Todos los endpoints requieren JWT + rol `ADMIN` o `BACKOFFICE_OPERATION` (guard en `AgentObservabilityService` vía `Utils.isTouryaBackoffice`, mismo patrón que `AdminCreditController` — TC-022 #253). Nunca exponen `prompt_input`, `result_json` ni el `metadata` completo — solo agregados numéricos derivados de `agent_audit_log`. Respuestas con `Cache-Control: private, max-age=60` para amortiguar refresh masivo del frontend.

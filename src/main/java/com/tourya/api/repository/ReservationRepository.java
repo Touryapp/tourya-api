@@ -287,4 +287,25 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     Integer countActiveBookingUnitsForSlotOnDate(
             @Param("slotId") Integer slotId,
             @Param("scheduleDate") LocalDate scheduleDate);
+
+    /**
+     * IA-08: reservas confirmadas (PENDING/DELIVERED) de un provider en una fecha.
+     * Usado por {@code BackofficeSupportService.dimarDraft} para armar el borrador
+     * del manifiesto DIMAR (RN-054). Se filtra por {@code tour_schedule.schedule_date}
+     * — la fecha del zarpe, no la de creacion de la reserva.
+     */
+    @Query(value = """
+        SELECT r.*
+        FROM reservation r
+        JOIN shopping_cart_item i ON i.id = r.item_id
+        JOIN tour_schedule ts ON ts.id = i.tour_schedule_id
+        JOIN tour t ON t.id = ts.tour_id
+        WHERE t.provider_id = :providerId
+          AND ts.schedule_date = :scheduleDate
+          AND r.delivery_status IN ('PENDING', 'DELIVERED')
+        ORDER BY r.reservation_id
+        """, nativeQuery = true)
+    List<Reservation> findConfirmedForProviderOnDate(
+            @Param("providerId") Integer providerId,
+            @Param("scheduleDate") LocalDate scheduleDate);
 }

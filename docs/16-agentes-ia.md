@@ -249,14 +249,24 @@ Guardrails idénticos a IA-02 (deny-list secretos + scrub `providerPrice`/`slotP
 3. Borrador de manifiesto DIMAR (pasajeros por zarpe) a partir de reservas confirmadas — listo para que alguien lo revise y suba (mismo patrón 100% manual de hoy, RN-054).
 4. Alerta de anomalía en pagos/comisiones — nunca corrige, solo señala.
 
-**Modelo usado**: Claude Sonnet 5, incluyendo la lectura de documentos KYB (Sonnet 5 es multimodal — lee imágenes y PDF directamente, sin necesitar un proveedor de visión aparte).
+**Modelo usado**: **Gemini 2.5 Pro** (backend cerrado 2026-08-19 con Vertex AI en vez del Sonnet 5 del diseño original — mismo motivo que IA-02/IA-07: reusa infra GCP + ~40% más barato). En este MVP el agente **no lee documentos KYB multimodalmente** — trabaja sobre metadatos estructurados (`RequestProviderGallery.documentType`, `description`, `orderIndex`, `RequestProviderDocumentType.mandatory`); la evaluación visual del contenido de los archivos queda como iteración v2 cuando se conecte Vertex AI con vision.
 
 **Modo de actuación**:
 - ✅ **Genera el expediente/checklist** — **nunca aprueba**. RN-010 y RN-046 reservan la aprobación de KYB y tours exclusivamente a ADMIN, por ser decisión regulatoria.
 - ✅ **Genera borrador de manifiesto DIMAR** — humano revisa y sube, igual que hoy (RN-054 es 100% manual).
 - ⚠️ **Marca anomalías de payout** — nunca las corrige. Un falso positivo automatizado sobre el dinero de un operador es un riesgo que no vale la pena tomar.
 
-**Costo estimado**: al ritmo de la meta de 70 operadores en 12 meses (partiendo de 3 hoy) y 150 tours ≈ **$1–2/mes**.
+**Estado backend**: 🟢 cerrado 2026-08-19 (IA-08). 4 endpoints action-specific admin bajo `/admin/agents/backoffice-support/*`, todos con guard `Utils.isTouryaBackoffice` (ADMIN + BACKOFFICE_OPERATION):
+- `POST /kyb-checklist/{requestProviderId}` — checklist deterministico por documento obligatorio + LLM opcional para reasoning + overallStatus (COMPLETE/INCOMPLETE/REJECTED).
+- `POST /tour-prevalidation/{tourId}` — RN-011 español obligatorio + RN-013 galería mínima + RN-046 política de cancelación definida; deterministico, LLM solo aporta el resumen natural.
+- `POST /dimar-draft?date=&providerId=` — **sin LLM**, agregación estructurada de reservas CONFIRMED/DELIVERED del día por `ageType` + datos del pagador (RN-054 sigue 100% manual — el agente pre-arma; el humano sube).
+- `POST /payout-anomalies?from=&to=` — concilia cada `ProviderPayoutOrder` del rango contra `AccountPayable` esperado (RN-042 `amount al operador = providerPrice x quantity`); detecta MISMATCH + MISSING_ACCOUNT_PAYABLE + TOTAL_DRIFT. LLM opcional para explanation.
+
+Guardrails idénticos a IA-02/IA-07 (deny-list secretos + scrub `providerPrice`/`slotPercentageTourya`/`porcentajeTourya`/`providerUnitPrice` + budget guard con cap default $20/mes de la migración 076 + audit siempre en `agent_audit_log.metadata`). El agente NUNCA aprueba, rechaza ni modifica montos — RN-010, RN-046 y RN-042 lo blindan en código.
+
+**Estado frontend**: pendiente sprint siguiente (IA-08-FE) — UI admin en Angular para consumir los 4 endpoints. El backend está listo para integrarse.
+
+**Costo estimado con Gemini**: al ritmo de la meta de 70 operadores en 12 meses (partiendo de 3 hoy) y 150 tours ≈ **$0.50–1/mes** (bajo vs los $1–2 originales del brief con Sonnet 5).
 
 ---
 
