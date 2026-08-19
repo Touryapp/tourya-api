@@ -69,9 +69,13 @@ import java.util.Optional;
  *       escala a humano sin llamar al LLM.</li>
  * </ul>
  *
- * <p><b>Traduccion es→en/pt DEFERRED</b> a IA-09 (Google Cloud Translation). Este
- * service solo devuelve espanol (RN-011). El wire-up sera 1 metodo cuando
- * IA-09 exista — no bloquea IA-07.</p>
+ * <p><b>Traduccion es→en/pt</b> (IA-09, Google Cloud Translation, 2026-08-15):
+ * este service sigue devolviendo la sugerencia en espanol (RN-011: el operador
+ * aprueba en su idioma), pero cuando el tour se persiste el
+ * {@link com.tourya.api.services.translation.TourTranslationEventListener}
+ * traduce automaticamente los campos JSONB a en/pt-BR en background. No hay
+ * coupling directo entre IA-07 e IA-09 — el hook vive en
+ * {@link com.tourya.api.services.TourService#saveCreateOrUpdateFullData}.</p>
  */
 @Slf4j
 @Service
@@ -471,19 +475,17 @@ public class OperatorSupportService {
     }
 
     // ============================================================
-    // TODO IA-09 — Traduccion es → en / pt
+    // IA-09 — Traduccion es -> en / pt-BR (cerrado 2026-08-15)
     // ============================================================
     //
-    // Cuando IA-09 (Google Cloud Translation) exista, se agrega:
+    // El agente sigue sugiriendo solo espanol (RN-011: el operador aprueba en
+    // su idioma). La traduccion a en/pt-BR ocurre downstream cuando el tour se
+    // guarda: TourService.saveCreateOrUpdateFullData -> TourTranslationEvent ->
+    // TourTranslationEventListener -> GoogleCloudTranslationService. El
+    // operador no tiene que aprobar traducciones por separado.
     //
-    //   private ITranslationService translationService;
-    //   public TranslationResult translateTourContent(Integer tourId, ...) {
-    //       return translationService.translate(...);  // 1-line wire-up
-    //   }
-    //
-    // Por ahora ese metodo no se expone — el operador ve la descripcion en
-    // espanol nada mas (RN-011: es obligatorio, en/pt opcional). No bloquea
-    // este sprint.
+    // Si el operador ya escribio en/pt manualmente (o edito lo que IA-07
+    // sugirio), TourTranslationApplier respeta su input y no lo sobrescribe.
 
     // ============================================================
     // Autorizacion helpers

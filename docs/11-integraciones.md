@@ -191,23 +191,34 @@ Login social con Google y Facebook.
 
 ---
 
-## 5. Google Cloud Translation (futuro)
+## 5. Google Cloud Translation (IA-09) — ✅ productivo desde 2026-08-15
 
-### Propósito (propuesto)
-Traducir automáticamente los textos del tour (es → en, pt-BR) cuando el operador crea/edita.
+### Propósito
+Traducir automáticamente los textos JSONB del tour (`es → en, pt-BR`) cuando el operador crea o edita un tour. El operador escribe una sola vez en español; el turista en/pt-BR ve el contenido en su idioma sin trabajo adicional del provider.
 
 ### Estado
-⚠️ **NO implementado aún**. Documentación de la propuesta en `traduccion-automatica-tours.md`.
+✅ **Implementado y desplegado en dev** (rama `feature/ia-09-google-cloud-translation`, 2026-08-15). Propuesta original en `traduccion-automatica-tours.md` — aprobada por Luis y ejecutada según lo planeado.
 
-### Estimación
-- Setup: 0.5 día.
-- Backend (service + hook async en `TourService`): 1.5 días.
-- Pruebas: 0.5 día.
+### Cómo funciona
+1. `TourService.saveCreateOrUpdateFullData` termina la tx del save.
+2. Publica `TourTranslationEvent(tourId)`.
+3. `TourTranslationEventListener` (@TransactionalEventListener AFTER_COMMIT) delega en `TourTranslationApplier.translateTourAsync` (@Async).
+4. El applier recorre todos los campos JSONB del tour (`name`, `description`, addresses, main attractions, includes/excludes, faq, itinerary, cancellation policies, gallery). Para cada campo con `es` no vacío y `en`/`pt` vacío, llama `GoogleCloudTranslationService.translateBatch(es, ["en","pt"])` y persiste el resultado.
+5. Si el operador ya escribió `en`/`pt` manualmente (o aceptó una sugerencia de IA-07), el applier **no sobrescribe** — respeta el input del provider.
+6. Si Google Translate falla, el campo queda vacío en ese idioma y `TranslatedField#get("en")` hace auto-fallback a `es`. El tour nunca se rompe.
+
+### Configuración
+- API habilitada: `translate.googleapis.com` en `tourya-project-dev`.
+- IAM: SA `tourya-dev-cloud-run@tourya-project-dev.iam.gserviceaccount.com` con `roles/cloudtranslate.user`.
+- Auth: ADC (mismo patrón que Vertex AI). En Cloud Run automático; en local `gcloud auth application-default login`.
+- Flags: `agents.translation.enabled=${AGENTS_TRANSLATION_ENABLED:true}`, `agents.translation.target-langs=en,pt` (`pt` se mapea internamente a `pt-BR` para el call).
+- Endpoint admin para backfill/retry: `POST /admin/tours/{tourId}/retranslate` (solo ADMIN).
 
 ### Costo
 - Cuota gratuita: 500.000 caracteres/mes.
 - ~50-80 tours/mes sin costo.
 - Pasada la cuota: $20/millón → ~$0.0002 por tour.
+- Volumen esperado inicial: **$0/mes**.
 
 ---
 
@@ -304,7 +315,7 @@ Canal WhatsApp para los agentes IA (ver [16 — Agentes IA](16-agentes-ia.md)):
 
 1. ~~Implementar webhook server-side de Wompi~~ — ✅ Completado en dev 2026-07-08. Pendiente: matcheo automático de huérfanos → reservas TEMPORAL (requiere `wompi_reference` en `shopping_cart`).
 2. **Migrar de Firebase a Token Exchange** (propuesta en `social-login-google-facebook.md`).
-3. **Implementar Google Cloud Translation** (propuesta en `traduccion-automatica-tours.md`).
+3. ~~Implementar Google Cloud Translation~~ — ✅ Completado en dev (2026-08-15, IA-09).
 4. ~~Migrar secretos a Secret Manager~~ — ✅ Completado en dev (2026-07-08).
 5. **Push Notifications**: evaluar FCM (es gratis y se integra bien con MAUI).
 6. **Analytics**: si Luis quiere data del producto, GA4 web + Firebase Analytics mobile.

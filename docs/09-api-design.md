@@ -540,11 +540,18 @@ Endpoints REST del agente **Operator Support** (Agente 4 del [doc 16](16-agentes
 - `BudgetGuard` por `AGENT_BUDGET_OPERATORSUPPORT_USD_MONTHLY` (default $20 USD/mes) — si se agota escala a humano.
 - Autorización owner-based: el service valida que el `PROVIDER` autenticado sea el owner del tour (`tour.provider.id == providerService.findByUser(user).id`) — para `draft-review-reply` la validación es transitiva vía `review.tourId`.
 
-**Traducción es→en/pt DEFERRED a IA-09** (Google Cloud Translation): el service ya deja el TODO listo — es 1 wire-up cuando IA-09 exista. Hoy la descripción sugerida es solo español (cumple RN-011).
+**Traducción es→en/pt-BR (IA-09 cerrado 2026-08-15)**: el service sigue devolviendo solo español (RN-011: el operador aprueba en su idioma). La traducción de los campos JSONB del tour ocurre en background cuando el operador guarda vía `TourService.saveCreateOrUpdateFullData` (ver §Agente 4 en [16 — Agentes IA](16-agentes-ia.md) y §5 en [11 — Integraciones](11-integraciones.md)).
 
 **Feature flag**: `agents.operator.enabled=${AGENTS_OPERATOR_ENABLED:true}` para apagar el agente sin re-deploy.
 
 Errores: 400 (validación DTO), 401 (falta rol PROVIDER/PROVIDER_OPERATOR o el recurso no pertenece al provider — `InsufficientPrivilegesException`), 404 (tour/review no encontrado).
+
+#### `AdminTourTranslationController` — `/admin/tours` (IA-09)
+| Método | Path | Auth | Descripción |
+|--------|------|------|-------------|
+| POST | `/admin/tours/{tourId}/retranslate` | JWT ADMIN | Re-dispara la traducción es→en/pt-BR de un tour existente vía Google Cloud Translation. Solo rellena campos en/pt vacíos (respeta lo que el provider haya escrito). Uso: (a) backfill de tours legacy sin en/pt, (b) testing end-to-end del pipeline, (c) recovery si el listener AFTER_COMMIT falló. Async — la respuesta HTTP confirma el dispatch, no el resultado (revisar logs Cloud Run). Response: `{tourId, translationEnabled, dispatched, message}`. |
+
+Errores: 401 (falta rol ADMIN), 404 (tour no encontrado).
 
 #### `TestController` — `/api/v1`
 | Método | Path | Auth |
