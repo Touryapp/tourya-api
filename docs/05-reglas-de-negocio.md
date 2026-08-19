@@ -565,14 +565,18 @@ Body: {"value": {"value": 1}, "description": "Política RN-045 activa"}
 - Formato: JPEG, PNG o WebP
 - Tamaño ≤ `GALLERY_MAX_SIZE_MB` (default 1)
 
-### RN-050 — Reseñas se publican directamente (hoy) — moderación IA en roadmap
-✅ Hoy: desde la migración **040**, las nuevas reseñas se crean con `status = PUBLISHED` (sin moderación previa). Solo ADMIN puede ver reseñas en cualquier estado.
+### RN-050 — Reseñas se publican directamente + moderación IA asistida (auto-flag)
+✅ Hoy (política sin cambio): desde la migración **040**, las nuevas reseñas se crean con `status = PUBLISHED` (sin moderación bloqueante). Solo ADMIN puede ver reseñas en cualquier estado.
 
-📌 **Roadmap**: reintroducir moderación asistida por IA:
-- Las reseñas nuevas nacerán con `status = MODERATION`.
-- Un **agente IA** analizará el texto buscando spam, lenguaje ofensivo, enlaces sospechosos o patrones de fraude.
-- Si la reseña **pasa** la revisión → `PUBLISHED`.
-- Si **no pasa** → `CANCELED` (con razón registrada).
+✅ **Implementado 2026-08-19 (IA-10, migración 093)**: el **Agente 6 (Review Moderator)** corre en background después de cada `POST /public/save/review` — via `ReviewModerationEvent` + `@TransactionalEventListener(AFTER_COMMIT)` + `@Async` fire-and-forget — y persiste metadata paralela en las columnas nuevas `review.moderation_status` (`APPROVED | PENDING | REJECTED`), `review.moderation_flags` (JSONB: `SPAM | OFFENSIVE | OFF_TOPIC | POTENTIAL_FRAUD | INAPPROPRIATE_MEDIA`), `review.moderation_reasoning` (TEXT) y `review.moderated_at`.
+
+**Contrato del agente (no cambia RN-050)**:
+- **Nunca** modifica `review.status` — la reseña sigue publicada por default; el agente solo agrega metadata para que el backoffice filtre.
+- **Nunca** borra ni edita `review.comment` — el texto del turista queda intacto.
+- **Nunca** contacta al turista — el veredicto solo se lee desde el backoffice via `GET /admin/reviews/moderation`.
+- **Auto-flag**: el backoffice filtra `moderation_status = PENDING | REJECTED` para revisar y decidir manualmente (borrar / mantener / responder). Endpoint admin `POST /admin/agents/review-moderation/{id}/re-moderate` disponible para backfill / recovery. Ver §Agente 6 en [16 — Agentes IA](16-agentes-ia.md).
+
+📌 **Roadmap posterior** (fuera de IA-10, no urgente): si el volumen justifica bloquear PUBLISHED, se puede reintroducir el `MODERATION` como estado intermedio — el agente ya está listo, solo cambia el default de `createReview` a `MODERATION` y una regla que promueva a `PUBLISHED` cuando `moderation_status = APPROVED`. Decisión aplazada hasta ver el override rate real del agente en producción (deuda IA-10-FE + IA-11b dashboard).
 
 ### RN-051 — Razones de reseña (1-7)
 ✅ Catálogo predefinido de motivos (`review_reason` enum) — 7 opciones (positivas para rating 4-5, negativas para 1-3).

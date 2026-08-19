@@ -593,6 +593,28 @@ Errores: 401 (falta rol ADMIN o BACKOFFICE_OPERATION — `InsufficientPrivileges
 
 Errores: 401 (falta rol ADMIN), 404 (tour no encontrado).
 
+#### `AdminReviewModerationController` — `/admin/agents/review-moderation` + `/admin/reviews/moderation` (IA-10, agregado 2026-08-19)
+
+Agente 6 (Moderación asistida de reseñas). Ambos endpoints requieren JWT + rol `ADMIN` o `BACKOFFICE_OPERATION` (guard en el controller, `InsufficientPrivilegesException` → 401 vía `GlobalExceptionHandler`). El flujo automático corre después de cada `POST /public/save/review` sin intervención admin — estos endpoints existen para backfill/recovery y para consumir la cola de revisión.
+
+| Método | Path | Auth |
+|--------|------|------|
+| POST | `/admin/agents/review-moderation/{reviewId}/re-moderate` | JWT ADMIN / BACKOFFICE_OPERATION |
+| GET | `/admin/reviews/moderation` | JWT ADMIN / BACKOFFICE_OPERATION |
+
+**`POST /admin/agents/review-moderation/{reviewId}/re-moderate`** — Re-corre el Agente 6 sobre una reseña existente. Sincrono — la respuesta HTTP contiene el veredicto. Uso: (a) backfill de reseñas creadas antes del deploy IA-10 (o antes de habilitar el flag), (b) testing end-to-end desde Postman, (c) recovery si el listener AFTER_COMMIT falló, (d) re-evaluar tras cambio de prompt/modelo.
+- Response 200: `ModerationResult` = `{decision, flags[], reasoning, escalatedToHuman}`. `decision ∈ APPROVED | PENDING | REJECTED`; `flags[] ⊂ {SPAM, OFFENSIVE, OFF_TOPIC, POTENTIAL_FRAUD, INAPPROPRIATE_MEDIA}`. Persiste automáticamente en `review.moderation_*`.
+- 401 (falta rol), 404 (reseña no encontrada).
+
+**`GET /admin/reviews/moderation?status&from&to&limit`** — Cola de revisión para el backoffice.
+- Query params: `status` ∈ `PENDING | REJECTED` (default `PENDING`; `APPROVED` no aporta a la cola y se normaliza a `PENDING`); `from`/`to` (YYYY-MM-DD; default últimos 30 días; se aplican sobre `moderated_at`); `limit` (default 50, max 200).
+- Response 200: `List<ReviewModerationSummaryDto>` con `{reviewId, tourId, tourName, moderationStatus, flags[], moderatedAt, reviewText, authorEmail}`. `reviewText` se trunca a 200 chars (preview); para el texto completo el admin usa `GET /public/getReview/{id}` existente. `tourName` sale del JSONB `es`.
+- 401 (falta rol).
+
+**Contrato de negocio (RN-050 mantenido)**: el agente `NUNCA` modifica el `status` público de la reseña (sigue publicándose por default en `POST /public/save/review`) ni borra ni edita `comment`. Estos endpoints solo leen/escriben las 4 columnas nuevas `moderation_*` (migración `093_ia10_review_moderation.sql`). Ver §Agente 6 en [16 — Agentes IA](16-agentes-ia.md).
+
+**Feature flag**: `agents.moderation.enabled=${AGENTS_MODERATION_ENABLED:true}` para apagar el agente sin re-deploy. Con el flag apagado, la reseña sigue publicándose (RN-050) y el endpoint `re-moderate` responde con `PENDING escalated`.
+
 #### `TestController` — `/api/v1`
 | Método | Path | Auth |
 |--------|------|------|

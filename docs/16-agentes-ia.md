@@ -282,7 +282,38 @@ Guardrails idénticos a IA-02 (deny-list secretos + scrub `providerPrice`/`slotP
 Ya hay señales explícitas de esto en la documentación existente de Tourya:
 
 ### Agente 6 — Moderación de reseñas
-📌 Ya está en el roadmap de RN-050: reintroducir `status = MODERATION` en `review`, un agente analiza spam/lenguaje ofensivo/enlaces sospechosos/patrones de fraude antes de `PUBLISHED`. Modelo sugerido: Haiku 4.5 (tarea de clasificación, alto volumen, bajo costo).
+✅ **Backend cerrado 2026-08-19** (rama `feature/ia-10-review-moderation-backend`, migración `093_ia10_review_moderation.sql`). Nuevo paquete `com.tourya.api.agents.moderation` con `ReviewModerationService` + `ReviewModerationEventListener` (`@TransactionalEventListener(AFTER_COMMIT)`) + `ReviewModerationApplier` (`@Async @Transactional`) — mismo patrón que IA-09 (traducción es→en/pt-BR).
+
+**Hook en `ReviewService.createReview`**: tras el `save()` exitoso publica `ReviewModerationEvent(reviewId)`; el listener corre AFTER_COMMIT y delega al método `@Async` del service — la respuesta HTTP al turista NO espera el LLM (fire-and-forget). El texto de la reseña se persiste con status `PUBLISHED` (RN-050 hoy) antes de que el agente corra; el veredicto se guarda como metadata paralela en 4 columnas nuevas de `review` (`moderation_status`, `moderation_flags JSONB`, `moderation_reasoning TEXT`, `moderated_at TIMESTAMP`).
+
+**Contract RN-050** (política sin cambio):
+- El agente `NUNCA` cambia `review.status` — la reseña sigue publicándose por default.
+- El agente `NUNCA` borra ni edita `review.comment` — el texto del turista queda intacto.
+- El agente `NUNCA` contacta al turista — el veredicto solo se lee desde el backoffice.
+- **Auto-flag**: backoffice filtra por `moderation_status = PENDING | REJECTED` via el nuevo endpoint `GET /admin/reviews/moderation`.
+
+**Veredictos (`decision`)**: `APPROVED` (limpia, sin flags) | `PENDING` (dudoso, requiere revisión humana) | `REJECTED` (viola regla clara, con ≥1 flag).
+
+**Flags (dominio cerrado)**: `SPAM` (promocional, URLs externas, whatsapp), `OFFENSIVE` (insultos, ataques personales — NO reservas críticas legítimas), `OFF_TOPIC` (no habla del tour), `POTENTIAL_FRAUD` (email descartable + rating extremo + texto genérico), `INAPPROPRIATE_MEDIA` (solo si el texto lo menciona — sin vision aún).
+
+**Guardrails (idénticos a IA-02 / IA-07)**:
+- Deny-list de secretos en el texto de la reseña → `PENDING` escalado sin llamar al LLM.
+- Budget guard (`BudgetGuard.ReviewModerator`, cap default $10/mes) → `PENDING` escalado.
+- Modo no-op degradado si `agents.moderation.enabled=false`.
+- Sanitize defensivo: flags fuera del dominio se descartan.
+- Contradicción `APPROVED` + flags → fuerza `PENDING` (el LLM se contradijo).
+
+**Modelo**: `gemini-2.5-flash` — clasificación, baja latencia, ~4x más barato que Gemini 2.5 Pro. Consistente con la decisión Sprint 8/9 (IA-02 chat y IA-07 razonamiento usan `gemini-2.5-pro`; este agente puramente clasificatorio usa Flash). Cambio vs propuesta original doc 16 que sugería Haiku 4.5 — hoy la infra Vertex AI está productiva y Gemini Flash es equivalente en calidad de clasificación + más barato + cero cuenta nueva. **Costo esperado ~$0.30-0.60/mes** con volumen actual (docenas de reseñas/mes).
+
+**Endpoints admin nuevos**:
+- `POST /admin/agents/review-moderation/{reviewId}/re-moderate` — re-corre el agente sobre una reseña legacy o para testing / recovery. JWT ADMIN o BACKOFFICE_OPERATION. Sincrono; devuelve el `ModerationResult`.
+- `GET /admin/reviews/moderation?status=PENDING|REJECTED&from&to&limit` — lista para revisión manual con `reviewText` truncado a 200 chars. Índice parcial `idx_review_moderation_status WHERE IS NOT NULL` sostiene el filtro.
+
+**Feature flag**: `agents.moderation.enabled=${AGENTS_MODERATION_ENABLED:true}` + `agents.moderation.model=${AGENTS_MODERATION_MODEL:gemini-2.5-flash}` (para poder subir a Pro si se necesita más razonamiento).
+
+**Deuda futura IA-10-FE**: admin UI Angular para la cola de moderación (listado + botón re-moderate + detalle inline). Backend cerrado deja el contrato listo. Sin bloqueo — el backoffice puede consumir el endpoint directo mientras tanto.
+
+**Coordinación**: el flag `INAPPROPRIATE_MEDIA` se limita a evidencia textual porque aún no procesamos vision. Cuando se agregue soporte multimodal (deuda IA-10b, no bloqueada por nada — Gemini 2.5 Pro ya lo soporta), el prompt permitirá evaluar las URLs de las fotos ya incluidas en el request.
 
 ### Agente 7 — Payout automatizado con reglas
 📌 Ya está sugerido en [03 — Roles y actores](03-roles-y-actores.md): *"evaluar si es viable que el pago lo ejecute un agente con reglas (ej. auto-aprobar hasta cierto monto, montos mayores requieren revisión humana)"*, cuando se integren las APIs de Wompi/Mercado Pago para payouts salientes (hoy 100% manual, RN-043).
