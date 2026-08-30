@@ -68,21 +68,29 @@ application.security.jwt.expiration=86400000
 
 ---
 
-### Login social (Google / Facebook vía Firebase)
+### Login social (Google / Facebook) — Token Exchange server-side
 
-⚠️ `POST /api/v1/auth/social-auth`:
-- Frontend usa Firebase JS SDK.
+✅ **`POST /api/v1/auth/google`** (desde 2026-07-11):
+- Frontend obtiene `id_token` de Google Identity Services (GIS).
+- Envía: `{ idToken }`.
+- Backend valida el `id_token` contra Google API (JWKS + audience + issuer). Rechaza tokens inválidos con 401.
+- Responde `AuthenticationResponse` con JWT propio + refreshToken + user info.
+
+✅ **`POST /api/v1/auth/facebook`** (desde 2026-07-11):
+- Frontend obtiene `access_token` de Facebook JS SDK.
+- Envía: `{ accessToken }`.
+- Backend valida el `access_token` contra Facebook Graph API (`/me?access_token=...`). Rechaza tokens inválidos con 401.
+- Responde `AuthenticationResponse` idem.
+
+**Consumo web** (FE-02 mergeado 2026-08-30, tourya-front commit `d7ec8fe`): frontend Angular consume estos endpoints y removió Firebase SDK completo (`npm uninstall firebase @angular/fire`). Vulnerabilidad C-6 **cerrada para web Google end-to-end**; **cerrada para web Facebook a nivel código pero bloqueada en `dev.tourya.co` hasta que Luis complete config en Meta App** (issue tourya-front #124, sin re-deploy nuestro cuando complete).
+
+**Consumo mobile** (MO-13 en curso 2026-08-30): mismo migration en MAUI — cuando cierre, el APK deja de consumir el endpoint legacy `/auth/social-auth`.
+
+⚠️ **`POST /api/v1/auth/social-auth`** (legacy `@Deprecated`, sigue vivo):
 - Envía: `{ firstname, lastname, email, uuidSocial }`.
-- Backend confía en `uuidSocial` (Firebase UID).
-
-⚠️ **Vulnerabilidad CRITICAL**: NO valida el token de Firebase ni el JWT de Google. Cualquiera puede:
-```
-POST /auth/social-auth
-{ "email": "victima@gmail.com", "uuidSocial": "lo-que-sea" }
-```
-→ Y recibir un JWT válido a nombre de la víctima.
-
-Propuesta de fix completa en `social-login-google-facebook.md`.
+- Backend confía en `uuidSocial` (Firebase UID) — sin validación de token.
+- Uso residual: mobile MAUI hasta que MO-13 cierre y la app se actualice. Web ya no lo consume.
+- Se remueve del backend cuando (a) MO-13 esté en dev + prod y (b) la versión mínima del APK en Play Store deje de necesitarlo.
 
 ---
 
@@ -258,7 +266,7 @@ Son cosas distintas que viven en momentos distintos del ciclo:
 | C-3 | Spring Actuator `*` (todos endpoints expuestos) | ✅ **Resuelto** | PR #146 (SEC-03) |
 | C-4 | Activation token sin protección de replay | ✅ **Resuelto** | PR #147 (SEC-04) |
 | C-5 | Endpoint público `/public/bookings/{id}` leakea PII (datos pagador) | ✅ **Resuelto** | PR #148 (SEC-05) |
-| C-6 | Social login sin validar token Firebase | ⚠️ Pendiente | Ver `social-login-google-facebook.md` |
+| C-6 | Social login sin validar token Firebase | ✅ Cerrada web Google + ⏳ pendiente web Facebook (Luis) + 🚧 mobile en curso (MO-13) | Fase A backend cerrada 2026-07-11 (endpoints `POST /auth/google` + `POST /auth/facebook` validan server-side). Fase B web (FE-02) mergeada 2026-08-30 (tourya-front commit `d7ec8fe`, Firebase SDK removido). Facebook en `dev.tourya.co` bloqueado por Luis (config Meta App, issue tourya-front #124). Mobile Fase C (MO-13) en curso 2026-08-30. Endpoint legacy `/auth/social-auth` sigue vivo `@Deprecated` hasta que MO-13 esté productivo + APK Play Store actualizado |
 
 ### HIGH — Estado
 
