@@ -38,12 +38,32 @@ public class EmailService {
             String activationCode,
             String subject
     ) throws MessagingException {
-        String templateName;
-        if (emailTemplate == null) {
-            templateName = "confirm-email";
-        } else {
-            templateName = emailTemplate.getName();
-        }
+        // Bug mobile #8: entry point sin language — cae al template ES por default
+        // (Tourya opera principalmente en español). Callers nuevos deberian usar el
+        // overload con {@code String language}.
+        sendEmail(to, username, emailTemplate, confirmationUrl, activationCode, subject, null);
+    }
+
+    /**
+     * Bug mobile #8: overload con selector de idioma para el template de activacion.
+     * Resuelve el template como {@code <baseName>_<lang>} (ej. {@code activate_account_es}),
+     * con fallback a {@code _es} si el language pedido no tiene template dedicado.
+     * Los otros parametros funcionan igual que el overload legacy.
+     *
+     * @param language codigo ISO-639-1 ({@code "es"} o {@code "en"}); si es null o
+     *                 desconocido, usa {@code "es"}.
+     */
+    @Async
+    public void sendEmail(
+            String to,
+            String username,
+            EmailTemplateNameEnum emailTemplate,
+            String confirmationUrl,
+            String activationCode,
+            String subject,
+            String language
+    ) throws MessagingException {
+        String templateName = resolveLocalizedTemplate(emailTemplate, language);
         MimeMessage mimeMessage = mailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(
                 mimeMessage,
@@ -67,6 +87,34 @@ public class EmailService {
         helper.setText(template, true);
 
         mailSender.send(mimeMessage);
+    }
+
+    /**
+     * Bug mobile #8: dado un enum de template + un language, devuelve el nombre
+     * localizado del template Thymeleaf. Ej. {@code (ACTIVATE_ACCOUNT, "es")}
+     * → {@code "activate_account_es"}. Si el enum es null cae al legacy
+     * {@code "confirm-email"}. Si el language es null / vacio / desconocido,
+     * usa {@code "es"} como default.
+     */
+    private String resolveLocalizedTemplate(EmailTemplateNameEnum emailTemplate, String language) {
+        if (emailTemplate == null) {
+            return "confirm-email";
+        }
+        String baseName = emailTemplate.getName();
+        String lang = normalizeLanguage(language);
+        return baseName + "_" + lang;
+    }
+
+    private String normalizeLanguage(String language) {
+        if (language == null || language.isBlank()) {
+            return "es";
+        }
+        String normalized = language.trim().toLowerCase();
+        // Whitelist de idiomas soportados por los templates actuales.
+        if ("en".equals(normalized) || "es".equals(normalized)) {
+            return normalized;
+        }
+        return "es";
     }
 
     @Async

@@ -82,19 +82,39 @@ public class AuthenticationService {
                 .roles(List.of(userRole))
                 .build();
         userRepository.save(user);
-        sendValidationEmail(user);
+        // Bug mobile #8: pasar el idioma preferido del cliente para elegir el
+        // template del email de activacion. Si el request no trae language, el
+        // service cae a "es" (default Tourya).
+        sendValidationEmail(user, request.getLanguage());
     }
 
+    /**
+     * Bug mobile #8: overload sin language — el re-envio del token expirado
+     * (linea ~253) no tiene acceso al idioma del request original. Cae al
+     * default "es" del service (Tourya opera principalmente en español).
+     * TODO: cuando el User tenga campo preferredLanguage persistido, leerlo aca.
+     */
     private void sendValidationEmail(User user) throws MessagingException {
+        sendValidationEmail(user, null);
+    }
+
+    private void sendValidationEmail(User user, String language) throws MessagingException {
         var newToken = generateAndSaveActivationToken(user);
         String activationUrlFinal = activationUrl+newToken;
+        // Bug mobile #8: subject en el idioma del template para consistencia con
+        // el body. Default "es" (mismo criterio que EmailService.normalizeLanguage).
+        boolean isEnglish = "en".equalsIgnoreCase(language);
+        String subject = isEnglish
+                ? "Tourya Account Activation"
+                : "Activación de cuenta Tourya";
         emailService.sendEmail(
                 user.getEmail(),
                 user.fullName(),
                 EmailTemplateNameEnum.ACTIVATE_ACCOUNT,
                 activationUrlFinal,
                 newToken,
-                "Account activation"
+                subject,
+                language
         );
     }
     private String generateAndSaveActivationToken(User user) {
