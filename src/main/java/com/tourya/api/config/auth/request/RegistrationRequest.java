@@ -27,4 +27,12 @@ public class RegistrationRequest {
     @NotNull(message = "Password is mandatory")
     @Size(min = 8, message = "Password should be 8 characters long minimum")
     private String password;
+
+    /**
+     * Bug mobile #8: código ISO-639-1 del idioma preferido del cliente para el
+     * email de activación (y otros correos transaccionales del onboarding).
+     * Valores esperados: {@code "es"} (default) o {@code "en"}. Opcional — si
+     * es null o desconocido, {@code EmailService} cae al template en español.
+     */
+    private String language;
 }
