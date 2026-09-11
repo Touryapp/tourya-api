@@ -37,6 +37,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -82,12 +83,21 @@ public class RequestProviderService {
             throw new OperationNotPermittedException("It is not possible to create another request, this user already has a provider and request assigned to him.");
         }
 
-        List<Role> roleList =  user.getRoles();
-
-        var userRole = roleRepository.findByName("PROVIDER")
+        // tourya-api #277 (detectado en ciclo QA mobile — tourya-mobile #4 y #7):
+        // al convertir un usuario en provider (via el endpoint publico o el
+        // flujo autenticado) el rol final debe ser EXCLUSIVAMENTE PROVIDER, no
+        // [USER, PROVIDER]. Antes del fix, la lista se concatenaba con .add,
+        // por lo que el proveedor quedaba con ambos roles y el mobile mostraba
+        // el selector de rol (Turista/Provider) en el login — el issue reporta
+        // que "en el local storage el usuario solo debe tener {id: 2, name:
+        // PROVIDER}". Reemplazamos la lista completa por una lista con solo
+        // el rol PROVIDER para eliminar cualquier rol previo (tipicamente USER
+        // creado en /auth/register).
+        var providerRole = roleRepository.findByName("PROVIDER")
                 // todo - better exception handling
                 .orElseThrow(() -> new IllegalStateException("ROLE PROVIDER was not initiated"));
-        roleList.add(userRole);
+        List<Role> roleList = new ArrayList<>();
+        roleList.add(providerRole);
         user.setRoles(roleList);
         User userUpdate = userRepository.save(user);
 
