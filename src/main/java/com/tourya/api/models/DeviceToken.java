@@ -2,7 +2,6 @@ package com.tourya.api.models;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EntityListeners;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -15,9 +14,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.OffsetDateTime;
 
@@ -33,7 +29,6 @@ import java.time.OffsetDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@EntityListeners(AuditingEntityListener.class)
 @Table(name = "device_token", uniqueConstraints = {
         @UniqueConstraint(columnNames = "token", name = "uk_device_token")
 })
@@ -54,11 +49,18 @@ public class DeviceToken {
     @Column(nullable = false, length = 20)
     private String platform;
 
-    @CreatedDate
+    // MO-40b (2026-09-15): fechas seteadas explicit por el DeviceTokenService,
+    // NO por Spring Data Auditing. Motivo: Spring Data @CreatedDate / @LastModifiedDate
+    // instancia LocalDateTime por default (via SpringDataJpaAuditingDateTimeProvider),
+    // pero la columna Postgres es TIMESTAMPTZ que mapea a OffsetDateTime.
+    // Al hacer .save() Hibernate lanzaba InvalidDataAccessApiUsageException:
+    // "Cannot convert unsupported date type java.time.LocalDateTime to
+    // java.time.OffsetDateTime" (Sentry TOURYA-MOBILE-4, 16 events escalating
+    // en 7 dias). Sin @EntityListeners ni auditing annotations, el service
+    // setea createdAt/updatedAt explicit con OffsetDateTime.now().
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
-    @LastModifiedDate
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 }
