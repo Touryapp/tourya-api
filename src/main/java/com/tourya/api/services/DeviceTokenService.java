@@ -39,10 +39,17 @@ public class DeviceTokenService {
             deviceTokenRepository.save(existing);
             log.debug("Device token refreshed for userId={}", user.getId());
         }, () -> {
+            // MO-40b (2026-09-15): setear createdAt/updatedAt explicit — Spring
+            // Data Auditing quedó removido de la entidad (ver DeviceToken.java)
+            // porque generaba LocalDateTime y la columna es TIMESTAMPTZ. Ambos
+            // campos son NOT NULL en la BD sin default en el INSERT del JPA.
+            OffsetDateTime now = OffsetDateTime.now();
             DeviceToken dt = DeviceToken.builder()
                     .user(user)
                     .token(token)
                     .platform(platform)
+                    .createdAt(now)
+                    .updatedAt(now)
                     .build();
             deviceTokenRepository.save(dt);
             log.info("Device token registered for userId={} platform={}", user.getId(), platform);
