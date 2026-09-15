@@ -78,7 +78,18 @@ public class EmailService {
         Context context = new Context();
         context.setVariables(properties);
 
-        helper.setFrom(fromEmail);
+        // Bug mobile #8 (Luis 2026-09-15): display name "Tourya" para que en
+        // la bandeja del cliente aparezca "Tourya <email>" en vez del email
+        // pelado. Cambio universal a todos los emails que envia el service.
+        // Envuelto en try/catch porque helper.setFrom(String, String) lanza
+        // UnsupportedEncodingException (checked). Con UTF-8 nunca falla, pero
+        // preferimos degradarnos silenciosamente al setFrom sin display name
+        // en vez de propagar la exception a los 20+ callers del EmailService.
+        try {
+            helper.setFrom(fromEmail, "Tourya");
+        } catch (java.io.UnsupportedEncodingException e) {
+            helper.setFrom(fromEmail);
+        }
         helper.setTo(to);
         helper.setSubject(subject);
 
@@ -146,7 +157,18 @@ public class EmailService {
         Context context = new Context();
         context.setVariables(properties);
 
-        helper.setFrom(fromEmail);
+        // Bug mobile #8 (Luis 2026-09-15): display name "Tourya" para que en
+        // la bandeja del cliente aparezca "Tourya <email>" en vez del email
+        // pelado. Cambio universal a todos los emails que envia el service.
+        // Envuelto en try/catch porque helper.setFrom(String, String) lanza
+        // UnsupportedEncodingException (checked). Con UTF-8 nunca falla, pero
+        // preferimos degradarnos silenciosamente al setFrom sin display name
+        // en vez de propagar la exception a los 20+ callers del EmailService.
+        try {
+            helper.setFrom(fromEmail, "Tourya");
+        } catch (java.io.UnsupportedEncodingException e) {
+            helper.setFrom(fromEmail);
+        }
         helper.setTo(to);
         helper.setSubject(subject);
 
@@ -193,7 +215,18 @@ public class EmailService {
         properties.put("usageUrl", usageUrl);
         Context context = new Context();
         context.setVariables(properties);
-        helper.setFrom(fromEmail);
+        // Bug mobile #8 (Luis 2026-09-15): display name "Tourya" para que en
+        // la bandeja del cliente aparezca "Tourya <email>" en vez del email
+        // pelado. Cambio universal a todos los emails que envia el service.
+        // Envuelto en try/catch porque helper.setFrom(String, String) lanza
+        // UnsupportedEncodingException (checked). Con UTF-8 nunca falla, pero
+        // preferimos degradarnos silenciosamente al setFrom sin display name
+        // en vez de propagar la exception a los 20+ callers del EmailService.
+        try {
+            helper.setFrom(fromEmail, "Tourya");
+        } catch (java.io.UnsupportedEncodingException e) {
+            helper.setFrom(fromEmail);
+        }
         helper.setTo(to);
         helper.setSubject(subject);
         String template = templateEngine.process("credit_expiring_reminder", context);
@@ -223,7 +256,18 @@ public class EmailService {
         properties.put("expirationDate", expirationDate);
         Context context = new Context();
         context.setVariables(properties);
-        helper.setFrom(fromEmail);
+        // Bug mobile #8 (Luis 2026-09-15): display name "Tourya" para que en
+        // la bandeja del cliente aparezca "Tourya <email>" en vez del email
+        // pelado. Cambio universal a todos los emails que envia el service.
+        // Envuelto en try/catch porque helper.setFrom(String, String) lanza
+        // UnsupportedEncodingException (checked). Con UTF-8 nunca falla, pero
+        // preferimos degradarnos silenciosamente al setFrom sin display name
+        // en vez de propagar la exception a los 20+ callers del EmailService.
+        try {
+            helper.setFrom(fromEmail, "Tourya");
+        } catch (java.io.UnsupportedEncodingException e) {
+            helper.setFrom(fromEmail);
+        }
         helper.setTo(to);
         helper.setSubject(subject);
         String template = templateEngine.process("credit_expired", context);
@@ -269,7 +313,18 @@ public class EmailService {
         properties.put("alternatives", alternativesData);
         Context context = new Context();
         context.setVariables(properties);
-        helper.setFrom(fromEmail);
+        // Bug mobile #8 (Luis 2026-09-15): display name "Tourya" para que en
+        // la bandeja del cliente aparezca "Tourya <email>" en vez del email
+        // pelado. Cambio universal a todos los emails que envia el service.
+        // Envuelto en try/catch porque helper.setFrom(String, String) lanza
+        // UnsupportedEncodingException (checked). Con UTF-8 nunca falla, pero
+        // preferimos degradarnos silenciosamente al setFrom sin display name
+        // en vez de propagar la exception a los 20+ callers del EmailService.
+        try {
+            helper.setFrom(fromEmail, "Tourya");
+        } catch (java.io.UnsupportedEncodingException e) {
+            helper.setFrom(fromEmail);
+        }
         helper.setTo(to);
         helper.setSubject(subject);
         String template = templateEngine.process("provider_declined_notification", context);
@@ -300,7 +355,18 @@ public class EmailService {
         Context context = new Context();
         context.setVariables(properties);
 
-        helper.setFrom(fromEmail);
+        // Bug mobile #8 (Luis 2026-09-15): display name "Tourya" para que en
+        // la bandeja del cliente aparezca "Tourya <email>" en vez del email
+        // pelado. Cambio universal a todos los emails que envia el service.
+        // Envuelto en try/catch porque helper.setFrom(String, String) lanza
+        // UnsupportedEncodingException (checked). Con UTF-8 nunca falla, pero
+        // preferimos degradarnos silenciosamente al setFrom sin display name
+        // en vez de propagar la exception a los 20+ callers del EmailService.
+        try {
+            helper.setFrom(fromEmail, "Tourya");
+        } catch (java.io.UnsupportedEncodingException e) {
+            helper.setFrom(fromEmail);
+        }
         helper.setTo(to);
         helper.setSubject(subject);
 
@@ -336,7 +402,18 @@ public class EmailService {
         properties.put("refundRequestedAt", formatBogotaDateTime(refundRequestedAt));
         Context context = new Context();
         context.setVariables(properties);
-        helper.setFrom(fromEmail);
+        // Bug mobile #8 (Luis 2026-09-15): display name "Tourya" para que en
+        // la bandeja del cliente aparezca "Tourya <email>" en vez del email
+        // pelado. Cambio universal a todos los emails que envia el service.
+        // Envuelto en try/catch porque helper.setFrom(String, String) lanza
+        // UnsupportedEncodingException (checked). Con UTF-8 nunca falla, pero
+        // preferimos degradarnos silenciosamente al setFrom sin display name
+        // en vez de propagar la exception a los 20+ callers del EmailService.
+        try {
+            helper.setFrom(fromEmail, "Tourya");
+        } catch (java.io.UnsupportedEncodingException e) {
+            helper.setFrom(fromEmail);
+        }
         helper.setTo(to);
         helper.setSubject(subject);
         String template = templateEngine.process("credit_refund_requested", context);
@@ -373,7 +450,18 @@ public class EmailService {
         properties.put("proofUrl", proofUrl);
         Context context = new Context();
         context.setVariables(properties);
-        helper.setFrom(fromEmail);
+        // Bug mobile #8 (Luis 2026-09-15): display name "Tourya" para que en
+        // la bandeja del cliente aparezca "Tourya <email>" en vez del email
+        // pelado. Cambio universal a todos los emails que envia el service.
+        // Envuelto en try/catch porque helper.setFrom(String, String) lanza
+        // UnsupportedEncodingException (checked). Con UTF-8 nunca falla, pero
+        // preferimos degradarnos silenciosamente al setFrom sin display name
+        // en vez de propagar la exception a los 20+ callers del EmailService.
+        try {
+            helper.setFrom(fromEmail, "Tourya");
+        } catch (java.io.UnsupportedEncodingException e) {
+            helper.setFrom(fromEmail);
+        }
         helper.setTo(to);
         helper.setSubject(subject);
         String template = templateEngine.process("credit_refund_completed", context);
@@ -424,7 +512,18 @@ public class EmailService {
         Context context = new Context();
         context.setVariables(properties);
 
-        helper.setFrom(fromEmail);
+        // Bug mobile #8 (Luis 2026-09-15): display name "Tourya" para que en
+        // la bandeja del cliente aparezca "Tourya <email>" en vez del email
+        // pelado. Cambio universal a todos los emails que envia el service.
+        // Envuelto en try/catch porque helper.setFrom(String, String) lanza
+        // UnsupportedEncodingException (checked). Con UTF-8 nunca falla, pero
+        // preferimos degradarnos silenciosamente al setFrom sin display name
+        // en vez de propagar la exception a los 20+ callers del EmailService.
+        try {
+            helper.setFrom(fromEmail, "Tourya");
+        } catch (java.io.UnsupportedEncodingException e) {
+            helper.setFrom(fromEmail);
+        }
         helper.setTo(to);
         helper.setSubject(subject);
 
