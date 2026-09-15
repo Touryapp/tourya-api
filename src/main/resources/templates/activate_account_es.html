@@ -58,6 +58,16 @@
 </head>
 <body>
 <div class="container">
+    <!-- Bug mobile #8 (Luis 2026-09-15): agregar logo Tourya del frontend
+         para que el email tenga branding visible. Servido desde el asset
+         publico del frontend (mismo que usa /login, /register, /change-password).
+         Fallback text "Tourya" via alt para clientes que bloquean imagenes. -->
+    <div style="text-align:center;margin-bottom:24px;">
+        <img src="https://dev.tourya.co/assets/img/logo-blue.svg"
+             alt="Tourya"
+             width="180"
+             style="max-width:180px;height:auto;display:inline-block;" />
+    </div>
     <h1>Activá tu cuenta en Tourya</h1>
     <p class="greeting" th:text="'Hola ' + ${username} + ','"></p>
     <p>Gracias por registrarte. Usá el siguiente código para activar tu cuenta:</p>
