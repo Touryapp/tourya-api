@@ -43,23 +43,13 @@
                         </h1>
                         <p style="margin:0 0 12px 0;color:#212E47;font-size:15px;line-height:1.6;"
                            th:text="'Hola ' + ${username} + ','"></p>
-                        <p style="margin:0 0 24px 0;color:#212E47;font-size:15px;line-height:1.6;">
-                            Gracias por registrarte. Usá el siguiente código para activar tu cuenta:
+                        <p style="margin:0 0 28px 0;color:#212E47;font-size:15px;line-height:1.6;">
+                            Gracias por registrarte. Tocá el botón para activar tu cuenta:
                         </p>
 
-                        <!-- Código de activación destacado -->
-                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-                               style="margin:0 0 28px 0;">
-                            <tr>
-                                <td align="center"
-                                    style="background-color:#f0f5f7;border:1px dashed #1b6475;border-radius:8px;padding:18px;">
-                                    <span th:text="${activation_code}"
-                                          style="color:#1b6475;font-size:32px;font-weight:bold;letter-spacing:6px;font-family:'Courier New',Courier,monospace;"></span>
-                                </td>
-                            </tr>
-                        </table>
-
-                        <!-- Botón CTA -->
+                        <!-- Botón CTA (Luis 2026-09-17: el codigo destacado se
+                             quito porque el CTA ya lleva el token en el link;
+                             mostrarlo aparte era redundante y visualmente pesado). -->
                         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
                                style="margin:0 0 24px 0;">
                             <tr>
