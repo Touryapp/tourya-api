@@ -801,11 +801,25 @@ public class ReservationService {
      * @param reservationDate Fecha de reserva
      * @return Lista de ReservationResponse
      */
+    /**
+     * Consulta reservas creadas en un dia especifico.
+     *
+     * <p>MO-5 fix (2026-09-18): antes recibia {@link LocalDateTime} y usaba
+     * {@code findByReservationDate} (match exacto de timestamp) — jamas
+     * encontraba resultados porque las reservas se guardan con hora real.
+     * Ahora recibe {@link LocalDate} y busca en el rango
+     * {@code [00:00, 23:59:59.999999999]} del dia via
+     * {@code findByReservationDateBetween}. Consumidor principal:
+     * {@code DashboardViewModel} del provider mobile.</p>
+     */
     @Transactional(readOnly = true)
-    public List<ReservationResponse> getReservationsByReservationDate(LocalDateTime reservationDate) {
+    public List<ReservationResponse> getReservationsByReservationDate(LocalDate reservationDate) {
         log.info("Getting reservations by reservation date: {}", reservationDate);
-        
-        return reservationRepository.findByReservationDate(reservationDate)
+
+        LocalDateTime startOfDay = reservationDate.atStartOfDay();
+        LocalDateTime endOfDay = reservationDate.atTime(java.time.LocalTime.MAX);
+
+        return reservationRepository.findByReservationDateBetween(startOfDay, endOfDay)
                 .stream()
                 .map(reservationMapper::toResponse)
                 .collect(Collectors.toList());

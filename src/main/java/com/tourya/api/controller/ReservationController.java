@@ -24,7 +24,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import org.springframework.format.annotation.DateTimeFormat;
 import java.util.List;
 
 /**
@@ -193,9 +195,16 @@ public class ReservationController {
             @ApiResponse(responseCode = "200", description = "Lista de reservas obtenida exitosamente")
     })
     public ResponseEntity<List<ReservationResponse>> getReservationsByReservationDate(
-            @Parameter(description = "Fecha de reserva") @PathVariable LocalDateTime reservationDate) {
+            @Parameter(description = "Fecha de reserva (yyyy-MM-dd)")
+            @PathVariable
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate reservationDate) {
+        // MO-5 fix (2026-09-18): antes recibia LocalDateTime y usaba
+        // findByReservationDate exacto — nunca match porque las reservas se
+        // guardan con timestamp real, no medianoche. Ahora recibe LocalDate
+        // yyyy-MM-dd y busca en el rango [00:00, 23:59:59.999999999] del dia.
+        // Uso principal: DashboardViewModel provider (resumen del dia).
         log.info("Getting reservations by reservation date: {}", reservationDate);
-        
+
         List<ReservationResponse> responses = reservationService.getReservationsByReservationDate(reservationDate);
         return ResponseEntity.ok(responses);
     }
