@@ -3,63 +3,222 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Confirmación de compra</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4; color:#111; }
-        .container { max-width: 680px; margin: 12px auto; padding: 20px; background-color: #fff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.08); }
-        .header { padding-bottom: 10px; border-bottom: 1px solid #eee; }
-        .header h1 { margin: 0; font-size: 20px; }
-        .muted { color: #666; font-size: 13px; }
-        .card { border: 1px solid #eee; border-radius: 8px; padding: 14px; margin-top: 12px; }
-        .row { display:flex; gap:12px; align-items:flex-start; }
-        .img { width: 120px; height: 80px; background:#fafafa; border:1px solid #eee; border-radius: 8px; object-fit: cover; }
-        .title { font-size: 16px; font-weight: 700; margin: 0; }
-        .kv { margin-top: 8px; font-size: 13px; line-height: 1.4; }
-        .kv b { display:inline-block; min-width: 78px; }
-        .qr { word-break: break-all; font-size: 12px; }
-        .btn { display:inline-block; margin-top: 10px; padding: 10px 12px; background:#007bff; color:#fff; text-decoration:none; border-radius: 6px; font-weight: 700; font-size: 13px; }
-        .footer { margin-top: 18px; padding-top: 12px; border-top: 1px solid #eee; font-size: 12px; color:#777; }
-    </style>
+    <title>Confirmación de compra - Tourya</title>
 </head>
-<body>
-<div class="container">
-    <div class="header">
-        <h1>Confirmación de compra</h1>
-        <p class="muted" th:text="'Hola ' + ${username} + ', gracias por tu compra en Tourya.'"></p>
-    </div>
+<body style="margin:0;padding:0;background-color:#f4f4f4;font-family:Arial,Helvetica,sans-serif;color:#212E47;">
 
-    <p class="muted" style="margin-top:12px">Aquí están los detalles de tus reservas:</p>
+<!--
+  Issue #33 TCM-020 (Luis 2026-10-01): rediseño branded del correo de
+  confirmación de compra. Mismo skeleton que activate_account_es.html
+  (banner + body + footer). ReservationResponse ya expone todos los
+  datos que Luis pidió: tourName, tourImageUrl, checkInDate (con hora),
+  travellers, locations (meeting point), price, maxCancellationDate,
+  qrUrl. Cero cambios en PaymentService/EmailService — este fix es
+  solo el template.
+-->
 
-    <div th:if="${reservations == null || #lists.isEmpty(reservations)}" class="card">
-        <p class="muted">No encontramos reservas para mostrar en este correo.</p>
-    </div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+       style="background-color:#f4f4f4;padding:24px 0;">
+    <tr>
+        <td align="center">
+            <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"
+                   style="max-width:600px;width:100%;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(27,100,117,0.08);">
 
-    <div th:each="r : ${reservations}" class="card">
-        <div class="row">
-            <img class="img" th:if="${r.tourImageUrl != null}" th:src="${r.tourImageUrl}" alt="Imagen del tour"/>
-            <div style="flex:1">
-                <p class="title" th:text="${r.tourName != null ? r.tourName : 'Tour'}"></p>
-                <div class="kv">
-                    <div><b>Reserva:</b> <span th:text="${r.reservationId}"></span></div>
-                    <div><b>Tour ID:</b> <span th:text="${r.tourId}"></span></div>
-                    <div th:if="${r.checkInDate != null}"><b>Fecha:</b> <span th:text="${#temporals.format(r.checkInDate, 'yyyy-MM-dd')}"></span></div>
-                </div>
+                <!-- HEADER — banner primario con logo Tourya. -->
+                <tr>
+                    <td align="center" style="background-color:#1b6475;padding:28px 24px;">
+                        <img src="https://dev.tourya.co/assets/img/logo-blue.svg"
+                             alt="Tourya"
+                             width="160"
+                             style="display:block;max-width:160px;height:auto;border:0;outline:none;text-decoration:none;" />
+                    </td>
+                </tr>
 
-                <div style="margin-top:10px">
-                    <div class="muted" style="font-weight:700">Código QR de tu reserva</div>
-                    <img th:if="${r.qrUrl != null}" th:src="${r.qrUrl}" alt="QR reserva"
-                         style="max-width:220px;margin-top:8px;border:1px solid #eee;border-radius:8px;display:block"/>
-                    <p class="muted" th:if="${r.qrUrl == null}">QR no disponible</p>
-                    <a class="btn" th:if="${r.qrUrl != null}" th:href="${r.qrUrl}" target="_blank">Abrir QR</a>
-                </div>
-            </div>
-        </div>
-    </div>
+                <!-- BODY -->
+                <tr>
+                    <td style="padding:32px 32px 24px 32px;">
+                        <h1 style="margin:0 0 16px 0;color:#1b6475;font-size:24px;font-weight:bold;line-height:1.3;">
+                            ¡Tu reserva está confirmada!
+                        </h1>
+                        <p style="margin:0 0 12px 0;color:#212E47;font-size:15px;line-height:1.6;"
+                           th:text="'Hola ' + ${username} + ','"></p>
+                        <p style="margin:0 0 24px 0;color:#212E47;font-size:15px;line-height:1.6;">
+                            Gracias por tu compra en Tourya. Acá tenés el resumen de
+                            <span th:text="${#lists.size(reservations)}">N</span>
+                            <span th:text="${#lists.size(reservations) == 1 ? 'reserva' : 'reservas'}">reservas</span>:
+                        </p>
 
-    <div class="footer">
-        <div>Si tienes dudas, responde a este correo o contáctanos desde la app.</div>
-    </div>
-</div>
+                        <!-- Fallback cuando no hay reservas (edge case defensivo). -->
+                        <table th:if="${reservations == null or #lists.isEmpty(reservations)}"
+                               role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+                               style="margin-bottom:24px;">
+                            <tr>
+                                <td style="padding:16px;border:1px solid #e0e4ea;border-radius:8px;background-color:#f7f8f9;">
+                                    <p style="margin:0;color:#6A7287;font-size:14px;">
+                                        No encontramos reservas para mostrar en este correo. Si tenés dudas,
+                                        contactanos.
+                                    </p>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <!-- Card por reserva. Thymeleaf itera sobre la lista. -->
+                        <table th:each="r : ${reservations}"
+                               role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+                               style="margin:0 0 20px 0;border:1px solid #e0e4ea;border-radius:12px;overflow:hidden;background-color:#ffffff;">
+                            <!-- Imagen del tour (full width del card para que destaque). -->
+                            <tr th:if="${r.tourImageUrl != null}">
+                                <td style="padding:0;">
+                                    <img th:src="${r.tourImageUrl}" alt="Imagen del tour"
+                                         width="600"
+                                         style="display:block;width:100%;max-width:600px;height:auto;max-height:220px;object-fit:cover;border:0;" />
+                                </td>
+                            </tr>
+
+                            <!-- Nombre del tour + código de reserva. -->
+                            <tr>
+                                <td style="padding:20px 20px 8px 20px;">
+                                    <h2 style="margin:0 0 4px 0;color:#1b6475;font-size:18px;font-weight:bold;line-height:1.3;"
+                                        th:text="${r.tourName != null ? r.tourName : 'Tour'}">Nombre del tour</h2>
+                                    <p style="margin:0;color:#6A7287;font-size:12px;line-height:1.4;"
+                                       th:if="${r.bookingId != null}"
+                                       th:text="'Código: ' + ${r.bookingId}">Código: TB-123</p>
+                                </td>
+                            </tr>
+
+                            <!-- Grid de datos (fecha+hora, viajeros, meeting point, precio,
+                                 fecha max cancelacion). Tabla de 2 columnas, cada fila una kv.
+                                 Usa inline-table para que renderice bien en Gmail/Outlook. -->
+                            <tr>
+                                <td style="padding:4px 20px 16px 20px;">
+                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                        <!-- Fecha + hora -->
+                                        <tr th:if="${r.checkInDate != null}">
+                                            <td style="padding:6px 0;color:#6A7287;font-size:13px;width:150px;vertical-align:top;">📅 Fecha y hora</td>
+                                            <td style="padding:6px 0;color:#212E47;font-size:13px;font-weight:bold;">
+                                                <span th:text="${#temporals.format(r.checkInDate, 'dd/MM/yyyy')}">01/10/2026</span>
+                                                <span th:if="${r.slotStartTime != null}"
+                                                      th:text="' · ' + ${#temporals.format(r.slotStartTime, 'HH:mm')} + ' hs'"> · 09:00 hs</span>
+                                            </td>
+                                        </tr>
+
+                                        <!-- Viajeros (travellers es un string ya formateado en el backend
+                                             tipo "2 adultos, 1 niño"). -->
+                                        <tr th:if="${r.travellers != null and !#strings.isEmpty(r.travellers)}">
+                                            <td style="padding:6px 0;color:#6A7287;font-size:13px;width:150px;vertical-align:top;">👥 Viajeros</td>
+                                            <td style="padding:6px 0;color:#212E47;font-size:13px;font-weight:bold;"
+                                                th:text="${r.travellers}">2 adultos</td>
+                                        </tr>
+
+                                        <!-- Meeting point: primera location o aviso Hotel Pickup.
+                                             TC-017: tours con addressType=Hotel Pickup NO tienen geo
+                                             en locations; el provider recoge al turista en el hospedaje.-->
+                                        <tr th:if="${r.locations != null and !#lists.isEmpty(r.locations)}">
+                                            <td style="padding:6px 0;color:#6A7287;font-size:13px;width:150px;vertical-align:top;">📍 Punto de encuentro</td>
+                                            <td style="padding:6px 0;color:#212E47;font-size:13px;font-weight:bold;">
+                                                <span th:with="loc=${r.locations[0]}"
+                                                      th:text="${loc.cityName != null ? loc.cityName + (loc.address != null ? ' · ' + loc.address : '') : (loc.address != null ? loc.address : 'Por confirmar')}">
+                                                    San Andrés · Marina
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        <tr th:if="${(r.locations == null or #lists.isEmpty(r.locations))}">
+                                            <td style="padding:6px 0;color:#6A7287;font-size:13px;width:150px;vertical-align:top;">🏨 Recogida</td>
+                                            <td style="padding:6px 0;color:#212E47;font-size:13px;font-weight:bold;">
+                                                El operador te pasa a buscar en tu hospedaje.
+                                            </td>
+                                        </tr>
+
+                                        <!-- Precio total de la reserva. -->
+                                        <tr th:if="${r.price != null}">
+                                            <td style="padding:6px 0;color:#6A7287;font-size:13px;width:150px;vertical-align:top;">💵 Precio</td>
+                                            <td style="padding:6px 0;color:#1b6475;font-size:14px;font-weight:bold;"
+                                                th:text="'$ ' + ${#numbers.formatInteger(r.price, 0, 'POINT')} + ' COP'">
+                                                $ 150.000 COP
+                                            </td>
+                                        </tr>
+
+                                        <!-- Fecha maxima de cancelacion. -->
+                                        <tr th:if="${r.maxCancellationDate != null}">
+                                            <td style="padding:6px 0;color:#6A7287;font-size:13px;width:150px;vertical-align:top;">↩️ Cancelable hasta</td>
+                                            <td style="padding:6px 0;color:#212E47;font-size:13px;font-weight:bold;"
+                                                th:text="${#temporals.format(r.maxCancellationDate, 'dd/MM/yyyy')}">
+                                                25/09/2026
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+
+                            <!-- QR de la reserva. -->
+                            <tr th:if="${r.qrUrl != null}">
+                                <td align="center" style="padding:4px 20px 20px 20px;border-top:1px solid #f0f2f5;">
+                                    <p style="margin:12px 0 10px 0;color:#6A7287;font-size:12px;line-height:1.4;">
+                                        Mostrá este código en el punto de encuentro:
+                                    </p>
+                                    <img th:src="${r.qrUrl}" alt="Código QR de la reserva"
+                                         width="180"
+                                         style="display:block;margin:0 auto;max-width:180px;height:auto;border:1px solid #e0e4ea;border-radius:8px;" />
+                                </td>
+                            </tr>
+                        </table>
+
+                        <p style="margin:12px 0 0 0;color:#6A7287;font-size:13px;line-height:1.5;text-align:center;">
+                            Podés ver tus reservas en cualquier momento desde la app o la web.
+                        </p>
+                    </td>
+                </tr>
+
+                <!-- FOOTER — mismo skeleton que activate_account_es.html. -->
+                <tr>
+                    <td style="background-color:#212E47;padding:28px 32px 20px 32px;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                                <td align="center" style="padding-bottom:16px;">
+                                    <p style="margin:0 0 6px 0;color:#ffffff;font-size:13px;line-height:1.5;">
+                                        📞 <a href="tel:+573112182520"
+                                              style="color:#ffffff;text-decoration:none;">+57 311 218 2520</a>
+                                    </p>
+                                    <p style="margin:0;color:#ffffff;font-size:13px;line-height:1.5;">
+                                        ✉️ <a href="mailto:luis.mendoza@tourya.co"
+                                              style="color:#ffffff;text-decoration:none;">luis.mendoza@tourya.co</a>
+                                    </p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td align="center" style="padding:12px 0 16px 0;border-top:1px solid #3d4a63;">
+                                    <a href="https://www.facebook.com/tourya" target="_blank"
+                                       style="display:inline-block;margin:0 6px;color:#ffffff;text-decoration:none;font-size:12px;">Facebook</a>
+                                    <span style="color:#6A7287;">·</span>
+                                    <a href="https://www.instagram.com/tourya" target="_blank"
+                                       style="display:inline-block;margin:0 6px;color:#ffffff;text-decoration:none;font-size:12px;">Instagram</a>
+                                    <span style="color:#6A7287;">·</span>
+                                    <a href="https://www.linkedin.com/company/tourya" target="_blank"
+                                       style="display:inline-block;margin:0 6px;color:#ffffff;text-decoration:none;font-size:12px;">LinkedIn</a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td align="center">
+                                    <p style="margin:0 0 6px 0;color:#a8b2c1;font-size:11px;line-height:1.5;">
+                                        <a href="https://dev.tourya.co/legal-site" target="_blank"
+                                           style="color:#a8b2c1;text-decoration:none;">Términos y condiciones</a>
+                                        &nbsp;·&nbsp;
+                                        <a href="https://dev.tourya.co/legal-site/privacy-policy" target="_blank"
+                                           style="color:#a8b2c1;text-decoration:none;">Política de privacidad</a>
+                                    </p>
+                                    <p style="margin:0;color:#a8b2c1;font-size:11px;line-height:1.5;">
+                                        © 2025 Tourya. Todos los derechos reservados.
+                                    </p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+
+            </table>
+        </td>
+    </tr>
+</table>
+
 </body>
 </html>
-
