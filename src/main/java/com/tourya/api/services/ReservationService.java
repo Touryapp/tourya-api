@@ -1270,8 +1270,34 @@ public class ReservationService {
                     .build();
             response.setCredit(creditResponse);
         }
-        
+
+        // Issue #34 TCM-023 (Luis 2026-10-02): disparar correo branded de
+        // cancelacion. Best-effort — si falla el envio, la cancelacion y el
+        // credito ya quedaron persistidos; no queremos tumbar la tx por un
+        // problema SMTP. Mismo patron que sendPurchaseEmailBestEffort usa en
+        // PaymentService.
+        sendCancellationEmailBestEffort(user, response);
+
         return response;
+    }
+
+    private void sendCancellationEmailBestEffort(User user, ReservationResponse response) {
+        try {
+            if (user == null || user.getEmail() == null || user.getEmail().isBlank()) return;
+            String username = user.getName() != null && !user.getName().isBlank()
+                    ? user.getName()
+                    : "Turista";
+            String subject = "Reserva cancelada - Tourya";
+            emailService.sendReservationCancellationEmail(
+                    user.getEmail(),
+                    username,
+                    List.of(response),
+                    subject
+            );
+        } catch (Exception e) {
+            log.error("No se pudo enviar correo de cancelacion reservationId={}: {}",
+                    response != null ? response.getReservationId() : null, e.getMessage());
+        }
     }
 
     private boolean isPolicyBasedCancellationReason(CancellationReasonEnum reason) {

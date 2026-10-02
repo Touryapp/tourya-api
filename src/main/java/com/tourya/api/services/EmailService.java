@@ -376,6 +376,52 @@ public class EmailService {
     }
 
     /**
+     * Issue #34 TCM-023 (Luis 2026-10-02): correo branded tras cancelar
+     * una reserva (sea por iniciativa del turista o por decline del provider).
+     * Reutiliza el mismo esquema que el purchase_confirmation (lista de
+     * reservations + username) para que el template sepa iterar aunque hoy
+     * siempre venga 1 sola (en el futuro podriamos agrupar varias si Luis
+     * define un flow de bulk-cancel).
+     */
+    @Async
+    public void sendReservationCancellationEmail(
+            String to,
+            String username,
+            List<com.tourya.api.models.responses.ReservationResponse> reservations,
+            String subject
+    ) throws MessagingException {
+        String templateName = EmailTemplateNameEnum.RESERVATION_CANCELLATION.getName();
+
+        MimeMessage mimeMessage = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(
+                mimeMessage,
+                MULTIPART_MODE_MIXED,
+                UTF_8.name()
+        );
+
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("username", username);
+        properties.put("reservations", reservations);
+
+        Context context = new Context();
+        context.setVariables(properties);
+
+        // Mismo patron que sendPurchaseConfirmationEmail: display name
+        // "Tourya" para que la bandeja lo muestre asi en vez del email crudo.
+        try {
+            helper.setFrom(fromEmail, "Tourya");
+        } catch (java.io.UnsupportedEncodingException e) {
+            helper.setFrom(fromEmail);
+        }
+        helper.setTo(to);
+        helper.setSubject(subject);
+
+        String template = templateEngine.process(templateName, context);
+        helper.setText(template, true);
+        mailSender.send(mimeMessage);
+    }
+
+    /**
      * TC-022 (#253): confirmacion al turista de que su solicitud de devolucion
      * de credito fue recibida (status CREATED -> REFUND_REQUESTED).
      */

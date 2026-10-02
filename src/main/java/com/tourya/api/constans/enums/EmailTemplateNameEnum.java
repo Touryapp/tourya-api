@@ -7,6 +7,7 @@ public enum EmailTemplateNameEnum {
     ACTIVATE_ACCOUNT("activate_account"),
     TEMPORARY_PASSWORD("temporary_password"),
     PURCHASE_CONFIRMATION("purchase_confirmation"),
+    RESERVATION_CANCELLATION("reservation_cancellation"),
     REQUEST_PROVIDER_STATUS("request_provider_status");
 
     private final String name;
