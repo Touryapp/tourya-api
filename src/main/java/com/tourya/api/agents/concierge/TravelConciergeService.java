@@ -206,11 +206,23 @@ public class TravelConciergeService {
                     cartJson = safeLoadCart(auth);
                 }
                 // Alimentar el proximo turno con el resultado (mensaje del sistema).
-                currentUserMessage = request.getUserMessage()
-                        + "\n[SYSTEM: resultado de " + action.name()
-                        + " → success=" + action.success()
-                        + (action.error() != null ? " error=" + action.error() : "")
-                        + "]";
+                // Issue #39 v2: ahora inyectamos tambien action.result() serializado
+                // cuando esta presente. Esto cierra el gap que hacia al agente
+                // alucinar tours — antes solo veia "success=true", ahora ve la
+                // lista real y puede recomendarla sin inventar.
+                StringBuilder sysNote = new StringBuilder()
+                        .append("\n[SYSTEM: resultado de ").append(action.name())
+                        .append(" → success=").append(action.success());
+                if (action.error() != null) sysNote.append(" error=").append(action.error());
+                if (action.result() != null && !action.result().isNull()) {
+                    try {
+                        sysNote.append("\ndata=").append(objectMapper.writeValueAsString(action.result()));
+                    } catch (Exception serEx) {
+                        log.debug("IA-02 no se pudo serializar result de {}: {}", action.name(), serEx.getMessage());
+                    }
+                }
+                sysNote.append("]");
+                currentUserMessage = request.getUserMessage() + sysNote;
                 continue;
             }
             if (parsed.assistantMessage != null && !parsed.assistantMessage.isBlank()) {
@@ -374,11 +386,15 @@ public class TravelConciergeService {
                     }
                     Pageable pageable = PageRequest.of(0, 10);
                     Page<SearchTourScheduleFullResponse> page = searchService.searchTourSchedule(filters, pageable, auth);
-                    // Scrub del resultado antes de exponerlo al log (no lo mandamos al LLM,
-                    // el LLM lo recibe en la proxima iteracion via safeLoadCart/tourDetail
-                    // — el resultado directo de search NO se re-inyecta al prompt).
                     log.debug("IA-02 search_tours OK count={}", page.getTotalElements());
-                    return new ConciergeAction(call.name, call.arguments, true, null);
+                    // Issue #39 v2: antes el resultado NO se re-inyectaba al LLM
+                    // por una decision de diseno equivocada — el agente no sabia
+                    // que tours existian y los inventaba. Ahora serializamos la
+                    // pagina a JsonNode y la pasamos en el result; el loop la
+                    // inyecta al prompt del proximo turno via [SYSTEM: ...].
+                    JsonNode searchResult = objectMapper.valueToTree(page.getContent());
+                    scrubSensitiveFields(searchResult);
+                    return new ConciergeAction(call.name, call.arguments, true, null, searchResult);
                 }
                 case "get_tour_detail" -> {
                     Object tourIdObj = call.arguments.get("tourId");
@@ -387,8 +403,12 @@ public class TravelConciergeService {
                     }
                     TourFullDataResponse detail = tourService.getTourDetailsById(n.intValue(), auth);
                     log.debug("IA-02 get_tour_detail OK tourId={}", n.intValue());
+                    // v2: incluir el detail como result para que el LLM pueda
+                    // razonar sobre precio, politica, etc. sin alucinar.
+                    JsonNode detailJson = detail == null ? null : objectMapper.valueToTree(detail);
+                    if (detailJson != null) scrubSensitiveFields(detailJson);
                     return new ConciergeAction(call.name, call.arguments, detail != null,
-                            detail == null ? "tour_not_found" : null);
+                            detail == null ? "tour_not_found" : null, detailJson);
                 }
                 case "add_to_cart" -> {
                     if (auth == null) {
@@ -410,7 +430,13 @@ public class TravelConciergeService {
                     }
                     ShoppingCartResponse cart = shoppingCartService.getActiveShoppingCartByUser(auth);
                     log.debug("IA-02 get_cart OK cartExists={}", cart != null);
-                    return new ConciergeAction(call.name, call.arguments, true, null);
+                    // v2: result con el carrito scrubbed. El loop tambien
+                    // refresca cartJson en la variable del prompt base, pero
+                    // esto permite al LLM ver el detalle completo en el mismo
+                    // turno sin esperar al proximo render.
+                    JsonNode cartJsonNode = cart == null ? null : objectMapper.valueToTree(cart);
+                    if (cartJsonNode != null) scrubSensitiveFields(cartJsonNode);
+                    return new ConciergeAction(call.name, call.arguments, true, null, cartJsonNode);
                 }
                 default -> {
                     return new ConciergeAction(call.name, call.arguments, false, "funcion_no_soportada");
