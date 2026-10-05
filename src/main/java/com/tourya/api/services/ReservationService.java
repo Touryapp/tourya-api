@@ -320,9 +320,9 @@ public class ReservationService {
             response.setPrice(item.getTotalPrice().doubleValue());
         }
         
-        // Travellers (issue #33 TCM-020 Luis 2026-10-03): formato en español
-        // via TravellersFormatter.
-        String travellers = com.tourya.api._utils.TravellersFormatter.format(item.getDetails());
+        // Travellers (issue #33 TCM-020 + v23 2026-10-04): tours GRUPO muestran
+        // "Grupo" en lugar del desglose por edad.
+        String travellers = com.tourya.api._utils.TravellersFormatter.format(item.getDetails(), tour.getPriceType());
         if (travellers != null) {
             response.setTravellers(travellers);
         }
@@ -356,11 +356,66 @@ public class ReservationService {
         applyIncludesExcludes(response, tourId);
 
         response.setTourOperator(tourPrincipalOperatorService.resolveForTour(tour));
-        
+
+        // v23 (issue #35 RES-347): calcular canReschedule/canCancel para el detalle
+        // mobile. El listado los recibe por sp_get_provider_reservations; aqui los
+        // replicamos para que GET /reservations/{id} tambien exponga los flags.
+        response.setCanReschedule(computeCanReschedule(reservation, tour));
+        response.setCanCancel(computeCanCancel(reservation));
+
         // maxCancellationDate y maxReschedulingDate vienen directamente de la BD (ya están en el mapper)
         // No se calculan dinámicamente porque se guardan en la tabla reservation
 
         logIfPaymentPayerDiffersFromCartUser(reservation, item);
+    }
+
+    /**
+     * v23 (issue #35 RES-347): replica las validaciones de
+     * {@link #validateRescheduleReservation(Long, org.springframework.security.core.Authentication)}
+     * salvo el check de ownership (el detalle solo se consume por el dueño).
+     * Devuelve false ante cualquier regla rota.
+     */
+    private boolean computeCanReschedule(Reservation reservation, Tour tour) {
+        if (reservation == null) return false;
+        DeliveryStatusEnum status = reservation.getDeliveryStatus();
+        if (status == DeliveryStatusEnum.CANCELED
+                || status == DeliveryStatusEnum.DELIVERED
+                || status == DeliveryStatusEnum.RESCHEDULED) {
+            return false;
+        }
+        if (Boolean.FALSE.equals(reservation.getCanReschedule())) {
+            return false;
+        }
+        if (tour == null) return false;
+        List<TourCancellationPolicy> policies = tourCancellationPolicyRepository.findByTourId(tour.getId());
+        if (policies.isEmpty() || !policies.get(0).isAllowsRescheduling()) {
+            return false;
+        }
+        LocalDate today = LocalDate.now();
+        if (reservation.getMaxReschedulingDate() != null && today.isAfter(reservation.getMaxReschedulingDate())) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * v23 (issue #35): canCancel para el detalle mobile. Simetrico al
+     * computeCanReschedule pero contra la ventana de cancelacion.
+     */
+    private boolean computeCanCancel(Reservation reservation) {
+        if (reservation == null) return false;
+        DeliveryStatusEnum status = reservation.getDeliveryStatus();
+        if (status == DeliveryStatusEnum.CANCELED || status == DeliveryStatusEnum.DELIVERED) {
+            return false;
+        }
+        if (Boolean.FALSE.equals(reservation.getCanCancel())) {
+            return false;
+        }
+        LocalDate today = LocalDate.now();
+        if (reservation.getMaxCancellationDate() != null && today.isAfter(reservation.getMaxCancellationDate())) {
+            return false;
+        }
+        return true;
     }
 
     /**

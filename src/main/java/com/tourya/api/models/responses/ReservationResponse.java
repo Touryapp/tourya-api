@@ -93,6 +93,19 @@ public class ReservationResponse {
     private java.time.LocalDate maxReschedulingDate;
     private com.tourya.api.constans.enums.CancellationReasonEnum cancellationReason;
     private LocalDateTime cancellationDate;
+
+    /**
+     * v23 (Luis 2026-10-04 issue #35 RES-347): expuesto al mobile para que la
+     * pantalla de detalle muestre u oculte el botón "Reagendar"/"Cancelar".
+     * Antes solo venía en el listado (ReservationDetailsResponse via SP);
+     * ahora {@code GET /reservations/{id}} también lo trae. Calculado por
+     * {@link com.tourya.api.services.ReservationService#enrichReservationResponse}
+     * replicando las mismas validaciones que
+     * {@link com.tourya.api.services.ReservationService#validateRescheduleReservation}
+     * salvo el check de ownership (el controller ya filtra por usuario).
+     */
+    private Boolean canReschedule;
+    private Boolean canCancel;
     
     // Información del crédito creado al re-agendar
     private CreditResponse credit;

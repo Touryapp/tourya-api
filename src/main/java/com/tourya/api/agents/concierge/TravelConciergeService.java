@@ -123,7 +123,7 @@ public class TravelConciergeService {
         this.shoppingCartService = shoppingCartService;
         this.searchService = searchService;
         this.objectMapper = objectMapper;
-        this.promptTemplate = PromptTemplate.load("concierge.v1");
+        this.promptTemplate = PromptTemplate.load("concierge.v2");
     }
 
     /**

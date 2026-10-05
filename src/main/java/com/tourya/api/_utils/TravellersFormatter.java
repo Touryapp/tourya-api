@@ -1,6 +1,7 @@
 package com.tourya.api._utils;
 
 import com.tourya.api.constans.enums.AgePriceType;
+import com.tourya.api.constans.enums.PriceTypeEnum;
 import com.tourya.api.models.ShoppingCartItemDetail;
 
 import java.util.ArrayList;
@@ -13,6 +14,10 @@ import java.util.List;
  * enum ({@code "2 ADULTs, 1 CHILD"}) — Luis pidió que apareciera en español
  * ({@code "2 Adultos, 1 Niño"}).
  *
+ * <p>v23 (Luis 2026-10-04): cuando el tour es de precio GRUPO, el travellers
+ * ya no es "N adultos" sino simplemente "Grupo" (la cuenta por persona no
+ * aplica — el tour cobra por grupo completo).</p>
+ *
  * <p>Centraliza la lógica para no duplicarla en PaymentService,
  * ReservationService y ReviewService (los 3 lugares donde antes se armaba
  * inline con {@code String.join}).</p>
@@ -20,6 +25,16 @@ import java.util.List;
 public final class TravellersFormatter {
 
     private TravellersFormatter() { }
+
+    /**
+     * Variante con priceType — cuando el tour es GRUPO devuelve "Grupo" en
+     * lugar del desglose por edad. Delega en {@link #format(List)} para el
+     * caso INDIVIDUAL / null.
+     */
+    public static String format(List<ShoppingCartItemDetail> details, PriceTypeEnum priceType) {
+        if (priceType == PriceTypeEnum.GRUPO) return "Grupo";
+        return format(details);
+    }
 
     /**
      * Construye el string "N TipoES[s], M TipoES[s]" a partir de los details

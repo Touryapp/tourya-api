@@ -945,9 +945,9 @@ public class ReviewService {
             response.setPrice(item.getTotalPrice().doubleValue());
         }
         
-        // Travellers (issue #33 TCM-020 Luis 2026-10-03): formato en español
-        // via TravellersFormatter.
-        String travellers = com.tourya.api._utils.TravellersFormatter.format(item.getDetails());
+        // Travellers (issue #33 TCM-020 + v23 2026-10-04): tours GRUPO muestran
+        // "Grupo" en lugar del desglose por edad.
+        String travellers = com.tourya.api._utils.TravellersFormatter.format(item.getDetails(), tour.getPriceType());
         if (travellers != null) {
             response.setTravellers(travellers);
         }

@@ -560,10 +560,11 @@ public class PaymentService {
             response.setPrice(item.getTotalPrice().doubleValue());
         }
         
-        // Travellers (issue #33 TCM-020 Luis 2026-10-03): formato en español
-        // via TravellersFormatter — antes se armaba crudo con el nombre del
-        // enum ("2 ADULTs, 1 CHILD") y aparecia asi en el correo de compra.
-        String travellers = com.tourya.api._utils.TravellersFormatter.format(item.getDetails());
+        // Travellers (issue #33 TCM-020 Luis 2026-10-03 + v23 2026-10-04):
+        // formato en español via TravellersFormatter — antes se armaba crudo
+        // con el nombre del enum ("2 ADULTs, 1 CHILD"). v23: tours GRUPO
+        // muestran "Grupo" en lugar del desglose por edad.
+        String travellers = com.tourya.api._utils.TravellersFormatter.format(item.getDetails(), tour.getPriceType());
         if (travellers != null) {
             response.setTravellers(travellers);
         }
