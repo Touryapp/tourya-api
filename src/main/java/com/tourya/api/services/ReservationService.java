@@ -320,18 +320,11 @@ public class ReservationService {
             response.setPrice(item.getTotalPrice().doubleValue());
         }
         
-        // Travellers
-        if (item.getDetails() != null && !item.getDetails().isEmpty()) {
-            List<String> travellerParts = new ArrayList<>();
-            for (ShoppingCartItemDetail detail : item.getDetails()) {
-                if (detail.getQuantity() != null && detail.getQuantity() > 0) {
-                    String ageType = detail.getAgeType() != null ? detail.getAgeType().name() : "Adult";
-                    travellerParts.add(detail.getQuantity() + " " + ageType + (detail.getQuantity() > 1 ? "s" : ""));
-                }
-            }
-            if (!travellerParts.isEmpty()) {
-                response.setTravellers(String.join(", ", travellerParts));
-            }
+        // Travellers (issue #33 TCM-020 Luis 2026-10-03): formato en español
+        // via TravellersFormatter.
+        String travellers = com.tourya.api._utils.TravellersFormatter.format(item.getDetails());
+        if (travellers != null) {
+            response.setTravellers(travellers);
         }
 
         reservationPriceBreakdownMapper.applyToReservationResponse(response, item);

@@ -2,6 +2,7 @@ package com.tourya.api.agents.concierge;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.tourya.api.agents.shared.AgentAuditEntry;
 import com.tourya.api.agents.shared.AgentAuditWriter;
@@ -210,13 +211,23 @@ public class TravelConciergeService {
                 // cuando esta presente. Esto cierra el gap que hacia al agente
                 // alucinar tours — antes solo veia "success=true", ahora ve la
                 // lista real y puede recomendarla sin inventar.
+                //
+                // Issue #39 v2 refinamiento (Luis 2026-10-03 reporto "Hubo un error"):
+                // cap de 6000 chars sobre el payload serializado. Un search_tours
+                // con 10 tours completos puede meter 15-20k chars al prompt y
+                // tirar al LLM por exceso de contexto. Si excede, degradamos a
+                // un resumen con los campos esenciales (id/nombre/precio).
                 StringBuilder sysNote = new StringBuilder()
                         .append("\n[SYSTEM: resultado de ").append(action.name())
                         .append(" → success=").append(action.success());
                 if (action.error() != null) sysNote.append(" error=").append(action.error());
                 if (action.result() != null && !action.result().isNull()) {
                     try {
-                        sysNote.append("\ndata=").append(objectMapper.writeValueAsString(action.result()));
+                        String payload = objectMapper.writeValueAsString(action.result());
+                        if (payload.length() > 6000) {
+                            payload = summarizeLargePayload(action.name(), action.result());
+                        }
+                        sysNote.append("\ndata=").append(payload);
                     } catch (Exception serEx) {
                         log.debug("IA-02 no se pudo serializar result de {}: {}", action.name(), serEx.getMessage());
                     }
@@ -447,6 +458,38 @@ public class TravelConciergeService {
             // Mensaje generico para no exponer stack internos al cliente.
             return new ConciergeAction(call.name, call.arguments, false,
                     ex.getClass().getSimpleName());
+        }
+    }
+
+    /**
+     * Issue #39 v2 refinamiento: cuando el payload del tool call es muy
+     * grande (search_tours con 10 tours completos puede pasar 15k chars),
+     * reemplazamos el JSON entero con un resumen de campos esenciales.
+     * Evita que el prompt al LLM crezca sin control y tire el request a
+     * Gemini por exceso de tokens.
+     */
+    private String summarizeLargePayload(String actionName, JsonNode result) {
+        try {
+            if ("search_tours".equals(actionName) && result.isArray()) {
+                ArrayNode summary = objectMapper.createArrayNode();
+                for (JsonNode tour : result) {
+                    ObjectNode mini = objectMapper.createObjectNode();
+                    if (tour.has("tourId")) mini.set("tourId", tour.get("tourId"));
+                    if (tour.has("tourName")) mini.set("tourName", tour.get("tourName"));
+                    if (tour.has("duration")) mini.set("duration", tour.get("duration"));
+                    if (tour.has("categoryName")) mini.set("categoryName", tour.get("categoryName"));
+                    if (tour.has("priceFrom")) mini.set("priceFrom", tour.get("priceFrom"));
+                    if (tour.has("scheduleDate")) mini.set("scheduleDate", tour.get("scheduleDate"));
+                    summary.add(mini);
+                }
+                return objectMapper.writeValueAsString(summary);
+            }
+            // Para get_tour_detail / get_cart truncamos y agregamos marker.
+            String raw = objectMapper.writeValueAsString(result);
+            return raw.substring(0, Math.min(raw.length(), 4000))
+                    + "...[truncado por tamaño]";
+        } catch (Exception ex) {
+            return "{\"error\":\"payload truncation failed\"}";
         }
     }
 
