@@ -27,13 +27,29 @@ public final class TravellersFormatter {
     private TravellersFormatter() { }
 
     /**
-     * Variante con priceType — cuando el tour es GRUPO devuelve "Grupo" en
-     * lugar del desglose por edad. Delega en {@link #format(List)} para el
-     * caso INDIVIDUAL / null.
+     * Variante con priceType — cuando el tour es GRUPO devuelve
+     * {@code "Grupo (N)"} donde N es el total de personas (suma de quantities
+     * del cart item). Luis 2026-10-06 (issue #33 v24): antes devolvia solo
+     * "Grupo" sin el total; ahora el label incluye la cantidad para que
+     * tanto el correo como las vistas mobile muestren "Grupo (4)".
+     * Para INDIVIDUAL / null delega en {@link #format(List)}.
      */
     public static String format(List<ShoppingCartItemDetail> details, PriceTypeEnum priceType) {
-        if (priceType == PriceTypeEnum.GRUPO) return "Grupo";
+        if (priceType == PriceTypeEnum.GRUPO) {
+            int total = totalPeople(details);
+            return total > 0 ? "Grupo (" + total + ")" : "Grupo";
+        }
         return format(details);
+    }
+
+    private static int totalPeople(List<ShoppingCartItemDetail> details) {
+        if (details == null) return 0;
+        int sum = 0;
+        for (ShoppingCartItemDetail detail : details) {
+            Integer qty = detail != null ? detail.getQuantity() : null;
+            if (qty != null && qty > 0) sum += qty;
+        }
+        return sum;
     }
 
     /**

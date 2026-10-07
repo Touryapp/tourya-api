@@ -91,6 +91,12 @@ Contexto de la sesion:
 - Carrito actual (JSON, sin campos internos filtrados): {{cartJson}}
 - Ficha del tour enfocado (opcional): {{tourDetailJson}}
 
+Historial de la conversacion (orden cronologico, usa esto para NO
+repetir preguntas que ya fueron contestadas antes — si en el historial
+el turista ya dijo las fechas, el numero de viajeros o el interes,
+ESO cuenta como slot confirmado y no vuelvas a preguntarlo):
+{{conversationHistory}}
+
 Mensaje del turista:
 {{userMessage}}
 
