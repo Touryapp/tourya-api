@@ -98,7 +98,16 @@ public class TravelConciergeService {
     private final ShoppingCartService shoppingCartService;
     private final SearchTourScheduleFullService searchService;
     private final ObjectMapper objectMapper;
+    private final com.tourya.api.repository.AgentAuditLogRepository auditLogRepository;
     private final PromptTemplate promptTemplate;
+
+    /**
+     * v24 (issue #39 Luis 2026-10-06): cuantos turns previos cargamos de la
+     * misma sessionId para reinyectar como historial al prompt. Luis reporto
+     * que el agente "repite las mismas preguntas" — sin memoria entre POSTs
+     * el LLM no sabia los slots ya confirmados (fechas / viajeros / interes).
+     */
+    private static final int HISTORY_TURNS = 6;
 
     /**
      * Contador de pagos fallidos por sesion. En Cloud Run con auto-scale este
@@ -115,7 +124,8 @@ public class TravelConciergeService {
             TourService tourService,
             ShoppingCartService shoppingCartService,
             SearchTourScheduleFullService searchService,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            com.tourya.api.repository.AgentAuditLogRepository auditLogRepository) {
         this.llmClient = llmClient;
         this.auditWriter = auditWriter;
         this.budgetGuard = budgetGuard;
@@ -123,6 +133,7 @@ public class TravelConciergeService {
         this.shoppingCartService = shoppingCartService;
         this.searchService = searchService;
         this.objectMapper = objectMapper;
+        this.auditLogRepository = auditLogRepository;
         this.promptTemplate = PromptTemplate.load("concierge.v2");
     }
 
@@ -172,6 +183,11 @@ public class TravelConciergeService {
         }
         String cartJson = safeLoadCart(auth);
 
+        // v24 (issue #39): cargar historial de la sesion para que el agente
+        // recuerde los slots ya confirmados en turns previos. Si falla la carga
+        // (sessionId null, BD caida, etc.) seguimos sin historial — no bloquea.
+        String historyText = safeLoadConversationHistory(request.getSessionId());
+
         // 4. Loop de function calling — max MAX_ITERATIONS.
         List<ConciergeAction> actions = new ArrayList<>();
         String assistantMessage = "";
@@ -180,7 +196,7 @@ public class TravelConciergeService {
         String currentUserMessage = request.getUserMessage();
 
         for (int iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
-            String renderedPrompt = renderPrompt(request, currentUserMessage, tourDetailJson, cartJson);
+            String renderedPrompt = renderPrompt(request, currentUserMessage, tourDetailJson, cartJson, historyText);
 
             Instant start = Instant.now();
             AgentLlmResponse llmResponse = llmClient.complete(renderedPrompt, DEFAULT_MODEL);
@@ -251,10 +267,11 @@ public class TravelConciergeService {
         // 5. Actualizar contador de pagos fallidos si el turista lo menciono.
         boolean fraudSuspected = updateFraudCounter(request.getSessionId(), request.getUserMessage());
 
-        // 6. Auditar SIEMPRE (Principio rector #4).
+        // 6. Auditar SIEMPRE (Principio rector #4) + persistir assistant_message
+        // para que turns futuros reconstruyan historial (v24 issue #39).
         writeAudit(request, auth, lastResponse != null ? lastResponse : AgentLlmResponse.disabled(),
                 totalDurationMs, "autonomous_action", null,
-                actions, fraudSuspected, false);
+                actions, fraudSuspected, false, assistantMessage);
 
         return ConciergeChatResponse.builder()
                 .assistantMessage(assistantMessage)
@@ -321,15 +338,76 @@ public class TravelConciergeService {
     // ============================================================
 
     private String renderPrompt(ConciergeChatRequest request, String userMessage,
-                                String tourDetailJson, String cartJson) {
+                                String tourDetailJson, String cartJson, String historyText) {
         Map<String, Object> vars = new HashMap<>();
         vars.put("sessionId", request.getSessionId() == null ? "" : request.getSessionId());
         vars.put("locale", request.getLocale() == null ? "es" : request.getLocale());
         vars.put("tourId", request.getTourId() == null ? "" : request.getTourId());
         vars.put("cartJson", cartJson == null ? "{}" : cartJson);
         vars.put("tourDetailJson", tourDetailJson == null ? "" : tourDetailJson);
+        vars.put("conversationHistory", historyText == null ? "(sin historial — es el primer mensaje de la sesión)" : historyText);
         vars.put("userMessage", userMessage);
         return promptTemplate.render(vars);
+    }
+
+    /**
+     * v24 (issue #39): reconstruye el historial de la sesion desde
+     * agent_audit_log. Devuelve bloque de texto plain con los ultimos
+     * {@link #HISTORY_TURNS} turns en orden cronologico ("[turista]: ... /
+     * [agente]: ..."). Si cualquier paso falla devuelve null para que el prompt
+     * use el placeholder "sin historial".
+     */
+    private String safeLoadConversationHistory(String sessionId) {
+        if (sessionId == null || sessionId.isBlank()) return null;
+        try {
+            List<com.tourya.api.models.AgentAuditLog> rows =
+                    auditLogRepository.findRecentBySessionId(AGENT_NAME, sessionId, HISTORY_TURNS);
+            if (rows == null || rows.isEmpty()) return null;
+
+            // Vienen DESC — invertimos para ir del mas viejo al mas nuevo.
+            java.util.Collections.reverse(rows);
+
+            StringBuilder sb = new StringBuilder();
+            for (com.tourya.api.models.AgentAuditLog row : rows) {
+                String userPart = extractUserMessageFromPrompt(row.getPromptInput());
+                String assistantPart = extractAssistantMessageFromResult(row.getResultJson());
+                if (userPart != null && !userPart.isBlank()) {
+                    sb.append("[turista]: ").append(userPart).append("\n");
+                }
+                if (assistantPart != null && !assistantPart.isBlank()) {
+                    sb.append("[agente]: ").append(assistantPart).append("\n");
+                }
+            }
+            String result = sb.toString().trim();
+            return result.isBlank() ? null : result;
+        } catch (Exception ex) {
+            log.warn("IA-02 no pude cargar historial sessionId={}: {}", sessionId, ex.getMessage());
+            return null;
+        }
+    }
+
+    /** El audit guarda el user message crudo en promptInput — lo usamos tal cual. */
+    private String extractUserMessageFromPrompt(String promptInput) {
+        if (promptInput == null) return null;
+        String trimmed = promptInput.trim();
+        if (trimmed.length() > 500) trimmed = trimmed.substring(0, 500) + "...";
+        return trimmed;
+    }
+
+    /** Extrae el assistant_message del result_json del turn previo. */
+    private String extractAssistantMessageFromResult(String resultJson) {
+        if (resultJson == null || resultJson.isBlank()) return null;
+        try {
+            JsonNode root = objectMapper.readTree(resultJson);
+            JsonNode msg = root.path("assistant_message");
+            if (msg.isTextual()) {
+                String text = msg.asText();
+                return text.length() > 500 ? text.substring(0, 500) + "..." : text;
+            }
+            return null;
+        } catch (Exception ex) {
+            return null;
+        }
     }
 
     /**
@@ -573,6 +651,15 @@ public class TravelConciergeService {
                             String resultType, String errorMessage,
                             List<ConciergeAction> actions, boolean fraudSuspected,
                             boolean escalated) {
+        writeAudit(request, auth, response, durationMs, resultType, errorMessage,
+                actions, fraudSuspected, escalated, null);
+    }
+
+    private void writeAudit(ConciergeChatRequest request, Authentication auth,
+                            AgentLlmResponse response, long durationMs,
+                            String resultType, String errorMessage,
+                            List<ConciergeAction> actions, boolean fraudSuspected,
+                            boolean escalated, String assistantMessage) {
         try {
             ObjectNode metadata = objectMapper.createObjectNode();
             metadata.put("session_id", request.getSessionId());
@@ -583,6 +670,18 @@ public class TravelConciergeService {
                             "name", a.name(),
                             "success", a.success()
                     )).toList()));
+
+            // v24 (issue #39): persistir el assistant_message en result_json
+            // para que turns siguientes puedan reconstruir el historial via
+            // findRecentBySessionId. Si no hay respuesta final (ej. rechazo
+            // por budget / secret keyword) guardamos null.
+            String resultJson = null;
+            if (assistantMessage != null && !assistantMessage.isBlank()) {
+                ObjectNode result = objectMapper.createObjectNode();
+                result.put("assistant_message", truncate(assistantMessage, 2000));
+                resultJson = objectMapper.writeValueAsString(result);
+            }
+
             Integer userId = extractUserId(auth);
             AgentAuditEntry entry = AgentAuditEntry.builder()
                     .agentName(AGENT_NAME)
@@ -596,7 +695,7 @@ public class TravelConciergeService {
                     .entityId(userId == null ? null : userId.longValue())
                     .userId(userId)
                     .resultType(resultType)
-                    .resultJson(null)
+                    .resultJson(resultJson)
                     .promptInput(truncate(request.getUserMessage(), 2000))
                     .errorMessage(errorMessage)
                     .metadata(objectMapper.writeValueAsString(metadata))

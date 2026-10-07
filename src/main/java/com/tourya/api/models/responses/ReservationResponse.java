@@ -95,6 +95,21 @@ public class ReservationResponse {
     private LocalDateTime cancellationDate;
 
     /**
+     * v24 (Luis 2026-10-06 issue #37): fecha del tour (shopping_cart_item.schedule_date).
+     * Antes la UI mobile usaba checkInDate (LocalDateTime) y renderizaba con la zona
+     * del dispositivo, lo que mostraba el dia equivocado. Este campo viaja como
+     * string ISO ("YYYY-MM-DD") sin TZ para que el mobile lo pinte tal cual.
+     */
+    private java.time.LocalDate scheduleDate;
+
+    /**
+     * v24 (issue #35 Luis 2026-10-06): bandera "Permite cancelación por lluvia"
+     * tomada de la politica de cancelacion del tour (TourCancellationPolicy.allowsRainCancellation).
+     * El detalle mobile la muestra junto a maxCancellationDate / maxReschedulingDate.
+     */
+    private Boolean allowsRainCancellation;
+
+    /**
      * v23 (Luis 2026-10-04 issue #35 RES-347): expuesto al mobile para que la
      * pantalla de detalle muestre u oculte el botón "Reagendar"/"Cancelar".
      * Antes solo venía en el listado (ReservationDetailsResponse via SP);
@@ -106,6 +121,15 @@ public class ReservationResponse {
      */
     private Boolean canReschedule;
     private Boolean canCancel;
+
+    /**
+     * v24 (issue #33 Luis 2026-10-06): priceType del tour (INDIVIDUAL/GRUPO).
+     * El mobile lo usa para elegir el formato de "travellers" en los cards
+     * del listado (hoy el campo string {@code travellers} ya viene formateado
+     * desde el backend; igual exponemos el enum crudo para que la UI tome
+     * decisiones de layout aparte del label).
+     */
+    private com.tourya.api.constans.enums.PriceTypeEnum priceType;
     
     // Información del crédito creado al re-agendar
     private CreditResponse credit;

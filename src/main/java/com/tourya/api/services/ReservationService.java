@@ -363,6 +363,26 @@ public class ReservationService {
         response.setCanReschedule(computeCanReschedule(reservation, tour));
         response.setCanCancel(computeCanCancel(reservation));
 
+        // v24 (issue #37 Luis 2026-10-06): scheduleDate del cart item para que
+        // la UI mobile muestre la fecha REAL del tour (en lugar de la fecha de
+        // compra) en el detalle. Se expone como LocalDate (string ISO al serializar)
+        // asi el mobile lo pinta sin problemas de timezone.
+        if (item.getScheduleDate() != null) {
+            response.setScheduleDate(item.getScheduleDate());
+        }
+
+        // v24 (issue #35 Luis 2026-10-06): "Permite cancelación por lluvia" para
+        // que el detalle mobile muestre la bandera. Se toma de la politica del
+        // tour (TourCancellationPolicy.allowsRainRefund).
+        List<TourCancellationPolicy> rainPolicies = tourCancellationPolicyRepository.findByTourId(tour.getId());
+        if (!rainPolicies.isEmpty()) {
+            response.setAllowsRainCancellation(rainPolicies.get(0).isAllowsRainRefund());
+        }
+
+        // v24 (issue #33 Luis 2026-10-06): priceType crudo para que el mobile
+        // decida layout aparte del label travellers.
+        response.setPriceType(tour.getPriceType());
+
         // maxCancellationDate y maxReschedulingDate vienen directamente de la BD (ya están en el mapper)
         // No se calculan dinámicamente porque se guardan en la tabla reservation
 
