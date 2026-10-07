@@ -69,6 +69,8 @@ class TravelConciergeServiceTest {
     private ShoppingCartService shoppingCartService;
     @Mock
     private SearchTourScheduleFullService searchService;
+    @Mock
+    private com.tourya.api.repository.AgentAuditLogRepository auditLogRepository;
 
     private MockLlmClient llmClient;
     private ObjectMapper objectMapper;
@@ -84,11 +86,18 @@ class TravelConciergeServiceTest {
         // Cart vacio por defecto — cada test lo redefine si necesita.
         lenient().when(shoppingCartService.getActiveShoppingCartByUser(any(Authentication.class)))
                 .thenReturn(null);
+        // v24 (issue #39): historial vacio por defecto — cada test lo redefine
+        // si necesita escenarios con memoria conversacional.
+        lenient().when(auditLogRepository.findRecentBySessionId(
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(java.util.Collections.emptyList());
 
         service = new TravelConciergeService(
                 llmClient, auditWriter, budgetGuard,
                 tourService, shoppingCartService, searchService,
-                objectMapper);
+                objectMapper, auditLogRepository);
 
         User user = User.builder().id(42).email("tester@tourya.co").build();
         auth = new UsernamePasswordAuthenticationToken(user, "N/A");
