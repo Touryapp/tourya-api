@@ -114,8 +114,12 @@ public class ReservationDetailsMapper {
                 .maxReschedulingDate(rs.getDate("max_rescheduling_date") != null 
                         ? rs.getDate("max_rescheduling_date").toLocalDate() : null)
                 .cancellationReason(rs.getString("cancellation_reason"))
-                .cancellationDate(rs.getTimestamp("cancellation_date") != null 
+                .cancellationDate(rs.getTimestamp("cancellation_date") != null
                         ? rs.getTimestamp("cancellation_date").toLocalDateTime() : null)
+
+                // v25 TCM-020 (#33): priceType del tour agregado por migracion 085.
+                // readOptionalString porque el SP viejo no tenia esta columna.
+                .priceType(readOptionalString(rs, "pricetype"))
 
                 .build();
     }
