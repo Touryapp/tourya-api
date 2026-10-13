@@ -37,7 +37,7 @@ public final class TravellersFormatter {
     public static String format(List<ShoppingCartItemDetail> details, PriceTypeEnum priceType) {
         if (priceType == PriceTypeEnum.GRUPO) {
             int total = totalPeople(details);
-            return total > 0 ? "Grupo (" + total + ")" : "Grupo";
+            return total > 0 ? "Grupo (" + total + " personas)" : "Grupo";
         }
         return format(details);
     }

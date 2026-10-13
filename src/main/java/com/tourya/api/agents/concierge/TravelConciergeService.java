@@ -117,6 +117,26 @@ public class TravelConciergeService {
      */
     private final Map<String, Integer> failedPaymentCounter = new ConcurrentHashMap<>();
 
+    /**
+     * v25 (issue #39 Luis 2026-10-08): cache in-memory del historial reciente
+     * de cada sesion. En v24 solo usabamos agent_audit_log — pero
+     * {@link AgentAuditWriter#register} es {@code @Async} y en Cloud Run con
+     * una sola instancia dev los turns se envian casi inmediatamente, asi
+     * que al momento de leer BD del turn N+1 el audit del turn N puede no
+     * estar aun flushed. El cache arregla ese race y asegura memoria dentro
+     * del mismo proceso. La BD queda como fallback para turns antiguos o
+     * restart del container.
+     *
+     * <p>Eviction barata: cada sesion guarda max {@link #HISTORY_TURNS}
+     * turns; LinkedList como ArrayDeque equivalente. No hay TTL — el
+     * tamaño del mapa queda bounded por sesiones activas y Cloud Run
+     * recicla instancias periodicamente.</p>
+     */
+    private final Map<String, java.util.Deque<ConversationTurn>> conversationCache
+            = new ConcurrentHashMap<>();
+
+    private record ConversationTurn(String userMessage, String assistantMessage) {}
+
     public TravelConciergeService(
             ILlmClient llmClient,
             AgentAuditWriter auditWriter,
@@ -267,6 +287,11 @@ public class TravelConciergeService {
         // 5. Actualizar contador de pagos fallidos si el turista lo menciono.
         boolean fraudSuspected = updateFraudCounter(request.getSessionId(), request.getUserMessage());
 
+        // v25 (issue #39): append al cache in-memory ANTES del audit — es
+        // el fallback inmediato para el proximo turn mientras el audit async
+        // todavia esta en vuelo.
+        appendTurnToCache(request.getSessionId(), request.getUserMessage(), assistantMessage);
+
         // 6. Auditar SIEMPRE (Principio rector #4) + persistir assistant_message
         // para que turns futuros reconstruyan historial (v24 issue #39).
         writeAudit(request, auth, lastResponse != null ? lastResponse : AgentLlmResponse.disabled(),
@@ -351,18 +376,42 @@ public class TravelConciergeService {
     }
 
     /**
-     * v24 (issue #39): reconstruye el historial de la sesion desde
-     * agent_audit_log. Devuelve bloque de texto plain con los ultimos
-     * {@link #HISTORY_TURNS} turns en orden cronologico ("[turista]: ... /
-     * [agente]: ..."). Si cualquier paso falla devuelve null para que el prompt
-     * use el placeholder "sin historial".
+     * v25 (issue #39): reconstruye el historial de la sesion. Prioriza el
+     * cache in-memory (seguro contra la ventana async de audit); si viene
+     * vacio o incompleto cae a agent_audit_log. Devuelve bloque de texto
+     * plain con los ultimos {@link #HISTORY_TURNS} turns en orden cronologico
+     * ("[turista]: ... / [agente]: ..."). Null si no hay historial.
      */
     private String safeLoadConversationHistory(String sessionId) {
         if (sessionId == null || sessionId.isBlank()) return null;
+
+        // 1) Cache en memoria — siempre consistente con el proceso actual.
+        java.util.Deque<ConversationTurn> cached = conversationCache.get(sessionId);
+        if (cached != null && !cached.isEmpty()) {
+            StringBuilder sb = new StringBuilder();
+            for (ConversationTurn turn : cached) {
+                if (turn.userMessage() != null && !turn.userMessage().isBlank()) {
+                    sb.append("[turista]: ").append(turn.userMessage()).append("\n");
+                }
+                if (turn.assistantMessage() != null && !turn.assistantMessage().isBlank()) {
+                    sb.append("[agente]: ").append(turn.assistantMessage()).append("\n");
+                }
+            }
+            String result = sb.toString().trim();
+            if (!result.isBlank()) {
+                log.info("IA-02 historial desde cache sessionId={} turns={}", sessionId, cached.size());
+                return result;
+            }
+        }
+
+        // 2) Fallback a BD para sesiones viejas / container reiniciado.
         try {
             List<com.tourya.api.models.AgentAuditLog> rows =
                     auditLogRepository.findRecentBySessionId(AGENT_NAME, sessionId, HISTORY_TURNS);
-            if (rows == null || rows.isEmpty()) return null;
+            if (rows == null || rows.isEmpty()) {
+                log.info("IA-02 sin historial previo sessionId={}", sessionId);
+                return null;
+            }
 
             // Vienen DESC — invertimos para ir del mas viejo al mas nuevo.
             java.util.Collections.reverse(rows);
@@ -379,10 +428,34 @@ public class TravelConciergeService {
                 }
             }
             String result = sb.toString().trim();
+            log.info("IA-02 historial desde BD sessionId={} rows={}", sessionId, rows.size());
             return result.isBlank() ? null : result;
         } catch (Exception ex) {
             log.warn("IA-02 no pude cargar historial sessionId={}: {}", sessionId, ex.getMessage());
             return null;
+        }
+    }
+
+    /**
+     * v25 (issue #39): agrega el turn actual al cache in-memory inmediatamente
+     * tras obtener la respuesta del LLM. Esto evita la ventana de race donde
+     * el audit async todavia no persistio al momento de leer BD en el proximo
+     * turn del mismo sessionId.
+     */
+    private void appendTurnToCache(String sessionId, String userMessage, String assistantMessage) {
+        if (sessionId == null || sessionId.isBlank()) return;
+        if ((userMessage == null || userMessage.isBlank())
+                && (assistantMessage == null || assistantMessage.isBlank())) {
+            return;
+        }
+        java.util.Deque<ConversationTurn> q = conversationCache.computeIfAbsent(
+                sessionId, k -> new java.util.concurrent.ConcurrentLinkedDeque<>());
+        q.add(new ConversationTurn(
+                userMessage == null ? "" : userMessage.trim(),
+                assistantMessage == null ? "" : assistantMessage.trim()));
+        // Trim a HISTORY_TURNS (cada entry = 1 par user/assistant).
+        while (q.size() > HISTORY_TURNS) {
+            q.pollFirst();
         }
     }
 

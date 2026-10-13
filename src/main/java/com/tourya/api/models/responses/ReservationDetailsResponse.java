@@ -91,4 +91,13 @@ public class ReservationDetailsResponse {
 
     /** Confirmar entrega: true si la fecha del tour es hoy. */
     private Boolean canConfirmReservation;
+
+    /**
+     * v25 TCM-020 (#33 Luis 2026-10-08): tipo de precio del tour
+     * ("individual" / "grupo"). El mobile lo lee en el card del listado para
+     * decidir layout "Grupo (N)" vs desglose por edad. Sin esto el card
+     * seguia pintando el desglose aunque el priceType fuera GRUPO. Mapper
+     * usa readOptionalString → tolera migraciones viejas del SP.
+     */
+    private String priceType;
 }
