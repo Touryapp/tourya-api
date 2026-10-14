@@ -284,6 +284,81 @@ class TravelConciergeServiceTest {
     }
 
     // ============================================================
+    // v25b (issue #39): summarizeLargePayload extrae del nodo anidado
+    // ============================================================
+
+    @Test
+    @DisplayName("summarize search_tours: extrae tourId/name/duration/categoria del nodo anidado 'tour' y lista 'scheduleDates'")
+    void summarizeLargePayload_searchTours_extractsNestedFields() throws Exception {
+        JsonNode payload = objectMapper.readTree("""
+            [
+              {
+                "tour": {
+                  "id": 42,
+                  "name": {"es": "Tour por la bahía"},
+                  "duration": "2h",
+                  "categoryName": "Marítimo",
+                  "subCategoryName": "Lanchas",
+                  "priceFrom": 150.0,
+                  "gallery": [{"id":1}]
+                },
+                "schedules": [
+                  {"id": 7, "scheduleDate": "2026-11-15"},
+                  {"id": 8, "scheduleDate": "2026-11-16"}
+                ]
+              }
+            ]
+            """);
+
+        String out = service.summarizeLargePayload("search_tours", payload);
+        JsonNode summary = objectMapper.readTree(out);
+
+        assertTrue(summary.isArray(), "El resumen debe ser un array");
+        assertEquals(1, summary.size());
+        JsonNode mini = summary.get(0);
+        // El bug viejo dejaba cada elemento como {} — ahora debe estar poblado.
+        assertEquals(42, mini.get("tourId").asInt());
+        assertEquals("Tour por la bahía", mini.get("tourName").get("es").asText());
+        assertEquals("2h", mini.get("duration").asText());
+        assertEquals("Marítimo", mini.get("categoryName").asText());
+        assertEquals("Lanchas", mini.get("subCategoryName").asText());
+        assertEquals(150.0, mini.get("priceFrom").asDouble(), 0.001);
+        // schedules → fechas que el LLM necesita para informar disponibilidad.
+        assertTrue(mini.has("scheduleDates"));
+        assertEquals(2, mini.get("scheduleDates").size());
+        assertEquals("2026-11-15", mini.get("scheduleDates").get(0).asText());
+        assertEquals("2026-11-16", mini.get("scheduleDates").get(1).asText());
+        // El bug original producia {} — asegurar que no vuelva a pasar.
+        assertFalse(out.contains("\"tourId\":{}"), "No debe quedar vacio");
+        assertFalse(out.contains("[{},{"), "No debe quedar lista de objetos vacios");
+    }
+
+    @Test
+    @DisplayName("summarize search_tours: tour sin 'tour' nested o sin 'schedules' produce {} sin romper")
+    void summarizeLargePayload_searchTours_toleratesMissingNodes() throws Exception {
+        JsonNode payload = objectMapper.readTree("""
+            [
+              { "schedules": [{"scheduleDate": "2026-12-01"}] },
+              { "tour": {"id": 99, "name": {"es": "X"}} },
+              {}
+            ]
+            """);
+
+        String out = service.summarizeLargePayload("search_tours", payload);
+        JsonNode summary = objectMapper.readTree(out);
+
+        assertEquals(3, summary.size());
+        // Elemento 1: solo schedules, sin tour.
+        assertFalse(summary.get(0).has("tourId"));
+        assertEquals(1, summary.get(0).get("scheduleDates").size());
+        // Elemento 2: tour sin schedules → no debe tener scheduleDates.
+        assertEquals(99, summary.get(1).get("tourId").asInt());
+        assertFalse(summary.get(1).has("scheduleDates"));
+        // Elemento 3: completamente vacio → objeto {} valido.
+        assertEquals(0, summary.get(2).size());
+    }
+
+    // ============================================================
     // Escenario extra: budget guard rechazo
     // ============================================================
 

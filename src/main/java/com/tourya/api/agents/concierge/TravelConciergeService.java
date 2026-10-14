@@ -618,19 +618,44 @@ public class TravelConciergeService {
      * reemplazamos el JSON entero con un resumen de campos esenciales.
      * Evita que el prompt al LLM crezca sin control y tire el request a
      * Gemini por exceso de tokens.
+     *
+     * <p>v25b (issue #39, Luis 2026-10-14): el resumen de search_tours leia
+     * campos planos (tourId, tourName, duration, categoryName, priceFrom,
+     * scheduleDate) que NO existen al top-level de
+     * {@link SearchTourScheduleFullResponse} — el objeto real tiene todo
+     * anidado como {@code {tour:{id,name,duration,categoryName,
+     * subCategoryName,priceFrom,...}, schedules:[{scheduleDate,...},...]}}.
+     * Por eso cada tour quedaba {} y el LLM respondia "no hay disponibilidad"
+     * aunque la busqueda si retornara resultados. Ahora extraemos del nodo
+     * anidado y devolvemos todas las fechas de schedules para que el LLM
+     * tenga el abanico de disponibilidad.</p>
+     *
+     * <p>Package-private para que el test unitario pueda invocarlo directo
+     * sobre payloads sinteticos (igual que {@link #scrubSensitiveFields}).</p>
      */
-    private String summarizeLargePayload(String actionName, JsonNode result) {
+    String summarizeLargePayload(String actionName, JsonNode result) {
         try {
             if ("search_tours".equals(actionName) && result.isArray()) {
                 ArrayNode summary = objectMapper.createArrayNode();
-                for (JsonNode tour : result) {
+                for (JsonNode item : result) {
                     ObjectNode mini = objectMapper.createObjectNode();
-                    if (tour.has("tourId")) mini.set("tourId", tour.get("tourId"));
-                    if (tour.has("tourName")) mini.set("tourName", tour.get("tourName"));
-                    if (tour.has("duration")) mini.set("duration", tour.get("duration"));
-                    if (tour.has("categoryName")) mini.set("categoryName", tour.get("categoryName"));
-                    if (tour.has("priceFrom")) mini.set("priceFrom", tour.get("priceFrom"));
-                    if (tour.has("scheduleDate")) mini.set("scheduleDate", tour.get("scheduleDate"));
+                    JsonNode tour = item.get("tour");
+                    if (tour != null && !tour.isNull()) {
+                        if (tour.has("id")) mini.set("tourId", tour.get("id"));
+                        if (tour.has("name")) mini.set("tourName", tour.get("name"));
+                        if (tour.has("duration")) mini.set("duration", tour.get("duration"));
+                        if (tour.has("categoryName")) mini.set("categoryName", tour.get("categoryName"));
+                        if (tour.has("subCategoryName")) mini.set("subCategoryName", tour.get("subCategoryName"));
+                        if (tour.has("priceFrom")) mini.set("priceFrom", tour.get("priceFrom"));
+                    }
+                    JsonNode schedules = item.get("schedules");
+                    if (schedules != null && schedules.isArray() && schedules.size() > 0) {
+                        ArrayNode dates = objectMapper.createArrayNode();
+                        for (JsonNode s : schedules) {
+                            if (s.has("scheduleDate")) dates.add(s.get("scheduleDate"));
+                        }
+                        mini.set("scheduleDates", dates);
+                    }
                     summary.add(mini);
                 }
                 return objectMapper.writeValueAsString(summary);
