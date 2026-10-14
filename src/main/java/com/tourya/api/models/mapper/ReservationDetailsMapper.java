@@ -53,6 +53,16 @@ public class ReservationDetailsMapper {
         }
 
         long reservationId = rs.getLong("reservationid");
+        // v26 (#33 Luis 2026-10-14): precomputar travellers string con la misma
+        // logica del detalle (TravellersFormatter) para que el card del listado
+        // y el detalle no diverjan. Resuelve "GRUPO (1)" en card vs
+        // "Grupo (4 personas)" en detalle que Luis reporto post-v25.
+        List<TravelerBreakdownDto> breakdownForTravellers =
+                parseTravelerBreakdown(readOptionalString(rs, "travelerbreakdown"));
+        String priceTypeRawForTravellers = readOptionalString(rs, "pricetype");
+        String travellersComputed = com.tourya.api._utils.TravellersFormatter
+                .formatFromBreakdown(breakdownForTravellers, priceTypeRawForTravellers);
+
         return ReservationDetailsResponse.builder()
                 .reservationId(reservationId)
                 .bookingId(ReservationDisplayId.format(reservationId))
@@ -81,7 +91,8 @@ public class ReservationDetailsMapper {
 
                 // TC-016 (#219): parseo del jsonb travelerbreakdown. readOptional* porque
                 // migraciones anteriores del SP no tenian esta columna (patron aditivo).
-                .travelerBreakdown(parseTravelerBreakdown(readOptionalString(rs, "travelerbreakdown")))
+                // v26: reusamos la lista ya parseada arriba para evitar doble deserializacion.
+                .travelerBreakdown(breakdownForTravellers)
 
                 .tourId(rs.getInt("tourid"))
                 .tourName(tourName)
@@ -119,7 +130,10 @@ public class ReservationDetailsMapper {
 
                 // v25 TCM-020 (#33): priceType del tour agregado por migracion 085.
                 // readOptionalString porque el SP viejo no tenia esta columna.
-                .priceType(readOptionalString(rs, "pricetype"))
+                .priceType(priceTypeRawForTravellers)
+
+                // v26 (#33 Luis 2026-10-14): travellers formateado para el card.
+                .travellers(travellersComputed)
 
                 .build();
     }

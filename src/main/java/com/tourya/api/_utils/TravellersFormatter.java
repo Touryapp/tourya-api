@@ -53,6 +53,51 @@ public final class TravellersFormatter {
     }
 
     /**
+     * v26 (#33 Luis 2026-10-14): overload que trabaja sobre
+     * {@link com.tourya.api.models.responses.TravelerBreakdownDto} (JSONB
+     * parseado por el SP) en vez de {@link ShoppingCartItemDetail}
+     * (entity JPA). Lo usan los mappers del listado (card de "Mis
+     * Reservas") para calcular el MISMO string que el detalle sin re-leer
+     * la tabla shopping_cart_item_detail.
+     */
+    public static String formatFromBreakdown(
+            java.util.List<com.tourya.api.models.responses.TravelerBreakdownDto> breakdown,
+            String priceTypeRaw) {
+        boolean isGrupo = priceTypeRaw != null
+                && (priceTypeRaw.equalsIgnoreCase("grupo") || priceTypeRaw.equalsIgnoreCase("GRUPO"));
+        if (isGrupo) {
+            int total = totalPeopleFromBreakdown(breakdown);
+            return total > 0 ? "Grupo (" + total + " personas)" : "Grupo";
+        }
+        if (breakdown == null || breakdown.isEmpty()) return null;
+        List<String> parts = new ArrayList<>();
+        for (var item : breakdown) {
+            Integer qty = item == null ? null : item.getQuantity();
+            if (qty == null || qty <= 0) continue;
+            String ageTypeRaw = item.getAgeType();
+            AgePriceType ageType = null;
+            if (ageTypeRaw != null) {
+                try { ageType = AgePriceType.valueOf(ageTypeRaw.toUpperCase()); }
+                catch (IllegalArgumentException ignored) { /* fallback a Adulto */ }
+            }
+            String label = singularLabel(ageType);
+            parts.add(qty + " " + (qty > 1 ? pluralize(label) : label));
+        }
+        return parts.isEmpty() ? null : String.join(", ", parts);
+    }
+
+    private static int totalPeopleFromBreakdown(
+            java.util.List<com.tourya.api.models.responses.TravelerBreakdownDto> breakdown) {
+        if (breakdown == null) return 0;
+        int sum = 0;
+        for (var item : breakdown) {
+            Integer qty = item == null ? null : item.getQuantity();
+            if (qty != null && qty > 0) sum += qty;
+        }
+        return sum;
+    }
+
+    /**
      * Construye el string "N TipoES[s], M TipoES[s]" a partir de los details
      * del cart item. Devuelve null si la lista está vacía (mismo comportamiento
      * que el inline original — el caller decide si setea el campo o no).

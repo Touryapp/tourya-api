@@ -100,4 +100,16 @@ public class ReservationDetailsResponse {
      * usa readOptionalString → tolera migraciones viejas del SP.
      */
     private String priceType;
+
+    /**
+     * v26 (#33 Luis 2026-10-14): string formateado "N Adultos, M Ninos, K
+     * Infantes" o "Grupo (N personas)" segun priceType. Antes el mobile
+     * calculaba este label en el card desde {@code travelerBreakdown} y
+     * caia en inconsistencia con el detalle (que ya usaba este string
+     * sintetizado por {@link com.tourya.api._utils.TravellersFormatter}).
+     * Ahora el SP devuelve el breakdown + priceType y el mapper usa la
+     * MISMA logica del detalle para que ambos muestren identico. El mobile
+     * prefiere este campo cuando viene; si no, cae al helper local.
+     */
+    private String travellers;
 }
