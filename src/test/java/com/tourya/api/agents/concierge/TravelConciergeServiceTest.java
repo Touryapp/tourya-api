@@ -359,6 +359,75 @@ class TravelConciergeServiceTest {
     }
 
     // ============================================================
+    // v27 (#39): guard anti-alucinacion
+    // ============================================================
+
+    @Test
+    @DisplayName("guard: assistant_message menciona 'Johnny Cay' sin estar en search_tours -> reescribe a fallback")
+    void rewriteIfHallucinated_tourNotInWhitelist_rewritesMessage() {
+        java.util.Set<String> allowed = new java.util.HashSet<>();
+        allowed.add("tour por la bahia"); // vino de search_tours
+        String llmResp = "Te recomiendo el tour al Johnny Cay para esas fechas!";
+
+        String out = service.rewriteIfHallucinated(llmResp, allowed);
+
+        assertFalse(out.contains("Johnny Cay"), "No debe mencionar el tour inventado");
+        assertTrue(out.toLowerCase().contains("no encontre"), "Debe decir que no encontro");
+    }
+
+    @Test
+    @DisplayName("guard: assistant_message menciona 'Johnny Cay' Y vino en search_tours -> no toca")
+    void rewriteIfHallucinated_tourInWhitelist_passesThrough() {
+        java.util.Set<String> allowed = new java.util.HashSet<>();
+        allowed.add("paseo al johnny cay");
+        String llmResp = "Te recomiendo el Paseo al Johnny Cay el 15 de octubre.";
+
+        String out = service.rewriteIfHallucinated(llmResp, allowed);
+
+        assertEquals(llmResp, out, "No debe modificar si el tour esta en el pool");
+    }
+
+    @Test
+    @DisplayName("guard: assistant_message generico sin triggers -> no toca")
+    void rewriteIfHallucinated_noTrigger_passesThrough() {
+        java.util.Set<String> allowed = new java.util.HashSet<>();
+        String llmResp = "Hola! Decime en que fechas estas pensando viajar a San Andres.";
+
+        String out = service.rewriteIfHallucinated(llmResp, allowed);
+
+        assertEquals(llmResp, out);
+    }
+
+    @Test
+    @DisplayName("collectAllowedTourNames: tours con schedules se agregan, sin schedules se omiten")
+    void collectAllowedTourNames_filtersBySchedules() throws Exception {
+        JsonNode payload = objectMapper.readTree("""
+            [
+              {
+                "tour": {"id": 1, "name": {"es": "Paseo Johnny Cay", "en": "Johnny Cay Tour"}},
+                "schedules": [{"scheduleDate": "2026-10-15"}]
+              },
+              {
+                "tour": {"id": 2, "name": {"es": "Acuario Islas"}},
+                "schedules": []
+              },
+              {
+                "tour": {"id": 3, "name": "Rocky Cay Trip"},
+                "schedules": [{"scheduleDate": "2026-10-16"}]
+              }
+            ]
+            """);
+        java.util.Set<String> acc = new java.util.HashSet<>();
+
+        service.collectAllowedTourNames(payload, acc);
+
+        assertTrue(acc.contains("paseo johnny cay"));
+        assertTrue(acc.contains("johnny cay tour"));
+        assertTrue(acc.contains("rocky cay trip"));
+        assertFalse(acc.contains("acuario islas"), "Acuario sin schedules no debe entrar");
+    }
+
+    // ============================================================
     // Escenario extra: budget guard rechazo
     // ============================================================
 

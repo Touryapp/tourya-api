@@ -214,6 +214,11 @@ public class TravelConciergeService {
         AgentLlmResponse lastResponse = null;
         long totalDurationMs = 0L;
         String currentUserMessage = request.getUserMessage();
+        // v27 (#39 Luis 2026-10-14): acumulamos nombres de tours que REALMENTE
+        // devolvio search_tours en esta sesion. Es el whitelist contra el que
+        // validamos el assistant_message al final para evitar alucinaciones
+        // (ej. LLM proponiendo "Johnny Cay" sin que haya venido en el payload).
+        java.util.Set<String> allowedTourNamesLower = new java.util.HashSet<>();
 
         for (int iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
             String renderedPrompt = renderPrompt(request, currentUserMessage, tourDetailJson, cartJson, historyText);
@@ -267,6 +272,12 @@ public class TravelConciergeService {
                     } catch (Exception serEx) {
                         log.debug("IA-02 no se pudo serializar result de {}: {}", action.name(), serEx.getMessage());
                     }
+                    // v27 (#39): recolectar nombres de tours del payload crudo
+                    // para el guard anti-alucinacion. Solo tours con schedules
+                    // no vacios cuentan como "ofrecibles".
+                    if ("search_tours".equals(action.name())) {
+                        collectAllowedTourNames(action.result(), allowedTourNamesLower);
+                    }
                 }
                 sysNote.append("]");
                 currentUserMessage = request.getUserMessage() + sysNote;
@@ -280,6 +291,12 @@ public class TravelConciergeService {
             assistantMessage = llmResponse.content();
             break;
         }
+
+        // v27 (#39 Luis 2026-10-14): guard defensivo anti-alucinacion. Si el
+        // LLM ignoro el prompt y propuso un tour clasico de San Andres que no
+        // vino en search_tours, reescribimos a un mensaje seguro. Defense in
+        // depth — el prompt es la primera linea, esto la segunda.
+        assistantMessage = rewriteIfHallucinated(assistantMessage, allowedTourNamesLower);
         if (assistantMessage.isBlank() && lastResponse != null && lastResponse.isError()) {
             assistantMessage = "Estoy teniendo problemas para procesar tu mensaje. Intenta de nuevo en un momento.";
         }
@@ -610,6 +627,71 @@ public class TravelConciergeService {
             return new ConciergeAction(call.name, call.arguments, false,
                     ex.getClass().getSimpleName());
         }
+    }
+
+    /**
+     * v27 (#39 Luis 2026-10-14): nombres clasicos de tours de San Andres que
+     * el LLM tiende a inventar — alucinaciones recurrentes vistas en los
+     * ciclos QA v23-v26. Si el {@code assistant_message} menciona uno Y ese
+     * nombre no aparece en ninguno de los {@code search_tours} de la sesion,
+     * lo reescribimos. Lista minuscula para match case-insensitive.
+     */
+    private static final String[] HALLUCINATION_TRIGGERS = {
+            "johnny cay", "acuario", "rocky cay", "parasail",
+            "mulitas", "carro playero", "cayo bolivar", "west view",
+            "piscinita", "hoyo soplador", "bioluminiscente"
+    };
+
+    /**
+     * v27 (#39): extrae los {@code tour.name} con schedules no vacios del
+     * payload crudo de search_tours y los agrega al whitelist. Siempre
+     * minuscula para comparar sin importar capitalizacion.
+     * Package-private para testear directo.
+     */
+    void collectAllowedTourNames(JsonNode searchToursResult, java.util.Set<String> acc) {
+        if (searchToursResult == null || !searchToursResult.isArray()) return;
+        for (JsonNode item : searchToursResult) {
+            JsonNode schedules = item.get("schedules");
+            boolean hasSchedules = schedules != null && schedules.isArray() && schedules.size() > 0;
+            if (!hasSchedules) continue;
+            JsonNode tour = item.get("tour");
+            if (tour == null || tour.isNull()) continue;
+            JsonNode nameNode = tour.get("name");
+            if (nameNode == null || nameNode.isNull()) continue;
+            // name puede ser {es,en,pt} o string plano.
+            if (nameNode.isTextual()) {
+                acc.add(nameNode.asText().toLowerCase());
+            } else if (nameNode.isObject()) {
+                nameNode.fieldNames().forEachRemaining(lang -> {
+                    JsonNode v = nameNode.get(lang);
+                    if (v != null && v.isTextual()) acc.add(v.asText().toLowerCase());
+                });
+            }
+        }
+    }
+
+    /**
+     * v27 (#39): si el mensaje final menciona un trigger de alucinacion que
+     * NO esta en el whitelist de nombres reales de la sesion, reescribimos
+     * el mensaje a un fallback seguro. False positives aceptables (es mejor
+     * ofrecer menos que inventar). Package-private para testear.
+     */
+    String rewriteIfHallucinated(String assistantMessage, java.util.Set<String> allowedTourNamesLower) {
+        if (assistantMessage == null || assistantMessage.isBlank()) return assistantMessage;
+        String lower = assistantMessage.toLowerCase();
+        for (String trigger : HALLUCINATION_TRIGGERS) {
+            if (!lower.contains(trigger)) continue;
+            // Si el trigger aparece como parte de un nombre real que vino en
+            // search_tours (ej. "Paseo Johnny Cay" en el whitelist), no es
+            // alucinacion.
+            boolean inAllowed = allowedTourNamesLower.stream().anyMatch(n -> n.contains(trigger));
+            if (inAllowed) continue;
+            log.warn("IA-02 anti-hallucination guard: assistant_message menciono '{}' sin que estuviera en search_tours. Reescribiendo.", trigger);
+            return "Por el momento no encontre tours con disponibilidad para esas fechas. "
+                    + "Querés que amplie el rango de fechas o buscamos otra categoria de actividad "
+                    + "(acuaticas, terrestres, cayos, culturales)?";
+        }
+        return assistantMessage;
     }
 
     /**
