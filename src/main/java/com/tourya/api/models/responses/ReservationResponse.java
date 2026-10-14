@@ -130,7 +130,17 @@ public class ReservationResponse {
      * decisiones de layout aparte del label).
      */
     private com.tourya.api.constans.enums.PriceTypeEnum priceType;
-    
+
+    /**
+     * v26 (issue #37 Luis 2026-10-14): itinerario completo del tour (tabla
+     * {@code tour_itinerary}) para el detalle mobile. Antes la pantalla de
+     * detalle no mostraba itinerario — Luis lo pidio desde v23. Se incluye
+     * acá para que el mobile tenga todo lo necesario en una sola llamada.
+     * Lista ordenada por {@code day} y luego por {@code time}. Puede estar
+     * vacía si el tour no tiene itinerario cargado.
+     */
+    private List<TourItineraryResponse> tourItinerary = new ArrayList<>();
+
     // Información del crédito creado al re-agendar
     private CreditResponse credit;
 }

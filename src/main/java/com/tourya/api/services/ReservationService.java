@@ -32,6 +32,7 @@ import com.tourya.api.models.responses.ReservationResponse;
 import com.tourya.api.models.responses.TravelerBreakdownDto;
 import com.tourya.api.models.responses.CreditResponse;
 import com.tourya.api.models.responses.TourIncludesExcludesResponse;
+import com.tourya.api.models.responses.TourItineraryResponse;
 import com.tourya.api.models.responses.CreateTemporalReservationHoldResponse;
 import com.tourya.api.models.responses.RescheduleValidationResponse;
 import com.tourya.api.models.responses.RescheduleResponse;
@@ -115,6 +116,8 @@ public class ReservationService {
     private final TourAddressMapper tourAddressMapper;
     private final TourIncludesExcludesMapper tourIncludesExcludesMapper;
     private final TourScheduleOverrideService tourScheduleOverrideService; // TC-019 (#231) reschedule price uses overrides
+    private final com.tourya.api.repository.TourItineraryRepository tourItineraryRepository; // v26 (#37) detalle reserva con itinerario
+    private final com.tourya.api.models.mapper.TourItineraryMapper tourItineraryMapper; // v26 (#37)
 
     /**
      * Método createReservation removido - las reservas se crean automáticamente con los pagos
@@ -382,6 +385,32 @@ public class ReservationService {
         // v24 (issue #33 Luis 2026-10-06): priceType crudo para que el mobile
         // decida layout aparte del label travellers.
         response.setPriceType(tour.getPriceType());
+
+        // v26 (issue #37 Luis 2026-10-14): itinerario completo del tour para el
+        // detalle mobile. Ordenamos por day y luego por time para que la vista
+        // mobile lo pinte en orden cronologico. Si el tour no tiene itinerario
+        // cargado, dejamos la lista vacia (null-safe en el mobile).
+        try {
+            List<TourItinerary> itineraryEntities = tourItineraryRepository.findByTourId(tourId);
+            if (itineraryEntities != null && !itineraryEntities.isEmpty()) {
+                List<TourItineraryResponse> itineraryResponses = itineraryEntities.stream()
+                        .sorted((a, b) -> {
+                            int dayA = a.getDay() == null ? 0 : a.getDay();
+                            int dayB = b.getDay() == null ? 0 : b.getDay();
+                            if (dayA != dayB) return Integer.compare(dayA, dayB);
+                            if (a.getTime() == null && b.getTime() == null) return 0;
+                            if (a.getTime() == null) return 1;
+                            if (b.getTime() == null) return -1;
+                            return a.getTime().compareTo(b.getTime());
+                        })
+                        .map(tourItineraryMapper::toTourItineraryResponse)
+                        .toList();
+                response.setTourItinerary(itineraryResponses);
+            }
+        } catch (Exception ex) {
+            // Defensive: itinerario roto no debe tirar el detalle entero.
+            log.warn("v26 #37: failed to load itinerary for tourId={}: {}", tourId, ex.getMessage());
+        }
 
         // maxCancellationDate y maxReschedulingDate vienen directamente de la BD (ya están en el mapper)
         // No se calculan dinámicamente porque se guardan en la tabla reservation
