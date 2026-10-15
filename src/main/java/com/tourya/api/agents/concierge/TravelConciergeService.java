@@ -235,8 +235,25 @@ public class TravelConciergeService {
 
             ParsedLlmOutput parsed = parseLlmContent(llmResponse.content());
             if (parsed.functionCall != null) {
+                // v29 (#39 Luis 2026-10-15): log de function_call para diagnosticar
+                // sesiones donde el LLM NO llama search_tours (prompt v28 removio
+                // ejemplos y aparentemente el modelo perdio pistas para armar los
+                // params). Con este log vemos exactamente cuando el LLM invoca
+                // search_tours y con que categoryIds/dateFrom/textSearch.
+                log.info("IA-02 function_call sessionId={} iter={} name={} args={}",
+                        request.getSessionId(), iteration, parsed.functionCall.name(),
+                        parsed.functionCall.arguments());
                 ConciergeAction action = executeFunction(parsed.functionCall, auth);
                 actions.add(action);
+                // v29: log del resultado inmediato — util para distinguir
+                // "search_tours devolvio []" (bug de datos) vs "LLM nunca llamo
+                // search_tours" (bug de prompt). Para search_tours loggeamos la
+                // cantidad de tours en el array, no el payload completo.
+                if ("search_tours".equals(action.name())) {
+                    int toursCount = extractToursCount(action.result());
+                    log.info("IA-02 search_tours result sessionId={} success={} toursReturned={}",
+                            request.getSessionId(), action.success(), toursCount);
+                }
                 if ("get_cart".equals(action.name()) && action.success()) {
                     cartJson = safeLoadCart(auth); // Refresh
                 }
@@ -648,6 +665,19 @@ public class TravelConciergeService {
      * minuscula para comparar sin importar capitalizacion.
      * Package-private para testear directo.
      */
+    /**
+     * v29 (#39 Luis 2026-10-15): devuelve la cantidad de tours en el array
+     * `data` del result de search_tours — o -1 si la estructura no es la
+     * esperada. Lo usamos para loggear "search_tours devolvio 0 tours vs 5"
+     * y poder diferenciar bug de datos (0 = no hay tours en la fecha) de
+     * bug de prompt (LLM nunca llamo search_tours — no se loggea esta linea).
+     */
+    int extractToursCount(JsonNode searchToursResult) {
+        if (searchToursResult == null || searchToursResult.isNull()) return -1;
+        if (searchToursResult.isArray()) return searchToursResult.size();
+        return -1;
+    }
+
     void collectAllowedTourNames(JsonNode searchToursResult, java.util.Set<String> acc) {
         if (searchToursResult == null || !searchToursResult.isArray()) return;
         for (JsonNode item : searchToursResult) {
