@@ -12,6 +12,9 @@ import com.tourya.api.exceptions.OperationNotPermittedException;
 import com.tourya.api.exceptions.ResourceNotFoundException;
 import com.tourya.api.exceptions.UnknownEnumValueException;
 import jakarta.mail.MessagingException;
+import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -20,6 +23,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
+import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -30,6 +34,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -55,6 +60,8 @@ import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     private Map<String, Object> buildMeta() {
         Map<String, Object> meta = new HashMap<>();
         meta.put("messageUid", UUID.randomUUID().toString());
@@ -159,19 +166,47 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Object> handleMethodArgumentNotValidException(MethodArgumentNotValidException exp) {
+    public ResponseEntity<Object> handleMethodArgumentNotValidException(
+            MethodArgumentNotValidException exp, HttpServletRequest request) {
         Set<String> errors = new HashSet<>();
-        exp.getBindingResult().getAllErrors()
-                .forEach(error -> {
-                    var errorMessage = error.getDefaultMessage();
-                    errors.add(errorMessage);
-                });
+        Map<String, Object> fieldErrors = new LinkedHashMap<>();
+        exp.getBindingResult().getAllErrors().forEach(error -> {
+            String message = error.getDefaultMessage();
+            if (message != null) {
+                errors.add(message);
+            }
+            if (error instanceof FieldError fieldError) {
+                fieldErrors.put(fieldError.getField(), fieldError.getRejectedValue());
+            }
+        });
+
+        log.warn("VALIDATION_FAILURE path={} method={} fields={} messages={}",
+                request.getRequestURI(), request.getMethod(), fieldErrors, errors);
 
         ExceptionResponse exceptionResponse = ExceptionResponse.builder()
                 .errorCode(VALIDATION_FAILURE.getCode())
                 .message(VALIDATION_FAILURE.getDescription())
                 .validationErrors(errors)
                 .error(VALIDATION_FAILURE.getDescription())
+                .build();
+        return buildErrorResponse(exceptionResponse, BAD_REQUEST);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Object> handleHttpMessageNotReadable(
+            HttpMessageNotReadableException exp, HttpServletRequest request) {
+        Throwable rootCause = exp.getMostSpecificCause();
+        String rootMessage = rootCause != null ? rootCause.getMessage() : exp.getMessage();
+
+        log.warn("JSON_PARSE_ERROR path={} method={} rootCause={} message={}",
+                request.getRequestURI(), request.getMethod(),
+                rootCause != null ? rootCause.getClass().getSimpleName() : "null",
+                rootMessage);
+
+        ExceptionResponse exceptionResponse = ExceptionResponse.builder()
+                .errorCode(JSON_PARSE_ERROR.getCode())
+                .message(JSON_PARSE_ERROR.getDescription())
+                .error(rootMessage)
                 .build();
         return buildErrorResponse(exceptionResponse, BAD_REQUEST);
     }
@@ -186,8 +221,10 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Object> handleException(Exception exp) {
-        exp.printStackTrace();
+    public ResponseEntity<Object> handleException(Exception exp, HttpServletRequest request) {
+        log.error("UNHANDLED_EXCEPTION path={} method={} type={} message={}",
+                request.getRequestURI(), request.getMethod(),
+                exp.getClass().getName(), exp.getMessage(), exp);
         ExceptionResponse exceptionResponse = ExceptionResponse.builder()
                 .message("Internal error, please contact the admin")
                 .error(exp.getMessage())
