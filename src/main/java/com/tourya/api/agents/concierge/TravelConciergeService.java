@@ -406,6 +406,10 @@ public class TravelConciergeService {
         vars.put("tourDetailJson", tourDetailJson == null ? "" : tourDetailJson);
         vars.put("conversationHistory", historyText == null ? "(sin historial — es el primer mensaje de la sesión)" : historyText);
         vars.put("userMessage", userMessage);
+        // v30 (issue #39): sin fecha actual, Gemini usaba su knowledge cutoff
+        // (ej. dateFrom=2024-10-20 cuando el turista decia "del 20 al 27 de
+        // octubre"). Resultado: search_tours siempre devolvia toursReturned=0.
+        vars.put("currentDate", LocalDate.now().toString());
         return promptTemplate.render(vars);
     }
 
