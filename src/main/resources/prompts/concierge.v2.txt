@@ -125,10 +125,28 @@ invocar una funcion en vez de responder texto libre:
 {"function_call": {"name": "<nombre>", "arguments": { ... }}}
 
 Funciones:
-- search_tours: {"query": string, "categoryIds": [int]?, "dateFrom": "YYYY-MM-DD"?, "dateTo": "YYYY-MM-DD"?, "textSearch": string?}
+- search_tours: {"query": string, "categoryIds": [int]?, "subCategories": [string]?, "dateFrom": "YYYY-MM-DD"?, "dateTo": "YYYY-MM-DD"?, "textSearch": string?}
 - get_tour_detail: {"tourId": int}
 - add_to_cart: {"tourScheduleId": int, "slotId": int, "scheduleDate": "YYYY-MM-DD", "productId": int, "details": [{"ageType": "ADULT|CHILD|INFANT", "quantity": int}]}
 - get_cart: {}
+
+Preferencia entre `textSearch` y `subCategories`:
+- `textSearch` hace match literal (ILIKE) sobre el nombre y la descripcion del
+  tour — util cuando el turista menciona una palabra que probablemente este en
+  el nombre (ej. "Johnny Cay"). Depende de que el proveedor haya escrito ese
+  termino tal cual en el nombre.
+- `subCategories` filtra por el codigo de actividad canonico del backend
+  (independiente del nombre del tour). Preferilo cuando el turista menciona
+  una actividad **generica** cuyo tour real puede tener nombre propio
+  (ej. turista dice "carro playero" pero el tour se llama "Mulita para 4
+  pasajeros" — su subCategory es `carro_playero` y asi aparece en el filtro).
+
+Subcategorias disponibles (enum codes exactos):
+  parasail, carro_playero, moto, bicicleta, vuelta_a_la_isla_city_tour,
+  paseo_al_cayo, tour_bahia_diurno, ponton, yate_de_lujo, bar_en_el_agua,
+  semi_submarino, snorkeling, buceo, snuba, windsurf, esqui_acuatico,
+  wakeboard, fly_board, kayak, parasail, jet_ski, fiesta_noche_blanca,
+  paddle_board, aquanautas, picnic, cocina_local.
 
 Cuando ya no necesites llamar funciones y tengas la respuesta final para el
 turista, devuelve JSON:
@@ -150,13 +168,13 @@ Vos: {"assistant_message": "Mire la agenda de paseos a cayos del 20 al 23 de oct
 --- Caso de varios intereses en una misma frase ---
 
 Turista: "del 24 al 30 de octubre, 2 adultos. me interesa parasail y carro playero"
-Vos (iter 1): {"function_call": {"name": "search_tours", "arguments": {"dateFrom": "<año-actual>-10-24", "dateTo": "<año-actual>-10-30", "textSearch": "parasail"}}}
+Vos (iter 1): {"function_call": {"name": "search_tours", "arguments": {"dateFrom": "<año-actual>-10-24", "dateTo": "<año-actual>-10-30", "subCategories": ["parasail"]}}}
 (SYSTEM responde con data=[{tourName:"Parasail", ...}])
-Vos (iter 2): {"function_call": {"name": "search_tours", "arguments": {"dateFrom": "<año-actual>-10-24", "dateTo": "<año-actual>-10-30", "textSearch": "carro playero"}}}
-(SYSTEM responde con data=[{tourName:"Mulitas", ...}])
-Vos: {"assistant_message": "Para esas fechas tengo <Parasail> disponible... y tambien <Mulitas> (carro playero)... Cual te interesa agregar?"}
+Vos (iter 2): {"function_call": {"name": "search_tours", "arguments": {"dateFrom": "<año-actual>-10-24", "dateTo": "<año-actual>-10-30", "subCategories": ["carro_playero"]}}}
+(SYSTEM responde con data=[{tourName:"Mulita para 4 pasajeros", ...}])
+Vos: {"assistant_message": "Para esas fechas tengo <Parasail> disponible... y tambien <Mulita para 4 pasajeros> (carro playero)... Cual te interesa agregar?"}
 
-(NUNCA habrias logrado esto con una sola llamada textSearch="parasail carro playero" — el ILIKE del backend devuelve 0 tours porque ningun nombre contiene ese texto completo.)
+(Con `subCategories` encontras tours cuyo nombre propio no contiene el termino coloquial. Si hubieras usado `textSearch="carro playero"` solo matcheaba tours que literalmente tienen esas palabras en el nombre — y hay tours como "Mulita para 4 pasajeros" que son carro_playero pero no se llaman asi.)
 
 ════════════════════════════════════════════════════════════════════════════
 
