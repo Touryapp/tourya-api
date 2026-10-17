@@ -578,6 +578,19 @@ public class TravelConciergeService {
                         for (Object o : ids) if (o instanceof Number n) intIds.add(n.intValue());
                         filters.setCategoryIds(intIds);
                     }
+                    // Issue #39 (2026-10-17): el LLM solia mandar textSearch con
+                    // el nombre coloquial de la actividad (ej. "carro playero"),
+                    // que depende del campo name del tour para matchear. Varios
+                    // tours tienen nombres propios ("Mulita para 4 pasajeros")
+                    // que NO contienen el termino coloquial — subCategory es el
+                    // enum code que identifica la actividad y da matches
+                    // consistentes. Lo exponemos para que el LLM pueda filtrar
+                    // por el, en lugar de depender del nombre del tour.
+                    if (call.arguments.get("subCategories") instanceof List<?> subs) {
+                        List<String> subList = new ArrayList<>();
+                        for (Object o : subs) if (o instanceof String s) subList.add(s);
+                        filters.setSubCategories(subList);
+                    }
                     if (call.arguments.get("dateFrom") instanceof String from) {
                         try { filters.setStartDate(LocalDate.parse(from)); } catch (Exception ignored) {}
                     }
